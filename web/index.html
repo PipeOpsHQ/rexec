@@ -1,0 +1,4182 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rexec - Terminal as a Service</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #050505;
+            --bg-grid: radial-gradient(circle, #1a1a1a 1px, transparent 1px);
+            --bg-card: #0a0a0a;
+            --bg-card-secondary: #0f0f0f;
+            --bg-card-hover: #111;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111;
+            --border: #333;
+            --border-muted: #222;
+            --border-active: #00ff41;
+            --text: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --accent: #00ff41;
+            /* Neon Green */
+            --accent-dim: rgba(0, 255, 65, 0.1);
+            --accent-glow: 0 0 10px rgba(0, 255, 65, 0.5);
+            --green: #00ff41;
+            --red: #ff003c;
+            --yellow: #fcee0a;
+            --danger: #ff003c;
+            --warning: #fcee0a;
+            --radius: 0px;
+            /* Sharp edges */
+            --radius-lg: 0px;
+            --font-mono: "JetBrains Mono", monospace;
+            --glass: rgba(10, 10, 10, 0.9);
+            --shadow-soft: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background-color: var(--bg);
+            background-image: var(--bg-grid);
+            background-size: 20px 20px;
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.4;
+            overflow-x: hidden;
+        }
+
+        /* CRT Scanline Effect */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%,
+                    rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.15;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(5, 5, 5, 0.95);
+            backdrop-filter: blur(5px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--accent);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--accent);
+            color: var(--bg);
+            border-radius: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: var(--accent-glow);
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+            border-radius: 0;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: var(--accent-glow);
+        }
+
+        .btn-primary {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text);
+            background: var(--bg-tertiary);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border-color: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-ghost:hover {
+            color: var(--text);
+            background: var(--bg-tertiary);
+            border-color: var(--border);
+        }
+
+        .btn-danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: rgba(255, 0, 60, 0.05);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: var(--bg);
+            box-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+
+        /* User Badge */
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .user-badge:hover {
+            border-color: var(--accent);
+        }
+
+        .user-avatar {
+            width: 20px;
+            height: 20px;
+            background: var(--accent);
+            color: var(--bg);
+            border-radius: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .user-name {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Landing */
+        .landing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 100px);
+            text-align: center;
+            border: 1px solid var(--border);
+            background: rgba(10, 10, 10, 0.5);
+            position: relative;
+            margin-top: 20px;
+            padding: 40px;
+        }
+
+        .landing::before {
+            content: "";
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            width: 10px;
+            height: 10px;
+            border-top: 2px solid var(--accent);
+            border-left: 2px solid var(--accent);
+        }
+
+        .landing::after {
+            content: "";
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+            width: 10px;
+            height: 10px;
+            border-bottom: 2px solid var(--accent);
+            border-right: 2px solid var(--accent);
+        }
+
+        .landing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .landing-badge .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 0;
+            animation: blink 1s step-end infinite;
+        }
+
+        .landing h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+        }
+
+        .landing h1 span {
+            color: var(--accent);
+            text-shadow: var(--accent-glow);
+            background: none;
+            -webkit-text-fill-color: initial;
+        }
+
+        .landing p {
+            font-size: 14px;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin-bottom: 40px;
+            border-left: 2px solid var(--accent);
+            padding-left: 16px;
+            text-align: left;
+        }
+
+        .landing-actions {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        /* Terminal Preview */
+        .terminal-preview {
+            width: 100%;
+            max-width: 700px;
+            background: #000;
+            border: 1px solid var(--border);
+            margin-bottom: 40px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .terminal-preview-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #111;
+            border-bottom: 1px solid var(--border);
+            gap: 8px;
+        }
+
+        .terminal-preview-dot {
+            width: 8px;
+            height: 8px;
+            background: #333;
+            border-radius: 0;
+        }
+
+        .terminal-preview-dot.dot-red {
+            background: var(--border);
+        }
+
+        .terminal-preview-dot.dot-yellow {
+            background: var(--border);
+        }
+
+        .terminal-preview-dot.dot-green {
+            background: var(--accent);
+        }
+
+        .terminal-preview-title {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            flex: 1;
+            text-align: center;
+        }
+
+        .terminal-preview-body {
+            padding: 16px;
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .terminal-prompt {
+            color: var(--accent);
+        }
+
+        .cursor {
+            background: var(--accent);
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+        }
+
+        .terminal-output {
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            margin-left: 10px;
+        }
+
+        /* Features */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .feature {
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .feature:hover {
+            border-color: var(--accent);
+        }
+
+        .feature-icon {
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+
+        .feature h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .feature p {
+            font-size: 12px;
+            color: var(--text-muted);
+            border: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+        }
+
+        .dashboard-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .dashboard-title h1 {
+            font-size: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .count-badge {
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--accent);
+        }
+
+        .containers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 16px;
+            position: relative;
+        }
+
+        .stat-card:hover {
+            border-color: var(--accent);
+        }
+
+        .stat-metric {
+            font-size: 24px;
+            color: var(--accent);
+            text-shadow: var(--accent-glow);
+        }
+
+        .stat-progress-bar {
+            background: var(--accent);
+            box-shadow: var(--accent-glow);
+        }
+
+        /* Container Cards */
+        .container-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            padding: 16px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .container-card:hover {
+            border-color: var(--accent);
+            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.05);
+        }
+
+        .container-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .container-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .container-image {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .container-meta {
+            display: flex;
+            gap: 20px;
+            padding: 12px 0;
+            border-top: 1px solid var(--border-muted);
+            border-bottom: 1px solid var(--border-muted);
+            margin-bottom: 16px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .meta-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .meta-value {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            font-size: 10px;
+            text-transform: uppercase;
+            border: 1px solid var(--border);
+        }
+
+        .status-running {
+            background: transparent;
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .status-running::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            box-shadow: var(--accent-glow);
+        }
+
+        .status-stopped {
+            color: var(--text-muted);
+        }
+
+        .status-pending {
+            color: var(--yellow);
+            border-color: var(--yellow);
+        }
+
+        .create-card {
+            border: 1px dashed var(--border);
+            border-radius: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 200px;
+        }
+
+        .create-card:hover {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .create-card-icon {
+            font-size: 32px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .create-card:hover .create-card-icon {
+            color: var(--accent);
+        }
+
+        .create-card-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border: 1px solid var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        /* Floating Terminal */
+        .floating-terminals {
+            position: fixed;
+            bottom: 48px;
+            right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        .floating-terminal {
+            width: 600px;
+            height: 80vh;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            pointer-events: auto;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .floating-terminal-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: #111;
+            border-bottom: 1px solid var(--border);
+            cursor: move;
+            user-select: none;
+        }
+
+        .floating-terminal-title {
+            flex: 1;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
+
+        .floating-terminal-title .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 0;
+            background: var(--green);
+        }
+
+        .floating-terminal-actions button {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+
+        .floating-terminal-actions button:hover {
+            color: var(--text);
+        }
+
+        .floating-terminal-body {
+            flex: 1;
+            overflow: hidden;
+            background: #050505;
+        }
+
+        .floating-terminal-body .xterm {
+            height: 100%;
+            padding: 8px;
+        }
+
+        /* Docked Terminal */
+        .docked-terminal {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-card);
+            z-index: 998;
+            display: none;
+            flex-direction: column;
+        }
+
+        .docked-terminal.active {
+            display: flex;
+        }
+
+        .docked-terminal-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            background: #111;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .docked-terminal-tabs {
+            display: flex;
+            gap: 2px;
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        .docked-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .docked-tab:hover {
+            color: var(--text);
+            background: var(--bg-tertiary);
+        }
+
+        .docked-tab.active {
+            color: var(--accent);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            background: var(--bg-card);
+        }
+
+        .docked-terminal-body {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #050505;
+        }
+
+        .docked-terminal-panel {
+            position: absolute;
+            inset: 0;
+            display: none;
+            background: #050505;
+        }
+
+        .docked-terminal-panel.active {
+            display: block;
+        }
+
+        .docked-terminal-panel .xterm {
+            height: 100%;
+            padding: 8px;
+        }
+
+        /* Quick Launch Button */
+        .quick-terminal-btn {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border-radius: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.2s ease;
+        }
+
+        .quick-terminal-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.6);
+        }
+
+        .terminal-count-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 4px;
+            min-width: 16px;
+            text-align: center;
+        }
+
+        /* Terminals Bar */
+        .terminals-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: #111;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+            z-index: 1000;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .terminals-bar.active {
+            transform: translateY(0);
+        }
+
+        .terminal-tabs {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+            overflow-x: auto;
+        }
+
+        .terminal-tab {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            font-size: 11px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .terminal-tab.active {
+            background: var(--bg-card);
+            color: var(--accent);
+            border-top: 2px solid var(--accent);
+        }
+
+        .terminal-tab-status {
+            width: 6px;
+            height: 6px;
+            background: var(--green);
+            border-radius: 0;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 24px;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            width: 100%;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            background: #111;
+        }
+
+        .modal-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .modal-close:hover {
+            color: var(--danger);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            background: #050505;
+            border: 1px solid var(--border);
+            border-radius: 0;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            transition: border-color 0.15s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: inset 0 0 10px rgba(0, 255, 65, 0.1);
+        }
+
+        .form-hint {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .form-actions .btn {
+            flex: 1;
+        }
+
+        /* Toasts */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            font-size: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            min-width: 250px;
+        }
+
+        .toast-error {
+            border-left-color: var(--danger);
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            margin-left: auto;
+            cursor: pointer;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Image Selector */
+        .image-option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: var(--bg-card-secondary);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        .image-option:hover,
+        .image-option.selected {
+            border-color: var(--accent);
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        .image-badge {
+            font-size: 9px;
+            padding: 2px 4px;
+            background: var(--accent);
+            color: var(--bg);
+            margin-left: auto;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        /* Profile & Billing */
+        .profile-header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .profile-avatar-large {
+            width: 60px;
+            height: 60px;
+            background: var(--accent);
+            color: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .profile-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-muted);
+            font-size: 12px;
+        }
+
+        .plan-card {
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        .plan-card.featured {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+        }
+
+        .plan-badge {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            background: var(--accent);
+            color: var(--bg);
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .profile-row-value {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .tier-badge {
+            padding: 4px 10px;
+            background: var(--bg-card-secondary);
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: capitalize;
+        }
+
+        .tier-badge.pro {
+            background: rgba(124, 123, 255, 0.2);
+            color: var(--accent);
+        }
+
+        .tier-badge.enterprise {
+            background: rgba(168, 85, 247, 0.2);
+            color: #a855f7;
+        }
+
+        .profile-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .profile-actions .btn {
+            flex: 1;
+        }
+
+        /* Billing Modal */
+        .billing-current {
+            padding: 16px;
+            background: var(--bg-card-secondary);
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+        }
+
+        .billing-current h4 {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .current-plan-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .current-plan-name {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .current-plan-price {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 700px) {
+            .plans-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .plan-card {
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .plan-card.featured {
+            border-color: var(--accent);
+        }
+
+        .plan-card.current {
+            border-color: var(--green);
+        }
+
+        .plan-badge {
+            position: absolute;
+            top: -10px;
+            right: 16px;
+            padding: 4px 12px;
+            background: var(--accent);
+            color: white;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .plan-card h5 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .plan-price {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .plan-price span {
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        .plan-features {
+            list-style: none;
+            margin-bottom: 20px;
+            flex: 1;
+        }
+
+        .plan-features li {
+            padding: 6px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .plan-features li::before {
+            content: "✓";
+            color: var(--green);
+            font-weight: bold;
+        }
+
+        .plan-card .btn {
+            width: 100%;
+        }
+
+        .billing-actions {
+            display: flex;
+            gap: 12px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-text {
+            color: var(--accent);
+            font-size: 10px;
+            font-weight: bold;
+            margin-right: 8px;
+            animation: blink 2s step-end infinite;
+        }
+
+        .guest-banner {
+            display: none;
+            background: var(--accent-dim);
+            color: var(--accent);
+            padding: 4px 12px;
+            border: 1px solid var(--accent);
+            font-size: 12px;
+            margin-right: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .guest-banner:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .guest-info-box {
+            background: rgba(0, 255, 65, 0.05);
+            border: 1px solid var(--accent);
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--text);
+        }
+
+        .modal-sm {
+            max-width: 400px;
+        }
+
+        .modal-md {
+            max-width: 520px;
+        }
+
+        .modal-lg {
+            max-width: 680px;
+        }
+
+        @media (max-width: 768px) {
+            .features {
+                grid-template-columns: 1fr;
+            }
+
+            .landing h1 {
+                font-size: 28px;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+            }
+        }
+
+        .terminal-actions-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+            margin-right: 16px;
+        }
+
+        /* Create Page */
+        .create-page {
+            display: none;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .create-page.active {
+            display: block;
+        }
+
+        .create-header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .create-header h2 {
+            font-size: 24px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .create-header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .os-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .os-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+
+        .os-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-card-hover);
+        }
+
+        .os-card.selected {
+            border-color: var(--accent);
+            background: rgba(0, 255, 65, 0.05);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+        }
+
+        .os-icon {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            fill: var(--text);
+        }
+
+        .os-card.selected .os-icon {
+            fill: var(--accent);
+        }
+
+        .os-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .os-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .os-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: var(--accent);
+            color: var(--bg);
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            text-transform: uppercase;
+        }
+
+        .create-form-section {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="toast-container" id="toast-container"></div>
+
+    <header>
+        <a href="#" class="logo" onclick="location.reload()">
+            <div class="logo-icon">⌘</div>
+            <span>Rexec</span>
+        </a>
+        <div class="nav-actions" id="auth-buttons">
+            <button class="btn btn-secondary" onclick="showModal('guest')">
+                Try as Guest
+            </button>
+            <button class="btn btn-primary" onclick="signInWithPipeOps()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+                    style="margin-right: 8px; vertical-align: middle">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                Sign in with PipeOps
+            </button>
+        </div>
+        <div class="nav-actions" id="user-info" style="display: none">
+            <div id="guest-banner" class="guest-banner" onclick="signInWithPipeOps()">
+                ⏱️ GUEST: <span id="guest-timer">60:00</span> LEFT —
+                <u>UPGRADE</u>
+            </div>
+            <button class="btn btn-ghost" onclick="showModal('ssh')" id="ssh-btn">
+                🔑 SSH Keys
+            </button>
+            <div class="user-badge" onclick="showModal('profile')" style="cursor: pointer">
+                <div class="user-avatar" id="user-avatar">U</div>
+                <span class="user-name" id="user-name">User</span>
+            </div>
+            <button class="btn btn-ghost" onclick="showModal('billing')" id="billing-btn">
+                💳 Billing
+            </button>
+            <button class="btn btn-ghost" onclick="logout()">
+                Sign Out
+            </button>
+        </div>
+    </header>
+
+    <!-- Landing -->
+    <div class="landing" id="landing">
+        <div class="landing-badge">
+            <span class="dot"></span>
+            <span>v1.0.0 • Production Ready</span>
+        </div>
+        <h1>Terminal as a <span>Service</span></h1>
+        <p>
+            Spin up isolated Linux environments in seconds. Full root
+            access, persistent storage, SSH connectivity.
+        </p>
+        <div class="landing-actions">
+            <button class="btn btn-primary" onclick="signInWithPipeOps()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"
+                    style="margin-right: 8px; vertical-align: middle">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                Sign in with PipeOps
+            </button>
+            <button class="btn btn-secondary" onclick="showModal('guest')">
+                Try as Guest (1 hour)
+            </button>
+        </div>
+        <div class="terminal-preview">
+            <div class="terminal-preview-header">
+                <span class="status-text">[ONLINE]</span>
+                <span class="terminal-preview-title">rexec — ubuntu@dev-env</span>
+            </div>
+            <div class="terminal-preview-body">
+                <div class="terminal-line">
+                    <span class="terminal-prompt">$</span>
+                    <span class="terminal-command">rexec create --name dev-env</span>
+                </div>
+                <div class="terminal-output">✓ Container created</div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">$</span>
+                    <span class="terminal-command">ssh root@dev-env</span>
+                </div>
+                <div class="terminal-output">
+                    Welcome to Ubuntu 22.04 LTS
+                </div>
+                <div class="terminal-line">
+                    <span class="terminal-prompt">root@dev-env:~#</span><span class="cursor"></span>
+                </div>
+            </div>
+        </div>
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🐧</div>
+                <h3>Multiple Distros</h3>
+                <p>Ubuntu, Debian, Alpine, Fedora</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💾</div>
+                <h3>Persistent Storage</h3>
+                <p>Data survives restarts</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔐</div>
+                <h3>SSH Access</h3>
+                <p>Connect from anywhere</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="main">
+        <div class="dashboard" id="dashboard">
+            <div class="dashboard-header">
+                <div class="dashboard-title">
+                    <h1>Terminals</h1>
+                    <span class="count-badge" id="container-count">0</span>
+                </div>
+                <button class="btn btn-primary" onclick="showCreatePage()" id="create-btn">
+                    + New Terminal
+                </button>
+            </div>
+
+            <div class="containers-grid" id="containers-grid">
+                <div class="create-card" onclick="showCreatePage()">
+                    <div class="create-card-icon">+</div>
+                    <div class="create-card-text">Create Terminal</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Page -->
+        <div class="create-page" id="create-page">
+            <div class="create-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h2>Create New Terminal</h2>
+                    <p>Select an operating system or choose a custom image to get started.</p>
+                </div>
+                <button class="btn btn-secondary" onclick="hideCreatePage()">Cancel</button>
+            </div>
+
+            <div class="os-grid" id="os-grid">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="create-form-section" id="create-form-section">
+                <div class="form-group">
+                    <label class="form-label">Container Name <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+                    <input type="text" id="page-container-name" class="form-input" placeholder="e.g. my-project-env">
+                </div>
+
+                <div class="form-group" id="custom-image-group" style="display: none;">
+                    <label class="form-label">Docker Image</label>
+                    <input type="text" id="page-custom-image" class="form-input" placeholder="e.g. node:18-alpine">
+                    <span class="form-hint">Must be a public image from Docker Hub.</span>
+                </div>
+
+                <div class="form-actions" style="margin-top: 30px;">
+                    <button class="btn btn-primary btn-lg" style="width: 100%; padding: 16px;" onclick="createContainerFromPage()">Create Terminal</button>
+                </div>
+            </div>
+
+            <!-- Creation Progress -->
+            <div id="creation-progress" class="creation-progress" style="display: none; max-width: 600px; margin: 40px auto;">
+                <div class="progress-stages">
+                    <div class="progress-stage" id="stage-validating">
+                        <div class="progress-stage-icon">
+                            <span id="stage-validating-icon">1</span>
+                        </div>
+                        <div class="progress-stage-content">
+                            <div class="progress-stage-title">Validating</div>
+                            <div class="progress-stage-detail" id="stage-validating-detail">Checking request...</div>
+                        </div>
+                    </div>
+                    <div class="progress-stage" id="stage-pulling">
+                        <div class="progress-stage-icon">
+                            <span id="stage-pulling-icon">2</span>
+                        </div>
+                        <div class="progress-stage-content">
+                            <div class="progress-stage-title">Pulling Image</div>
+                            <div class="progress-stage-detail" id="stage-pulling-detail">Waiting...</div>
+                        </div>
+                    </div>
+                    <div class="progress-stage" id="stage-creating">
+                        <div class="progress-stage-icon">
+                            <span id="stage-creating-icon">3</span>
+                        </div>
+                        <div class="progress-stage-content">
+                            <div class="progress-stage-title">Creating Container</div>
+                            <div class="progress-stage-detail" id="stage-creating-detail">Waiting...</div>
+                        </div>
+                    </div>
+                    <div class="progress-stage" id="stage-starting">
+                        <div class="progress-stage-icon">
+                            <span id="stage-starting-icon">4</span>
+                        </div>
+                        <div class="progress-stage-content">
+                            <div class="progress-stage-title">Starting</div>
+                            <div class="progress-stage-detail" id="stage-starting-detail">Waiting...</div>
+                        </div>
+                    </div>
+                    <div class="progress-stage" id="stage-ready">
+                        <div class="progress-stage-icon">
+                            <span id="stage-ready-icon">5</span>
+                        </div>
+                        <div class="progress-stage-content">
+                            <div class="progress-stage-title">Ready</div>
+                            <div class="progress-stage-detail" id="stage-ready-detail">Waiting...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="progress-bar-container">
+                    <div class="progress-bar-label">
+                        <span id="progress-status">Initializing...</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                    </div>
+                </div>
+
+                <div class="progress-log" id="progress-log"></div>
+
+                <div class="progress-actions" id="progress-actions" style="display: none">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreatePage()">Back to Dashboard</button>
+                    <button type="button" class="btn btn-primary" id="progress-connect-btn" onclick="connectToCreatedContainer()">Connect</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Docked Terminal -->
+    <div class="docked-terminal" id="docked-terminal">
+        <div class="docked-terminal-header">
+            <div class="docked-terminal-tabs" id="docked-terminal-tabs">
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="backToDashboard()">
+                    ← Dashboard
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="closeAllTerminals()" title="Close All">
+                    ✕ Close All
+                </button>
+            </div>
+        </div>
+        <div class="docked-terminal-body" id="docked-terminal-body">
+            <!-- Terminal panels populated by JS -->
+        </div>
+    </div>
+
+    <!-- Terminals Bar (bottom) -->
+    <div class="terminals-bar" id="terminals-bar">
+        <div class="terminal-tabs" id="terminal-tabs">
+            <!-- Tabs populated by JS -->
+        </div>
+        <div class="terminals-bar-actions">
+            <button class="btn btn-sm btn-ghost" onclick="terminalManager.restoreAll()" title="Show Terminals">
+                ↑ Show
+            </button>
+            <button class="btn btn-sm btn-ghost" onclick="showCreatePage()" title="New Terminal">
+                + New
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Terminal FAB -->
+    <button class="quick-terminal-btn" id="quick-terminal-btn" onclick="showCreatePage()"
+        title="Create New Terminal">
+        <span>⌘</span>
+        <span class="terminal-count-badge" id="terminal-count-badge" style="display: none">0</span>
+    </button>
+
+    <!-- Guest Login Modal -->
+    <div class="modal" id="guest-modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <span class="modal-title">Try as Guest</span>
+                <button class="modal-close" onclick="hideModal('guest')">
+                    ×
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert modal-alert-error" id="guest-alert"></div>
+                <div class="guest-info-box">
+                    ⏱️ Guest sessions are limited to
+                    <strong>1 hour</strong>. Sign in with PipeOps for
+                    unlimited access.
+                </div>
+                <form onsubmit="guestLogin(event)">
+                    <div class="form-group">
+                        <label class="form-label">Choose a Username</label>
+                        <input type="text" id="guest-username" class="form-input" placeholder="e.g. developer123"
+                            required minlength="2" maxlength="30" pattern="[a-zA-Z0-9_-]+"
+                            title="Only letters, numbers, underscores, and hyphens" />
+                        <span class="form-hint">Letters, numbers, underscores, hyphens
+                            only</span>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="guest-btn" style="width: 100%">
+                            Start Guest Session
+                        </button>
+                    </div>
+                </form>
+                <div class="modal-footer-link" style="margin-top: 16px; text-align: center">
+                    Want unlimited sessions?
+                    <a href="#" onclick="hideModal('guest'); signInWithPipeOps(); return false;">Sign in with
+                        PipeOps</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Modal (Removed) -->
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profile-modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <span class="modal-title">Profile</span>
+                <button class="modal-close" onclick="hideModal('profile')">
+                    ×
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-header">
+                    <div class="profile-avatar-large" id="profile-avatar">
+                        U
+                    </div>
+                    <div class="profile-info">
+                        <h3 id="profile-username">Username</h3>
+                        <p id="profile-email">email@example.com</p>
+                    </div>
+                </div>
+                <div class="profile-section">
+                    <h4>Account Details</h4>
+                    <div class="profile-row">
+                        <span class="profile-row-label">Subscription</span>
+                        <span class="tier-badge" id="profile-tier">Free</span>
+                    </div>
+                    <div class="profile-row">
+                        <span class="profile-row-label">Member Since</span>
+                        <span class="profile-row-value" id="profile-created">Jan 1, 2024</span>
+                    </div>
+                </div>
+                <div class="profile-section">
+                    <h4>Usage</h4>
+                    <div class="profile-row">
+                        <span class="profile-row-label">Containers</span>
+                        <span class="profile-row-value" id="profile-containers">0 / 2</span>
+                    </div>
+                    <div class="profile-row">
+                        <span class="profile-row-label">SSH Keys</span>
+                        <span class="profile-row-value" id="profile-ssh-keys">0</span>
+                    </div>
+                    <div class="profile-row">
+                        <span class="profile-row-label">Memory Limit</span>
+                        <span class="profile-row-value" id="profile-memory">512 MB</span>
+                    </div>
+                </div>
+                <div class="profile-actions">
+                    <button class="btn btn-secondary" onclick="hideModal('profile'); showModal('billing')">
+                        Manage Plan
+                    </button>
+                    <button class="btn btn-danger" onclick="logout()">
+                        Sign Out
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Billing Modal -->
+    <div class="modal" id="billing-modal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <span class="modal-title">Subscription & Billing</span>
+                <button class="modal-close" onclick="hideModal('billing')">
+                    ×
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="billing-current">
+                    <h4>Current Plan</h4>
+                    <div class="current-plan-info">
+                        <span class="current-plan-name" id="billing-current-plan">Free</span>
+                        <span class="current-plan-price" id="billing-current-price">$0/month</span>
+                    </div>
+                </div>
+                <div class="plans-grid">
+                    <div class="plan-card" id="plan-free">
+                        <h5>Free</h5>
+                        <div class="plan-price">$0<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>2 containers</li>
+                            <li>512 MB RAM each</li>
+                            <li>1 GB storage</li>
+                            <li>Community support</li>
+                        </ul>
+                        <button class="btn btn-secondary" id="btn-free" disabled>
+                            Current Plan
+                        </button>
+                    </div>
+                    <div class="plan-card featured" id="plan-pro">
+                        <div class="plan-badge">Popular</div>
+                        <h5>Pro</h5>
+                        <div class="plan-price">$9<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>5 containers</li>
+                            <li>2 GB RAM each</li>
+                            <li>10 GB storage</li>
+                            <li>Priority support</li>
+                            <li>SSH access</li>
+                        </ul>
+                        <button class="btn btn-primary" id="btn-pro" onclick="subscribePlan('pro')">
+                            Upgrade
+                        </button>
+                    </div>
+                    <div class="plan-card" id="plan-enterprise">
+                        <h5>Enterprise</h5>
+                        <div class="plan-price">$29<span>/month</span></div>
+                        <ul class="plan-features">
+                            <li>20 containers</li>
+                            <li>4 GB RAM each</li>
+                            <li>50 GB storage</li>
+                            <li>24/7 support</li>
+                            <li>Custom images</li>
+                            <li>Team access</li>
+                        </ul>
+                        <button class="btn btn-primary" id="btn-enterprise" onclick="subscribePlan('enterprise')">
+                            Upgrade
+                        </button>
+                    </div>
+                </div>
+                <div class="billing-actions" id="billing-actions" style="display: none">
+                    <button class="btn btn-secondary" onclick="openBillingPortal()">
+                        Manage Payment Methods
+                    </button>
+                    <button class="btn btn-danger" onclick="cancelSubscription()">
+                        Cancel Subscription
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SSH Modal -->
+    <div class="modal" id="ssh-modal">
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <span class="modal-title">SSH Keys</span>
+                <button class="modal-close" onclick="hideModal('ssh')">
+                    ×
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-alert" id="ssh-alert"></div>
+                <p style="
+                            font-size: 13px;
+                            color: var(--text-secondary);
+                            margin-bottom: 16px;
+                        ">
+                    Add your public SSH keys to connect to containers via
+                    SSH.
+                </p>
+                <form onsubmit="addSSHKey(event)">
+                    <div class="form-group">
+                        <label class="form-label">Key Name</label>
+                        <input type="text" id="ssh-key-name" class="form-input" placeholder="My Laptop" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Public Key</label>
+                        <textarea id="ssh-public-key" class="form-textarea" placeholder="ssh-ed25519 AAAA..."
+                            required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="add-key-btn" style="width: 100%">
+                        Add Key
+                    </button>
+                </form>
+                <div class="ssh-section">
+                    <div class="ssh-section-title">Your Keys</div>
+                    <div id="ssh-keys-container">
+                        <p style="
+                                    font-size: 13px;
+                                    color: var(--text-muted);
+                                ">
+                            No keys added yet.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+    <script>
+        const API_URL = window.location.origin;
+        const WS_URL = API_URL.replace("http", "ws");
+
+        // ASCII art banner for terminal
+        const REXEC_BANNER =
+            "\x1b[38;5;105m\r\n" +
+            "  ██████╗ ███████╗██╗  ██╗███████╗ ██████╗\r\n" +
+            "  ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝\r\n" +
+            "  ██████╔╝█████╗   ╚███╔╝ █████╗  ██║     \r\n" +
+            "  ██╔══██╗██╔══╝   ██╔██╗ ██╔══╝  ██║     \r\n" +
+            "  ██║  ██║███████╗██╔╝ ██╗███████╗╚██████╗\r\n" +
+            "  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝\r\n" +
+            "\x1b[0m\x1b[38;5;243m  Terminal as a Service | rexec.io\x1b[0m\r\n";
+
+        // Safe fetch helper - handles HTML error pages gracefully
+        async function safeFetch(url, options = {}) {
+            const res = await fetch(url, options);
+            const contentType = res.headers.get("content-type") || "";
+
+            if (!contentType.includes("application/json")) {
+                if (!res.ok) {
+                    throw new Error(`Server error (${res.status})`);
+                }
+                // Return empty object for non-JSON success responses
+                return { _response: res, _notJson: true };
+            }
+
+            const data = await res.json();
+            data._response = res;
+            return data;
+        }
+
+        let token = localStorage.getItem("rexec_token");
+        let user = JSON.parse(localStorage.getItem("rexec_user") || "null");
+        let currentContainer = null;
+        let terminal = null;
+        let fitAddon = null;
+        let ws = null;
+        let sshKeys = [];
+        let wsReconnectAttempts = 0;
+        let wsReconnectTimer = null;
+        let wsPingInterval = null;
+        const WS_MAX_RECONNECT = 5;
+        let availableImages = [];
+        let selectedImage = "ubuntu";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Restore guest state
+            isGuest = localStorage.getItem("rexec_guest") === "true";
+            const storedExpiry = localStorage.getItem("rexec_expires_at");
+            if (storedExpiry) {
+                guestExpiresAt = parseInt(storedExpiry);
+                // Check if already expired
+                if (guestExpiresAt <= Date.now()) {
+                    logout();
+                    showToast(
+                        "Guest session expired. Please sign in again.",
+                        "error",
+                    );
+                    return;
+                }
+            }
+
+            if (token && user) {
+                showDashboard();
+                if (isGuest) startGuestTimer();
+
+                // Check for terminal ID in URL path
+                handleUrlRoute();
+            }
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape")
+                    document
+                        .querySelectorAll(".modal.active")
+                        .forEach((m) => m.classList.remove("active"));
+            });
+
+            // Handle browser back/forward navigation
+            window.addEventListener("popstate", (e) => {
+                if (e.state && e.state.containerId) {
+                    openTerminalFromUrl(
+                        e.state.containerId,
+                        e.state.containerName,
+                    );
+                } else {
+                    // Back to dashboard
+                    backToDashboard();
+                }
+            });
+        });
+
+        // URL routing functions
+        function handleUrlRoute() {
+            const path = window.location.pathname;
+            // Match /terminal/:id or just /:id (UUID format)
+            const terminalMatch = path.match(
+                /^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i,
+            );
+            if (terminalMatch) {
+                const containerId = terminalMatch[1];
+                // Fetch container info and connect
+                openTerminalFromUrl(containerId);
+            }
+        }
+
+        async function openTerminalFromUrl(
+            containerId,
+            containerName = null,
+        ) {
+            if (!token) {
+                showToast("Please sign in to access terminals", "error");
+                return;
+            }
+
+            try {
+                // If we don't have the name, fetch container info
+                if (!containerName) {
+                    showToast(
+                        "Connecting to terminal...",
+                        "loading",
+                        "url-connect",
+                        0,
+                    );
+                    const data = await safeFetch(
+                        `${API_URL}/api/containers/${containerId}`,
+                        { headers: { Authorization: `Bearer ${token}` } },
+                    );
+                    dismissToast("url-connect");
+
+                    if (!data._response.ok) {
+                        throw new Error(
+                            data.error || "Container not found",
+                        );
+                    }
+
+                    containerName = data.name || data.image || "Terminal";
+
+                    // Check if container is running
+                    if (data.status !== "running") {
+                        showToast(
+                            "Container is not running. Starting...",
+                            "loading",
+                            "url-start",
+                            0,
+                        );
+                        const startData = await safeFetch(
+                            `${API_URL}/api/containers/${containerId}/start`,
+                            {
+                                method: "POST",
+                                headers: {
+                                    Authorization: `Bearer ${token}`,
+                                },
+                            },
+                        );
+                        dismissToast("url-start");
+
+                        if (!startData._response.ok) {
+                            throw new Error("Failed to start container");
+                        }
+                    }
+                }
+
+                // Connect to terminal
+                connectTerminal(containerId, containerName);
+            } catch (err) {
+                dismissToast("url-connect");
+                dismissToast("url-start");
+                showToast(
+                    err.message || "Failed to open terminal",
+                    "error",
+                );
+                // Redirect to dashboard
+                updateUrl("/", null, null);
+            }
+        }
+
+        function updateUrl(path, containerId, containerName) {
+            const state = containerId
+                ? { containerId, containerName }
+                : null;
+            window.history.pushState(state, "", path);
+        }
+
+        function getTerminalUrl(containerId) {
+            return `/terminal/${containerId}`;
+        }
+
+        function getFullTerminalUrl(containerId) {
+            return `${window.location.origin}/terminal/${containerId}`;
+        }
+
+        function copyTerminalLink() {
+            // Copy link for currently active terminal
+            if (terminalManager.activeSessionId) {
+                const session = terminalManager.sessions.get(
+                    terminalManager.activeSessionId,
+                );
+                if (session) {
+                    copyContainerLink(session.containerId);
+                    return;
+                }
+            }
+            showToast("No active terminal to copy link for", "error");
+        }
+
+        function copyContainerLink(containerId) {
+            const url = getFullTerminalUrl(containerId);
+            navigator.clipboard
+                .writeText(url)
+                .then(() => {
+                    showToast(
+                        "Terminal link copied to clipboard!",
+                        "success",
+                    );
+                })
+                .catch(() => {
+                    // Fallback for older browsers
+                    const input = document.createElement("input");
+                    input.value = url;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(input);
+                    showToast(
+                        "Terminal link copied to clipboard!",
+                        "success",
+                    );
+                });
+        }
+
+        function showToast(
+            message,
+            type = "error",
+            id = null,
+            duration = 4000,
+        ) {
+            const container = document.getElementById("toast-container");
+
+            // If ID provided, remove existing toast with same ID
+            if (id) {
+                const existing = document.getElementById(`toast-${id}`);
+                if (existing) existing.remove();
+            }
+
+            const toast = document.createElement("div");
+            toast.className = `toast toast-${type}`;
+            if (id) toast.id = `toast-${id}`;
+
+            // Choose icon based on type
+            let icon = "⚠";
+            if (type === "success") icon = "✓";
+            if (type === "info") icon = "ℹ";
+            if (type === "loading") icon = '<span class="spinner"></span>';
+
+            toast.innerHTML = `
+                    <span class="toast-icon">${icon}</span>
+                    <span class="toast-message">${escapeHtml(message)}</span>
+                    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+                `;
+            container.appendChild(toast);
+
+            // Auto-dismiss (0 = no auto-dismiss)
+            if (duration > 0) {
+                setTimeout(() => toast.remove(), duration);
+            }
+
+            return toast;
+        }
+
+        function dismissToast(id) {
+            const toast = document.getElementById(`toast-${id}`);
+            if (toast) toast.remove();
+        }
+
+        function showModal(type) {
+            document
+                .getElementById(`${type}-modal`)
+                .classList.add("active");
+            if (type === "ssh") loadSSHKeys();
+            if (type === "create") loadImages();
+            if (type === "profile") loadProfile();
+            if (type === "billing") loadBilling();
+        }
+
+        function hideModal(type) {
+            document
+                .getElementById(`${type}-modal`)
+                .classList.remove("active");
+            const alert = document.getElementById(`${type}-alert`);
+            if (alert) alert.classList.remove("active");
+
+            // Reset create modal when closed
+            if (
+                type === "create" &&
+                typeof resetCreateModal === "function"
+            ) {
+                resetCreateModal();
+            }
+        }
+
+        function showAlert(id, msg, type = "error") {
+            const alert = document.getElementById(id);
+            alert.textContent = msg;
+            alert.className = `modal-alert active modal-alert-${type}`;
+        }
+
+        let oauthWindow = null;
+        let isGuest = false;
+        let guestExpiresAt = null;
+        let guestTimerInterval = null;
+
+        // Guest login function
+        async function guestLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById("guest-btn");
+            btn.innerHTML = '<span class="spinner"></span>';
+            btn.disabled = true;
+            try {
+                const username = document
+                    .getElementById("guest-username")
+                    .value.trim();
+                const data = await safeFetch(`${API_URL}/api/auth/guest`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username }),
+                });
+                if (!data._response.ok)
+                    throw new Error(data.message || "Guest login failed");
+
+                token = data.token;
+                user = data.user;
+                isGuest = true;
+                guestExpiresAt = Date.now() + data.expires_in * 1000;
+
+                localStorage.setItem("rexec_token", token);
+                localStorage.setItem("rexec_user", JSON.stringify(user));
+                localStorage.setItem("rexec_guest", "true");
+                localStorage.setItem(
+                    "rexec_expires_at",
+                    guestExpiresAt.toString(),
+                );
+
+                hideModal("guest");
+                showDashboard();
+                startGuestTimer();
+                showToast(
+                    "Welcome! Your guest session expires in 1 hour.",
+                    "success",
+                );
+            } catch (err) {
+                showAlert("guest-alert", err.message);
+            } finally {
+                btn.innerHTML = "Start Guest Session";
+                btn.disabled = false;
+            }
+        }
+
+        // Start guest countdown timer
+        function startGuestTimer() {
+            if (!isGuest || !guestExpiresAt) return;
+
+            document.getElementById("guest-banner").style.display = "block";
+            document.getElementById("ssh-btn").style.display = "none";
+            document.getElementById("billing-btn").style.display = "none";
+
+            updateGuestTimer();
+            guestTimerInterval = setInterval(updateGuestTimer, 1000);
+        }
+
+        function updateGuestTimer() {
+            if (!guestExpiresAt) return;
+
+            const remaining = guestExpiresAt - Date.now();
+            if (remaining <= 0) {
+                clearInterval(guestTimerInterval);
+                showToast(
+                    "Guest session expired. Please sign in with PipeOps for unlimited access.",
+                    "error",
+                );
+                logout();
+                return;
+            }
+
+            const minutes = Math.floor(remaining / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+            document.getElementById("guest-timer").textContent =
+                `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+            // Warning when 5 minutes left
+            if (remaining < 300000 && remaining > 299000) {
+                showToast(
+                    "⚠️ Only 5 minutes left! Sign in with PipeOps to keep your work.",
+                    "error",
+                );
+            }
+        }
+
+        async function signInWithPipeOps() {
+            try {
+                // Get OAuth URL from backend
+                const data = await safeFetch(
+                    `${API_URL}/api/auth/oauth/url`,
+                );
+                if (!data._response.ok)
+                    throw new Error(
+                        data.message || "Failed to get auth URL",
+                    );
+
+                // Open OAuth popup
+                const width = 500;
+                const height = 600;
+                const left =
+                    window.screenX + (window.outerWidth - width) / 2;
+                const top =
+                    window.screenY + (window.outerHeight - height) / 2;
+
+                oauthWindow = window.open(
+                    data.auth_url,
+                    "PipeOps Login",
+                    `width=${width},height=${height},left=${left},top=${top},popup=1`,
+                );
+
+                // If popup blocked, redirect instead
+                if (!oauthWindow || oauthWindow.closed) {
+                    window.location.href = data.auth_url;
+                }
+            } catch (err) {
+                showToast(
+                    err.message || "Failed to start authentication",
+                    "error",
+                );
+            }
+        }
+
+        // Listen for OAuth callback message
+        window.addEventListener("message", function (event) {
+            if (event.origin !== window.location.origin) return;
+
+            if (event.data.type === "oauth_success") {
+                const authData = event.data.data;
+                token = authData.token;
+                user = authData.user;
+                isGuest = false;
+                guestExpiresAt = null;
+
+                // Clear guest data
+                localStorage.removeItem("rexec_guest");
+                localStorage.removeItem("rexec_expires_at");
+                if (guestTimerInterval) clearInterval(guestTimerInterval);
+
+                localStorage.setItem("rexec_token", token);
+                localStorage.setItem("rexec_user", JSON.stringify(user));
+                showDashboard();
+                showToast("Welcome to Rexec!", "success");
+                if (oauthWindow) oauthWindow.close();
+            } else if (event.data.type === "oauth_error") {
+                showToast(
+                    event.data.message || "Authentication failed",
+                    "error",
+                );
+                if (oauthWindow) oauthWindow.close();
+            }
+        });
+
+        function logout() {
+            token = null;
+            user = null;
+            isGuest = false;
+            guestExpiresAt = null;
+            if (guestTimerInterval) clearInterval(guestTimerInterval);
+            localStorage.removeItem("rexec_token");
+            localStorage.removeItem("rexec_user");
+            localStorage.removeItem("rexec_guest");
+            localStorage.removeItem("rexec_expires_at");
+
+            // Close all terminal sessions
+            const sessionIds = Array.from(terminalManager.sessions.keys());
+            sessionIds.forEach((id) => terminalManager.closeSession(id));
+            terminalManager.hideTerminalsBar();
+
+            // Legacy cleanup
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            document.getElementById("dashboard").classList.remove("active");
+            document
+                .getElementById("docked-terminal")
+                .classList.remove("active");
+            document.getElementById("landing").style.display = "flex";
+            document.getElementById("auth-buttons").style.display = "flex";
+            document.getElementById("user-info").style.display = "none";
+        }
+
+        function showDashboard() {
+            document.getElementById("landing").style.display = "none";
+
+            // Show/hide guest-specific UI
+            if (isGuest) {
+                document.getElementById("guest-banner").style.display =
+                    "block";
+                document.getElementById("ssh-btn").style.display = "none";
+                document.getElementById("billing-btn").style.display =
+                    "none";
+            } else {
+                document.getElementById("guest-banner").style.display =
+                    "none";
+                document.getElementById("ssh-btn").style.display = "";
+                document.getElementById("billing-btn").style.display = "";
+            }
+            document.getElementById("dashboard").classList.add("active");
+            document.getElementById("auth-buttons").style.display = "none";
+            document.getElementById("user-info").style.display = "flex";
+            document.getElementById("user-avatar").textContent =
+                user.username.charAt(0).toUpperCase();
+            document.getElementById("user-name").textContent =
+                user.username;
+            loadContainers();
+        }
+
+        async function loadContainers() {
+            const grid = document.getElementById("containers-grid");
+
+            // Show loading state
+            grid.innerHTML = `
+                    <div class="create-card" onclick="showCreatePage()" style="opacity: 0.5; pointer-events: none;">
+                        <div class="create-card-icon">+</div>
+                        <div class="create-card-text">Create Terminal</div>
+                    </div>
+                    <div class="container-card skeleton-card">
+                        <div class="skeleton-line is-wide"></div>
+                        <div class="skeleton-line is-short"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                    <div class="container-card skeleton-card">
+                        <div class="skeleton-line is-wide"></div>
+                        <div class="skeleton-line is-short"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                `;
+            document.getElementById("container-count").textContent = "...";
+
+            try {
+                const data = await safeFetch(`${API_URL}/api/containers`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!data._response.ok)
+                    throw new Error(data.error || "Failed to load");
+                renderContainers(data.containers || []);
+            } catch (err) {
+                showToast(err.message);
+            }
+        }
+
+        function renderContainers(containers) {
+            const grid = document.getElementById("containers-grid");
+            document.getElementById("container-count").textContent =
+                containers.length;
+            grid.innerHTML = `<div class="create-card" onclick="showCreatePage()"><div class="create-card-icon">+</div><div class="create-card-text">Create Terminal</div></div>`;
+
+            containers.forEach((c) => {
+                // Check if there's an active terminal session for this container
+                const hasActiveSession =
+                    typeof terminalManager !== "undefined" &&
+                        terminalManager.sessions
+                        ? Array.from(
+                            terminalManager.sessions.values(),
+                        ).some((session) => session.containerId === c.id)
+                        : false;
+
+                const card = document.createElement("div");
+                card.className = "container-card";
+                card.innerHTML = `
+                                <div class="container-card-header">
+                                    <div>
+                                        <div class="container-name">
+                                            ${escapeHtml(c.name || c.image)}
+                                            ${hasActiveSession ? '<span style="color: var(--green); margin-left: 8px; font-size: 11px;">● Connected</span>' : ""}
+                                        </div>
+                                        <div class="container-image">${c.image}</div>
+                                    </div>
+                                    <span class="status status-${c.status}">${c.status}</span>
+                                </div>
+                                <div class="container-meta">
+                                    <div class="meta-item"><span class="meta-label">ID</span><span class="meta-value">${c.id.substring(0, 12)}</span></div>
+                                    <div class="meta-item"><span class="meta-label">Created</span><span class="meta-value">${new Date(c.created_at).toLocaleDateString()}</span></div>
+                                </div>
+                                <div class="container-actions" id="actions-${c.id}">
+                                    ${c.status === "running"
+                        ? `
+                                        <button class="btn btn-primary btn-sm" style="width: 100%" onclick="connectTerminal('${c.id}', '${escapeHtml(c.name || c.image)}')">${hasActiveSession ? "+ New Tab" : "Connect"}</button>
+                                    `
+                        : `<button class="btn btn-success btn-sm btn-action" style="width: 100%" onclick="startContainer(this, '${c.id}')" data-action="start" data-label="Start">Start</button>`
+                    }
+                                </div>
+                            `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Track created container for connection
+        let lastCreatedContainer = null;
+
+        async function createContainer(e) {
+            e.preventDefault();
+            const btn = document.getElementById("create-btn");
+            const form = document.getElementById("create-form");
+            const progressSection =
+                document.getElementById("creation-progress");
+
+            const body = {
+                name: document
+                    .getElementById("container-name")
+                    .value.trim(),
+                image: selectedImage,
+            };
+
+            // Add custom image if selected
+            if (selectedImage === "custom") {
+                body.custom_image = document
+                    .getElementById("custom-image")
+                    .value.trim();
+                if (!body.custom_image) {
+                    showAlert(
+                        "create-alert",
+                        "Please enter a custom Docker image",
+                    );
+                    return;
+                }
+            }
+
+            // Switch to progress view
+            form.classList.add("hidden");
+            progressSection.classList.add("active");
+            document.getElementById("create-modal-close").style.display =
+                "none";
+
+            // Reset progress UI
+            resetProgressUI();
+            addLogEntry("Starting container creation...");
+
+            try {
+                const response = await fetch(
+                    `${API_URL}/api/containers/stream`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify(body),
+                    },
+                );
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(
+                        err.error || "Failed to create container",
+                    );
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n\n");
+                    buffer = lines.pop() || "";
+
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            try {
+                                const event = JSON.parse(line.slice(6));
+                                handleProgressEvent(event);
+                            } catch (e) {
+                                console.error(
+                                    "Failed to parse SSE event:",
+                                    e,
+                                );
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                handleProgressEvent({
+                    stage: "error",
+                    error: err.message,
+                    complete: true,
+                });
+            }
+        }
+
+        function handleProgressEvent(event) {
+            const stages = [
+                "validating",
+                "pulling",
+                "creating",
+                "starting",
+                "ready",
+            ];
+            const stageIndex = stages.indexOf(event.stage);
+
+            // Update stage indicators
+            stages.forEach((stage, idx) => {
+                const stageEl = document.getElementById(`stage-${stage}`);
+                const iconEl = document.getElementById(
+                    `stage-${stage}-icon`,
+                );
+                const detailEl = document.getElementById(
+                    `stage-${stage}-detail`,
+                );
+
+                if (!stageEl) return;
+
+                stageEl.classList.remove("active", "complete", "error");
+
+                if (event.error && stage === event.stage) {
+                    stageEl.classList.add("error");
+                    iconEl.textContent = "✗";
+                    if (detailEl) detailEl.textContent = event.error;
+                } else if (idx < stageIndex) {
+                    stageEl.classList.add("complete");
+                    iconEl.textContent = "✓";
+                } else if (idx === stageIndex) {
+                    stageEl.classList.add("active");
+                    iconEl.innerHTML =
+                        '<span class="spinner-large"></span>';
+                    if (detailEl && event.message)
+                        detailEl.textContent = event.message;
+                    if (
+                        detailEl &&
+                        event.detail &&
+                        event.stage === "pulling"
+                    ) {
+                        detailEl.textContent = event.detail;
+                    }
+                }
+            });
+
+            // Update progress bar
+            const progressFill =
+                document.getElementById("progress-bar-fill");
+            const progressStatus =
+                document.getElementById("progress-status");
+            const progressPercent =
+                document.getElementById("progress-percent");
+
+            if (progressFill && event.progress !== undefined) {
+                progressFill.style.width = `${event.progress}%`;
+            }
+            if (progressStatus && event.message) {
+                progressStatus.textContent = event.message;
+            }
+            if (progressPercent && event.progress !== undefined) {
+                progressPercent.textContent = `${Math.round(event.progress)}%`;
+            }
+
+            // Add to log
+            if (event.message) {
+                addLogEntry(event.message, event.error ? "error" : "info");
+            }
+            if (event.detail && event.stage === "pulling") {
+                addLogEntry(event.detail, "detail");
+            }
+
+            // Handle completion
+            if (event.complete) {
+                const closeBtn = document.getElementById("create-modal-close");
+                if (closeBtn) closeBtn.style.display = "";
+
+                document.getElementById("progress-actions").style.display =
+                    "flex";
+
+                if (event.error) {
+                    progressFill.classList.add("error");
+                    addLogEntry(`Error: ${event.error}`, "error");
+                    document.getElementById(
+                        "progress-connect-btn",
+                    ).style.display = "none";
+                } else {
+                    progressFill.classList.add("complete");
+
+                    // Parse container info from detail
+                    if (event.detail) {
+                        try {
+                            lastCreatedContainer = JSON.parse(event.detail);
+                        } catch (e) {
+                            console.error(
+                                "Failed to parse container info:",
+                                e,
+                            );
+                        }
+                    } else if (event.container_id) {
+                        lastCreatedContainer = {
+                            id: event.container_id,
+                            name: "Terminal",
+                        };
+                    }
+
+                    // Update ready stage
+                    const readyIcon =
+                        document.getElementById("stage-ready-icon");
+                    const readyDetail =
+                        document.getElementById("stage-ready-detail");
+                    if (readyIcon) readyIcon.textContent = "✓";
+                    if (readyDetail)
+                        readyDetail.textContent =
+                            "Terminal is ready to use";
+                    document
+                        .getElementById("stage-ready")
+                        .classList.add("complete");
+                    document
+                        .getElementById("stage-ready")
+                        .classList.remove("active");
+
+                    showToast(`Terminal created!`, "success");
+                    loadContainers();
+                }
+            }
+        }
+
+        function addLogEntry(message, type = "info") {
+            const log = document.getElementById("progress-log");
+            if (!log) return;
+
+            const entry = document.createElement("div");
+            entry.className = `progress-log-entry ${type === "error" ? "error" : ""}`;
+
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="timestamp">[${time}]</span> ${escapeHtml(message)}`;
+
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function resetProgressUI() {
+            const stages = [
+                "validating",
+                "pulling",
+                "creating",
+                "starting",
+                "ready",
+            ];
+            stages.forEach((stage, idx) => {
+                const stageEl = document.getElementById(`stage-${stage}`);
+                const iconEl = document.getElementById(
+                    `stage-${stage}-icon`,
+                );
+                const detailEl = document.getElementById(
+                    `stage-${stage}-detail`,
+                );
+
+                if (stageEl)
+                    stageEl.classList.remove("active", "complete", "error");
+                if (iconEl) iconEl.textContent = (idx + 1).toString();
+                if (detailEl) detailEl.textContent = "Waiting...";
+            });
+
+            const progressFill =
+                document.getElementById("progress-bar-fill");
+            if (progressFill) {
+                progressFill.style.width = "0%";
+                progressFill.classList.remove("complete", "error");
+            }
+
+            document.getElementById("progress-status").textContent =
+                "Initializing...";
+            document.getElementById("progress-percent").textContent = "0%";
+            document.getElementById("progress-log").innerHTML = "";
+            document.getElementById("progress-actions").style.display =
+                "none";
+            document.getElementById("progress-connect-btn").style.display =
+                "";
+
+            lastCreatedContainer = null;
+        }
+
+        function resetCreateModal() {
+            const form = document.getElementById("create-form");
+            const progressSection =
+                document.getElementById("creation-progress");
+
+            form.classList.remove("hidden");
+            progressSection.classList.remove("active");
+            document.getElementById("create-modal-close").style.display =
+                "";
+            document.getElementById("container-name").value = "";
+            document.getElementById("custom-image").value = "";
+
+            resetProgressUI();
+        }
+
+        function connectToCreatedContainer() {
+            if (lastCreatedContainer) {
+                hideCreatePage();
+                connectTerminal(
+                    lastCreatedContainer.id,
+                    lastCreatedContainer.name || "Terminal",
+                );
+            }
+        }
+
+        // Image selection functions
+        async function loadImages(showAll = false) {
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/images?all=${showAll}`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                availableImages = data.popular || [];
+                if (showAll && data.images) {
+                    availableImages = data.images;
+                }
+                renderImageSelector();
+            } catch (err) {
+                console.error("Failed to load images:", err);
+                // Fallback to basic options
+                availableImages = [
+                    {
+                        name: "ubuntu",
+                        display_name: "Ubuntu 22.04 LTS",
+                        description: "Most popular Linux distro",
+                        popular: true,
+                    },
+                    {
+                        name: "debian",
+                        display_name: "Debian 12",
+                        description: "Rock-solid stability",
+                        popular: true,
+                    },
+                    {
+                        name: "alpine",
+                        display_name: "Alpine Linux",
+                        description: "Lightweight and fast",
+                        popular: true,
+                    },
+                    {
+                        name: "fedora",
+                        display_name: "Fedora",
+                        description: "Cutting-edge features",
+                        popular: true,
+                    },
+                ];
+                renderImageSelector();
+            }
+        }
+
+        function renderImageSelector() {
+            const container = document.getElementById("image-selector");
+            if (!container) return;
+
+            container.innerHTML = availableImages
+                .map(
+                    (img) => `
+                                <label class="image-option ${img.name === selectedImage ? "selected" : ""}" data-image="${img.name}">
+                                    <input type="radio" name="image" value="${img.name}" ${img.name === selectedImage ? "checked" : ""} />
+                                    <div class="image-option-content">
+                                        <span class="image-name">${escapeHtml(img.display_name)}</span>
+                                        <span class="image-desc">${escapeHtml(img.description)}</span>
+                                    </div>
+                                    ${img.popular ? '<span class="image-badge">Popular</span>' : ""}
+                                </label>
+                            `,
+                )
+                .join("");
+
+            // Add custom option
+            container.innerHTML += `
+                                <label class="image-option ${selectedImage === "custom" ? "selected" : ""}" data-image="custom">
+                                    <input type="radio" name="image" value="custom" ${selectedImage === "custom" ? "checked" : ""} />
+                                    <div class="image-option-content">
+                                        <span class="image-name">Custom Image</span>
+                                        <span class="image-desc">Use your own Docker image</span>
+                                    </div>
+                                </label>
+                            `;
+
+            // Add click handlers
+            container.querySelectorAll(".image-option").forEach((opt) => {
+                opt.addEventListener("click", () => {
+                    container
+                        .querySelectorAll(".image-option")
+                        .forEach((o) => o.classList.remove("selected"));
+                    opt.classList.add("selected");
+                    selectedImage = opt.dataset.image;
+                    document.getElementById(
+                        "custom-image-group",
+                    ).style.display =
+                        selectedImage === "custom" ? "block" : "none";
+                });
+            });
+        }
+
+        function toggleAllImages() {
+            const showAll =
+                document.getElementById("show-all-images").checked;
+            loadImages(showAll);
+        }
+
+        // Profile functions
+        async function loadProfile() {
+            try {
+                const data = await safeFetch(`${API_URL}/api/profile`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!data._response.ok)
+                    throw new Error("Failed to load profile");
+
+                document.getElementById("profile-avatar").textContent = (
+                    data.user.username || "U"
+                )
+                    .charAt(0)
+                    .toUpperCase();
+                document.getElementById("profile-username").textContent =
+                    data.user.username || "User";
+                document.getElementById("profile-email").textContent =
+                    data.user.email;
+
+                const tierBadge = document.getElementById("profile-tier");
+                tierBadge.textContent =
+                    (data.user.tier || "free").charAt(0).toUpperCase() +
+                    (data.user.tier || "free").slice(1);
+                tierBadge.className =
+                    "tier-badge " + (data.user.tier || "free");
+
+                document.getElementById("profile-created").textContent =
+                    new Date(data.user.created_at).toLocaleDateString();
+                document.getElementById("profile-containers").textContent =
+                    `${data.stats.containers} / ${data.stats.container_limit}`;
+                document.getElementById("profile-ssh-keys").textContent =
+                    data.stats.ssh_keys || 0;
+                document.getElementById("profile-memory").textContent =
+                    `${data.limits.memory_mb} MB`;
+            } catch (err) {
+                console.error("Failed to load profile:", err);
+            }
+        }
+
+        // Billing functions
+        async function loadBilling() {
+            const tier = user?.tier || "free";
+
+            // Update current plan display
+            const plans = { free: "$0", pro: "$9", enterprise: "$29" };
+            document.getElementById("billing-current-plan").textContent =
+                tier.charAt(0).toUpperCase() + tier.slice(1);
+            document.getElementById("billing-current-price").textContent =
+                `${plans[tier] || "$0"}/month`;
+
+            // Update plan cards
+            ["free", "pro", "enterprise"].forEach((plan) => {
+                const card = document.getElementById(`plan-${plan}`);
+                const btn = document.getElementById(`btn-${plan}`);
+                if (!card || !btn) return;
+
+                card.classList.remove("current");
+                if (plan === tier) {
+                    card.classList.add("current");
+                    btn.textContent = "Current Plan";
+                    btn.disabled = true;
+                    btn.className = "btn btn-secondary";
+                } else if (plan === "free" && tier !== "free") {
+                    btn.textContent = "Downgrade";
+                    btn.disabled = false;
+                    btn.className = "btn btn-secondary";
+                } else {
+                    btn.textContent = "Upgrade";
+                    btn.disabled = false;
+                    btn.className = "btn btn-primary";
+                }
+            });
+
+            // Show/hide billing actions for paid users
+            document.getElementById("billing-actions").style.display =
+                tier !== "free" ? "flex" : "none";
+        }
+
+        async function subscribePlan(plan) {
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/billing/checkout`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ tier: plan }),
+                    },
+                );
+                if (!data._response.ok)
+                    throw new Error(
+                        data.error || "Failed to start checkout",
+                    );
+                if (data.url) {
+                    window.location.href = data.url;
+                }
+            } catch (err) {
+                showToast(err.message);
+            }
+        }
+
+        async function openBillingPortal() {
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/billing/portal`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                if (!data._response.ok)
+                    throw new Error(data.error || "Failed to open portal");
+                if (data.url) {
+                    window.open(data.url, "_blank");
+                }
+            } catch (err) {
+                showToast(err.message);
+            }
+        }
+
+        async function cancelSubscription() {
+            if (
+                !confirm(
+                    "Are you sure you want to cancel your subscription? You will lose access to premium features at the end of your billing period.",
+                )
+            ) {
+                return;
+            }
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/billing/cancel`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                if (!data._response.ok)
+                    throw new Error(data.error || "Failed to cancel");
+                showToast("Subscription cancelled", "success");
+                loadBilling();
+            } catch (err) {
+                showToast(err.message);
+            }
+        }
+
+        // Button loading state helpers
+        function setButtonLoading(btn, loading, loadingText = null) {
+            if (!btn) return;
+            const originalLabel = btn.dataset.label || btn.textContent;
+
+            if (loading) {
+                btn.disabled = true;
+                btn.dataset.originalText = btn.innerHTML;
+                btn.innerHTML = `<span class="spinner"></span> ${loadingText || originalLabel}...`;
+                btn.classList.add("loading");
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.originalText || originalLabel;
+                btn.classList.remove("loading");
+            }
+        }
+
+        // Disable all action buttons in a container card and show overlay
+        function setCardActionsDisabled(containerId, disabled) {
+            const actionsContainer = document.getElementById(
+                `actions-${containerId}`,
+            );
+            // Find the parent card
+            const card = actionsContainer?.closest(".container-card");
+
+            if (card) {
+                if (disabled) {
+                    card.classList.add("action-in-progress");
+                } else {
+                    card.classList.remove("action-in-progress");
+                }
+            }
+
+            if (actionsContainer) {
+                actionsContainer
+                    .querySelectorAll("button")
+                    .forEach((btn) => {
+                        if (disabled) {
+                            btn.classList.add("disabled-during-action");
+                            btn.style.pointerEvents = "none";
+                        } else {
+                            btn.classList.remove("disabled-during-action");
+                            btn.style.pointerEvents = "";
+                        }
+                    });
+            }
+        }
+
+        async function startContainer(btn, id) {
+            setButtonLoading(btn, true, "Starting");
+            setCardActionsDisabled(id, true);
+            showToast(
+                "Starting container...",
+                "loading",
+                `action-${id}`,
+                0,
+            );
+
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/containers/${id}/start`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                dismissToast(`action-${id}`);
+                if (!data._response.ok)
+                    throw new Error(
+                        data.error || "Failed to start container",
+                    );
+                showToast("Container started successfully!", "success");
+                loadContainers();
+            } catch (err) {
+                dismissToast(`action-${id}`);
+                showToast(err.message);
+                setButtonLoading(btn, false);
+                setCardActionsDisabled(id, false);
+            }
+        }
+
+        async function stopContainer(btn, id) {
+            setButtonLoading(btn, true, "Stopping");
+            setCardActionsDisabled(id, true);
+            showToast(
+                "Stopping container...",
+                "loading",
+                `action-${id}`,
+                0,
+            );
+
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/containers/${id}/stop`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                dismissToast(`action-${id}`);
+                if (!data._response.ok)
+                    throw new Error(
+                        data.error || "Failed to stop container",
+                    );
+                showToast("Container stopped successfully!", "success");
+                loadContainers();
+            } catch (err) {
+                dismissToast(`action-${id}`);
+                showToast(err.message);
+                setButtonLoading(btn, false);
+                setCardActionsDisabled(id, false);
+            }
+        }
+
+        async function setupShell(btn, id) {
+            setButtonLoading(btn, true, "Setting up");
+            showToast(
+                "Installing zsh + oh-my-zsh with plugins...",
+                "loading",
+                `shell-${id}`,
+                0,
+            );
+
+            try {
+                // Check current status
+                const status = await safeFetch(
+                    `${API_URL}/api/containers/${id}/shell/status`,
+                    { headers: { Authorization: `Bearer ${token}` } },
+                );
+
+                if (status._response.ok && status.setup_complete) {
+                    dismissToast(`shell-${id}`);
+                    showToast(
+                        "Enhanced shell already configured!",
+                        "success",
+                    );
+                    setButtonLoading(btn, false);
+                    return;
+                }
+
+                // Run setup
+                const result = await safeFetch(
+                    `${API_URL}/api/containers/${id}/shell/setup`,
+                    {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+
+                dismissToast(`shell-${id}`);
+
+                if (!result._response.ok) {
+                    throw new Error(result.error || "Setup failed");
+                }
+
+                if (result.success) {
+                    showToast(
+                        "Enhanced shell ready! Connect to use zsh with autosuggestions.",
+                        "success",
+                    );
+                } else {
+                    throw new Error(result.message || "Setup failed");
+                }
+            } catch (err) {
+                dismissToast(`shell-${id}`);
+                showToast(err.message || "Shell setup failed", "error");
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function deleteContainer(btn, id) {
+            if (!confirm("Delete this terminal? All data will be lost."))
+                return;
+
+            setButtonLoading(btn, true, "Deleting");
+            setCardActionsDisabled(id, true);
+            showToast(
+                "Deleting container...",
+                "loading",
+                `action-${id}`,
+                0,
+            );
+
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/containers/${id}`,
+                    {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                dismissToast(`action-${id}`);
+                if (!data._response.ok)
+                    throw new Error(
+                        data.error || "Failed to delete container",
+                    );
+                showToast("Container deleted successfully!", "success");
+                loadContainers();
+            } catch (err) {
+                dismissToast(`action-${id}`);
+                showToast(err.message);
+                setButtonLoading(btn, false);
+                setCardActionsDisabled(id, false);
+            }
+        }
+
+        // Multi-Terminal Manager
+        const terminalManager = {
+            sessions: new Map(), // sessionId -> { terminal, fitAddon, ws, containerId, name, status }
+            activeSessionId: null,
+            viewMode: "docked", // 'docked' or 'floating'
+
+            generateSessionId() {
+                return "term-" + crypto.randomUUID();
+            },
+
+            createSession(containerId, name) {
+                const sessionId = this.generateSessionId();
+
+                const term = new Terminal({
+                    cursorBlink: true,
+                    rightClickSelectsWord: true,
+                    fontSize: 14,
+                    fontFamily: '"JetBrains Mono", monospace',
+                    theme: {
+                        background: "#0f0f0f",
+                        foreground: "#fff",
+                        cursor: "#6366f1",
+                        selection: "rgba(99, 102, 241, 0.3)",
+                        black: "#1a1a1a",
+                        red: "#ef4444",
+                        green: "#22c55e",
+                        yellow: "#eab308",
+                        blue: "#6366f1",
+                        magenta: "#a855f7",
+                        cyan: "#06b6d4",
+                        white: "#fff",
+                        brightBlack: "#555",
+                        brightRed: "#f87171",
+                        brightGreen: "#4ade80",
+                        brightYellow: "#facc15",
+                        brightBlue: "#818cf8",
+                        brightMagenta: "#c084fc",
+                        brightCyan: "#22d3ee",
+                        brightWhite: "#fff",
+                    },
+                });
+
+                const fit = new FitAddon.FitAddon();
+                term.loadAddon(fit);
+                term.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+                const session = {
+                    id: sessionId,
+                    terminal: term,
+                    fitAddon: fit,
+                    ws: null,
+                    containerId: containerId,
+                    name: name,
+                    status: "connecting",
+                    pingInterval: null,
+                    reconnectTimer: null,
+                    reconnectAttempts: 0,
+                };
+
+                this.sessions.set(sessionId, session);
+                this.updateUI();
+
+                return sessionId;
+            },
+
+            async connectSession(sessionId) {
+                const session = this.sessions.get(sessionId);
+                if (!session) return;
+
+                // Create terminal panel
+                this.createTerminalPanel(sessionId);
+
+                // Check and setup enhanced shell if needed
+                await this.ensureEnhancedShell(session.containerId);
+
+                // Connect WebSocket
+                this.connectWebSocket(sessionId);
+
+                // Set as active
+                this.setActiveSession(sessionId);
+
+                // Show terminals bar
+                this.showTerminalsBar();
+            },
+
+            async ensureEnhancedShell(containerId) {
+                try {
+                    // Check shell status
+                    const status = await safeFetch(
+                        `${API_URL}/api/containers/${containerId}/shell/status`,
+                        { headers: { Authorization: `Bearer ${token}` } },
+                    );
+
+                    if (status._response.ok && !status.setup_complete) {
+                        // Show setup toast
+                        showToast(
+                            "Setting up enhanced shell (zsh + oh-my-zsh)...",
+                            "loading",
+                            "shell-setup",
+                            0,
+                        );
+
+                        // Run setup
+                        const setupResult = await safeFetch(
+                            `${API_URL}/api/containers/${containerId}/shell/setup`,
+                            {
+                                method: "POST",
+                                headers: {
+                                    Authorization: `Bearer ${token}`,
+                                },
+                            },
+                        );
+
+                        dismissToast("shell-setup");
+
+                        if (
+                            setupResult._response.ok &&
+                            setupResult.success
+                        ) {
+                            showToast(
+                                "Enhanced shell ready! Enjoy zsh with autosuggestions.",
+                                "success",
+                            );
+                        }
+                    }
+                } catch (err) {
+                    dismissToast("shell-setup");
+                    console.log("Shell setup check failed:", err);
+                    // Don't block terminal connection on shell setup failure
+                }
+            },
+
+            createTerminalPanel(sessionId) {
+                const session = this.sessions.get(sessionId);
+                if (!session) return;
+
+                const panel = document.createElement("div");
+                panel.className = "docked-terminal-panel";
+                panel.id = `terminal-panel-${sessionId}`;
+                panel.innerHTML = `<div class="xterm-container" id="xterm-${sessionId}"></div>`;
+
+                document
+                    .getElementById("docked-terminal-body")
+                    .appendChild(panel);
+
+                session.terminal.open(
+                    document.getElementById(`xterm-${sessionId}`),
+                );
+                session.fitAddon.fit();
+
+                // Handle input
+                session.terminal.onData((data) => {
+                    if (
+                        session.ws &&
+                        session.ws.readyState === WebSocket.OPEN
+                    ) {
+                        session.ws.send(
+                            JSON.stringify({ type: "input", data }),
+                        );
+                    }
+                });
+            },
+
+            connectWebSocket(sessionId) {
+                const session = this.sessions.get(sessionId);
+                if (!session) return;
+
+                if (session.reconnectTimer)
+                    clearTimeout(session.reconnectTimer);
+                if (session.pingInterval)
+                    clearInterval(session.pingInterval);
+
+                session.ws = new WebSocket(
+                    `${WS_URL}/ws/terminal/${session.containerId}?token=${token}`,
+                );
+
+                session.ws.onopen = () => {
+                    session.reconnectAttempts = 0;
+                    session.status = "connected";
+                    this.updateUI();
+
+                    session.terminal.writeln(REXEC_BANNER);
+                    session.terminal.writeln("\x1b[32m⚡ Connected\x1b[0m");
+                    session.terminal.writeln(
+                        "\x1b[38;5;243m  Type 'help' for tips & shortcuts\x1b[0m\r\n",
+                    );
+
+                    session.ws.send(
+                        JSON.stringify({
+                            type: "resize",
+                            cols: session.terminal.cols,
+                            rows: session.terminal.rows,
+                        }),
+                    );
+
+                    session.pingInterval = setInterval(() => {
+                        if (
+                            session.ws &&
+                            session.ws.readyState === WebSocket.OPEN
+                        ) {
+                            session.ws.send(
+                                JSON.stringify({ type: "ping" }),
+                            );
+                        }
+                    }, 25000);
+                };
+
+                session.ws.onmessage = (e) => {
+                    try {
+                        const msg = JSON.parse(e.data);
+                        if (msg.type === "output")
+                            session.terminal.write(msg.data);
+                        else if (msg.type === "error")
+                            session.terminal.writeln(
+                                `\r\n\x1b[31mError: ${msg.data}\x1b[0m`,
+                            );
+                        else if (msg.type === "ping")
+                            session.ws.send(
+                                JSON.stringify({ type: "pong" }),
+                            );
+                    } catch {
+                        session.terminal.write(e.data);
+                    }
+                };
+
+                session.ws.onclose = () => {
+                    session.status = "disconnected";
+                    this.updateUI();
+
+                    if (session.pingInterval)
+                        clearInterval(session.pingInterval);
+
+                    if (session.reconnectAttempts < WS_MAX_RECONNECT) {
+                        session.reconnectAttempts++;
+                        session.status = "connecting";
+                        this.updateUI();
+                        session.terminal.writeln(
+                            `\r\n\x1b[33mReconnecting (${session.reconnectAttempts}/${WS_MAX_RECONNECT})...\x1b[0m`,
+                        );
+                        session.reconnectTimer = setTimeout(
+                            () => this.connectWebSocket(sessionId),
+                            2000,
+                        );
+                    } else {
+                        session.terminal.writeln(
+                            `\r\n\x1b[31mConnection lost. Click reconnect to try again.\x1b[0m`,
+                        );
+                    }
+                };
+
+                session.ws.onerror = () => {
+                    session.terminal.writeln(
+                        "\r\n\x1b[31mWebSocket error\x1b[0m",
+                    );
+                };
+            },
+
+            setActiveSession(sessionId) {
+                this.activeSessionId = sessionId;
+
+                // Update panel visibility
+                document
+                    .querySelectorAll(".docked-terminal-panel")
+                    .forEach((p) => {
+                        p.classList.remove("active");
+                    });
+                const activePanel = document.getElementById(
+                    `terminal-panel-${sessionId}`,
+                );
+                if (activePanel) {
+                    activePanel.classList.add("active");
+                    const session = this.sessions.get(sessionId);
+                    if (session) {
+                        setTimeout(() => session.fitAddon.fit(), 50);
+                    }
+                }
+
+                this.updateUI();
+            },
+
+            closeSession(sessionId) {
+                const session = this.sessions.get(sessionId);
+                if (!session) return;
+
+                // Clean up
+                if (session.ws) session.ws.close();
+                if (session.pingInterval)
+                    clearInterval(session.pingInterval);
+                if (session.reconnectTimer)
+                    clearTimeout(session.reconnectTimer);
+                if (session.terminal) session.terminal.dispose();
+
+                // Remove panel
+                const panel = document.getElementById(
+                    `terminal-panel-${sessionId}`,
+                );
+                if (panel) panel.remove();
+
+                this.sessions.delete(sessionId);
+
+                // Set new active if needed
+                if (this.activeSessionId === sessionId) {
+                    const remaining = Array.from(this.sessions.keys());
+                    this.activeSessionId =
+                        remaining.length > 0
+                            ? remaining[remaining.length - 1]
+                            : null;
+                    if (this.activeSessionId) {
+                        this.setActiveSession(this.activeSessionId);
+                    }
+                }
+
+                this.updateUI();
+
+                // Hide bar if no sessions
+                if (this.sessions.size === 0) {
+                    this.hideTerminalsBar();
+                }
+            },
+
+            reconnectSession(sessionId) {
+                const session = this.sessions.get(sessionId);
+                if (!session) return;
+
+                session.reconnectAttempts = 0;
+                this.connectWebSocket(sessionId);
+            },
+
+            showTerminalsBar() {
+                document
+                    .getElementById("terminals-bar")
+                    .classList.add("active");
+                document
+                    .getElementById("docked-terminal")
+                    .classList.add("active");
+                document.body.classList.add("terminals-active");
+                document
+                    .getElementById("quick-terminal-btn")
+                    .classList.add("hidden");
+            },
+
+            hideTerminalsBar() {
+                document
+                    .getElementById("terminals-bar")
+                    .classList.remove("active");
+                document
+                    .getElementById("docked-terminal")
+                    .classList.remove("active");
+                document.body.classList.remove("terminals-active");
+                document
+                    .getElementById("quick-terminal-btn")
+                    .classList.remove("hidden");
+            },
+
+            minimizeAll() {
+                document
+                    .getElementById("docked-terminal")
+                    .classList.remove("active");
+            },
+
+            restoreAll() {
+                if (this.sessions.size > 0) {
+                    document
+                        .getElementById("docked-terminal")
+                        .classList.add("active");
+                }
+            },
+
+            updateUI() {
+                // Update tabs in terminals bar
+                const tabsContainer =
+                    document.getElementById("terminal-tabs");
+                const dockedTabsContainer = document.getElementById(
+                    "docked-terminal-tabs",
+                );
+                const toolbar = document.getElementById("terminal-toolbar");
+
+                let tabsHTML = "";
+                this.sessions.forEach((session, id) => {
+                    const isActive = id === this.activeSessionId;
+                    const statusClass =
+                        session.status === "connected"
+                            ? ""
+                            : session.status === "connecting"
+                                ? "connecting"
+                                : "disconnected";
+
+                    tabsHTML += `
+                            <div class="terminal-tab ${isActive ? "active" : ""}" data-session="${id}" onclick="terminalManager.setActiveSession('${id}')">
+                                <span class="terminal-tab-status ${statusClass}"></span>
+                                <span class="terminal-tab-name">${escapeHtml(session.name)}</span>
+                                <button class="terminal-tab-close" onclick="event.stopPropagation(); terminalManager.closeSession('${id}')" title="Close">×</button>
+                            </div>
+                        `;
+                });
+
+                if (tabsContainer) tabsContainer.innerHTML = tabsHTML;
+
+                // Update docked tabs
+                let dockedTabsHTML = "";
+                this.sessions.forEach((session, id) => {
+                    const isActive = id === this.activeSessionId;
+                    const statusClass =
+                        session.status === "connected"
+                            ? ""
+                            : session.status === "connecting"
+                                ? "connecting"
+                                : "disconnected";
+
+                    dockedTabsHTML += `
+                            <button class="docked-tab ${isActive ? "active" : ""}" onclick="terminalManager.setActiveSession('${id}')">
+                                <span class="terminal-tab-status ${statusClass}"></span>
+                                ${escapeHtml(session.name)} (${session.containerId.substring(0, 8)})
+                                <button class="docked-tab-close" onclick="event.stopPropagation(); terminalManager.closeSession('${id}')" title="Close">×</button>
+                            </button>
+                        `;
+                });
+
+                if (dockedTabsContainer)
+                    dockedTabsContainer.innerHTML = dockedTabsHTML;
+
+                // Update toolbar
+                if (toolbar && this.activeSessionId) {
+                    const session = this.sessions.get(this.activeSessionId);
+                    if (session) {
+                        toolbar.innerHTML = `
+                                <button class="btn btn-secondary btn-sm" onclick="pasteToTerminal()" title="Paste from Clipboard">Paste</button>
+                                <button class="btn btn-secondary btn-sm" onclick="setupShell(this, '${session.containerId}')" title="Setup zsh + oh-my-zsh">🐚 Shell</button>
+                                <button class="btn btn-secondary btn-sm" onclick="showSSHInfo('${session.containerId}')" title="SSH Info">SSH</button>
+                                <button class="btn btn-secondary btn-sm" onclick="stopContainer(this, '${session.containerId}')">Stop</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteContainer(this, '${session.containerId}')">Delete</button>
+                            `;
+                    }
+                } else if (toolbar) {
+                    toolbar.innerHTML = '';
+                }
+
+                // Update terminal count badge
+                const badge = document.getElementById(
+                    "terminal-count-badge",
+                );
+                if (badge) {
+                    badge.textContent = this.sessions.size;
+                    badge.style.display =
+                        this.sessions.size > 0 ? "block" : "none";
+                }
+            },
+
+            handleResize() {
+                this.sessions.forEach((session) => {
+                    if (session.fitAddon) {
+                        session.fitAddon.fit();
+                        if (
+                            session.ws &&
+                            session.ws.readyState === WebSocket.OPEN
+                        ) {
+                            session.ws.send(
+                                JSON.stringify({
+                                    type: "resize",
+                                    cols: session.terminal.cols,
+                                    rows: session.terminal.rows,
+                                }),
+                            );
+                        }
+                    }
+                });
+            },
+        };
+
+        // Legacy function for backwards compatibility
+        function connectTerminal(id, name) {
+            const sessionId = terminalManager.createSession(id, name);
+            terminalManager.connectSession(sessionId);
+
+            // Hide dashboard if open
+            document.getElementById("dashboard").classList.remove("active");
+
+            // Update URL to reflect terminal
+            updateUrl(getTerminalUrl(id), id, name);
+        }
+
+        // Handle window resize
+        window.addEventListener("resize", () => {
+            terminalManager.handleResize();
+        });
+
+        function backToDashboard() {
+            // Don't close terminals, just minimize
+            terminalManager.minimizeAll();
+            document.getElementById("dashboard").classList.add("active");
+            loadContainers();
+
+            // Update URL to dashboard
+            updateUrl("/", null, null);
+        }
+
+        function closeAllTerminals() {
+            const sessionIds = Array.from(terminalManager.sessions.keys());
+            sessionIds.forEach((id) => terminalManager.closeSession(id));
+            document.getElementById("dashboard").classList.add("active");
+            loadContainers();
+
+            // Update URL to dashboard
+            updateUrl("/", null, null);
+        }
+
+        async function loadSSHKeys() {
+            const container = document.getElementById("ssh-keys-container");
+            container.innerHTML =
+                '<p style="font-size: 13px; color: var(--text-muted);">Loading...</p>';
+            try {
+                const data = await safeFetch(`${API_URL}/api/ssh/keys`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!data._response.ok)
+                    throw new Error(data.error || "Failed");
+                sshKeys = data.keys || [];
+                renderSSHKeys();
+            } catch (err) {
+                container.innerHTML = `<p style="color: var(--red);">${err.message}</p>`;
+            }
+        }
+
+        function renderSSHKeys() {
+            const container = document.getElementById("ssh-keys-container");
+            if (!sshKeys.length) {
+                container.innerHTML =
+                    '<p style="font-size: 13px; color: var(--text-muted);">No keys added yet.</p>';
+                return;
+            }
+            container.innerHTML = sshKeys
+                .map(
+                    (k) => `
+                            <div class="ssh-key-item">
+                                <div>
+                                    <div class="ssh-key-name">${escapeHtml(k.name)}</div>
+                                    <div class="ssh-key-fingerprint">${escapeHtml(k.fingerprint)}</div>
+                                </div>
+                                <button class="btn btn-danger btn-sm" onclick="deleteSSHKey('${k.id}')">Delete</button>
+                            </div>
+                        `,
+                )
+                .join("");
+        }
+
+        async function addSSHKey(e) {
+            e.preventDefault();
+            const btn = document.getElementById("add-key-btn");
+            btn.innerHTML = '<span class="spinner"></span>';
+            btn.disabled = true;
+            try {
+                const data = await safeFetch(`${API_URL}/api/ssh/keys`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        name: document.getElementById("ssh-key-name").value,
+                        public_key:
+                            document.getElementById("ssh-public-key").value,
+                    }),
+                });
+                if (!data._response.ok)
+                    throw new Error(data.error || "Failed");
+                showAlert("ssh-alert", "Key added!", "success");
+                document.getElementById("ssh-key-name").value = "";
+                document.getElementById("ssh-public-key").value = "";
+                loadSSHKeys();
+            } catch (err) {
+                showAlert("ssh-alert", err.message);
+            } finally {
+                btn.innerHTML = "Add Key";
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteSSHKey(id) {
+            if (!confirm("Delete this SSH key?")) return;
+            try {
+                const data = await safeFetch(
+                    `${API_URL}/api/ssh/keys/${id}`,
+                    {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                    },
+                );
+                if (!data._response.ok)
+                    throw new Error(data.error || "Failed");
+                showAlert("ssh-alert", "Key deleted", "success");
+                loadSSHKeys();
+            } catch (err) {
+                showAlert("ssh-alert", err.message);
+            }
+        }
+
+        async function showSSHInfo(id, openInNewTab = false) {
+            try {
+                const status = await safeFetch(
+                    `${API_URL}/api/ssh/status/${id}`,
+                    { headers: { Authorization: `Bearer ${token}` } },
+                );
+                if (!status.installed) {
+                    if (confirm("SSH not installed. Install now?")) {
+                        showToast("Installing SSH...", "success");
+                        const installData = await safeFetch(
+                            `${API_URL}/api/ssh/install/${id}`,
+                            {
+                                method: "POST",
+                                headers: {
+                                    Authorization: `Bearer ${token}`,
+                                },
+                            },
+                        );
+                        if (!installData._response.ok) {
+                            throw new Error("Install failed");
+                        }
+                        showToast(
+                            "SSH installed! Add keys via SSH Keys.",
+                            "success",
+                        );
+                    }
+                    return;
+                }
+                const info = await safeFetch(
+                    `${API_URL}/api/ssh/connect/${id}`,
+                    { headers: { Authorization: `Bearer ${token}` } },
+                );
+                if (!info.has_keys) {
+                    showToast("Add SSH keys first", "error");
+                    return;
+                }
+                const cmd =
+                    info.ssh_command ||
+                    `ssh root@${info.host} -p ${info.port}`;
+
+                // Open in new tab option
+                if (openInNewTab) {
+                    const sshUrl = `ssh://${info.host}:${info.port}`;
+                    window.open(sshUrl, "_blank");
+                    showToast("Opening SSH connection...", "success");
+                    return;
+                }
+
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(cmd);
+                    showToast("SSH command copied: " + cmd, "success");
+                } else {
+                    prompt("SSH command:", cmd);
+                }
+            } catch (err) {
+                showToast(err.message);
+            }
+        }
+
+        function openSSHInNewTab(id) {
+            showSSHInfo(id, true);
+        }
+
+        function showSSHInfoCurrent() {
+            // Use active terminal session's container
+            if (terminalManager.activeSessionId) {
+                const session = terminalManager.sessions.get(
+                    terminalManager.activeSessionId,
+                );
+                if (session) {
+                    showSSHInfo(session.containerId);
+                    return;
+                }
+            }
+            // Fallback to legacy
+            if (currentContainer) showSSHInfo(currentContainer);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Create Page Logic
+        function showCreatePage() {
+            document.getElementById("dashboard").classList.remove("active");
+            document.getElementById("create-page").classList.add("active");
+            renderOSGrid();
+        }
+
+        function hideCreatePage() {
+            document.getElementById("create-page").classList.remove("active");
+            document.getElementById("dashboard").classList.add("active");
+
+            // Reset UI
+            document.getElementById("create-form-section").style.display = "block";
+            document.getElementById("os-grid").style.display = "grid";
+            document.getElementById("creation-progress").style.display = "none";
+            document.getElementById("page-container-name").value = "";
+            document.getElementById("page-custom-image").value = "";
+            document.getElementById("custom-image-group").style.display = "none";
+            selectedImage = null;
+        }
+
+        const osIcons = {
+            ubuntu: '<svg viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8Z" /></svg>',
+            debian: '<svg viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M14.2,16.2C13.6,16.7 12.8,17 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7C13.5,7 14.8,7.6 15.7,8.6L17.1,7.2C15.8,5.8 14,5 12,5A7,7 0 0,0 5,12A7,7 0 0,0 12,19C14.5,19 16.7,17.7 17.9,15.7L16.2,14.7C15.7,15.3 15,15.8 14.2,16.2Z" /></svg>',
+            alpine: '<svg viewBox="0 0 24 24"><path d="M18,20H22L16.5,11L12.5,18L14.5,20H18M6,20H10L13.5,13.8L8.5,5L2,16.3L6,20Z" /></svg>',
+            fedora: '<svg viewBox="0 0 24 24"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,7V10H8V12H11V17H13V12H16V10H13V7H11Z" /></svg>',
+            custom: '<svg viewBox="0 0 24 24"><path d="M2,5H22V19H2V5M4,7V17H20V7H4M6,9H18V11H6V9M6,13H14V15H6V13Z" /></svg>'
+        };
+
+        function renderOSGrid() {
+            const grid = document.getElementById("os-grid");
+            grid.innerHTML = availableImages.map(img => `
+                <div class="os-card ${img.name === selectedImage ? 'selected' : ''}" onclick="selectOS('${img.name}')">
+                    ${img.popular ? '<span class="os-badge">Popular</span>' : ''}
+                    <div class="os-icon">${osIcons[img.name] || osIcons.custom}</div>
+                    <div class="os-name">${escapeHtml(img.display_name)}</div>
+                    <div class="os-desc">${escapeHtml(img.description)}</div>
+                </div>
+            `).join('') + `
+                <div class="os-card ${selectedImage === 'custom' ? 'selected' : ''}" onclick="selectOS('custom')">
+                    <div class="os-icon">${osIcons.custom}</div>
+                    <div class="os-name">Custom Image</div>
+                    <div class="os-desc">Use your own Docker image</div>
+                </div>
+            `;
+        }
+
+        function selectOS(name) {
+            selectedImage = name;
+            renderOSGrid();
+            document.getElementById("page-custom-image-group").style.display =
+                name === 'custom' ? 'block' : 'none';
+        }
+
+        async function createContainerFromPage() {
+            const name = document.getElementById("page-container-name").value.trim();
+            const customImage = document.getElementById("page-custom-image").value.trim();
+
+            if (!selectedImage) {
+                showToast("Please select an operating system", "error");
+                return;
+            }
+
+            if (selectedImage === 'custom' && !customImage) {
+                showToast("Please enter a custom image", "error");
+                return;
+            }
+
+            // Show progress UI
+            document.getElementById("create-form-section").style.display = "none";
+            document.getElementById("os-grid").style.display = "none";
+            document.getElementById("creation-progress").style.display = "block";
+
+            resetProgressUI();
+            addLogEntry("Starting container creation...");
+
+            const body = { name, image: selectedImage };
+            if (selectedImage === 'custom') body.custom_image = customImage;
+
+            try {
+                const response = await fetch(`${API_URL}/api/containers/stream`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || "Failed to create container");
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n\n");
+                    buffer = lines.pop() || "";
+
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            try {
+                                const event = JSON.parse(line.slice(6));
+                                handleProgressEvent(event);
+                            } catch (e) {
+                                console.error("Failed to parse SSE event:", e);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                handleProgressEvent({
+                    stage: "error",
+                    error: err.message,
+                    complete: true,
+                });
+            }
+        }
+        async function pasteToTerminal() {
+            if (!terminalManager.activeSessionId) return;
+            const session = terminalManager.sessions.get(terminalManager.activeSessionId);
+            if (!session) return;
+
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    session.terminal.paste(text);
+                    session.terminal.focus();
+                }
+            } catch (err) {
+                console.error("Failed to paste:", err);
+                showToast("Failed to access clipboard", "error");
+            }
+        }
+
+        // Global paste listener
+        document.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+                const activeElement = document.activeElement;
+                // Don't interfere if user is typing in an input field
+                // Note: xterm.js uses a textarea for input, so if the terminal is focused,
+                // this will return true and let xterm handle the paste natively.
+                if (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA") {
+                    return;
+                }
+
+                if (terminalManager.activeSessionId) {
+                    e.preventDefault();
+                    pasteToTerminal();
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

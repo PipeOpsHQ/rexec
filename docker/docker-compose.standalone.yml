@@ -1,0 +1,61 @@
+version: "3.8"
+
+services:
+  # Rexec Standalone (API + Rootless Docker in one container)
+  rexec-standalone:
+    build:
+      context: ../
+      dockerfile: Dockerfile.standalone
+    # Privileged mode is required for Docker-in-Docker (DinD) to function correctly
+    privileged: true
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET:-rexec-standalone-secret-change-me}
+      - DATABASE_URL=postgres://rexec:${POSTGRES_PASSWORD:-rexec_dev_password}@postgres:5432/rexec?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      # Note: DOCKER_HOST is already set to the internal rootless socket in the Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - rexec-network
+
+  # Redis for session management
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - rexec-network
+
+  # PostgreSQL for user data
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=rexec
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-rexec_dev_password}
+      - POSTGRES_DB=rexec
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rexec -d rexec"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - rexec-network
+
+volumes:
+  redis-data:
+  postgres-data:
+
+networks:
+  rexec-network:
+    driver: bridge

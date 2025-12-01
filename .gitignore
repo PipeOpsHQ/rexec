@@ -1,0 +1,56 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+*.tmp
+*.log
+
+# Air (hot reload)
+.air.toml
+
+# Node modules (if frontend grows)
+node_modules/
+web/node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Docker
+docker/data/
+
+# Rexec data
+/data/
+volumes/
