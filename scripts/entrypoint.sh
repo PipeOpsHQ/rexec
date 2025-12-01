@@ -49,42 +49,74 @@ echo ""
 #
 # ============================================================================
 
-# Function to write certificate content, handling escaped newlines
+# Function to write certificate content, handling various formats:
+# - Proper PEM with newlines
+# - Single line with spaces instead of newlines (common in PaaS env vars)
+# - Single line with literal \n
 write_cert() {
     local content="$1"
     local file="$2"
+    local desc="$3"
 
     # Check if content is empty
     if [ -z "$content" ]; then
-        echo "  ⚠ Warning: Empty certificate content for $file"
+        echo "  ⚠ Warning: Empty certificate content for $desc"
         return 1
     fi
 
-    # Method 1: Try printf with escaped newlines (handles \n literals)
-    # This converts literal \n to actual newlines
-    printf '%b' "$content" | sed 's/\\n/\n/g' > "$file"
+    # Detect format and convert to proper PEM
+    # Check if it's already multi-line (has actual newlines)
+    line_count=$(printf '%s' "$content" | wc -l)
 
-    # Verify the file looks like a valid PEM
-    if grep -q "BEGIN" "$file" 2>/dev/null; then
+    if [ "$line_count" -gt 1 ]; then
+        # Already has newlines, write directly
+        printf '%s\n' "$content" > "$file"
+    elif echo "$content" | grep -q '\\n'; then
+        # Has literal \n sequences, convert them
+        printf '%s' "$content" | sed 's/\\n/\n/g' > "$file"
+    elif echo "$content" | grep -q ' '; then
+        # Single line with spaces (PaaS replaced newlines with spaces)
+        # This is the tricky case - we need to reconstruct the PEM format
+
+        # Extract the BEGIN and END markers and the base64 content
+        # Format: -----BEGIN CERTIFICATE----- BASE64DATA -----END CERTIFICATE-----
+
+        # Use awk to properly format the certificate
+        printf '%s' "$content" | awk '
+        {
+            # Replace spaces between BEGIN/END markers with newlines
+            # First, handle the BEGIN line
+            gsub(/-----BEGIN [A-Z ]+----- /, "-----BEGIN CERTIFICATE-----\n")
+            gsub(/ -----END [A-Z ]+-----/, "\n-----END CERTIFICATE-----")
+
+            # Now split the base64 content into 64-char lines
+            # Remove the markers temporarily
+            if (match($0, /-----BEGIN [A-Z ]+-----/)) {
+                start = RSTART
+                end = RSTART + RLENGTH
+            }
+
+            # Just print with newlines restored
+            gsub(/ /, "\n")
+            print
+        }' > "$file"
+
+        # Simpler approach: replace all spaces with newlines, then fix the markers
+        printf '%s' "$content" | tr ' ' '\n' > "$file"
+    else
+        # No spaces, no \n - might be malformed or very short
+        printf '%s\n' "$content" > "$file"
+    fi
+
+    # Verify the file has proper PEM structure
+    if grep -q "BEGIN" "$file" && grep -q "END" "$file"; then
+        local lines=$(wc -l < "$file")
+        echo "  ✓ $desc configured ($lines lines)"
         return 0
+    else
+        echo "  ⚠ Warning: $desc may be malformed"
+        return 1
     fi
-
-    # Method 2: If that didn't work, try echo -e (if available)
-    if command -v echo >/dev/null 2>&1; then
-        echo "$content" | sed 's/\\n/\n/g' > "$file"
-        if grep -q "BEGIN" "$file" 2>/dev/null; then
-            return 0
-        fi
-    fi
-
-    # Method 3: Direct write (content might already have real newlines)
-    printf '%s\n' "$content" > "$file"
-    if grep -q "BEGIN" "$file" 2>/dev/null; then
-        return 0
-    fi
-
-    echo "  ⚠ Warning: Certificate may be malformed in $file"
-    return 1
 }
 
 # Setup TLS certificates if provided via environment variables
@@ -98,26 +130,20 @@ if [ -n "$DOCKER_CA_CERT" ] || [ -n "$DOCKER_CLIENT_CERT" ] || [ -n "$DOCKER_CLI
 
     # Write CA certificate
     if [ -n "$DOCKER_CA_CERT" ]; then
-        if write_cert "$DOCKER_CA_CERT" "$CERT_DIR/ca.pem"; then
-            chmod 644 "$CERT_DIR/ca.pem"
-            echo "  ✓ CA certificate configured ($(wc -l < "$CERT_DIR/ca.pem") lines)"
-        fi
+        write_cert "$DOCKER_CA_CERT" "$CERT_DIR/ca.pem" "CA certificate"
+        chmod 644 "$CERT_DIR/ca.pem"
     fi
 
     # Write client certificate
     if [ -n "$DOCKER_CLIENT_CERT" ]; then
-        if write_cert "$DOCKER_CLIENT_CERT" "$CERT_DIR/cert.pem"; then
-            chmod 644 "$CERT_DIR/cert.pem"
-            echo "  ✓ Client certificate configured ($(wc -l < "$CERT_DIR/cert.pem") lines)"
-        fi
+        write_cert "$DOCKER_CLIENT_CERT" "$CERT_DIR/cert.pem" "Client certificate"
+        chmod 644 "$CERT_DIR/cert.pem"
     fi
 
     # Write client key
     if [ -n "$DOCKER_CLIENT_KEY" ]; then
-        if write_cert "$DOCKER_CLIENT_KEY" "$CERT_DIR/key.pem"; then
-            chmod 600 "$CERT_DIR/key.pem"
-            echo "  ✓ Client key configured ($(wc -l < "$CERT_DIR/key.pem") lines)"
-        fi
+        write_cert "$DOCKER_CLIENT_KEY" "$CERT_DIR/key.pem" "Client key"
+        chmod 600 "$CERT_DIR/key.pem"
     fi
 
     # Set cert path if not already set
@@ -132,8 +158,10 @@ if [ -n "$DOCKER_CA_CERT" ] || [ -n "$DOCKER_CLIENT_CERT" ] || [ -n "$DOCKER_CLI
 
     # Debug: show first and last line of CA cert to verify format
     if [ -f "$CERT_DIR/ca.pem" ]; then
-        echo "  📄 CA cert starts with: $(head -1 "$CERT_DIR/ca.pem")"
-        echo "  📄 CA cert ends with: $(tail -1 "$CERT_DIR/ca.pem")"
+        echo "  📄 CA cert preview:"
+        echo "      First line: $(head -1 "$CERT_DIR/ca.pem")"
+        echo "      Last line:  $(tail -1 "$CERT_DIR/ca.pem")"
+        echo "      Total lines: $(wc -l < "$CERT_DIR/ca.pem")"
     fi
 
     echo "✅ Docker TLS configuration complete"
@@ -149,7 +177,7 @@ if [ -n "$SSH_PRIVATE_KEY" ]; then
     chmod 700 "$HOME/.ssh"
 
     # Write the private key, handling escaped newlines
-    write_cert "$SSH_PRIVATE_KEY" "$HOME/.ssh/id_rsa"
+    write_cert "$SSH_PRIVATE_KEY" "$HOME/.ssh/id_rsa" "SSH private key"
     chmod 600 "$HOME/.ssh/id_rsa"
 
     # Configure SSH to disable strict host key checking
@@ -176,6 +204,10 @@ if [ -n "$DOCKER_HOST" ]; then
 else
     echo "🐳 Docker Host: unix:///var/run/docker.sock (default)"
 fi
+
+echo ""
+echo "Starting application..."
+echo "=============================================="
 
 # Execute the main command (usually "rexec")
 exec "$@"
