@@ -5,7 +5,22 @@ set -e
 # This script handles the setup required for connecting to a remote Docker daemon.
 # Supports: TCP (plain), TCP with TLS, and SSH connections.
 
-echo "🚀 Rexec Entrypoint"
+echo "=============================================="
+echo "🚀 Rexec Entrypoint Starting"
+echo "=============================================="
+echo "Date: $(date)"
+echo "User: $(whoami) (UID: $(id -u))"
+echo "HOME: $HOME"
+echo "PWD: $(pwd)"
+echo ""
+echo "Environment variables:"
+echo "  DOCKER_HOST=${DOCKER_HOST:-<not set>}"
+echo "  DOCKER_TLS_VERIFY=${DOCKER_TLS_VERIFY:-<not set>}"
+echo "  DOCKER_CERT_PATH=${DOCKER_CERT_PATH:-<not set>}"
+echo "  DOCKER_CA_CERT length: ${#DOCKER_CA_CERT} chars"
+echo "  DOCKER_CLIENT_CERT length: ${#DOCKER_CLIENT_CERT} chars"
+echo "  DOCKER_CLIENT_KEY length: ${#DOCKER_CLIENT_KEY} chars"
+echo ""
 
 # ============================================================================
 # Docker Connection Configuration
