@@ -1,94 +1,187 @@
-# Standalone Deployment (All-in-One)
+# Standalone Deployment (Remote Docker)
 
-This guide explains how to deploy Rexec in "Standalone Mode". In this configuration, the Rexec API and a **Rootless Docker Daemon** run together inside a single container.
-
-This removes the need for a separate remote Docker host or mounting the host's Docker socket.
+This guide explains how to deploy Rexec with a remote Docker daemon. This is the recommended approach for production deployments.
 
 ## Architecture
 
 ```
-[ Container (Rexec API + Rootless Docker) ]
-      │
-      └─> [PostgreSQL / Redis]
+[ Rexec Container ]  ----(TLS/TCP)---->  [ Docker Host VM ]
+      │                                        │
+      └─> [PostgreSQL / Redis]                 └─> [User Containers]
 ```
 
 ## When to use this?
 
-- **Simplicity**: You want a single artifact to deploy.
-- **Development**: You want to test Rexec without setting up SSH keys or external servers.
-- **Self-Hosted**: You are running on a VPS or bare metal and want strong isolation between Rexec and the host system.
+- **Production**: Recommended for all production deployments
+- **PaaS Platforms**: Required for Railway, PipeOps, Render, etc. (no privileged mode)
+- **Scalability**: Separate Docker host can be scaled independently
+- **Security**: User containers are isolated from the Rexec API
 
 ## Prerequisites
 
-- Docker installed on your build machine.
-- A PostgreSQL database.
+- A Linux VM for the Docker host (Hetzner, DigitalOcean, Linode, Fly.io, etc.)
+- A PostgreSQL database
+- Redis (optional, recommended)
 
-## Building the Image
+## Step 1: Set Up the Docker Host
 
-This method uses the default Dockerfile: `Dockerfile`.
+### Automated Setup (Recommended)
+
+Run this on a fresh Ubuntu/Debian VM:
 
 ```bash
-docker build -t rexec-standalone .
+curl -fsSL https://raw.githubusercontent.com/your-repo/rexec/main/docker/docker-host/setup.sh | sudo bash
 ```
 
-## Running Locally
+This script will:
 
-You can run the standalone image locally to test it. Note that even though it is "rootless" inside, the container itself often requires the `--privileged` flag to function correctly (specifically for mounting filesystems and cgroups), depending on your host kernel version.
+1. Install Docker
+2. Generate TLS certificates
+3. Configure Docker daemon for secure remote access
+4. Open firewall port 2376
+5. Output all required environment variables
+
+### Manual Setup
+
+See [DEPLOY_PAAS.md](./DEPLOY_PAAS.md) for detailed manual setup instructions.
+
+## Step 2: Build and Run Rexec
+
+### Using Docker
 
 ```bash
-docker run --privileged \
+# Build the image
+docker build -t rexec .
+
+# Run with remote Docker
+docker run -d \
   -p 8080:8080 \
+  -e DOCKER_HOST="tcp://your-docker-host:2376" \
+  -e DOCKER_TLS_VERIFY="1" \
+  -e DOCKER_CA_CERT="$(cat ca.pem)" \
+  -e DOCKER_CLIENT_CERT="$(cat cert.pem)" \
+  -e DOCKER_CLIENT_KEY="$(cat key.pem)" \
   -e DATABASE_URL="postgres://user:pass@host:5432/rexec" \
   -e JWT_SECRET="your-secret" \
-  rexec-standalone
+  rexec
 ```
 
-## Using Docker Compose
-
-For a complete local environment with PostgreSQL and Redis, use the provided compose file:
+### Using Docker Compose
 
 ```bash
 cd docker
-docker compose up --build
+docker compose up -d
 ```
 
-## Deploying to PaaS (Railway, Fly.io, etc.)
+Make sure to set the environment variables in `docker-compose.yml` or a `.env` file.
 
-Many modern PaaS providers support running Docker-in-Docker (DinD).
+## Step 3: Configure Environment Variables
 
-### Railway.app
+### Required Variables
 
-1.  **New Project** -> **GitHub Repo**.
-2.  **Settings** -> **Build**:
-    - Set **Dockerfile Path** to `Dockerfile`.
-3.  **Variables**:
-    - `DATABASE_URL`: Connect to a Postgres service.
-    - `JWT_SECRET`: Random string.
-    - `PORT`: `8080`.
-4.  **Service Settings**:
-    - Enable **Privileged Mode** (often required for nested Docker functionality).
+| Variable             | Description                             |
+| -------------------- | --------------------------------------- |
+| `DOCKER_HOST`        | `tcp://YOUR_DOCKER_HOST_IP:2376`        |
+| `DOCKER_TLS_VERIFY`  | `1` (enable TLS verification)           |
+| `DOCKER_CA_CERT`     | Contents of `ca.pem` from Docker host   |
+| `DOCKER_CLIENT_CERT` | Contents of `cert.pem` from Docker host |
+| `DOCKER_CLIENT_KEY`  | Contents of `key.pem` from Docker host  |
+| `DATABASE_URL`       | PostgreSQL connection string            |
+| `JWT_SECRET`         | Secret for signing auth tokens          |
+
+### Optional Variables
+
+| Variable            | Default | Description                           |
+| ------------------- | ------- | ------------------------------------- |
+| `REDIS_URL`         | -       | Redis connection string (recommended) |
+| `PORT`              | `8080`  | API server port                       |
+| `GIN_MODE`          | -       | Set to `release` for production       |
+| `STRIPE_SECRET_KEY` | -       | For billing features                  |
+
+## Deploying to PaaS Platforms
+
+### Railway
+
+1. Create a new project from your GitHub repo
+2. Set **Dockerfile Path** to `Dockerfile`
+3. Add environment variables (see above)
+4. Deploy
+
+### PipeOps / Render
+
+1. Connect your repository
+2. Select Dockerfile deployment
+3. Configure environment variables
+4. Deploy
 
 ### Fly.io
 
-Fly.io supports this natively via their Firecracker microVMs.
+```bash
+# Create fly.toml
+fly launch --no-deploy
 
-1.  Create `fly.toml`.
-2.  Update the `[build]` section:
-    ```toml
-    [build]
-      dockerfile = "Dockerfile"
-    ```
-3.  Deploy.
+# Set secrets
+fly secrets set DOCKER_HOST="tcp://your-docker-host:2376"
+fly secrets set DOCKER_TLS_VERIFY="1"
+fly secrets set DOCKER_CA_CERT="$(cat ca.pem)"
+fly secrets set DOCKER_CLIENT_CERT="$(cat cert.pem)"
+fly secrets set DOCKER_CLIENT_KEY="$(cat key.pem)"
+fly secrets set DATABASE_URL="postgres://..."
+fly secrets set JWT_SECRET="..."
 
-## How it Works
+# Deploy
+fly deploy
+```
 
-1.  The image is based on `docker:27-dind-rootless`.
-2.  It creates a non-root user (`rootless`, UID 1000).
-3.  The entrypoint script (`start-standalone.sh`) starts the Docker daemon in the background.
-4.  Once the daemon is ready, it starts the Rexec API.
-5.  Rexec connects to the local daemon via the unix socket at `/run/user/1000/docker.sock`.
+## Health Check
 
-## Limitations
+Verify the deployment is working:
 
-- **Performance**: Running Docker inside Docker (even rootless) has a slight storage performance overhead due to nested overlayfs.
-- **Ephemeral Storage**: If the container restarts, all user containers and volumes created _inside_ it are lost unless you mount a persistent volume to `/var/lib/rexec`.
+```bash
+curl http://localhost:8080/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "database": "connected",
+  "docker": "connected"
+}
+```
+
+## Troubleshooting
+
+### Connection Refused to Docker Host
+
+- Check firewall allows port 2376: `sudo ufw status`
+- Verify Docker is listening: `sudo netstat -tlnp | grep 2376`
+- Test from Docker host: `docker --tlsverify -H tcp://127.0.0.1:2376 version`
+
+### TLS Certificate Errors
+
+- Ensure all three certificates are set correctly
+- Check certificates haven't expired: `openssl x509 -in cert.pem -noout -dates`
+- Verify newlines are preserved in environment variables
+
+### Docker Daemon Logs
+
+On the Docker host:
+
+```bash
+sudo journalctl -u docker -f
+```
+
+## Estimated Costs
+
+| Component      | Provider         | Cost/Month |
+| -------------- | ---------------- | ---------- |
+| Docker Host VM | Hetzner CX22     | ~€4.50     |
+| Docker Host VM | DigitalOcean     | ~$6        |
+| Docker Host VM | Fly.io           | ~$7        |
+| Rexec API      | Railway/PipeOps  | ~$5-10     |
+| PostgreSQL     | Railway/Supabase | $0-5       |
+| Redis          | Upstash          | $0-5       |
+
+**Total: ~$15-25/month** for a basic setup

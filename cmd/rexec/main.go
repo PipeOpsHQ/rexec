@@ -63,7 +63,14 @@ func main() {
 		log.Fatalf("Failed to initialize container manager: %v", err)
 	}
 	defer containerManager.Close()
-	log.Println("✅ Connected to Docker")
+
+	// Log Docker connection type
+	dockerHost := os.Getenv("DOCKER_HOST")
+	if dockerHost != "" {
+		log.Printf("✅ Connected to Docker (remote: %s)", dockerHost)
+	} else {
+		log.Println("✅ Connected to Docker (local socket)")
+	}
 
 	// Load existing containers from Docker
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

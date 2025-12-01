@@ -1,3 +1,32 @@
+# Rexec Dockerfile (Remote Docker Daemon)
+# ========================================
+# This Dockerfile builds Rexec configured to connect to a remote Docker daemon.
+# No local Docker daemon is required - set DOCKER_HOST to your remote Docker host.
+#
+# Environment Variables:
+# ----------------------
+# DOCKER_HOST          - Remote Docker daemon endpoint (required)
+#                        Examples:
+#                          tcp://your-docker-host:2376   (TLS)
+#                          tcp://your-docker-host:2375   (no TLS, not recommended)
+#                          ssh://user@your-docker-host   (via SSH)
+#
+# For TLS connections (recommended):
+#   DOCKER_TLS_VERIFY  - Set to "1" to enable TLS verification
+#   DOCKER_CERT_PATH   - Path to TLS certificates (default: ~/.docker)
+#
+#   Or provide certificates directly:
+#   DOCKER_CA_CERT     - CA certificate content (PEM format)
+#   DOCKER_CLIENT_CERT - Client certificate content (PEM format)
+#   DOCKER_CLIENT_KEY  - Client private key content (PEM format)
+#
+# For SSH connections:
+#   SSH_PRIVATE_KEY    - SSH private key content for authentication
+#
+# Database:
+#   DATABASE_URL       - PostgreSQL connection string
+#   REDIS_URL          - Redis connection string (optional)
+
 # Frontend build stage
 FROM node:20-alpine AS frontend-builder
 
@@ -39,22 +68,32 @@ COPY --from=frontend-builder /app/web ./web
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o rexec ./cmd/rexec
 
-# Runtime stage - using Docker-in-Docker Rootless
-# This image contains the necessary binaries and configuration to run Docker
-# without root privileges inside the container.
-FROM docker:27-dind-rootless
-
-# Switch to root temporarily to setup directories and install deps
-USER root
+# Runtime stage - lightweight Alpine
+FROM alpine:3.20
 
 # Install runtime dependencies
+# - ca-certificates: For TLS connections
+# - tzdata: For timezone support
+# - docker-cli: For Docker commands (uses DOCKER_HOST)
+# - openssh-client: For SSH-based Docker connections
+# - curl: For health checks and debugging
 RUN apk add --no-cache \
     ca-certificates \
     tzdata \
-    git \
-    bash
+    docker-cli \
+    openssh-client \
+    curl
 
-# Create application directory
+# Create non-root user
+RUN adduser -D -g '' -u 1000 rexec
+
+# Create necessary directories
+RUN mkdir -p /var/lib/rexec/volumes && \
+    mkdir -p /home/rexec/.docker && \
+    mkdir -p /home/rexec/.ssh && \
+    chown -R rexec:rexec /var/lib/rexec /home/rexec
+
+# Set working directory
 WORKDIR /app
 
 # Copy binary from builder
@@ -63,33 +102,29 @@ COPY --from=builder /app/rexec /usr/local/bin/rexec
 # Copy web directory for frontend
 COPY --from=builder /app/web /app/web
 
-# Copy standalone startup script
-COPY scripts/start-standalone.sh /usr/local/bin/start-standalone.sh
-RUN chmod +x /usr/local/bin/start-standalone.sh
+# Copy entrypoint script
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Create all necessary directories and ensure permissions for the rootless user (UID 1000)
-# These directories must be writable at runtime for rootless Docker
-RUN mkdir -p /var/lib/rexec/volumes && \
-    mkdir -p /run/user/1000 && \
-    mkdir -p /home/rootless/.local/share/docker && \
-    mkdir -p /home/rootless/.docker && \
-    chown -R rootless:rootless /var/lib/rexec && \
-    chown -R rootless:rootless /app && \
-    chown -R rootless:rootless /run/user/1000 && \
-    chown -R rootless:rootless /home/rootless && \
-    chmod 700 /run/user/1000
+# Set ownership
+RUN chown -R rexec:rexec /app
 
-# Switch back to the unprivileged user provided by the base image
-USER rootless
+# Switch to non-root user
+USER rexec
+
+# Set HOME for the rexec user (needed for .docker and .ssh directories)
+ENV HOME=/home/rexec
 
 # Expose the API port
 EXPOSE 8080
 
-# Set environment variables for rootless Docker
+# Set default environment variables
 ENV PORT=8080
-ENV HOME=/home/rootless
-ENV XDG_RUNTIME_DIR=/run/user/1000
-ENV DOCKER_HOST=unix:///run/user/1000/docker.sock
 
-# Use the standalone startup script
-ENTRYPOINT ["start-standalone.sh"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Run the application
+ENTRYPOINT ["entrypoint.sh"]
+CMD ["rexec"]

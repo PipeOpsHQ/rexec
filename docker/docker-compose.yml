@@ -1,31 +1,24 @@
 version: "3.8"
 
 services:
-  # Rexec Standalone (API + Rootless Docker in one container)
-  rexec-standalone:
+  # Rexec API (connects to remote Docker daemon)
+  rexec:
     build:
       context: ../
       dockerfile: Dockerfile
-    # Privileged mode is required for Docker-in-Docker (DinD) to function correctly
-    privileged: true
     ports:
       - "8080:8080"
     environment:
       - PORT=8080
-      - JWT_SECRET=${JWT_SECRET:-rexec-standalone-secret-change-me}
+      - JWT_SECRET=${JWT_SECRET:-rexec-dev-secret-change-me}
       - DATABASE_URL=postgres://rexec:${POSTGRES_PASSWORD:-rexec_dev_password}@postgres:5432/rexec?sslmode=disable
       - REDIS_URL=redis://redis:6379
-      - HOME=/home/rootless
-      - XDG_RUNTIME_DIR=/run/user/1000
-      # Note: DOCKER_HOST is already set to the internal rootless socket in the Dockerfile
-    volumes:
-      # Persist Docker data (container images and user volumes)
-      - docker-data:/home/rootless/.local/share/docker
-      # Runtime directory needs tmpfs for proper socket handling
-      - type: tmpfs
-        target: /run/user/1000
-        tmpfs:
-          mode: 0700
+      # Remote Docker daemon configuration
+      - DOCKER_HOST=${DOCKER_HOST}
+      - DOCKER_TLS_VERIFY=${DOCKER_TLS_VERIFY:-1}
+      - DOCKER_CA_CERT=${DOCKER_CA_CERT}
+      - DOCKER_CLIENT_CERT=${DOCKER_CLIENT_CERT}
+      - DOCKER_CLIENT_KEY=${DOCKER_CLIENT_KEY}
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,6 +27,12 @@ services:
     restart: unless-stopped
     networks:
       - rexec-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Redis for session management
   redis:
@@ -65,7 +64,6 @@ services:
 volumes:
   redis-data:
   postgres-data:
-  docker-data: # Stores container images and user home directories
 
 networks:
   rexec-network:

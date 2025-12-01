@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -501,18 +502,43 @@ type Manager struct {
 }
 
 // NewManager creates a new container manager
+// Supports local Docker socket or remote Docker host via DOCKER_HOST environment variable.
+// For remote connections, set:
+//   - DOCKER_HOST=tcp://host:2376 (TLS) or tcp://host:2375 (no TLS)
+//   - DOCKER_TLS_VERIFY=1 (for TLS connections)
+//   - DOCKER_CERT_PATH=/path/to/certs (for TLS connections)
 func NewManager(volumePaths ...string) (*Manager, error) {
+	dockerHost := os.Getenv("DOCKER_HOST")
+
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
+		if dockerHost != "" {
+			return nil, fmt.Errorf("failed to create docker client for remote host %s: %w", dockerHost, err)
+		}
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
 
-	// Test connection
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Test connection with longer timeout for remote hosts
+	timeout := 5 * time.Second
+	if dockerHost != "" {
+		timeout = 15 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	_, err = cli.Ping(ctx)
 	if err != nil {
+		cli.Close()
+		if dockerHost != "" {
+			// Provide helpful error message for remote Docker host issues
+			errMsg := fmt.Sprintf("failed to connect to remote Docker daemon at %s", dockerHost)
+			if strings.Contains(dockerHost, ":2376") {
+				errMsg += " (TLS enabled - check DOCKER_TLS_VERIFY and DOCKER_CERT_PATH)"
+			} else if strings.Contains(dockerHost, "ssh://") {
+				errMsg += " (SSH connection - check SSH_PRIVATE_KEY and host accessibility)"
+			}
+			return nil, fmt.Errorf("%s: %w", errMsg, err)
+		}
 		return nil, fmt.Errorf("failed to connect to docker daemon: %w", err)
 	}
 
