@@ -15,7 +15,17 @@ services:
       - JWT_SECRET=${JWT_SECRET:-rexec-standalone-secret-change-me}
       - DATABASE_URL=postgres://rexec:${POSTGRES_PASSWORD:-rexec_dev_password}@postgres:5432/rexec?sslmode=disable
       - REDIS_URL=redis://redis:6379
+      - HOME=/home/rootless
+      - XDG_RUNTIME_DIR=/run/user/1000
       # Note: DOCKER_HOST is already set to the internal rootless socket in the Dockerfile
+    volumes:
+      # Persist Docker data (container images and user volumes)
+      - docker-data:/home/rootless/.local/share/docker
+      # Runtime directory needs tmpfs for proper socket handling
+      - type: tmpfs
+        target: /run/user/1000
+        tmpfs:
+          mode: 0700
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +65,7 @@ services:
 volumes:
   redis-data:
   postgres-data:
+  docker-data: # Stores container images and user home directories
 
 networks:
   rexec-network:

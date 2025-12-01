@@ -14,10 +14,33 @@ if ! command -v rexec >/dev/null 2>&1; then
     exit 1
 fi
 
+# Ensure HOME is set and writable
+if [ -z "$HOME" ]; then
+    export HOME=/home/rootless
+fi
+echo "--> HOME=$HOME"
+
+# Ensure HOME directory exists and is writable
+if [ ! -d "$HOME" ]; then
+    echo "--> Creating HOME directory..."
+    mkdir -p "$HOME"
+fi
+
+# Ensure Docker data directories exist
+mkdir -p "$HOME/.local/share/docker"
+mkdir -p "$HOME/.docker"
+
 # Ensure XDG_RUNTIME_DIR is set for rootless docker
 if [ -z "$XDG_RUNTIME_DIR" ]; then
     export XDG_RUNTIME_DIR=/run/user/$(id -u)
+fi
+echo "--> XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+
+# Ensure XDG_RUNTIME_DIR exists and has correct permissions
+if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+    echo "--> Creating XDG_RUNTIME_DIR..."
     mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
 fi
 
 # Start the Docker daemon
