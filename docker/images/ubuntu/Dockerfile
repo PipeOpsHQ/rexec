@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install essential packages including SSH server
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
     wget \
@@ -99,11 +99,8 @@ RUN echo '#!/bin/bash' > /etc/update-motd.d/00-rexec \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose SSH port
-EXPOSE 22
-
-# Switch to root for entrypoint (will drop privileges for user sessions)
-USER root
+# Switch to non-root user
+USER user
 
 # Use entrypoint script
 ENTRYPOINT ["/entrypoint.sh"]

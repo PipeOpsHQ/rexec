@@ -7,7 +7,7 @@ ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
 # Install essential packages including SSH server
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
     wget \
@@ -89,9 +89,6 @@ RUN echo '#!/bin/bash\n\
     exec "$@"\n\
     fi' > /entrypoint.sh \
     && chmod +x /entrypoint.sh
-
-# Expose SSH port
-EXPOSE 22
 
 # Switch to non-root user
 USER user
