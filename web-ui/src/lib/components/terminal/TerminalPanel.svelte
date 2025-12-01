@@ -1,17 +1,48 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, afterUpdate } from 'svelte';
   import { terminal, type TerminalSession } from '$stores/terminal';
 
   export let session: TerminalSession;
 
   let containerElement: HTMLDivElement;
-  let isAttached = false;
+  let currentContainerId: string | null = null;
+
+  // Re-attach terminal when container element changes or becomes available
+  function attachIfNeeded() {
+    if (!containerElement || !session) return;
+
+    // Check if terminal needs to be attached to this container
+    const terminalParent = session.terminal?.element?.parentElement;
+
+    if (terminalParent !== containerElement) {
+      // Terminal is not attached to this container, re-attach it
+      // First, clear the container
+      containerElement.innerHTML = '';
+
+      // Re-open terminal in this container
+      if (session.terminal) {
+        session.terminal.open(containerElement);
+
+        // Fit after re-attachment
+        setTimeout(() => {
+          terminal.fitSession(session.id);
+        }, 50);
+      }
+
+      currentContainerId = session.id;
+    }
+  }
 
   onMount(() => {
-    if (containerElement && session && !isAttached) {
-      // Attach terminal to DOM
-      terminal.attachTerminal(session.id, containerElement);
-      isAttached = true;
+    if (containerElement && session) {
+      // Check if terminal is already initialized
+      if (session.terminal?.element) {
+        // Re-attach to this container
+        attachIfNeeded();
+      } else {
+        // First time attachment
+        terminal.attachTerminal(session.id, containerElement);
+      }
 
       // Connect WebSocket if not already connected or connecting
       if (!session.ws || (session.ws.readyState !== WebSocket.OPEN && session.ws.readyState !== WebSocket.CONNECTING)) {
@@ -20,8 +51,15 @@
     }
   });
 
+  // Re-attach after DOM updates (handles dock/float switching)
+  afterUpdate(() => {
+    attachIfNeeded();
+  });
+
   onDestroy(() => {
-    // Cleanup is handled by the terminal store when session is closed
+    // Don't dispose terminal here - it's managed by the store
+    // Just clean up local references
+    currentContainerId = null;
   });
 
   // Actions
@@ -50,6 +88,13 @@
         session.ws.send(JSON.stringify({ type: 'input', data: text }));
       }
     });
+  }
+
+  // Focus terminal when clicking on container
+  function handleContainerClick() {
+    if (session.terminal) {
+      session.terminal.focus();
+    }
   }
 
   // Reactive status
@@ -89,7 +134,13 @@
   </div>
 
   <!-- Terminal Container -->
-  <div class="terminal-container" bind:this={containerElement}></div>
+  <div
+    class="terminal-container"
+    bind:this={containerElement}
+    on:click={handleContainerClick}
+    role="textbox"
+    tabindex="0"
+  ></div>
 
   <!-- Connection overlay -->
   {#if isConnecting}
@@ -215,6 +266,10 @@
     width: 100%;
     overflow: hidden;
     padding: 8px;
+  }
+
+  .terminal-container:focus {
+    outline: none;
   }
 
   .terminal-container :global(.xterm) {

@@ -1,8 +1,13 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { auth } from '$stores/auth';
 
-  async function handleGuestLogin() {
-    await auth.guestLogin();
+  const dispatch = createEventDispatcher<{
+    guest: void;
+  }>();
+
+  function handleGuestClick() {
+    dispatch('guest');
   }
 
   async function handleOAuthLogin() {
@@ -32,7 +37,7 @@
     </p>
 
     <div class="landing-actions">
-      <button class="btn btn-primary btn-lg" on:click={handleGuestLogin}>
+      <button class="btn btn-primary btn-lg" on:click={handleGuestClick}>
         Try Now — No Sign Up
       </button>
       <button class="btn btn-secondary btn-lg" on:click={handleOAuthLogin}>

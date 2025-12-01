@@ -6,12 +6,15 @@
   const dispatch = createEventDispatcher<{
     home: void;
     create: void;
+    settings: void;
+    sshkeys: void;
+    guest: void;
   }>();
 
   let showUserMenu = false;
 
-  async function handleGuestLogin() {
-    await auth.guestLogin();
+  function handleGuestClick() {
+    dispatch('guest');
   }
 
   async function handleOAuthLogin() {
@@ -89,15 +92,15 @@
                 Sign in with PipeOps
               </button>
             {:else}
-              <button class="user-menu-item" on:click={() => dispatch('home')}>
+              <button class="user-menu-item" on:click={() => { showUserMenu = false; dispatch('home'); }}>
                 <span>📊</span>
                 Dashboard
               </button>
-              <button class="user-menu-item">
+              <button class="user-menu-item" on:click={() => { showUserMenu = false; dispatch('settings'); }}>
                 <span>⚙️</span>
                 Settings
               </button>
-              <button class="user-menu-item">
+              <button class="user-menu-item" on:click={() => { showUserMenu = false; dispatch('sshkeys'); }}>
                 <span>🔑</span>
                 SSH Keys
               </button>
@@ -113,7 +116,7 @@
         {/if}
       </div>
     {:else}
-      <button class="btn btn-secondary btn-sm" on:click={handleGuestLogin}>
+      <button class="btn btn-secondary btn-sm" on:click={handleGuestClick}>
         Try as Guest
       </button>
       <button class="btn btn-primary btn-sm" on:click={handleOAuthLogin}>

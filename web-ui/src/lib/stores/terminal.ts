@@ -40,14 +40,15 @@ const WS_MAX_RECONNECT = 5;
 const WS_RECONNECT_DELAY = 2000;
 const WS_PING_INTERVAL = 25000;
 
-const REXEC_BANNER = `\x1b[38;5;46m
-  ██████╗ ███████╗██╗  ██╗███████╗ ██████╗
-  ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝
-  ██████╔╝█████╗   ╚███╔╝ █████╗  ██║
-  ██╔══██╗██╔══╝   ██╔██╗ ██╔══╝  ██║
-  ██║  ██║███████╗██╔╝ ██╗███████╗╚██████╗
-  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝
-\x1b[0m\x1b[38;5;243m  Terminal as a Service · rexec.dev\x1b[0m\r\n`;
+const REXEC_BANNER =
+  "\x1b[38;5;46m\r\n" +
+  "  ██████╗ ███████╗██╗  ██╗███████╗ ██████╗\r\n" +
+  "  ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝\r\n" +
+  "  ██████╔╝█████╗   ╚███╔╝ █████╗  ██║\r\n" +
+  "  ██╔══██╗██╔══╝   ██╔██╗ ██╔══╝  ██║\r\n" +
+  "  ██║  ██║███████╗██╔╝ ██╗███████╗╚██████╗\r\n" +
+  "  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝\r\n" +
+  "\x1b[0m\x1b[38;5;243m  Terminal as a Service · rexec.dev\x1b[0m\r\n\r\n";
 
 // Terminal configuration
 const TERMINAL_OPTIONS = {
@@ -275,14 +276,7 @@ function createTerminalStore() {
           reconnectAttempts: 0,
         }));
 
-        // Write banner and connected message
-        session.terminal.write(REXEC_BANNER);
-        session.terminal.writeln("\x1b[32m⚡ Connected\x1b[0m");
-        session.terminal.writeln(
-          "\x1b[38;5;243m  Type 'help' for tips & shortcuts\x1b[0m\r\n",
-        );
-
-        // Send initial resize
+        // Send initial resize first
         ws.send(
           JSON.stringify({
             type: "resize",
@@ -291,6 +285,17 @@ function createTerminalStore() {
           }),
         );
 
+        // Clear terminal and write banner after a short delay to ensure proper sizing
+        setTimeout(() => {
+          session.terminal.clear();
+          session.terminal.write(REXEC_BANNER);
+          session.terminal.writeln("\x1b[32m⚡ Connected\x1b[0m");
+          session.terminal.writeln(
+            "\x1b[38;5;243m  Type 'help' for tips & shortcuts\x1b[0m\r\n",
+          );
+        }, 100);
+
+        // Send resize again after fit
         // Setup ping interval
         const pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -507,6 +512,11 @@ function createTerminalStore() {
       const session = state.sessions.get(sessionId);
       if (!session || !element) return;
 
+      // Clean up old resize observer if exists
+      if (session.resizeObserver) {
+        session.resizeObserver.disconnect();
+      }
+
       session.terminal.open(element);
 
       // Setup resize observer
@@ -522,6 +532,40 @@ function createTerminalStore() {
       setTimeout(() => this.fitSession(sessionId), 50);
       setTimeout(() => this.fitSession(sessionId), 150);
       setTimeout(() => this.fitSession(sessionId), 300);
+    },
+
+    // Re-attach terminal to a new DOM element (for dock/float switching)
+    reattachTerminal(sessionId: string, element: HTMLElement) {
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      if (!session || !element) return;
+
+      // Clean up old resize observer
+      if (session.resizeObserver) {
+        session.resizeObserver.disconnect();
+      }
+
+      // Clear the new container
+      element.innerHTML = "";
+
+      // Re-open terminal in new container
+      session.terminal.open(element);
+
+      // Setup new resize observer
+      if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(() => {
+          this.fitSession(sessionId);
+        });
+        resizeObserver.observe(element);
+        updateSession(sessionId, (s) => ({ ...s, resizeObserver }));
+      }
+
+      // Fit and focus
+      setTimeout(() => {
+        this.fitSession(sessionId);
+        session.terminal.focus();
+      }, 50);
+      setTimeout(() => this.fitSession(sessionId), 150);
     },
 
     // Write to terminal
