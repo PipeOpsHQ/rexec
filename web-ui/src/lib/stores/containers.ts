@@ -233,10 +233,37 @@ function createContainersStore() {
         },
         body: JSON.stringify(body),
       })
-        .then((response) => {
+        .then(async (response) => {
           if (!response.ok) {
+            clearTimeout(fallbackTimeout);
+            // Try to get error message from response
+            const text = await response.text();
+            console.error(
+              "[SSE] Response not OK:",
+              response.status,
+              text.slice(0, 200),
+            );
             update((state) => ({ ...state, creating: null }));
-            throw new Error("Failed to create container");
+
+            // Try to parse as JSON error
+            try {
+              const errData = JSON.parse(text);
+              onError?.(errData.error || `Server error: ${response.status}`);
+            } catch {
+              onError?.(`Server error: ${response.status}`);
+            }
+            return;
+          }
+
+          // Check content type
+          const contentType = response.headers.get("content-type");
+          console.log("[SSE] Response content-type:", contentType);
+
+          if (!contentType?.includes("text/event-stream")) {
+            console.warn(
+              "[SSE] Unexpected content-type, may not be SSE:",
+              contentType,
+            );
           }
 
           const reader = response.body?.getReader();
@@ -252,11 +279,40 @@ function createContainersStore() {
             }
 
             if (!line.startsWith("data: ")) {
-              console.debug("[SSE] Skipping non-data line:", line.slice(0, 50));
+              // Log non-data lines for debugging (could be comments or errors)
+              if (line.trim() && !line.startsWith(":")) {
+                console.debug("[SSE] Non-data line:", line.slice(0, 100));
+              }
               return;
             }
 
-            const jsonStr = line.slice(6);
+            const jsonStr = line.slice(6).trim();
+
+            // Skip empty data
+            if (!jsonStr) {
+              console.debug("[SSE] Empty data line");
+              return;
+            }
+
+            // Check if it looks like JSON
+            if (!jsonStr.startsWith("{")) {
+              console.warn("[SSE] Data is not JSON:", jsonStr.slice(0, 200));
+              // Could be HTML error page or other content
+              if (jsonStr.includes("<!DOCTYPE") || jsonStr.includes("<html")) {
+                console.error(
+                  "[SSE] Received HTML instead of JSON - likely an error page",
+                );
+                if (!completed) {
+                  completed = true;
+                  update((state) => ({ ...state, creating: null }));
+                  onError?.(
+                    "Server returned an error page instead of stream data",
+                  );
+                }
+              }
+              return;
+            }
+
             console.debug("[SSE] Processing event:", jsonStr.slice(0, 100));
 
             try {
@@ -316,9 +372,11 @@ function createContainersStore() {
             } catch (e) {
               console.warn(
                 "[SSE] Failed to parse event:",
-                jsonStr.slice(0, 100),
+                jsonStr.slice(0, 200),
                 e,
               );
+              // If we get repeated parse errors, something is wrong
+              // Don't fail immediately, let the fallback timeout handle it
             }
           }
 
