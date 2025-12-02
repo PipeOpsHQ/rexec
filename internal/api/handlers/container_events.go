@@ -157,7 +157,6 @@ func (h *ContainerEventsHub) sendContainerList(conn *websocket.Conn, userID, tie
 		return
 	}
 
-	limits := models.TierLimits(tier)
 	containers := make([]gin.H, 0, len(records))
 
 	for _, record := range records {
@@ -167,6 +166,17 @@ func (h *ContainerEventsHub) sendContainerList(conn *websocket.Conn, userID, tie
 		if info, ok := h.manager.GetContainer(record.DockerID); ok {
 			status = info.Status
 			idleTime = time.Since(info.LastUsedAt).Seconds()
+		}
+
+		// Use stored resources from database (with fallback to tier limits for old containers)
+		memoryMB := record.MemoryMB
+		cpuShares := record.CPUShares
+		diskMB := record.DiskMB
+		if memoryMB == 0 {
+			limits := models.TierLimits(tier)
+			memoryMB = limits.MemoryMB
+			cpuShares = limits.CPUShares
+			diskMB = limits.DiskMB
 		}
 
 		containers = append(containers, gin.H{
@@ -180,9 +190,9 @@ func (h *ContainerEventsHub) sendContainerList(conn *websocket.Conn, userID, tie
 			"last_used_at": record.LastUsedAt,
 			"idle_seconds": idleTime,
 			"resources": gin.H{
-				"memory_mb":  limits.MemoryMB,
-				"cpu_shares": limits.CPUShares,
-				"disk_mb":    limits.DiskMB,
+				"memory_mb":  memoryMB,
+				"cpu_shares": cpuShares,
+				"disk_mb":    diskMB,
 			},
 		})
 	}
