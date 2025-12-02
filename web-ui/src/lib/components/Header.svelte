@@ -130,12 +130,12 @@
 
     <nav class="nav-actions">
         {#if $isAuthenticated}
-            <button
-                class="btn btn-primary btn-sm"
-                on:click={() => dispatch("create")}
-            >
-                + New Terminal
-            </button>
+            {#if $sessionCount > 0}
+                <span class="terminal-status">
+                    <span class="terminal-dot"></span>
+                    {$sessionCount} Active
+                </span>
+            {/if}
 
             <div class="user-menu-container">
                 <button
@@ -366,6 +366,28 @@
         display: flex;
         align-items: center;
         gap: 12px;
+    }
+
+    .terminal-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid rgba(0, 255, 65, 0.3);
+        font-size: 11px;
+        font-family: var(--font-mono);
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .terminal-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--accent);
+        border-radius: 50%;
+        animation: pulse 1.5s ease-in-out infinite;
     }
 
     .user-menu-container {

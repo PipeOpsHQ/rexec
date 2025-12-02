@@ -411,12 +411,7 @@
                             </div>
                         </div>
                     {/if}
-                    {#if containerConnected}
-                        <div class="connected-badge">
-                            <span class="connected-dot"></span>
-                            Connected
-                        </div>
-                    {/if}
+
                     <div class="container-header">
                         <span class="container-icon">
                             <PlatformIcon platform={getDistro(container.image)} size={32} />
@@ -871,40 +866,7 @@
         box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
     }
 
-    .connected-badge {
-        position: absolute;
-        top: -8px;
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 3px 10px;
-        background: rgba(0, 217, 255, 0.2);
-        border: 1px solid rgba(0, 217, 255, 0.5);
-        border-radius: 12px;
-        font-size: 10px;
-        font-family: var(--font-mono);
-        color: #00d9ff;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        z-index: 10;
-        box-shadow: 0 2px 8px rgba(0, 217, 255, 0.2);
-        z-index: 5;
-    }
 
-    .connected-dot {
-        width: 6px;
-        height: 6px;
-        background: #00d9ff;
-        border-radius: 50%;
-        animation: pulse-connected 1.5s ease-in-out infinite;
-    }
-
-    @keyframes pulse-connected {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
-    }
 
     /* Loading states */
     .container-card.loading {
