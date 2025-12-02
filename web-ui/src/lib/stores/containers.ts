@@ -8,7 +8,13 @@ export interface Container {
   user_id: string;
   name: string;
   image: string;
-  status: "running" | "stopped" | "creating" | "error";
+  status:
+    | "running"
+    | "stopped"
+    | "creating"
+    | "starting"
+    | "stopping"
+    | "error";
   created_at: string;
   last_used_at?: string;
   idle_seconds?: number;
@@ -625,7 +631,7 @@ function createContainersStore() {
       update((state) => ({
         ...state,
         containers: state.containers.map((c) =>
-          c.id === id ? { ...c, status: "creating" as const } : c,
+          c.id === id ? { ...c, status: "starting" as const } : c,
         ),
       }));
 
@@ -671,7 +677,7 @@ function createContainersStore() {
       update((state) => ({
         ...state,
         containers: state.containers.map((c) =>
-          c.id === id ? { ...c, status: "creating" as const } : c,
+          c.id === id ? { ...c, status: "stopping" as const } : c,
         ),
       }));
 
