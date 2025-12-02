@@ -488,6 +488,7 @@
                                         class="btn btn-primary btn-sm flex-1"
                                         on:click={() =>
                                             handleConnect(container)}
+                                        disabled={isContainerLoading(container.id)}
                                     >
                                         <svg
                                             class="icon"
@@ -508,7 +509,10 @@
                                         Connect
                                     </button>
                                 {:else}
-                                    <span class="connected-badge flex-1">
+                                    <button
+                                        class="btn btn-secondary btn-sm flex-1 connected-btn"
+                                        disabled
+                                    >
                                         <svg
                                             class="icon"
                                             viewBox="0 0 24 24"
@@ -519,11 +523,12 @@
                                             <path d="M20 6L9 17l-5-5" />
                                         </svg>
                                         Connected
-                                    </span>
+                                    </button>
                                 {/if}
                                 <button
-                                    class="btn btn-secondary btn-sm"
+                                    class="btn btn-icon btn-sm"
                                     title="SSH Info"
+                                    disabled={isContainerLoading(container.id)}
                                 >
                                     <svg
                                         class="icon"
@@ -1131,6 +1136,24 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    /* Connected button style */
+    .connected-btn {
+        background: rgba(0, 217, 255, 0.1) !important;
+        border-color: rgba(0, 217, 255, 0.3) !important;
+        color: #00d9ff !important;
+        cursor: default !important;
+    }
+
+    .connected-btn .icon {
+        color: #00d9ff;
+    }
+
+    /* Icon-only button */
+    .btn-icon {
+        padding: 6px 8px !important;
+        min-width: auto !important;
     }
 
     .container-meta {

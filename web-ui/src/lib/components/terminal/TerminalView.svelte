@@ -1310,6 +1310,7 @@
         bottom: 0;
         left: 0;
         right: 0;
+        height: 45vh;
         background: var(--bg);
         border-top: 1px solid var(--border);
         z-index: 1000;
