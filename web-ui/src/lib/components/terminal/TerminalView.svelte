@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy, tick } from "svelte";
-    import { terminal, sessionCount, isFloating } from "$stores/terminal";
+    import { terminal, sessionCount, isFloating, isFullscreen } from "$stores/terminal";
     import { toast } from "$stores/toast";
     import TerminalPanel from "./TerminalPanel.svelte";
     import InlineCreateTerminal from "../InlineCreateTerminal.svelte";
@@ -122,6 +122,14 @@
         // Wait a tick then fit all terminals
         tick().then(() => terminal.fitAll());
     }
+
+    // Toggle fullscreen mode
+    function toggleFullscreen() {
+        terminal.toggleFullscreen();
+        viewModeKey++;
+        tick().then(() => terminal.fitAll());
+    }
+
     function minimize() {
         terminal.minimize();
     }
@@ -322,7 +330,85 @@
 </script>
 
 {#if $sessionCount > 0}
-    {#if $isFloating}
+    {#if $isFullscreen}
+        <!-- Fullscreen Terminal -->
+        <div class="fullscreen-terminal">
+            <!-- Header -->
+            <div class="fullscreen-header">
+                <div class="fullscreen-tabs">
+                    {#each dockedSessions as [id, session] (id)}
+                        <button
+                            class="fullscreen-tab"
+                            class:active={id === activeId && !showCreatePanel}
+                            on:click={() => {
+                                showCreatePanel = false;
+                                setActive(id);
+                            }}
+                        >
+                            <span class="status-dot {getStatusClass(session.status)}"></span>
+                            <span class="tab-name">{session.name}</span>
+                            <button
+                                class="tab-close"
+                                on:click|stopPropagation={() => closeSession(id)}
+                                title="Close"
+                            >
+                                ×
+                            </button>
+                        </button>
+                    {/each}
+                    <button
+                        class="fullscreen-tab new-tab-btn"
+                        class:active={showCreatePanel}
+                        on:click={openCreatePanel}
+                        title="New Terminal"
+                    >
+                        +
+                    </button>
+                </div>
+
+                <div class="fullscreen-actions">
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        on:click={toggleFullscreen}
+                        title="Exit Fullscreen"
+                    >
+                        ⛶
+                    </button>
+                    <button
+                        class="btn btn-danger btn-sm"
+                        on:click={() => activeId && closeSession(activeId)}
+                        title="Close Current Terminal"
+                        disabled={!activeId}
+                    >
+                        ×
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="fullscreen-body">
+                {#if showCreatePanel}
+                    <div class="create-panel fullscreen-create">
+                        <div class="create-panel-header">
+                            <h3>New Terminal</h3>
+                            <button class="close-create" on:click={closeCreatePanel}>× Cancel</button>
+                        </div>
+                        <InlineCreateTerminal
+                            compact={false}
+                            on:created={(e) => handleInlineCreated(e.detail.id, e.detail.name)}
+                            on:cancel={closeCreatePanel}
+                        />
+                    </div>
+                {:else}
+                    {#each dockedSessions as [id, session] (`full-${viewModeKey}-${id}`)}
+                        <div class="terminal-panel" class:active={id === activeId}>
+                            <TerminalPanel {session} />
+                        </div>
+                    {/each}
+                {/if}
+            </div>
+        </div>
+    {:else if $isFloating}
         <!-- Floating Terminal -->
         <div class="floating-container">
             <div
@@ -380,6 +466,9 @@
                     </div>
 
                     <div class="floating-actions">
+                        <button on:click={toggleFullscreen} title="Fullscreen">
+                            ⛶
+                        </button>
                         <button on:click={toggleView} title="Toggle View">
                             ⬒
                         </button>
@@ -507,6 +596,13 @@
                     <div class="docked-actions">
                         <button
                             class="btn btn-secondary btn-sm"
+                            on:click={toggleFullscreen}
+                            title="Fullscreen"
+                        >
+                            ⛶
+                        </button>
+                        <button
+                            class="btn btn-secondary btn-sm"
                             on:click={toggleView}
                             title="Float"
                         >
@@ -616,6 +712,105 @@
 {/each}
 
 <style>
+    /* Fullscreen Terminal */
+    .fullscreen-terminal {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+    }
+
+    .fullscreen-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 8px 16px;
+        background: #0a0a0a;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+    }
+
+    .fullscreen-tabs {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        flex: 1;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .fullscreen-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .fullscreen-tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 4px 4px 0 0;
+        color: var(--text-secondary);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        border-bottom: none;
+        margin-bottom: -1px;
+        white-space: nowrap;
+    }
+
+    .fullscreen-tab:hover {
+        background: var(--bg-secondary);
+        color: var(--text);
+    }
+
+    .fullscreen-tab.active {
+        background: var(--bg);
+        border-color: var(--accent);
+        border-bottom-color: var(--bg);
+        color: var(--text);
+    }
+
+    .fullscreen-tab.new-tab-btn {
+        background: transparent;
+        border: 1px dashed var(--border);
+        color: var(--text-muted);
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-left: 4px;
+    }
+
+    .fullscreen-tab.new-tab-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(0, 255, 65, 0.1);
+    }
+
+    .fullscreen-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    .fullscreen-body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background: #050505;
+    }
+
+    .fullscreen-create {
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
     /* Floating Container */
     .floating-container {
         position: fixed;

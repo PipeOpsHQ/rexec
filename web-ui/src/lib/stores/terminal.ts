@@ -10,7 +10,7 @@ export type SessionStatus =
   | "connected"
   | "disconnected"
   | "error";
-export type ViewMode = "floating" | "docked";
+export type ViewMode = "floating" | "docked" | "fullscreen";
 
 export interface TerminalSession {
   id: string;
@@ -638,6 +638,18 @@ function createTerminalStore() {
       this.toggleViewMode();
     },
 
+    // Toggle fullscreen mode
+    toggleFullscreen() {
+      const state = getState();
+      if (state.viewMode === "fullscreen") {
+        // Exit fullscreen - go back to docked
+        this.setViewMode("docked");
+      } else {
+        // Enter fullscreen
+        this.setViewMode("fullscreen");
+      }
+    },
+
     // Minimize
     minimize() {
       update((state) => ({ ...state, isMinimized: true }));
@@ -976,4 +988,9 @@ export const isFloating = derived(
 export const isDocked = derived(
   terminal,
   ($terminal) => $terminal.viewMode === "docked",
+);
+
+export const isFullscreen = derived(
+  terminal,
+  ($terminal) => $terminal.viewMode === "fullscreen",
 );
