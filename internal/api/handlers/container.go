@@ -437,9 +437,17 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 		return
 	}
 
-	// Get tier for resource limits
+	// Use stored resources from database (with fallback to tier limits for old containers)
 	tier := c.GetString("tier")
-	limits := models.TierLimits(tier)
+	memoryMB := found.MemoryMB
+	cpuShares := found.CPUShares
+	diskMB := found.DiskMB
+	if memoryMB == 0 {
+		limits := models.TierLimits(tier)
+		memoryMB = limits.MemoryMB
+		cpuShares = limits.CPUShares
+		diskMB = limits.DiskMB
+	}
 
 	// If Docker ID is empty, container is still being created
 	if found.DockerID == "" {
@@ -453,9 +461,9 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 			"created_at":   found.CreatedAt,
 			"last_used_at": found.LastUsedAt,
 			"resources": gin.H{
-				"memory_mb":  limits.MemoryMB,
-				"cpu_shares": limits.CPUShares,
-				"disk_mb":    limits.DiskMB,
+				"memory_mb":  memoryMB,
+				"cpu_shares": cpuShares,
+				"disk_mb":    diskMB,
 			},
 		})
 		return
@@ -474,9 +482,9 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 			"created_at":   found.CreatedAt,
 			"last_used_at": found.LastUsedAt,
 			"resources": gin.H{
-				"memory_mb":  limits.MemoryMB,
-				"cpu_shares": limits.CPUShares,
-				"disk_mb":    limits.DiskMB,
+				"memory_mb":  memoryMB,
+				"cpu_shares": cpuShares,
+				"disk_mb":    diskMB,
 			},
 		})
 		return
@@ -494,9 +502,9 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 		"ip_address":   info.IPAddress,
 		"idle_seconds": time.Since(info.LastUsedAt).Seconds(),
 		"resources": gin.H{
-			"memory_mb":  limits.MemoryMB,
-			"cpu_shares": limits.CPUShares,
-			"disk_mb":    limits.DiskMB,
+			"memory_mb":  memoryMB,
+			"cpu_shares": cpuShares,
+			"disk_mb":    diskMB,
 		},
 	})
 }
