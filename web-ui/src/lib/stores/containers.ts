@@ -9,12 +9,12 @@ export interface Container {
   name: string;
   image: string;
   status:
-  | "running"
-  | "stopped"
-  | "creating"
-  | "starting"
-  | "stopping"
-  | "error";
+    | "running"
+    | "stopped"
+    | "creating"
+    | "starting"
+    | "stopping"
+    | "error";
   created_at: string;
   last_used_at?: string;
   idle_seconds?: number;
@@ -147,7 +147,12 @@ function createContainersStore() {
     },
 
     // Create a new container
-    async createContainer(name: string, image: string, customImage?: string, role?: string) {
+    async createContainer(
+      name: string,
+      image: string,
+      customImage?: string,
+      role?: string,
+    ) {
       update((state) => ({ ...state, isLoading: true, error: null }));
 
       const body: Record<string, string> = { name, image };
@@ -235,8 +240,8 @@ function createContainersStore() {
             // Not SSE - likely Cloudflare blocking. Fall back to polling.
             console.warn(
               "SSE not available (got " +
-              contentType +
-              "), falling back to polling",
+                contentType +
+                "), falling back to polling",
             );
             // Use the polling fallback
             this.createContainerFallback(
@@ -254,7 +259,7 @@ function createContainersStore() {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(
               errorData.error ||
-              `Request failed with status ${response.status}`,
+                `Request failed with status ${response.status}`,
             );
           }
 
@@ -283,11 +288,11 @@ function createContainersStore() {
                     ...state,
                     creating: state.creating
                       ? {
-                        ...state.creating,
-                        progress: event.progress || state.creating.progress,
-                        message: event.message || state.creating.message,
-                        stage: event.stage || state.creating.stage,
-                      }
+                          ...state.creating,
+                          progress: event.progress || state.creating.progress,
+                          message: event.message || state.creating.message,
+                          stage: event.stage || state.creating.stage,
+                        }
                       : null,
                   }));
 
@@ -298,7 +303,11 @@ function createContainersStore() {
                   if (event.complete) {
                     if (event.error) {
                       update((state) => ({ ...state, creating: null }));
-                      onError?.(event.error);
+                      onError?.(
+                        typeof event.error === "string"
+                          ? event.error
+                          : "Container creation failed",
+                      );
                     } else if (event.container_id) {
                       // Fetch the created container details
                       fetch(`/api/containers/${event.container_id}`, {
@@ -352,6 +361,10 @@ function createContainersStore() {
 
                           onComplete?.(container);
                         });
+                    } else {
+                      // Completion without container_id - shouldn't happen but handle it
+                      update((state) => ({ ...state, creating: null }));
+                      onError?.("Container created but no ID received");
                     }
                   }
                 } catch {
@@ -410,7 +423,7 @@ function createContainersStore() {
                   );
                 } else {
                   update((state) => ({ ...state, creating: null }));
-                  onError?.(e.message);
+                  onError?.(e instanceof Error ? e.message : "Stream error");
                 }
               }
             }
@@ -495,11 +508,11 @@ function createContainersStore() {
           ...state,
           creating: state.creating
             ? {
-              ...state.creating,
-              progress: 20,
-              message: "Pulling image and creating container...",
-              stage: "creating",
-            }
+                ...state.creating,
+                progress: 20,
+                message: "Pulling image and creating container...",
+                stage: "creating",
+              }
             : null,
         }));
 
@@ -550,14 +563,14 @@ function createContainersStore() {
               ...state,
               creating: state.creating
                 ? {
-                  ...state.creating,
-                  progress,
-                  message:
-                    status === "creating"
-                      ? "Still creating..."
-                      : `Status: ${status}`,
-                  stage: status,
-                }
+                    ...state.creating,
+                    progress,
+                    message:
+                      status === "creating"
+                        ? "Still creating..."
+                        : `Status: ${status}`,
+                    stage: status,
+                  }
                 : null,
             }));
 

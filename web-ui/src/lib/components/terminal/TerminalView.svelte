@@ -230,12 +230,7 @@
                 progress = event.progress || 0;
                 progressMessage = event.message || "";
                 progressStage = event.stage || "";
-
-                if (event.error) {
-                    isCreating = false;
-                    showCreatePanel = false;
-                    toast.error(event.error);
-                }
+                // Don't handle errors here - let onError handle them
             },
             // onComplete
             (container) => {
@@ -243,15 +238,34 @@
                 showCreatePanel = false;
                 selectedImage = "";
                 customImage = "";
-                toast.success(`Terminal "${container.name}" created!`);
+
+                // Defensive checks for container object
+                const containerName = container?.name || name;
+                const containerId = container?.id || container?.db_id;
+
+                if (!containerId) {
+                    toast.error(
+                        "Container created but ID not found. Please refresh.",
+                    );
+                    return;
+                }
+
+                toast.success(`Terminal "${containerName}" created!`);
                 // Create session and connect
-                terminal.createSession(container.id, container.name);
+                terminal.createSession(containerId, containerName);
             },
             // onError
             (error) => {
                 isCreating = false;
                 showCreatePanel = false;
-                toast.error(error);
+                // Ensure error is a string
+                const errorMsg =
+                    typeof error === "string"
+                        ? error
+                        : error?.message ||
+                          error?.error ||
+                          "Failed to create terminal";
+                toast.error(errorMsg);
             },
         );
     }
@@ -410,7 +424,7 @@
 
         // Get container info
         const containerId = session.containerId;
-        const containerName = session.containerName;
+        const containerName = session.name;
 
         // Calculate window position (offset from cursor)
         const windowWidth = 800;
@@ -483,9 +497,7 @@
                                         session.status,
                                     )}"
                                 ></span>
-                                <span class="tab-name"
-                                    >{session.containerName}</span
-                                >
+                                <span class="tab-name">{session.name}</span>
                                 <button
                                     class="tab-close"
                                     on:click|stopPropagation={() =>
@@ -677,8 +689,7 @@
                                     session.status,
                                 )}"
                             ></span>
-                            <span class="tab-name">{session.containerName}</span
-                            >
+                            <span class="tab-name">{session.name}</span>
                             <button
                                 class="tab-close"
                                 on:click|stopPropagation={() =>
