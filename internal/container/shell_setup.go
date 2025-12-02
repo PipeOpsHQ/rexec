@@ -175,11 +175,58 @@ alias dc='docker-compose'
 alias dps='docker ps'
 alias dpsa='docker ps -a'
 
-# Welcome message
-echo ""
-echo "\033[38;5;105m  Welcome to Rexec Terminal\033[0m"
-echo "\033[38;5;243m  Type 'help' for common commands\033[0m"
-echo ""
+# Welcome message with system stats (like DigitalOcean)
+show_system_stats() {
+    # Get system info
+    local hostname=$(hostname)
+    local kernel=$(uname -r)
+    local uptime_raw=$(cat /proc/uptime 2>/dev/null | cut -d. -f1)
+    local uptime_days=$((uptime_raw / 86400))
+    local uptime_hours=$(((uptime_raw % 86400) / 3600))
+    local uptime_mins=$(((uptime_raw % 3600) / 60))
+    
+    # Memory info
+    local mem_total=$(grep MemTotal /proc/meminfo 2>/dev/null | awk '{printf "%.0f", $2/1024}')
+    local mem_avail=$(grep MemAvailable /proc/meminfo 2>/dev/null | awk '{printf "%.0f", $2/1024}')
+    local mem_used=$((mem_total - mem_avail))
+    local mem_percent=$((mem_used * 100 / mem_total))
+    
+    # Disk info
+    local disk_info=$(df -h / 2>/dev/null | tail -1)
+    local disk_used=$(echo "$disk_info" | awk '{print $3}')
+    local disk_total=$(echo "$disk_info" | awk '{print $2}')
+    local disk_percent=$(echo "$disk_info" | awk '{print $5}')
+    
+    # CPU info
+    local cpu_cores=$(nproc 2>/dev/null || echo "1")
+    local load_avg=$(cat /proc/loadavg 2>/dev/null | cut -d' ' -f1-3)
+    
+    # IP address
+    local ip_addr=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "N/A")
+    
+    # Print banner
+    echo ""
+    echo "\033[38;5;105m  ╭─────────────────────────────────────────────────────────╮\033[0m"
+    echo "\033[38;5;105m  │\033[0m           \033[1;36mWelcome to Rexec Terminal\033[0m                   \033[38;5;105m│\033[0m"
+    echo "\033[38;5;105m  ╰─────────────────────────────────────────────────────────╯\033[0m"
+    echo ""
+    echo "\033[1;33m  System Information:\033[0m"
+    echo "\033[38;5;243m  ├─ Hostname:\033[0m    $hostname"
+    echo "\033[38;5;243m  ├─ Kernel:\033[0m      $kernel"
+    echo "\033[38;5;243m  ├─ Uptime:\033[0m      ${uptime_days}d ${uptime_hours}h ${uptime_mins}m"
+    echo "\033[38;5;243m  └─ IP:\033[0m          $ip_addr"
+    echo ""
+    echo "\033[1;33m  Resources:\033[0m"
+    echo "\033[38;5;243m  ├─ CPU:\033[0m         $cpu_cores cores (load: $load_avg)"
+    echo "\033[38;5;243m  ├─ Memory:\033[0m      ${mem_used}MB / ${mem_total}MB (${mem_percent}%)"
+    echo "\033[38;5;243m  └─ Disk:\033[0m        $disk_used / $disk_total ($disk_percent)"
+    echo ""
+    echo "\033[38;5;243m  Type '\033[1;37mhelp\033[38;5;243m' for common commands\033[0m"
+    echo ""
+}
+
+# Run stats on shell start
+show_system_stats
 ZSHRC
 }
 
@@ -190,22 +237,16 @@ create_theme() {
     cat > "$HOME/.oh-my-zsh/custom/themes/rexec.zsh-theme" << 'THEME'
 # Rexec Terminal Theme
 
-# Colors
-local ret_status="%(?:%F{green}➜:%F{red}➜)"
-local user_host="%F{cyan}%n%f@%F{blue}%m%f"
-local current_dir="%F{yellow}%~%f"
-local git_info='$(git_prompt_info)'
-
-# Git prompt settings
+# Git prompt settings - must be defined before use
 ZSH_THEME_GIT_PROMPT_PREFIX="%F{magenta}git:(%F{green}"
 ZSH_THEME_GIT_PROMPT_SUFFIX="%f "
 ZSH_THEME_GIT_PROMPT_DIRTY="%F{magenta}) %F{red}✗"
 ZSH_THEME_GIT_PROMPT_CLEAN="%F{magenta}) %F{green}✓"
 
-# Main prompt
+# Main prompt using direct function call
 PROMPT='
-${user_host} ${current_dir} ${git_info}
-${ret_status} %f'
+%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f $(git_prompt_info)
+%(?:%F{green}➜:%F{red}➜) %f'
 
 # Right prompt - show time
 RPROMPT='%F{240}%*%f'
