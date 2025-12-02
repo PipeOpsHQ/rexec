@@ -42,6 +42,19 @@ type PullProgress struct {
 	} `json:"progressDetail"`
 }
 
+// formatBytes converts bytes to human-readable format (e.g., 512MB, 2GB)
+func formatBytes(bytes int64) string {
+	if bytes == 0 {
+		return "2G" // default
+	}
+	const gb = 1024 * 1024 * 1024
+	const mb = 1024 * 1024
+	if bytes >= gb {
+		return fmt.Sprintf("%dG", bytes/gb)
+	}
+	return fmt.Sprintf("%dM", bytes/mb)
+}
+
 // SupportedImages maps user-friendly names to Docker images
 // Uses custom rexec images if available (with SSH pre-installed), otherwise falls back to base images
 // NOTE: Only verified working images are included here
@@ -737,6 +750,10 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			fmt.Sprintf("CONTAINER_NAME=%s", cfg.ContainerName),
 			// Override system info environment variables
 			"HOSTNAME=" + containerHostname,
+			// Pass resource limits for MOTD display
+			fmt.Sprintf("REXEC_DISK_QUOTA=%s", formatBytes(cfg.DiskQuota)),
+			fmt.Sprintf("REXEC_MEMORY_LIMIT=%s", formatBytes(cfg.MemoryLimit)),
+			fmt.Sprintf("REXEC_CPU_LIMIT=%.1f", float64(cfg.CPULimit)/1000.0),
 		},
 		Labels: mergeLabels(map[string]string{
 			"rexec.user_id":        cfg.UserID,

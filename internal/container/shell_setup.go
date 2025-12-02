@@ -238,16 +238,22 @@ show_system_stats() {
     fi
     
     # Calculate CPU cores allocated to container
-    local cpu_cores="0.5"
-    if [ "$cpu_quota" -gt 0 ] 2>/dev/null && [ "$cpu_period" -gt 0 ] 2>/dev/null; then
+    # Prefer environment variable if set, otherwise calculate from cgroup
+    local cpu_cores="${REXEC_CPU_LIMIT:-0.5}"
+    if [ -z "$REXEC_CPU_LIMIT" ] && [ "$cpu_quota" -gt 0 ] 2>/dev/null && [ "$cpu_period" -gt 0 ] 2>/dev/null; then
         # cpu_cores = quota / period (e.g., 50000/100000 = 0.5 cores)
         cpu_cores=$(awk "BEGIN {printf \"%.1f\", $cpu_quota / $cpu_period}")
     fi
     
-    # Container Disk info - use allocated quota, not actual host disk
-    # Note: We don't show actual disk usage as it would expose host info
-    # Instead show the allocated storage limit from environment or default
+    # Container Disk info - use allocated quota from environment
     local disk_quota="${REXEC_DISK_QUOTA:-2G}"
+    # Get actual disk usage of root filesystem
+    local disk_used=$(df -h / 2>/dev/null | awk 'NR==2 {print $3}' || echo "N/A")
+    
+    # Memory limit - prefer environment variable, clean up format
+    local mem_limit="${REXEC_MEMORY_LIMIT:-${mem_total_mb}M}"
+    # Remove decimal from memory limit if present (e.g., 1024.00M -> 1024M)
+    mem_limit=$(echo "$mem_limit" | sed 's/\.00//')
     
     # Print banner
     echo ""
@@ -262,7 +268,8 @@ show_system_stats() {
     echo ""
     echo "\033[1;33m  Resources (Allocated):\033[0m"
     echo "\033[38;5;243m  ├─ CPU:\033[0m         ${cpu_cores} vCPU"
-    echo "\033[38;5;243m  └─ Memory:\033[0m      ${mem_used_mb}MB / ${mem_total_mb}MB (${mem_percent}%)"
+    echo "\033[38;5;243m  ├─ Memory:\033[0m      ${mem_used_mb}MB / ${mem_limit}"
+    echo "\033[38;5;243m  └─ Storage:\033[0m     ${disk_used} / ${disk_quota}"
     echo ""
     echo "\033[38;5;243m  Type '\033[1;37mhelp\033[38;5;243m' for common commands\033[0m"
     echo ""
