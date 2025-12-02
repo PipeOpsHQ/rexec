@@ -16,53 +16,34 @@
     }
 </script>
 
-<div class="create-container">
-    <div class="create-header">
-        <button class="back-btn" on:click={handleCancel}>
-            ← Back
-        </button>
-        <h1>Create Terminal</h1>
-    </div>
+<div class="create-page">
+    <button class="back-btn" on:click={handleCancel}>
+        <span class="back-icon">←</span>
+        <span>Back to Dashboard</span>
+    </button>
 
-    <div class="create-body">
-        <InlineCreateTerminal
-            compact={false}
-            on:created={handleCreated}
-            on:cancel={handleCancel}
-        />
-    </div>
+    <InlineCreateTerminal
+        compact={false}
+        on:created={handleCreated}
+        on:cancel={handleCancel}
+    />
 </div>
 
 <style>
-    .create-container {
+    .create-page {
         height: 100%;
         display: flex;
         flex-direction: column;
         background: #0a0a0a;
-        overflow: hidden;
-    }
-
-    .create-header {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 20px 24px;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-    }
-
-    .create-header h1 {
-        margin: 0;
-        font-size: 20px;
-        font-weight: 600;
-        color: var(--text);
+        overflow: auto;
+        padding: 24px;
     }
 
     .back-btn {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
+        gap: 8px;
+        padding: 8px 14px;
         background: transparent;
         border: 1px solid var(--border);
         border-radius: 6px;
@@ -71,24 +52,23 @@
         font-family: var(--font-mono);
         cursor: pointer;
         transition: all 0.15s ease;
+        width: fit-content;
+        margin-bottom: 20px;
     }
 
     .back-btn:hover {
-        border-color: var(--text-muted);
-        color: var(--text);
+        border-color: var(--accent);
+        color: var(--accent);
     }
 
-    .create-body {
-        flex: 1;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
+    .back-icon {
+        font-size: 16px;
     }
 
-    .create-body :global(.inline-create) {
+    .create-page :global(.inline-create) {
         flex: 1;
         max-width: 1200px;
-        margin: 0 auto;
-        width: 100%;
+        padding: 0;
+        background: transparent;
     }
 </style>
