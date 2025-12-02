@@ -183,8 +183,13 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Check container limit
-	currentCount := h.manager.CountUserContainers(userID)
+	// Check container limit - use database count to include orphaned containers
+	existingContainers, err := h.store.GetContainersByUserID(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check container limit"})
+		return
+	}
+	currentCount := len(existingContainers)
 	limit := container.UserContainerLimit(tier)
 	if currentCount >= limit {
 		c.JSON(http.StatusForbidden, gin.H{
@@ -429,16 +434,18 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Stop the container (soft delete - don't remove from Docker)
-	if err := h.manager.StopContainer(ctx, dockerID); err != nil {
-		// Log but continue - container might already be stopped
-		log.Printf("Warning: failed to stop container %s: %v", dockerID, err)
-	}
+	// Stop and remove the container from Docker (only if it has a Docker ID)
+	if found.DockerID != "" {
+		if err := h.manager.StopContainer(ctx, found.DockerID); err != nil {
+			// Log but continue - container might already be stopped
+			log.Printf("Warning: failed to stop container %s: %v", found.DockerID, err)
+		}
 
-	// Remove from manager's tracking (so it doesn't count toward limits)
-	if err := h.manager.RemoveContainer(ctx, dockerID); err != nil {
-		// Log but continue - container might already be removed from Docker
-		log.Printf("Warning: failed to remove container %s from Docker: %v", dockerID, err)
+		// Remove from manager's tracking (so it doesn't count toward limits)
+		if err := h.manager.RemoveContainer(ctx, found.DockerID); err != nil {
+			// Log but continue - container might already be removed from Docker
+			log.Printf("Warning: failed to remove container %s from Docker: %v", found.DockerID, err)
+		}
 	}
 
 	// Soft delete in database (sets deleted_at timestamp)
@@ -722,8 +729,17 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 		return
 	}
 
-	// Check container limit
-	currentCount := h.manager.CountUserContainers(userID)
+	// Check container limit - use database count to include orphaned containers
+	existingRecords, err := h.store.GetContainersByUserID(ctx, userID)
+	if err != nil {
+		sendEvent(container.ProgressEvent{
+			Stage:    "validating",
+			Error:    "failed to check container limit",
+			Complete: true,
+		})
+		return
+	}
+	currentCount := len(existingRecords)
 	limit := container.UserContainerLimit(tier)
 	if currentCount >= limit {
 		sendEvent(container.ProgressEvent{
@@ -735,7 +751,6 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 	}
 
 	// Check duplicate name
-	existingRecords, err := h.store.GetContainersByUserID(ctx, userID)
 	if err == nil {
 		for _, record := range existingRecords {
 			if record.Name == containerName {

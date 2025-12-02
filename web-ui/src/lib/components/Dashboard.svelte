@@ -319,14 +319,16 @@
                     <div class="container-actions">
                         {#if container.status === "running"}
                             <div class="action-row">
-                                <button
-                                    class="btn btn-primary btn-sm flex-1"
-                                    on:click={() => handleConnect(container)}
-                                >
-                                    {hasActiveSession(container.id)
-                                        ? "+ New Tab"
-                                        : "Connect"}
-                                </button>
+                                {#if !hasActiveSession(container.id)}
+                                    <button
+                                        class="btn btn-primary btn-sm flex-1"
+                                        on:click={() => handleConnect(container)}
+                                    >
+                                        Connect
+                                    </button>
+                                {:else}
+                                    <span class="connected-badge flex-1">Connected</span>
+                                {/if}
                                 <button
                                     class="btn btn-secondary btn-sm"
                                     title="SSH Info"
@@ -731,6 +733,21 @@
 
     .flex-1 {
         flex: 1;
+    }
+
+    .connected-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--accent);
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid var(--accent);
+        border-radius: 4px;
     }
 
     .spinner-sm {

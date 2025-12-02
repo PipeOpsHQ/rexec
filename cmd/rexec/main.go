@@ -263,7 +263,7 @@ func main() {
 
 		router.StaticFile("/", indexFile)
 		router.Static("/assets", filepath.Join(webDir, "assets"))
-		router.StaticFile("/favicon.ico", filepath.Join(webDir, "favicon.ico"))
+		router.StaticFile("/favicon.ico", filepath.Join(webDir, "favicon.svg")) // Serve SVG for .ico requests
 		router.StaticFile("/favicon.svg", filepath.Join(webDir, "favicon.svg"))
 		router.StaticFile("/manifest.json", filepath.Join(webDir, "manifest.json"))
 		router.StaticFile("/robots.txt", filepath.Join(webDir, "robots.txt"))
