@@ -298,7 +298,7 @@
                                 )}</span
                             >
                         </div>
-                        {#if container.idle_seconds !== undefined}
+                        {#if container.idle_seconds !== undefined && container.status === "running"}
                             <div class="meta-item">
                                 <span class="meta-label">Idle</span>
                                 <span class="meta-value"
@@ -308,13 +308,24 @@
                                 >
                             </div>
                         {/if}
-                        <div class="meta-item">
-                            <span class="meta-label">ID</span>
-                            <span class="meta-value mono"
-                                >{container.id.slice(0, 12)}</span
-                            >
-                        </div>
                     </div>
+
+                    {#if container.resources}
+                        <div class="container-resources">
+                            <div class="resource-item">
+                                <span class="resource-icon">💾</span>
+                                <span class="resource-value">{container.resources.memory_mb} MB</span>
+                            </div>
+                            <div class="resource-item">
+                                <span class="resource-icon">⚡</span>
+                                <span class="resource-value">{container.resources.cpu_shares} CPU</span>
+                            </div>
+                            <div class="resource-item">
+                                <span class="resource-icon">💿</span>
+                                <span class="resource-value">{container.resources.disk_mb} MB</span>
+                            </div>
+                        </div>
+                    {/if}
 
                     <div class="container-actions">
                         {#if container.status === "running"}
@@ -690,11 +701,10 @@
     }
 
     .container-meta {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 8px;
-        margin-bottom: 16px;
-        padding: 12px;
+        display: flex;
+        gap: 16px;
+        margin-bottom: 12px;
+        padding: 10px 12px;
         background: var(--bg-secondary);
         border: 1px solid var(--border-muted);
     }
@@ -718,6 +728,33 @@
 
     .meta-value.mono {
         font-family: var(--font-mono);
+    }
+
+    .container-resources {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: rgba(0, 255, 65, 0.05);
+        border: 1px solid rgba(0, 255, 65, 0.15);
+        border-radius: 4px;
+    }
+
+    .resource-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+
+    .resource-icon {
+        font-size: 12px;
+    }
+
+    .resource-value {
+        font-family: var(--font-mono);
+        color: var(--accent);
     }
 
     .container-actions {

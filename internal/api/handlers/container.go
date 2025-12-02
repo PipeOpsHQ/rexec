@@ -69,12 +69,16 @@ func NewContainerHandler(manager *container.Manager, store *storage.PostgresStor
 // List returns all containers for the authenticated user
 func (h *ContainerHandler) List(c *gin.Context) {
 	userID := c.GetString("userID")
+	tier := c.GetString("tier")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
 	ctx := context.Background()
+
+	// Get resource limits for user's tier
+	limits := models.TierLimits(tier)
 
 	// Get containers from database
 	records, err := h.store.GetContainersByUserID(ctx, userID)
@@ -110,13 +114,18 @@ func (h *ContainerHandler) List(c *gin.Context) {
 			"created_at":   record.CreatedAt,
 			"last_used_at": record.LastUsedAt,
 			"idle_seconds": idleTime,
+			"resources": gin.H{
+				"memory_mb":  limits.MemoryMB,
+				"cpu_shares": limits.CPUShares,
+				"disk_mb":    limits.DiskMB,
+			},
 		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"containers": containers,
 		"count":      len(containers),
-		"limit":      container.UserContainerLimit(c.GetString("tier")),
+		"limit":      container.UserContainerLimit(tier),
 	})
 }
 
