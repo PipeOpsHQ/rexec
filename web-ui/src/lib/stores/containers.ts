@@ -194,7 +194,7 @@ function createContainersStore() {
       );
     },
 
-    // Fallback container creation without SSE (for platforms that don't support streaming)
+    // Container creation with polling for async backend
     async createContainerFallback(
       name: string,
       image: string,
@@ -209,23 +209,22 @@ function createContainersStore() {
         return;
       }
 
-      // Update progress to show we're using fallback
+      // Set creating state
       update((state) => ({
         ...state,
-        creating: state.creating
-          ? {
-              ...state.creating,
-              progress: 10,
-              message: "Creating container...",
-              stage: "creating",
-            }
-          : null,
+        creating: {
+          name,
+          image,
+          progress: 5,
+          message: "Requesting container...",
+          stage: "requesting",
+        },
       }));
 
       onProgress?.({
-        stage: "creating",
-        message: "Creating container (this may take a moment)...",
-        progress: 10,
+        stage: "requesting",
+        message: "Requesting container...",
+        progress: 5,
       });
 
       const body: Record<string, string> = { name, image };
@@ -251,32 +250,143 @@ function createContainersStore() {
           return;
         }
 
-        const container: Container = {
-          id: data.id,
-          db_id: data.db_id,
-          user_id: data.user_id,
-          name: data.name,
-          image: data.image,
-          status: data.status || "running",
-          created_at: data.created_at,
-          ip_address: data.ip_address,
-        };
+        // Container creation is async - poll for status
+        const containerId = data.db_id || data.id;
 
         update((state) => ({
           ...state,
-          containers: [container, ...state.containers],
-          creating: null,
+          creating: state.creating
+            ? {
+                ...state.creating,
+                progress: 20,
+                message: "Pulling image and creating container...",
+                stage: "creating",
+              }
+            : null,
         }));
 
         onProgress?.({
-          stage: "ready",
-          message: "Terminal ready!",
-          progress: 100,
-          complete: true,
-          container_id: container.id,
+          stage: "creating",
+          message:
+            "Pulling image and creating container (this may take a minute)...",
+          progress: 20,
         });
 
-        onComplete?.(container);
+        // Poll for container status
+        const maxAttempts = 120; // 2 minutes max
+        const pollInterval = 1000; // 1 second
+        let attempts = 0;
+
+        const pollStatus = async (): Promise<void> => {
+          attempts++;
+
+          try {
+            const statusResponse = await fetch(
+              `/api/containers/${containerId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${authToken}`,
+                },
+              },
+            );
+
+            if (!statusResponse.ok) {
+              if (statusResponse.status === 404 && attempts < 5) {
+                // Container might not be in Docker yet, keep polling
+                setTimeout(pollStatus, pollInterval);
+                return;
+              }
+              throw new Error("Failed to get container status");
+            }
+
+            const containerData = await statusResponse.json();
+            const status = containerData.status;
+
+            // Update progress based on attempts
+            const progress = Math.min(
+              20 + Math.floor((attempts / maxAttempts) * 70),
+              90,
+            );
+
+            update((state) => ({
+              ...state,
+              creating: state.creating
+                ? {
+                    ...state.creating,
+                    progress,
+                    message:
+                      status === "creating"
+                        ? "Still creating..."
+                        : `Status: ${status}`,
+                    stage: status,
+                  }
+                : null,
+            }));
+
+            if (status === "running") {
+              // Container is ready!
+              const container: Container = {
+                id: containerData.id || containerData.docker_id || containerId,
+                db_id: containerData.db_id || containerId,
+                user_id: containerData.user_id,
+                name: containerData.name,
+                image: containerData.image,
+                status: "running",
+                created_at: containerData.created_at,
+                ip_address: containerData.ip_address,
+              };
+
+              update((state) => ({
+                ...state,
+                containers: [container, ...state.containers],
+                creating: null,
+              }));
+
+              onProgress?.({
+                stage: "ready",
+                message: "Terminal ready!",
+                progress: 100,
+                complete: true,
+                container_id: container.id,
+              });
+
+              onComplete?.(container);
+              return;
+            }
+
+            if (status === "error") {
+              update((state) => ({ ...state, creating: null }));
+              onError?.("Container creation failed. Please try again.");
+              return;
+            }
+
+            if (attempts >= maxAttempts) {
+              update((state) => ({ ...state, creating: null }));
+              onError?.(
+                "Container creation timed out. Please check your containers list.",
+              );
+              return;
+            }
+
+            // Keep polling
+            setTimeout(pollStatus, pollInterval);
+          } catch (e) {
+            if (attempts >= maxAttempts) {
+              update((state) => ({ ...state, creating: null }));
+              onError?.(
+                e instanceof Error
+                  ? e.message
+                  : "Failed to check container status",
+              );
+            } else {
+              // Retry on error
+              setTimeout(pollStatus, pollInterval);
+            }
+          }
+        };
+
+        // Start polling
+        setTimeout(pollStatus, pollInterval);
       } catch (e) {
         update((state) => ({ ...state, creating: null }));
         onError?.(

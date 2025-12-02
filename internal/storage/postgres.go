@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -558,6 +559,20 @@ func (s *PostgresStore) UpdateContainerDockerID(ctx context.Context, id, dockerI
 	query := `UPDATE containers SET docker_id = $2 WHERE id = $1`
 	_, err := s.db.ExecContext(ctx, query, id, dockerID)
 	return err
+}
+
+// UpdateContainerError updates a container's error message (stored in status field with error: prefix)
+func (s *PostgresStore) UpdateContainerError(ctx context.Context, id, errorMsg string) error {
+	// Store error in a way that can be retrieved - we'll use status field with error prefix
+	// In a production system, you'd add an error_message column
+	query := `UPDATE containers SET status = $2, last_used_at = $3 WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id, "error", time.Now())
+	if err != nil {
+		return err
+	}
+	// Log the actual error for debugging
+	log.Printf("Container %s creation failed: %s", id, errorMsg)
+	return nil
 }
 
 // DeleteContainer deletes a container record

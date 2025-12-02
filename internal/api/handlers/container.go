@@ -120,6 +120,7 @@ func (h *ContainerHandler) List(c *gin.Context) {
 }
 
 // Create creates a new container for the user
+// Uses async creation to avoid Cloudflare timeout - returns immediately with "creating" status
 func (h *ContainerHandler) Create(c *gin.Context) {
 	userID := c.GetString("userID")
 	tier := c.GetString("tier")
@@ -220,20 +221,31 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// Pull image if needed
+	// Determine the image name for storage
+	imageName := req.Image
 	if req.Image == "custom" {
-		if err := h.manager.PullCustomImage(ctx, req.CustomImage); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to pull custom image: " + err.Error()})
-			return
-		}
-	} else {
-		if err := h.manager.PullImage(ctx, req.Image); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to pull image: " + err.Error()})
-			return
-		}
+		imageName = "custom:" + req.CustomImage
 	}
 
-	// Create container config
+	// Create a pending record in database first (async creation)
+	record := &storage.ContainerRecord{
+		ID:         uuid.New().String(),
+		UserID:     userID,
+		Name:       containerName,
+		Image:      imageName,
+		Status:     "creating",
+		DockerID:   "", // Will be set when container is created
+		VolumeName: "rexec-" + userID + "-" + containerName,
+		CreatedAt:  time.Now(),
+		LastUsedAt: time.Now(),
+	}
+
+	if err := h.store.CreateContainer(ctx, record); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create container record: " + err.Error()})
+		return
+	}
+
+	// Prepare container config
 	cfg := container.ContainerConfig{
 		UserID:        userID,
 		ContainerName: containerName,
@@ -257,55 +269,20 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	cfg.MemoryLimit = limits.MemoryMB * 1024 * 1024 // Convert MB to bytes
 	cfg.CPULimit = limits.CPUShares * 1000          // Convert to CPU quota
 
-	info, err := h.manager.CreateContainer(ctx, cfg)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create container: " + err.Error()})
-		return
-	}
+	// Start async container creation (pull image + create container)
+	go h.createContainerAsync(record.ID, cfg, req.Image, req.CustomImage, isGuest || tier == "guest")
 
-	// Determine the image name for storage
-	imageName := req.Image
-	if req.Image == "custom" {
-		imageName = "custom:" + req.CustomImage
-	}
-
-	// Store in database
-	record := &storage.ContainerRecord{
-		ID:         uuid.New().String(),
-		UserID:     userID,
-		Name:       containerName,
-		Image:      imageName,
-		Status:     info.Status,
-		DockerID:   info.ID,
-		VolumeName: "rexec-" + userID + "-" + containerName,
-		CreatedAt:  time.Now(),
-		LastUsedAt: time.Now(),
-	}
-
-	if err := h.store.CreateContainer(ctx, record); err != nil {
-		// Container was created but DB failed - still return success but warn
-		c.JSON(http.StatusCreated, gin.H{
-			"id":         info.ID,
-			"user_id":    info.UserID,
-			"name":       containerName,
-			"image":      imageName,
-			"status":     info.Status,
-			"created_at": info.CreatedAt,
-			"ip_address": info.IPAddress,
-			"warning":    "container created but failed to save to database",
-		})
-		return
-	}
-
+	// Return immediately with "creating" status
 	response := gin.H{
-		"id":         info.ID,
+		"id":         record.ID, // Use DB ID as the primary ID until Docker ID is available
 		"db_id":      record.ID,
-		"user_id":    info.UserID,
+		"user_id":    userID,
 		"name":       containerName,
 		"image":      imageName,
-		"status":     info.Status,
-		"created_at": info.CreatedAt,
-		"ip_address": info.IPAddress,
+		"status":     "creating",
+		"created_at": record.CreatedAt,
+		"async":      true,
+		"message":    "Container is being created. This may take a moment if the image needs to be pulled.",
 	}
 
 	// Add guest session info
@@ -313,16 +290,48 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		response["guest"] = true
 		response["expires_at"] = time.Now().Add(GuestMaxContainerDuration).Format(time.RFC3339)
 		response["session_limit_seconds"] = int(GuestMaxContainerDuration.Seconds())
-		response["message"] = "Guest session expires in 1 hour. Sign in with PipeOps for unlimited sessions."
 	}
 
-	c.JSON(http.StatusCreated, response)
+	c.JSON(http.StatusAccepted, response)
+}
+
+// createContainerAsync handles the actual container creation in the background
+func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.ContainerConfig, imageType, customImage string, isGuest bool) {
+	ctx := context.Background()
+
+	// Pull image if needed
+	var pullErr error
+	if imageType == "custom" {
+		pullErr = h.manager.PullCustomImage(ctx, customImage)
+	} else {
+		pullErr = h.manager.PullImage(ctx, imageType)
+	}
+
+	if pullErr != nil {
+		// Update record with error status
+		h.store.UpdateContainerStatus(ctx, recordID, "error")
+		h.store.UpdateContainerError(ctx, recordID, "failed to pull image: "+pullErr.Error())
+		return
+	}
+
+	// Create the container
+	info, err := h.manager.CreateContainer(ctx, cfg)
+	if err != nil {
+		h.store.UpdateContainerStatus(ctx, recordID, "error")
+		h.store.UpdateContainerError(ctx, recordID, "failed to create container: "+err.Error())
+		return
+	}
+
+	// Update the record with Docker container info
+	h.store.UpdateContainerDockerID(ctx, recordID, info.ID)
+	h.store.UpdateContainerStatus(ctx, recordID, info.Status)
 }
 
 // Get returns a specific container
+// Supports lookup by either Docker ID or DB ID (for async container creation)
 func (h *ContainerHandler) Get(c *gin.Context) {
 	userID := c.GetString("userID")
-	dockerID := c.Param("id")
+	containerID := c.Param("id") // Can be Docker ID or DB ID
 
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -331,7 +340,7 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 
 	ctx := context.Background()
 
-	// Find container in database
+	// Find container in database - check both Docker ID and DB ID
 	records, err := h.store.GetContainersByUserID(ctx, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch containers"})
@@ -340,7 +349,8 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 
 	var found *storage.ContainerRecord
 	for _, record := range records {
-		if record.DockerID == dockerID {
+		// Match by Docker ID or DB ID
+		if record.DockerID == containerID || record.ID == containerID {
 			found = record
 			break
 		}
@@ -351,8 +361,23 @@ func (h *ContainerHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// If Docker ID is empty, container is still being created
+	if found.DockerID == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"id":           found.ID, // Use DB ID
+			"db_id":        found.ID,
+			"user_id":      found.UserID,
+			"name":         found.Name,
+			"image":        found.Image,
+			"status":       found.Status, // Will be "creating" or "error"
+			"created_at":   found.CreatedAt,
+			"last_used_at": found.LastUsedAt,
+		})
+		return
+	}
+
 	// Get live info from Docker
-	info, ok := h.manager.GetContainer(dockerID)
+	info, ok := h.manager.GetContainer(found.DockerID)
 	if !ok {
 		c.JSON(http.StatusOK, gin.H{
 			"id":           found.DockerID,
