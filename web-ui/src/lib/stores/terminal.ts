@@ -616,6 +616,11 @@ function createTerminalStore() {
       this.setViewMode(state.viewMode === "floating" ? "docked" : "floating");
     },
 
+    // Alias for toggleViewMode
+    toggleFloating() {
+      this.toggleViewMode();
+    },
+
     // Minimize
     minimize() {
       update((state) => ({ ...state, isMinimized: true }));

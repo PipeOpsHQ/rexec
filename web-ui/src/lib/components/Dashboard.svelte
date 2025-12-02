@@ -120,8 +120,24 @@
         containerToDelete = null;
     }
 
+    // Track containers being connected
+    let connectingIds: Set<string> = new Set();
+
     function handleConnect(container: Container) {
+        // Mark as connecting immediately
+        connectingIds.add(container.id);
+        connectingIds = new Set(connectingIds); // Trigger reactivity
         dispatch("connect", { id: container.id, name: container.name });
+        // The connected state will be handled by connectedContainerIds store
+        // Remove from connecting after a short delay (session creation is fast)
+        setTimeout(() => {
+            connectingIds.delete(container.id);
+            connectingIds = new Set(connectingIds);
+        }, 500);
+    }
+
+    function isConnecting(containerId: string): boolean {
+        return connectingIds.has(containerId);
     }
 
     function hasActiveSession(containerId: string): boolean {
@@ -483,7 +499,7 @@
                     <div class="container-actions">
                         {#if container.status === "running"}
                             <div class="action-row">
-                                {#if !hasActiveSession(container.id)}
+                                {#if !hasActiveSession(container.id) && !isConnecting(container.id)}
                                     <button
                                         class="btn btn-primary btn-sm flex-1"
                                         on:click={() =>
@@ -507,6 +523,14 @@
                                             <path d="M6 8l4 4-4 4" />
                                         </svg>
                                         Connect
+                                    </button>
+                                {:else if isConnecting(container.id)}
+                                    <button
+                                        class="btn btn-secondary btn-sm flex-1 connecting-btn"
+                                        disabled
+                                    >
+                                        <span class="spinner-sm"></span>
+                                        Connecting...
                                     </button>
                                 {:else}
                                     <button
@@ -1136,6 +1160,19 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    /* Connecting button style */
+    .connecting-btn {
+        background: rgba(255, 217, 61, 0.1) !important;
+        border-color: rgba(255, 217, 61, 0.3) !important;
+        color: #ffd93d !important;
+        cursor: wait !important;
+    }
+
+    .connecting-btn .spinner-sm {
+        border-color: rgba(255, 217, 61, 0.3);
+        border-top-color: #ffd93d;
     }
 
     /* Connected button style */
