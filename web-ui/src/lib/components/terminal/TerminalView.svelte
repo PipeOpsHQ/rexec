@@ -673,7 +673,7 @@
                     </div>
 
                     <div class="floating-actions">
-                        <button on:click={toggleViewMode} title="Dock Terminal">
+                        <button on:click={toggleView} title="Toggle View">
                             ⬒
                         </button>
                         <button on:click={minimize} title="Minimize">−</button>
@@ -917,7 +917,7 @@
                     <div class="docked-actions">
                         <button
                             class="btn btn-secondary btn-sm"
-                            on:click={toggleViewMode}
+                            on:click={toggleView}
                             title="Float"
                         >
                             ⬔
@@ -1290,22 +1290,9 @@
         background: linear-gradient(135deg, transparent 50%, var(--accent) 50%);
     }
 
-    /* Docked Terminal */
+    /* Docked Terminal Container */
     .docked-terminal {
         position: fixed;
-        top: 60px;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: var(--bg-card);
-        z-index: 998;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .docked-header {
-        display: flex;
-        align-items: center;
         padding: 8px 16px;
         background: #111;
         border-bottom: 1px solid var(--border);
