@@ -427,7 +427,8 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 
 	var found *storage.ContainerRecord
 	for _, record := range records {
-		if record.DockerID == dockerID {
+		// Match by Docker ID or DB ID (for containers that failed during creation)
+		if record.DockerID == dockerID || record.ID == dockerID {
 			found = record
 			break
 		}
