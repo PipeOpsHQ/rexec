@@ -167,6 +167,7 @@ func main() {
 		api.POST("/containers", containerLimiter.Middleware(), containerHandler.Create)
 		api.POST("/containers/stream", containerLimiter.Middleware(), containerHandler.CreateWithProgress)
 		api.GET("/containers/:id", containerHandler.Get)
+		api.PATCH("/containers/:id/settings", containerHandler.UpdateSettings)
 		api.DELETE("/containers/:id", containerHandler.Delete)
 		api.POST("/containers/:id/start", containerHandler.Start)
 		api.POST("/containers/:id/stop", containerHandler.Stop)

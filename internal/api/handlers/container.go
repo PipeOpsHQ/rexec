@@ -741,6 +741,139 @@ func (h *ContainerHandler) Stop(c *gin.Context) {
 	})
 }
 
+// UpdateSettings updates container settings (name, resources)
+func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
+	userID := c.GetString("userID")
+	tier := c.GetString("tier")
+	containerID := c.Param("id")
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Name      string `json:"name"`
+		MemoryMB  int64  `json:"memory_mb"`
+		CPUShares int64  `json:"cpu_shares"`
+		DiskMB    int64  `json:"disk_mb"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate name
+	if req.Name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+		return
+	}
+
+	// Get tier limits
+	limits := models.TierLimits(tier)
+	
+	// For trial/free users, enforce limits
+	isPaidUser := tier == "pro" || tier == "enterprise"
+	if !isPaidUser {
+		// Trial limits
+		maxMemory := int64(1024)
+		maxCPU := int64(1024)
+		maxDisk := int64(4096)
+		
+		if req.MemoryMB > maxMemory {
+			req.MemoryMB = maxMemory
+		}
+		if req.CPUShares > maxCPU {
+			req.CPUShares = maxCPU
+		}
+		if req.DiskMB > maxDisk {
+			req.DiskMB = maxDisk
+		}
+	} else {
+		// Paid users can use their tier limits
+		if req.MemoryMB > limits.MemoryMB {
+			req.MemoryMB = limits.MemoryMB
+		}
+		if req.CPUShares > limits.CPUShares {
+			req.CPUShares = limits.CPUShares
+		}
+		if req.DiskMB > limits.DiskMB {
+			req.DiskMB = limits.DiskMB
+		}
+	}
+
+	// Enforce minimum values
+	if req.MemoryMB < 256 {
+		req.MemoryMB = 256
+	}
+	if req.CPUShares < 256 {
+		req.CPUShares = 256
+	}
+	if req.DiskMB < 1024 {
+		req.DiskMB = 1024
+	}
+
+	ctx := c.Request.Context()
+
+	// Find container by ID (could be docker_id or db_id)
+	containers, err := h.store.GetContainersByUserID(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get containers"})
+		return
+	}
+
+	var found *storage.ContainerRecord
+	for _, record := range containers {
+		if record.ID == containerID || record.DockerID == containerID {
+			found = record
+			break
+		}
+	}
+
+	if found == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "container not found"})
+		return
+	}
+
+	// Update in database
+	if err := h.store.UpdateContainerSettings(ctx, found.ID, req.Name, req.MemoryMB, req.CPUShares, req.DiskMB); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update settings"})
+		return
+	}
+
+	// Notify via WebSocket
+	if h.eventsHub != nil {
+		h.eventsHub.NotifyContainerUpdated(userID, gin.H{
+			"id":     found.DockerID,
+			"db_id":  found.ID,
+			"name":   req.Name,
+			"image":  found.Image,
+			"status": found.Status,
+			"resources": gin.H{
+				"memory_mb":  req.MemoryMB,
+				"cpu_shares": req.CPUShares,
+				"disk_mb":    req.DiskMB,
+			},
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "settings updated",
+		"container": gin.H{
+			"id":     found.DockerID,
+			"db_id":  found.ID,
+			"name":   req.Name,
+			"image":  found.Image,
+			"status": found.Status,
+			"resources": gin.H{
+				"memory_mb":  req.MemoryMB,
+				"cpu_shares": req.CPUShares,
+				"disk_mb":    req.DiskMB,
+			},
+		},
+	})
+}
+
 // CreateWithProgress creates a container with SSE progress streaming
 func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 	userID := c.GetString("userID")

@@ -588,6 +588,13 @@ func (s *PostgresStore) DeleteContainer(ctx context.Context, id string) error {
 	return err
 }
 
+// UpdateContainerSettings updates a container's name and resource settings
+func (s *PostgresStore) UpdateContainerSettings(ctx context.Context, id, name string, memoryMB, cpuShares, diskMB int64) error {
+	query := `UPDATE containers SET name = $2, memory_mb = $3, cpu_shares = $4, disk_mb = $5 WHERE id = $1 AND deleted_at IS NULL`
+	_, err := s.db.ExecContext(ctx, query, id, name, memoryMB, cpuShares, diskMB)
+	return err
+}
+
 // HardDeleteContainer permanently deletes a container record (for cleanup)
 func (s *PostgresStore) HardDeleteContainer(ctx context.Context, id string) error {
 	query := `DELETE FROM containers WHERE id = $1`
