@@ -247,8 +247,19 @@ show_system_stats() {
     
     # Container Disk info - use allocated quota from environment
     local disk_quota="${REXEC_DISK_QUOTA:-2G}"
-    # Get actual disk usage of root filesystem
-    local disk_used=$(df -h / 2>/dev/null | awk 'NR==2 {print $3}' || echo "N/A")
+    # Get container's actual disk usage (not host)
+    # Use du on root to measure container layer size, exclude virtual filesystems
+    local disk_used_bytes=$(du -sx --exclude=/proc --exclude=/sys --exclude=/dev / 2>/dev/null | awk '{print $1}')
+    local disk_used="N/A"
+    if [ -n "$disk_used_bytes" ] && [ "$disk_used_bytes" -gt 0 ] 2>/dev/null; then
+        if [ "$disk_used_bytes" -ge 1048576 ]; then
+            disk_used=$(awk "BEGIN {printf \"%.1fG\", $disk_used_bytes / 1048576}")
+        elif [ "$disk_used_bytes" -ge 1024 ]; then
+            disk_used=$(awk "BEGIN {printf \"%.0fM\", $disk_used_bytes / 1024}")
+        else
+            disk_used="${disk_used_bytes}K"
+        fi
+    fi
     
     # Memory limit - prefer environment variable, clean up format
     local mem_limit="${REXEC_MEMORY_LIMIT:-${mem_total_mb}M}"
