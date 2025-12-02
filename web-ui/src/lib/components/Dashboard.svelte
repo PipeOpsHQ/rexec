@@ -68,13 +68,14 @@
         });
     }
 
-    function getLoadingState(id: string): 'starting' | 'stopping' | 'deleting' | null {
-        return loadingStates[id] || null;
-    }
+    // These are now reactive getters that depend on the store subscription
+    $: getLoadingState = (id: string): 'starting' | 'stopping' | 'deleting' | null => {
+        return $loadingStatesStore[id] || null;
+    };
 
-    function isContainerLoading(id: string): boolean {
-        return !!loadingStates[id];
-    }
+    $: isContainerLoading = (id: string): boolean => {
+        return !!$loadingStatesStore[id];
+    };
 
     // Clear loading state when container status changes via WebSocket
     $: {
@@ -659,20 +660,25 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
-                                    disabled={isContainerLoading(container.id)}
+                                    disabled={getLoadingState(container.id) === 'deleting'}
                                 >
-                                    <svg
-                                        class="icon"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                    >
-                                        <path
-                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                        />
-                                    </svg>
-                                    Delete
+                                    {#if getLoadingState(container.id) === 'deleting'}
+                                        <span class="spinner"></span>
+                                        Deleting...
+                                    {:else}
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                            />
+                                        </svg>
+                                        Delete
+                                    {/if}
                                 </button>
                             </div>
                         {:else if container.status === "stopped"}
@@ -696,20 +702,25 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
-                                    disabled={isContainerLoading(container.id)}
+                                    disabled={getLoadingState(container.id) === 'deleting'}
                                 >
-                                    <svg
-                                        class="icon"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                    >
-                                        <path
-                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                        />
-                                    </svg>
-                                    Delete
+                                    {#if getLoadingState(container.id) === 'deleting'}
+                                        <span class="spinner"></span>
+                                        Deleting...
+                                    {:else}
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                            />
+                                        </svg>
+                                        Delete
+                                    {/if}
                                 </button>
                             </div>
                         {:else if container.status === "error"}
@@ -717,20 +728,25 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
-                                    disabled={isContainerLoading(container.id)}
+                                    disabled={getLoadingState(container.id) === 'deleting'}
                                 >
-                                    <svg
-                                        class="icon"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                    >
-                                        <path
-                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                        />
-                                    </svg>
-                                    Delete
+                                    {#if getLoadingState(container.id) === 'deleting'}
+                                        <span class="spinner"></span>
+                                        Deleting...
+                                    {:else}
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                            />
+                                        </svg>
+                                        Delete
+                                    {/if}
                                 </button>
                             </div>
                         {:else}
