@@ -105,6 +105,9 @@ func (h *ContainerHandler) List(c *gin.Context) {
 			if status != record.Status {
 				h.store.UpdateContainerStatus(ctx, record.ID, status)
 			}
+		} else if status == "running" && !record.LastUsedAt.IsZero() {
+			// Calculate idle time from database for running containers not in memory
+			idleTime = time.Since(record.LastUsedAt).Seconds()
 		}
 
 		// Use stored resources from database (with fallback to tier limits for old containers)

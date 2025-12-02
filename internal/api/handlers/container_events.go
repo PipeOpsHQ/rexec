@@ -166,6 +166,9 @@ func (h *ContainerEventsHub) sendContainerList(conn *websocket.Conn, userID, tie
 		if info, ok := h.manager.GetContainer(record.DockerID); ok {
 			status = info.Status
 			idleTime = time.Since(info.LastUsedAt).Seconds()
+		} else if status == "running" && !record.LastUsedAt.IsZero() {
+			// Calculate idle time from database for running containers not in memory
+			idleTime = time.Since(record.LastUsedAt).Seconds()
 		}
 
 		// Use stored resources from database (with fallback to tier limits for old containers)
