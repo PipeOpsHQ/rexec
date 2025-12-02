@@ -17,6 +17,22 @@
     let progress = 0;
     let progressMessage = "";
     let progressStage = "";
+    
+    // Resource customization
+    let showResources = false;
+    let memoryMB = 512;
+    let cpuShares = 512;
+    let diskMB = 2048;
+    
+    // Trial limits
+    const resourceLimits = {
+        minMemory: 256,
+        maxMemory: 1024,
+        minCPU: 256,
+        maxCPU: 1024,
+        minDisk: 1024,
+        maxDisk: 4096
+    };
 
     const progressSteps = [
         { id: "validating", label: "Validating" },
@@ -175,7 +191,7 @@
             }, 2000);
         }
 
-        // Call with correct parameters: name, image, customImage, role, onProgress, onComplete, onError
+        // Call with correct parameters: name, image, customImage, role, onProgress, onComplete, onError, resources
         containers.createContainerWithProgress(
             containerName,
             selectedImage,
@@ -183,7 +199,8 @@
             selectedRole,
             handleProgress,
             handleComplete,
-            handleError
+            handleError,
+            { memory_mb: memoryMB, cpu_shares: cpuShares, disk_mb: diskMB }
         );
     }
 </script>
@@ -243,6 +260,82 @@
                                 <span class="tool-badge">{tool}</span>
                             {/each}
                         </div>
+                    </div>
+                {/if}
+            </div>
+
+            <!-- Resource Configuration (Trial users can customize) -->
+            <div class="create-section">
+                <button 
+                    class="resource-toggle"
+                    on:click={() => showResources = !showResources}
+                >
+                    <span class="toggle-icon">{showResources ? '▼' : '▶'}</span>
+                    <h4>Resources</h4>
+                    <span class="resource-preview">
+                        {memoryMB}MB / {cpuShares} CPU / {diskMB}MB
+                    </span>
+                </button>
+                
+                {#if showResources}
+                    <div class="resource-config">
+                        <div class="resource-row">
+                            <label>
+                                <span class="resource-label">Memory</span>
+                                <span class="resource-value">{memoryMB} MB</span>
+                            </label>
+                            <input 
+                                type="range" 
+                                bind:value={memoryMB}
+                                min={resourceLimits.minMemory}
+                                max={resourceLimits.maxMemory}
+                                step="128"
+                            />
+                            <div class="resource-range">
+                                <span>{resourceLimits.minMemory}MB</span>
+                                <span>{resourceLimits.maxMemory}MB</span>
+                            </div>
+                        </div>
+                        
+                        <div class="resource-row">
+                            <label>
+                                <span class="resource-label">CPU</span>
+                                <span class="resource-value">{cpuShares} shares</span>
+                            </label>
+                            <input 
+                                type="range" 
+                                bind:value={cpuShares}
+                                min={resourceLimits.minCPU}
+                                max={resourceLimits.maxCPU}
+                                step="128"
+                            />
+                            <div class="resource-range">
+                                <span>{resourceLimits.minCPU}</span>
+                                <span>{resourceLimits.maxCPU}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="resource-row">
+                            <label>
+                                <span class="resource-label">Disk</span>
+                                <span class="resource-value">{diskMB} MB</span>
+                            </label>
+                            <input 
+                                type="range" 
+                                bind:value={diskMB}
+                                min={resourceLimits.minDisk}
+                                max={resourceLimits.maxDisk}
+                                step="256"
+                            />
+                            <div class="resource-range">
+                                <span>{resourceLimits.minDisk}MB</span>
+                                <span>{resourceLimits.maxDisk}MB</span>
+                            </div>
+                        </div>
+                        
+                        <p class="resource-hint">
+                            Trial users can customize resources within these limits
+                        </p>
                     </div>
                 {/if}
             </div>
@@ -530,6 +623,127 @@
         font-weight: 600;
         border-radius: 2px;
         text-transform: uppercase;
+    }
+
+    /* Resource Configuration */
+    .resource-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 12px;
+        background: #111;
+        border: 1px solid #333;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .resource-toggle:hover {
+        border-color: var(--text-muted);
+        background: #1a1a1a;
+    }
+
+    .resource-toggle h4 {
+        margin: 0;
+        font-size: 12px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .toggle-icon {
+        font-size: 10px;
+        color: var(--text-muted);
+    }
+
+    .resource-preview {
+        margin-left: auto;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        color: var(--text-muted);
+    }
+
+    .resource-config {
+        margin-top: 12px;
+        padding: 12px;
+        background: #111;
+        border: 1px solid #333;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .resource-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .resource-row label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .resource-label {
+        font-size: 12px;
+        color: var(--text);
+        font-weight: 500;
+    }
+
+    .resource-value {
+        font-size: 12px;
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    .resource-row input[type="range"] {
+        width: 100%;
+        height: 4px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: #333;
+        border-radius: 2px;
+        outline: none;
+    }
+
+    .resource-row input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 6px rgba(0, 255, 65, 0.4);
+    }
+
+    .resource-row input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 6px rgba(0, 255, 65, 0.4);
+    }
+
+    .resource-range {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+    }
+
+    .resource-hint {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin: 4px 0 0 0;
+        text-align: center;
+        font-style: italic;
     }
 
     /* Compact mode adjustments */

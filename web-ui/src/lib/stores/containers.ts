@@ -206,6 +206,7 @@ function createContainersStore() {
       onProgress?: (event: ProgressEvent) => void,
       onComplete?: (container: Container) => void,
       onError?: (error: string) => void,
+      resources?: { memory_mb?: number; cpu_shares?: number; disk_mb?: number },
     ) {
       const authToken = getToken();
       if (!authToken) {
@@ -225,12 +226,22 @@ function createContainersStore() {
         },
       }));
 
-      const body: Record<string, string> = { name, image };
+      const body: Record<string, string | number> = { name, image };
       if (image === "custom" && customImage) {
         body.custom_image = customImage;
       }
       if (role) {
         body.role = role;
+      }
+      // Add resource customization if provided
+      if (resources?.memory_mb) {
+        body.memory_mb = resources.memory_mb;
+      }
+      if (resources?.cpu_shares) {
+        body.cpu_shares = resources.cpu_shares;
+      }
+      if (resources?.disk_mb) {
+        body.disk_mb = resources.disk_mb;
       }
 
       // Try SSE endpoint first, fall back to polling if it fails
