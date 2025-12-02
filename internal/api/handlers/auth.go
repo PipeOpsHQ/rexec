@@ -524,12 +524,17 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"updated_at": user.UpdatedAt,
 	}
 
-	// For guest users, calculate and include expiration time
+	// For guest users, include expiration time from token
 	isGuest := c.GetBool("guest")
 	if isGuest || user.Tier == "guest" {
-		// Guest sessions expire 1 hour after creation
-		expiresAt := user.CreatedAt.Add(GuestSessionDuration)
-		userResponse["expires_at"] = expiresAt.Unix()
+		// Use token expiration if available (set by middleware), otherwise calculate from creation
+		if tokenExp, exists := c.Get("tokenExp"); exists {
+			userResponse["expires_at"] = tokenExp.(int64)
+		} else {
+			// Fallback to calculating from user creation time
+			expiresAt := user.CreatedAt.Add(GuestSessionDuration)
+			userResponse["expires_at"] = expiresAt.Unix()
+		}
 		userResponse["is_guest"] = true
 	}
 

@@ -225,8 +225,12 @@ function createAuthStore() {
           avatar: userData.avatar,
           tier: userData.tier || "free",
           isGuest: userData.tier === "guest",
-          // Preserve expiresAt from localStorage for guest sessions
-          expiresAt: userData.expires_at || existingExpiresAt,
+          // For guests, prefer localStorage expiresAt (from login) over profile response
+          // because profile calculates from user.CreatedAt which may be stale for returning guests
+          expiresAt:
+            userData.tier === "guest"
+              ? existingExpiresAt || userData.expires_at
+              : userData.expires_at,
         };
 
         update((state) => ({

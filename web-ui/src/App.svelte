@@ -150,15 +150,28 @@
             // Check for OAuth callback
             await handleOAuthCallback();
 
-            // Validate existing token
-            if ($auth.token) {
+            // Validate existing token - check localStorage directly to avoid reactive timing issues
+            const storedToken = localStorage.getItem("rexec_token");
+            const storedUser = localStorage.getItem("rexec_user");
+
+            console.log(
+                "[App] Init - stored token:",
+                !!storedToken,
+                "stored user:",
+                !!storedUser,
+            );
+
+            if (storedToken && storedUser) {
                 const isValid = await auth.validateToken();
+                console.log("[App] Token validation result:", isValid);
+
                 if (isValid) {
                     await auth.fetchProfile();
                     currentView = "dashboard";
                     await containers.fetchContainers();
                     await handleTerminalUrl();
                 } else {
+                    console.log("[App] Token invalid, logging out");
                     auth.logout();
                 }
             }
@@ -264,7 +277,7 @@
 
         <!-- Terminal overlay (floating or docked) -->
         {#if $hasSessions}
-            <TerminalView on:create={goToCreate} />
+            <TerminalView />
         {/if}
 
         <!-- Toast notifications -->

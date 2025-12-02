@@ -1,11 +1,10 @@
 <script lang="ts">
-    import { onMount, onDestroy, tick, createEventDispatcher } from "svelte";
+    import { onMount, onDestroy, tick } from "svelte";
     import { terminal, sessionCount, isFloating } from "$stores/terminal";
+    import { containers, type ProgressEvent } from "$stores/containers";
+    import { toast } from "$stores/toast";
+    import { api } from "$utils/api";
     import TerminalPanel from "./TerminalPanel.svelte";
-
-    const dispatch = createEventDispatcher<{
-        create: void;
-    }>();
 
     // Track view mode changes to force terminal re-render
     let viewModeKey = 0;
@@ -21,6 +20,180 @@
     $: floatingSize = $terminal.floatingSize;
     $: sessions = Array.from($terminal.sessions.entries());
     $: activeId = $terminal.activeSessionId;
+
+    // Inline create terminal state
+    let showCreatePanel = false;
+    let selectedImage = "";
+    let customImage = "";
+    let isCreating = false;
+    let progress = 0;
+    let progressMessage = "";
+    let progressStage = "";
+    let images: Array<{
+        name: string;
+        display_name: string;
+        description: string;
+        category: string;
+        popular?: boolean;
+    }> = [];
+
+    // Image icons
+    const imageIcons: Record<string, string> = {
+        ubuntu: "🟠",
+        debian: "🔴",
+        alpine: "🔵",
+        fedora: "🔵",
+        centos: "🟣",
+        rocky: "🟣",
+        alma: "🟣",
+        arch: "🔷",
+        kali: "🐉",
+        parrot: "🦜",
+        custom: "📦",
+    };
+
+    function getIcon(imageName: string): string {
+        const lower = imageName.toLowerCase();
+        for (const [key, icon] of Object.entries(imageIcons)) {
+            if (lower.includes(key)) return icon;
+        }
+        return "🐧";
+    }
+
+    // Load available images when create panel opens
+    async function loadImages() {
+        if (images.length > 0) return; // Already loaded
+
+        const { data, error } = await api.get<{
+            images?: typeof images;
+            popular?: typeof images;
+        }>("/api/images");
+
+        if (data) {
+            images = data.images || data.popular || [];
+        } else if (error) {
+            toast.error("Failed to load images");
+        }
+    }
+
+    // Generate random name
+    function generateName(): string {
+        const adjectives = [
+            "swift",
+            "bold",
+            "calm",
+            "dark",
+            "eager",
+            "fast",
+            "grand",
+            "happy",
+            "keen",
+            "light",
+            "merry",
+            "noble",
+            "proud",
+            "quick",
+            "rare",
+            "sharp",
+        ];
+        const nouns = [
+            "ant",
+            "bear",
+            "cat",
+            "fox",
+            "hawk",
+            "lion",
+            "owl",
+            "wolf",
+            "tiger",
+            "eagle",
+            "shark",
+            "cobra",
+            "raven",
+            "viper",
+            "lynx",
+            "orca",
+        ];
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        const num = Math.floor(Math.random() * 1000);
+        return `${adj}-${noun}-${num}`;
+    }
+
+    // Handle image selection and creation
+    async function selectAndCreate(imageName: string) {
+        if (isCreating) return;
+
+        selectedImage = imageName;
+
+        // For custom image, show input (TODO: could add a modal)
+        if (imageName === "custom") {
+            const input = prompt(
+                "Enter Docker image name (e.g., nginx:latest):",
+            );
+            if (!input || !input.trim()) {
+                selectedImage = "";
+                return;
+            }
+            customImage = input.trim();
+        }
+
+        isCreating = true;
+        progress = 0;
+        progressMessage = "Starting...";
+        progressStage = "initializing";
+
+        const name = generateName();
+        const image = selectedImage;
+        const custom = selectedImage === "custom" ? customImage : undefined;
+
+        containers.createContainerWithProgress(
+            name,
+            image,
+            custom,
+            // onProgress
+            (event: ProgressEvent) => {
+                progress = event.progress || 0;
+                progressMessage = event.message || "";
+                progressStage = event.stage || "";
+
+                if (event.error) {
+                    isCreating = false;
+                    showCreatePanel = false;
+                    toast.error(event.error);
+                }
+            },
+            // onComplete
+            (container) => {
+                isCreating = false;
+                showCreatePanel = false;
+                selectedImage = "";
+                customImage = "";
+                toast.success(`Terminal "${container.name}" created!`);
+                // Create session and connect
+                terminal.createSession(container.id, container.name);
+            },
+            // onError
+            (error) => {
+                isCreating = false;
+                showCreatePanel = false;
+                toast.error(error);
+            },
+        );
+    }
+
+    function openCreatePanel() {
+        showCreatePanel = true;
+        loadImages();
+    }
+
+    function closeCreatePanel() {
+        if (!isCreating) {
+            showCreatePanel = false;
+            selectedImage = "";
+            customImage = "";
+        }
+    }
 
     // Floating drag handlers
     function handleMouseDown(event: MouseEvent) {
@@ -122,11 +295,6 @@
         }
     }
 
-    // Open create terminal view to create a new terminal
-    function createNewTerminal() {
-        dispatch("create");
-    }
-
     // Window event listeners
     onMount(() => {
         window.addEventListener("mousemove", handleMouseMove);
@@ -154,7 +322,7 @@
                     class="floating-header"
                     on:mousedown={handleMouseDown}
                     role="toolbar"
-                    tabindex="0"
+                    tabindex="-1"
                 >
                     <div class="floating-tabs">
                         {#each sessions as [id, session] (id)}
@@ -183,7 +351,7 @@
 
                     <div class="floating-actions">
                         <button
-                            on:click={createNewTerminal}
+                            on:click={openCreatePanel}
                             title="New Terminal"
                             class="new-tab-btn"
                         >
@@ -199,14 +367,78 @@
 
                 <!-- Body -->
                 <div class="floating-body">
-                    {#each sessions as [id, session] (`float-${viewModeKey}-${id}`)}
-                        <div
-                            class="terminal-panel"
-                            class:active={id === activeId}
-                        >
-                            <TerminalPanel {session} />
+                    {#if showCreatePanel}
+                        <!-- Inline Create Panel -->
+                        <div class="create-panel">
+                            <div class="create-panel-header">
+                                <h3>New Terminal</h3>
+                                {#if !isCreating}
+                                    <button
+                                        class="close-create"
+                                        on:click={closeCreatePanel}>×</button
+                                    >
+                                {/if}
+                            </div>
+
+                            {#if isCreating}
+                                <div class="create-progress">
+                                    <div class="progress-bar">
+                                        <div
+                                            class="progress-fill"
+                                            style="width: {progress}%"
+                                        ></div>
+                                    </div>
+                                    <div class="progress-info">
+                                        <span class="progress-stage"
+                                            >{progressStage}</span
+                                        >
+                                        <span class="progress-percent"
+                                            >{progress}%</span
+                                        >
+                                    </div>
+                                    <p class="progress-message">
+                                        {progressMessage}
+                                    </p>
+                                    <div class="spinner"></div>
+                                </div>
+                            {:else}
+                                <div class="os-grid">
+                                    {#each images as image (image.name)}
+                                        <button
+                                            class="os-card"
+                                            on:click={() =>
+                                                selectAndCreate(image.name)}
+                                        >
+                                            <span class="os-icon"
+                                                >{getIcon(image.name)}</span
+                                            >
+                                            <span class="os-name"
+                                                >{image.display_name ||
+                                                    image.name}</span
+                                            >
+                                        </button>
+                                    {/each}
+                                    <button
+                                        class="os-card"
+                                        on:click={() =>
+                                            selectAndCreate("custom")}
+                                    >
+                                        <span class="os-icon">📦</span>
+                                        <span class="os-name">Custom</span>
+                                    </button>
+                                </div>
+                            {/if}
                         </div>
-                    {/each}
+                    {:else}
+                        {#each sessions as [id, session] (`float-${viewModeKey}-${id}`)}
+                            <div
+                                class="terminal-panel"
+                                class:active={id === activeId}
+                            >
+                                <TerminalPanel {session} />
+                            </div>
+                        {/each}
+                    {/if}
                 </div>
 
                 <!-- Resize Handle -->
@@ -214,7 +446,7 @@
                     class="resize-handle"
                     on:mousedown={handleResizeStart}
                     role="separator"
-                    tabindex="0"
+                    tabindex="-1"
                     on:keydown={() => {}}
                 ></div>
             </div>
@@ -266,7 +498,7 @@
                 <div class="docked-actions">
                     <button
                         class="btn btn-primary btn-sm"
-                        on:click={createNewTerminal}
+                        on:click={openCreatePanel}
                     >
                         + New Terminal
                     </button>
@@ -278,23 +510,94 @@
                     </button>
                     <button
                         class="btn btn-secondary btn-sm"
-                        on:click={() => window.history.back()}
+                        on:click={minimize}
                     >
-                        ← Back
+                        − Minimize
                     </button>
                     <button class="btn btn-danger btn-sm" on:click={closeAll}>
-                        ✕ Close All
+                        × Close All
                     </button>
                 </div>
             </div>
 
             <!-- Body -->
             <div class="docked-body">
-                {#each sessions as [id, session] (`dock-${viewModeKey}-${id}`)}
-                    <div class="terminal-panel" class:active={id === activeId}>
-                        <TerminalPanel {session} />
+                {#if showCreatePanel}
+                    <!-- Inline Create Panel for Docked Mode -->
+                    <div class="create-panel docked-create">
+                        <div class="create-panel-header">
+                            <h3>Select Operating System</h3>
+                            {#if !isCreating}
+                                <button
+                                    class="close-create"
+                                    on:click={closeCreatePanel}>× Cancel</button
+                                >
+                            {/if}
+                        </div>
+
+                        {#if isCreating}
+                            <div class="create-progress">
+                                <div class="progress-bar">
+                                    <div
+                                        class="progress-fill"
+                                        style="width: {progress}%"
+                                    ></div>
+                                </div>
+                                <div class="progress-info">
+                                    <span class="progress-stage"
+                                        >{progressStage}</span
+                                    >
+                                    <span class="progress-percent"
+                                        >{progress}%</span
+                                    >
+                                </div>
+                                <p class="progress-message">
+                                    {progressMessage}
+                                </p>
+                                <div class="spinner"></div>
+                            </div>
+                        {:else}
+                            <div class="os-grid docked-grid">
+                                {#each images as image (image.name)}
+                                    <button
+                                        class="os-card"
+                                        on:click={() =>
+                                            selectAndCreate(image.name)}
+                                    >
+                                        <span class="os-icon"
+                                            >{getIcon(image.name)}</span
+                                        >
+                                        <span class="os-name"
+                                            >{image.display_name ||
+                                                image.name}</span
+                                        >
+                                        {#if image.popular}
+                                            <span class="popular-badge"
+                                                >Popular</span
+                                            >
+                                        {/if}
+                                    </button>
+                                {/each}
+                                <button
+                                    class="os-card"
+                                    on:click={() => selectAndCreate("custom")}
+                                >
+                                    <span class="os-icon">📦</span>
+                                    <span class="os-name">Custom Image</span>
+                                </button>
+                            </div>
+                        {/if}
                     </div>
-                {/each}
+                {:else}
+                    {#each sessions as [id, session] (`dock-${viewModeKey}-${id}`)}
+                        <div
+                            class="terminal-panel"
+                            class:active={id === activeId}
+                        >
+                            <TerminalPanel {session} />
+                        </div>
+                    {/each}
+                {/if}
             </div>
         </div>
     {/if}
@@ -548,27 +851,21 @@
         background: none;
         border: none;
         color: var(--text-muted);
-        font-size: 14px;
         cursor: pointer;
-        padding: 0 2px;
+        padding: 0 4px;
+        font-size: 14px;
         line-height: 1;
-        opacity: 0.5;
     }
 
     .tab-close:hover {
         color: var(--red);
-        opacity: 1;
     }
 
     /* Minimized Bar */
     .minimized-bar {
         position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: var(--bg-card);
-        border-top: 1px solid var(--border);
-        padding: 8px 16px;
+        bottom: 16px;
+        right: 16px;
         z-index: 1001;
     }
 
@@ -576,10 +873,10 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        background: var(--accent-dim);
+        padding: 10px 16px;
+        background: var(--bg-card);
         border: 1px solid var(--accent);
         color: var(--accent);
-        padding: 6px 16px;
         font-family: var(--font-mono);
         font-size: 12px;
         cursor: pointer;
@@ -595,6 +892,177 @@
         font-size: 14px;
     }
 
+    /* Create Panel Styles */
+    .create-panel {
+        position: absolute;
+        inset: 0;
+        background: #0a0a0a;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+        overflow-y: auto;
+    }
+
+    .create-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .create-panel-header h3 {
+        margin: 0;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text);
+    }
+
+    .close-create {
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        padding: 4px 10px;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .close-create:hover {
+        border-color: var(--red);
+        color: var(--red);
+    }
+
+    .os-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 8px;
+    }
+
+    .docked-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .docked-create {
+        align-items: center;
+        justify-content: center;
+    }
+
+    .docked-create .create-panel-header {
+        width: 100%;
+        max-width: 800px;
+    }
+
+    .os-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 8px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: var(--font-mono);
+        position: relative;
+    }
+
+    .os-card:hover {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+    }
+
+    .os-icon {
+        font-size: 24px;
+    }
+
+    .os-name {
+        font-size: 10px;
+        color: var(--text);
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .popular-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        font-size: 7px;
+        padding: 1px 3px;
+        background: var(--accent);
+        color: var(--bg);
+        text-transform: uppercase;
+    }
+
+    /* Create Progress */
+    .create-progress {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        text-align: center;
+    }
+
+    .create-progress .progress-bar {
+        width: 100%;
+        max-width: 300px;
+        height: 4px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    .create-progress .progress-fill {
+        height: 100%;
+        background: var(--accent);
+        transition: width 0.3s ease;
+    }
+
+    .create-progress .progress-info {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        max-width: 300px;
+        margin-bottom: 8px;
+    }
+
+    .create-progress .progress-stage {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--accent);
+    }
+
+    .create-progress .progress-percent {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .create-progress .progress-message {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 0 0 16px;
+    }
+
+    .spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
     @keyframes pulse {
         0%,
         100% {
@@ -602,6 +1070,12 @@
         }
         50% {
             opacity: 0.5;
+        }
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
         }
     }
 </style>

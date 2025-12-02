@@ -83,6 +83,10 @@ func AuthMiddleware() gin.HandlerFunc {
 		if guest, ok := claims["guest"].(bool); ok {
 			c.Set("guest", guest)
 		}
+		// Set token expiration time for guest session tracking
+		if exp, ok := claims["exp"].(float64); ok {
+			c.Set("tokenExp", int64(exp))
+		}
 
 		c.Next()
 	}
