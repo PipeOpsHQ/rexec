@@ -18,13 +18,14 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  16384,
-	WriteBufferSize: 16384,
+	ReadBufferSize:  64 * 1024,  // 64KB - handles large paste operations
+	WriteBufferSize: 64 * 1024,  // 64KB - handles large output bursts
 	CheckOrigin: func(r *http.Request) bool {
 		// In production, you should validate the origin
 		return true
 	},
 	HandshakeTimeout: 10 * time.Second,
+	EnableCompression: true, // Enable per-message compression for large data
 }
 
 // TerminalHandler handles WebSocket terminal connections
@@ -136,12 +137,15 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Configure WebSocket
-	conn.SetReadLimit(64 * 1024) // 64KB max message size
+	// Configure WebSocket for large data handling
+	conn.SetReadLimit(1024 * 1024) // 1MB max message size for large pastes
 	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		conn.SetReadDeadline(time.Now().Add(120 * time.Second)) // Longer timeout for stability
 		return nil
 	})
+	// Enable compression if client supports it
+	conn.EnableWriteCompression(true)
+	conn.SetCompressionLevel(6) // Balance between speed and compression
 
 	// Create terminal session
 	session := &TerminalSession{
@@ -307,22 +311,45 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 	// Container output -> WebSocket
 	go func() {
 		defer wg.Done()
-		// Larger buffer for TUI applications that output complex escape sequences
-		buf := make([]byte, 16384)
+		// Large buffer for handling big output bursts (e.g., cat large files, log dumps)
+		buf := make([]byte, 64*1024) // 64KB buffer
+		// Accumulator for batching small outputs to reduce WebSocket messages
+		accumulator := make([]byte, 0, 64*1024)
+		flushTicker := time.NewTicker(16 * time.Millisecond) // ~60fps max update rate
+		defer flushTicker.Stop()
+		
+		flushAccumulator := func() {
+			if len(accumulator) > 0 {
+				if err := session.SendMessage(TerminalMessage{
+					Type: "output",
+					Data: sanitizeUTF8(accumulator),
+				}); err != nil {
+					errChan <- err
+					return
+				}
+				accumulator = accumulator[:0] // Reset without reallocating
+			}
+		}
+		
 		for {
 			select {
 			case <-session.Done:
+				flushAccumulator()
 				return
 			case <-ctx.Done():
+				flushAccumulator()
 				return
+			case <-flushTicker.C:
+				// Periodic flush to ensure responsiveness
+				flushAccumulator()
 			default:
 				// Set read deadline
-				attachResp.Conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+				attachResp.Conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
 
 				n, err := attachResp.Reader.Read(buf)
 				if err != nil {
 					if err == io.EOF {
-						// Shell exited normally (user typed 'exit')
+						flushAccumulator()
 						shellExitChan <- true
 						return
 					}
@@ -330,16 +357,15 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 					if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
 						continue
 					}
+					flushAccumulator()
 					errChan <- err
 					return
 				}
 				if n > 0 {
-					if err := session.SendMessage(TerminalMessage{
-						Type: "output",
-						Data: sanitizeUTF8(buf[:n]),
-					}); err != nil {
-						errChan <- err
-						return
+					accumulator = append(accumulator, buf[:n]...)
+					// Flush immediately if buffer is getting large (>32KB)
+					if len(accumulator) > 32*1024 {
+						flushAccumulator()
 					}
 				}
 			}

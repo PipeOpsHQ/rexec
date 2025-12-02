@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, onMount } from "svelte";
     import { fade, scale } from "svelte/transition";
     import { api } from "$utils/api";
     import { toast } from "$stores/toast";
@@ -19,25 +19,45 @@
     let cpuShares = 512;
     let diskMB = 2048;
     let isSaving = false;
+    let initialized = false;
 
-    // Trial/free tier limits
-    const resourceLimits = {
+    // Trial/free tier limits - more memory than CPU
+    $: resourceLimits = {
         minMemory: 256,
-        maxMemory: isPaidUser ? 4096 : 1024,
+        maxMemory: isPaidUser ? 8192 : 2048,  // Allow more memory
         minCPU: 256,
         maxCPU: isPaidUser ? 2048 : 1024,
         minDisk: 1024,
-        maxDisk: isPaidUser ? 10240 : 4096
+        maxDisk: isPaidUser ? 20480 : 8192
     };
 
-    // Sync form when container changes
-    $: if (container) {
+    // Initialize form values only once when modal opens
+    $: if (show && container && !initialized) {
         name = container.name || "";
         if (container.resources) {
             memoryMB = container.resources.memory_mb || 512;
             cpuShares = container.resources.cpu_shares || 512;
             diskMB = container.resources.disk_mb || 2048;
         }
+        initialized = true;
+    }
+
+    // Reset initialized flag when modal closes
+    $: if (!show) {
+        initialized = false;
+    }
+
+    // Handler functions for sliders
+    function handleMemoryChange(e: Event) {
+        memoryMB = parseInt((e.target as HTMLInputElement).value);
+    }
+
+    function handleCpuChange(e: Event) {
+        cpuShares = parseInt((e.target as HTMLInputElement).value);
+    }
+
+    function handleDiskChange(e: Event) {
+        diskMB = parseInt((e.target as HTMLInputElement).value);
     }
 
     function handleClose() {
@@ -137,7 +157,8 @@
                     <input
                         id="memory"
                         type="range"
-                        bind:value={memoryMB}
+                        value={memoryMB}
+                        on:input={handleMemoryChange}
                         min={resourceLimits.minMemory}
                         max={resourceLimits.maxMemory}
                         step="128"
@@ -157,7 +178,8 @@
                     <input
                         id="cpu"
                         type="range"
-                        bind:value={cpuShares}
+                        value={cpuShares}
+                        on:input={handleCpuChange}
                         min={resourceLimits.minCPU}
                         max={resourceLimits.maxCPU}
                         step="128"
@@ -177,7 +199,8 @@
                     <input
                         id="disk"
                         type="range"
-                        bind:value={diskMB}
+                        value={diskMB}
+                        on:input={handleDiskChange}
                         min={resourceLimits.minDisk}
                         max={resourceLimits.maxDisk}
                         step="512"

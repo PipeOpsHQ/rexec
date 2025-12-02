@@ -2,6 +2,7 @@ import { writable, derived, get } from "svelte/store";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { token } from "./auth";
 
 // Types
@@ -18,6 +19,7 @@ export interface TerminalSession {
   name: string;
   terminal: Terminal;
   fitAddon: FitAddon;
+  webglAddon: WebglAddon | null;
   ws: WebSocket | null;
   status: SessionStatus;
   reconnectAttempts: number;
@@ -64,7 +66,7 @@ const REXEC_BANNER =
   "  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝\r\n" +
   "\x1b[0m\x1b[38;5;243m  Terminal as a Service · rexec.dev\x1b[0m\r\n\r\n";
 
-// Terminal configuration
+// Terminal configuration - optimized for large data handling
 const TERMINAL_OPTIONS = {
   cursorBlink: true,
   cursorStyle: "bar" as const,
@@ -94,7 +96,16 @@ const TERMINAL_OPTIONS = {
     brightWhite: "#ffffff",
   },
   allowProposedApi: true,
-  scrollback: 5000,
+  scrollback: 10000,            // Increased scrollback for large outputs
+  fastScrollModifier: "alt",    // Alt+scroll for fast scrolling
+  fastScrollSensitivity: 10,    // Fast scroll speed
+  scrollSensitivity: 3,         // Normal scroll speed
+  smoothScrollDuration: 0,      // Disable smooth scrolling for performance
+  windowsMode: false,           // Optimize for non-Windows
+  convertEol: false,            // Don't convert line endings
+  rightClickSelectsWord: true,
+  drawBoldTextInBrightColors: true,
+  minimumContrastRatio: 1,      // Don't adjust colors (faster)
 };
 
 // Initial state
@@ -256,6 +267,7 @@ function createTerminalStore() {
       const fitAddon = new FitAddon();
       terminal.loadAddon(fitAddon);
       terminal.loadAddon(new WebLinksAddon());
+      // WebGL addon will be loaded after terminal is attached to DOM
 
       const sessionId = generateSessionId();
       const tabName =
@@ -266,6 +278,7 @@ function createTerminalStore() {
         name: tabName,
         terminal,
         fitAddon,
+        webglAddon: null, // Will be set when attached to DOM
         ws: null,
         status: "connecting",
         reconnectAttempts: 0,
@@ -520,9 +533,38 @@ function createTerminalStore() {
         console.error("[Terminal] WebSocket error:", error);
       };
 
-      // Handle terminal input
+      // Handle terminal input with chunking for large pastes
+      let inputQueue: string[] = [];
+      let isProcessingQueue = false;
+      const CHUNK_SIZE = 4096; // 4KB chunks for large pastes
+      const CHUNK_DELAY = 10; // 10ms between chunks
+
+      const processInputQueue = async () => {
+        if (isProcessingQueue || inputQueue.length === 0) return;
+        isProcessingQueue = true;
+
+        while (inputQueue.length > 0 && ws.readyState === WebSocket.OPEN) {
+          const chunk = inputQueue.shift()!;
+          ws.send(JSON.stringify({ type: "input", data: chunk }));
+          // Small delay between chunks to prevent overwhelming the connection
+          if (inputQueue.length > 0) {
+            await new Promise((resolve) => setTimeout(resolve, CHUNK_DELAY));
+          }
+        }
+        isProcessingQueue = false;
+      };
+
       session.terminal.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws.readyState !== WebSocket.OPEN) return;
+
+        // For large pastes, chunk the data
+        if (data.length > CHUNK_SIZE) {
+          for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+            inputQueue.push(data.slice(i, i + CHUNK_SIZE));
+          }
+          processInputQueue();
+        } else {
+          // Small inputs go directly
           ws.send(JSON.stringify({ type: "input", data }));
         }
       });
@@ -545,6 +587,7 @@ function createTerminalStore() {
       if (session.pingInterval) clearInterval(session.pingInterval);
       if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
       if (session.resizeObserver) session.resizeObserver.disconnect();
+      if (session.webglAddon) session.webglAddon.dispose();
       if (session.terminal) session.terminal.dispose();
 
       update((state) => {
@@ -736,6 +779,22 @@ function createTerminalStore() {
       }
 
       session.terminal.open(element);
+
+      // Try to load WebGL addon for GPU-accelerated rendering
+      // This significantly improves performance with large outputs
+      try {
+        const webglAddon = new WebglAddon();
+        webglAddon.onContextLoss(() => {
+          // WebGL context lost, dispose and fall back to canvas renderer
+          webglAddon.dispose();
+          updateSession(sessionId, (s) => ({ ...s, webglAddon: null }));
+        });
+        session.terminal.loadAddon(webglAddon);
+        updateSession(sessionId, (s) => ({ ...s, webglAddon }));
+      } catch (e) {
+        // WebGL not available, terminal will use canvas renderer
+        console.warn("WebGL addon not available, using canvas renderer:", e);
+      }
 
       // Setup resize observer
       if (window.ResizeObserver) {
