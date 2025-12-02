@@ -860,6 +860,7 @@ function handleContainerEvent(event: {
   timestamp: string;
 }) {
   const { type, container: containerData } = event;
+  console.log("[ContainerEvents] Received event:", type, containerData);
 
   switch (type) {
     case "list":
@@ -889,12 +890,19 @@ function handleContainerEvent(event: {
     case "started":
     case "stopped":
     case "updated":
-      // Container status changed - merge all data
+      // Container status changed - merge all data including resources
       containers.update((state) => ({
         ...state,
         containers: state.containers.map((c) =>
           c.id === containerData.id || c.db_id === containerData.id
-            ? { ...c, ...containerData }
+            ? { 
+                ...c, 
+                ...containerData,
+                // Ensure status is updated
+                status: containerData.status || c.status,
+                // Merge resources if present
+                resources: containerData.resources || c.resources,
+              }
             : c
         ),
       }));

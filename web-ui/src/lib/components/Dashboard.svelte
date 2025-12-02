@@ -32,6 +32,8 @@
 
     // Track loading states for containers
     let loadingStates: Record<string, 'starting' | 'stopping' | 'deleting' | null> = {};
+    // Track the last known status to detect WebSocket updates
+    let lastKnownStatus: Record<string, string> = {};
 
     function setLoading(id: string, state: 'starting' | 'stopping' | 'deleting' | null) {
         if (state) {
@@ -48,6 +50,35 @@
 
     function isContainerLoading(id: string): boolean {
         return !!loadingStates[id];
+    }
+
+    // Clear loading state when container status changes via WebSocket
+    $: {
+        for (const container of $containers.containers) {
+            const prevStatus = lastKnownStatus[container.id];
+            const currentStatus = container.status;
+            
+            // If status changed, clear any loading state
+            if (prevStatus && prevStatus !== currentStatus) {
+                if (loadingStates[container.id]) {
+                    delete loadingStates[container.id];
+                    loadingStates = { ...loadingStates };
+                }
+            }
+            lastKnownStatus[container.id] = currentStatus;
+        }
+        
+        // Clean up deleted containers from lastKnownStatus
+        const currentIds = new Set($containers.containers.map(c => c.id));
+        for (const id of Object.keys(lastKnownStatus)) {
+            if (!currentIds.has(id)) {
+                delete lastKnownStatus[id];
+                if (loadingStates[id]) {
+                    delete loadingStates[id];
+                    loadingStates = { ...loadingStates };
+                }
+            }
+        }
     }
 
     // Container actions

@@ -509,14 +509,20 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// Notify via WebSocket
+	// Notify via WebSocket - send both IDs so frontend can match
 	if h.eventsHub != nil {
+		// Use the ID that was passed in (could be docker ID or db ID)
 		h.eventsHub.NotifyContainerDeleted(userID, dockerID)
+		// Also notify with db_id if different
+		if found.ID != dockerID && found.DockerID != dockerID {
+			h.eventsHub.NotifyContainerDeleted(userID, found.ID)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "container deleted",
 		"id":      dockerID,
+		"db_id":   found.ID,
 		"name":    found.Name,
 	})
 }
@@ -620,12 +626,20 @@ func (h *ContainerHandler) Start(c *gin.Context) {
 	// Update status in database
 	h.store.UpdateContainerStatus(ctx, found.ID, "running")
 
-	// Notify via WebSocket
+	// Notify via WebSocket with full container data
 	if h.eventsHub != nil {
+		limits := models.TierLimits(tier)
 		h.eventsHub.NotifyContainerStarted(userID, gin.H{
-			"id":     dockerID,
-			"name":   found.Name,
-			"status": "running",
+			"id":       dockerID,
+			"db_id":    found.ID,
+			"name":     found.Name,
+			"image":    found.Image,
+			"status":   "running",
+			"resources": gin.H{
+				"memory_mb":  limits.MemoryMB,
+				"cpu_shares": limits.CPUShares,
+				"disk_mb":    limits.DiskMB,
+			},
 		})
 	}
 
@@ -677,12 +691,21 @@ func (h *ContainerHandler) Stop(c *gin.Context) {
 	// Update status in database
 	h.store.UpdateContainerStatus(ctx, found.ID, "stopped")
 
-	// Notify via WebSocket
+	// Notify via WebSocket with full container data
+	tier := c.GetString("tier")
 	if h.eventsHub != nil {
+		limits := models.TierLimits(tier)
 		h.eventsHub.NotifyContainerStopped(userID, gin.H{
-			"id":     dockerID,
-			"name":   found.Name,
-			"status": "stopped",
+			"id":       dockerID,
+			"db_id":    found.ID,
+			"name":     found.Name,
+			"image":    found.Image,
+			"status":   "stopped",
+			"resources": gin.H{
+				"memory_mb":  limits.MemoryMB,
+				"cpu_shares": limits.CPUShares,
+				"disk_mb":    limits.DiskMB,
+			},
 		})
 	}
 
