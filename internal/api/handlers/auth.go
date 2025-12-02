@@ -87,7 +87,8 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 
 	if req.Email != "" && strings.Contains(req.Email, "@") {
 		// User provided an email - check if they're a returning guest
-		guestEmail = strings.TrimSpace(req.Email)
+		// Normalize email to lowercase to avoid duplicate users
+		guestEmail = strings.ToLower(strings.TrimSpace(req.Email))
 		existingUser, _, _ = h.store.GetUserByEmail(ctx, guestEmail)
 		if existingUser != nil && existingUser.Tier == "guest" {
 			isReturningGuest = true
@@ -285,8 +286,11 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 
 	ctx := context.Background()
 
+	// Normalize email to lowercase to avoid duplicate users
+	normalizedEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
+
 	// Check if user exists
-	user, _, err := h.store.GetUserByEmail(ctx, userInfo.Email)
+	user, _, err := h.store.GetUserByEmail(ctx, normalizedEmail)
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "", renderOAuthErrorPage("database", "Database error"))
 		return
@@ -299,12 +303,12 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 			username = userInfo.Name
 		}
 		if username == "" {
-			username = userInfo.Email
+			username = normalizedEmail
 		}
 
 		user = &models.User{
 			ID:        uuid.New().String(),
-			Email:     userInfo.Email,
+			Email:     normalizedEmail,
 			Username:  username,
 			Tier:      "free",
 			PipeOpsID: userInfo.ID,
@@ -397,8 +401,11 @@ func (h *AuthHandler) OAuthExchange(c *gin.Context) {
 
 	ctx := context.Background()
 
+	// Normalize email to lowercase to avoid duplicate users
+	normalizedEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
+
 	// Check if user exists or create new
-	user, _, err := h.store.GetUserByEmail(ctx, userInfo.Email)
+	user, _, err := h.store.GetUserByEmail(ctx, normalizedEmail)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIError{
 			Code:    http.StatusInternalServerError,
@@ -413,12 +420,12 @@ func (h *AuthHandler) OAuthExchange(c *gin.Context) {
 			username = userInfo.Name
 		}
 		if username == "" {
-			username = userInfo.Email
+			username = normalizedEmail
 		}
 
 		user = &models.User{
 			ID:        uuid.New().String(),
-			Email:     userInfo.Email,
+			Email:     normalizedEmail,
 			Username:  username,
 			Tier:      "free",
 			PipeOpsID: userInfo.ID,
