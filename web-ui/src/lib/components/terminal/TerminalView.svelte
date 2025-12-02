@@ -1293,9 +1293,58 @@
     /* Docked Terminal Container */
     .docked-terminal {
         position: fixed;
-        padding: 8px 16px;
-        background: #111;
-        border-bottom: 1px solid var(--border);
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg);
+        border-top: 1px solid var(--border);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Mobile-specific styles */
+    @media (max-width: 768px) {
+        .docked-terminal {
+            /* Full height on mobile for better usability */
+            height: 100vh;
+            top: 0;
+            border-top: none;
+        }
+
+        .docked-toolbar {
+            /* Larger touch targets */
+            padding: 12px;
+            min-height: 48px;
+        }
+
+        .docked-toolbar button {
+            min-width: 44px;
+            min-height: 44px;
+            font-size: 18px;
+        }
+
+        .docked-tabs {
+            /* Better spacing for touch */
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .docked-tab {
+            min-height: 44px;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        /* Hide floating toggle on mobile */
+        .docked-toolbar button[title="Toggle View"] {
+            display: none;
+        }
+    }
+
+    .docked-header {
+        display: flex;
+        align-items: center;
         gap: 16px;
     }
 

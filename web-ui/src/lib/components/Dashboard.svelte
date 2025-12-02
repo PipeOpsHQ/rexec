@@ -18,7 +18,7 @@
     }>();
 
     // Track containers being deleted
-    let deletingIds: Set<string> = new Set();
+    // (moved to loadingStates)
 
     // Confirm modal state
     let showDeleteConfirm = false;
@@ -29,14 +29,32 @@
         return $connectedContainerIds.has(containerId);
     }
 
-    function isDeleting(id: string): boolean {
-        return deletingIds.has(id);
+    // Track loading states for containers
+    let loadingStates: Record<string, 'starting' | 'stopping' | 'deleting' | null> = {};
+
+    function setLoading(id: string, state: 'starting' | 'stopping' | 'deleting' | null) {
+        if (state) {
+            loadingStates[id] = state;
+        } else {
+            delete loadingStates[id];
+        }
+        loadingStates = { ...loadingStates }; // Trigger reactivity
+    }
+
+    function getLoadingState(id: string): string | null {
+        return loadingStates[id] || null;
+    }
+
+    function isLoading(id: string): boolean {
+        return !!loadingStates[id];
     }
 
     // Container actions
     async function handleStart(container: Container) {
+        setLoading(container.id, 'starting');
         const toastId = toast.loading(`Starting ${container.name}...`);
         const result = await containers.startContainer(container.id);
+        setLoading(container.id, null);
 
         if (result.success) {
             toast.update(toastId, `${container.name} started`, "success");
@@ -55,8 +73,10 @@
     }
 
     async function handleStop(container: Container) {
+        setLoading(container.id, 'stopping');
         const toastId = toast.loading(`Stopping ${container.name}...`);
         const result = await containers.stopContainer(container.id);
+        setLoading(container.id, null);
 
         if (result.success) {
             toast.update(toastId, `${container.name} stopped`, "success");
@@ -80,16 +100,10 @@
         const container = containerToDelete;
         containerToDelete = null;
 
-        // Mark as deleting
-        deletingIds.add(container.id);
-        deletingIds = deletingIds; // Trigger reactivity
-
+        setLoading(container.id, 'deleting');
         const toastId = toast.loading(`Deleting ${container.name}...`);
         const result = await containers.deleteContainer(container.id);
-
-        // Remove from deleting set
-        deletingIds.delete(container.id);
-        deletingIds = deletingIds; // Trigger reactivity
+        setLoading(container.id, null);
 
         if (result.success) {
             toast.update(toastId, `${container.name} deleted`, "success");
@@ -332,13 +346,24 @@
                     class="container-card"
                     class:active={hasActiveSession(container.id)}
                     class:connected={isConnected(container.id)}
-                    class:deleting={isDeleting(container.id)}
+                    class:loading={isLoading(container.id)}
+                    class:deleting={getLoadingState(container.id) === 'deleting'}
+                    class:starting={getLoadingState(container.id) === 'starting'}
+                    class:stopping={getLoadingState(container.id) === 'stopping'}
                 >
-                    {#if isDeleting(container.id)}
-                        <div class="deleting-overlay">
-                            <div class="deleting-content">
+                    {#if isLoading(container.id)}
+                        <div class="loading-overlay">
+                            <div class="loading-content">
                                 <div class="spinner"></div>
-                                <span>Deleting...</span>
+                                <span>
+                                    {#if getLoadingState(container.id) === 'deleting'}
+                                        Deleting...
+                                    {:else if getLoadingState(container.id) === 'starting'}
+                                        Starting...
+                                    {:else if getLoadingState(container.id) === 'stopping'}
+                                        Stopping...
+                                    {/if}
+                                </span>
                             </div>
                         </div>
                     {/if}
@@ -522,7 +547,7 @@
                                 <button
                                     class="btn btn-secondary btn-sm flex-1"
                                     on:click={() => handleStop(container)}
-                                    disabled={isDeleting(container.id)}
+                                    disabled={isLoading(container.id)}
                                 >
                                     <svg
                                         class="icon"
@@ -543,7 +568,7 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
-                                    disabled={isDeleting(container.id)}
+                                    disabled={isLoading(container.id)}
                                 >
                                     <svg
                                         class="icon"
@@ -564,7 +589,7 @@
                                 <button
                                     class="btn btn-primary btn-sm flex-1"
                                     on:click={() => handleStart(container)}
-                                    disabled={isDeleting(container.id)}
+                                    disabled={isLoading(container.id)}
                                 >
                                     <svg
                                         class="icon"
@@ -580,7 +605,7 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
-                                    disabled={isDeleting(container.id)}
+                                    disabled={isLoading(container.id)}
                                 >
                                     <svg
                                         class="icon"
@@ -601,7 +626,7 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
-                                    disabled={isDeleting(container.id)}
+                                    disabled={isLoading(container.id)}
                                 >
                                     <svg
                                         class="icon"
@@ -835,9 +860,33 @@
         50% { opacity: 0.4; }
     }
 
-    .container-card.deleting {
+    /* Loading states */
+    .container-card.loading {
         position: relative;
         pointer-events: none;
+    }
+
+    .container-card.starting {
+        opacity: 0.8;
+        border-color: var(--accent);
+        background: linear-gradient(
+            135deg,
+            rgba(0, 255, 65, 0.05) 0%,
+            rgba(0, 255, 65, 0.1) 100%
+        );
+    }
+
+    .container-card.stopping {
+        opacity: 0.8;
+        border-color: #ffd93d;
+        background: linear-gradient(
+            135deg,
+            rgba(255, 217, 61, 0.05) 0%,
+            rgba(255, 217, 61, 0.1) 100%
+        );
+    }
+
+    .container-card.deleting {
         opacity: 0.6;
         border-color: var(--red, #ff6b6b);
         background: linear-gradient(
@@ -847,6 +896,32 @@
         );
         transform: scale(0.98);
         transition: all 0.3s ease;
+    }
+
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        border-radius: inherit;
+    }
+
+    .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .container-card.deleting::after {
@@ -867,43 +942,6 @@
         to {
             transform: scaleX(1);
         }
-    }
-
-    .deleting-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10;
-        backdrop-filter: blur(2px);
-    }
-
-    .deleting-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        color: var(--red, #ff6b6b);
-        font-size: 13px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
-    }
-
-    .deleting-content .spinner {
-        width: 28px;
-        height: 28px;
-        border: 3px solid rgba(255, 107, 107, 0.3);
-        border-top-color: var(--red, #ff6b6b);
-        border-radius: 50%;
-        animation: spin 0.6s linear infinite;
-        box-shadow: 0 0 15px rgba(255, 107, 107, 0.3);
     }
 
     .container-header {
