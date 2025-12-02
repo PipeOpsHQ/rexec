@@ -1,5 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher, tick } from "svelte";
+    import { writable } from "svelte/store";
     import {
         containers,
         isCreating,
@@ -48,21 +49,26 @@
         return connectedIds.has(containerId);
     }
 
-    // Track loading states for containers
-    let loadingStates: Record<string, 'starting' | 'stopping' | 'deleting' | null> = {};
+    // Track loading states for containers - use a reactive store pattern
+    const loadingStatesStore = writable<Record<string, 'starting' | 'stopping' | 'deleting' | null>>({});
+    $: loadingStates = $loadingStatesStore;
+    
     // Track the last known status to detect WebSocket updates
     let lastKnownStatus: Record<string, string> = {};
 
     function setLoading(id: string, state: 'starting' | 'stopping' | 'deleting' | null) {
-        if (state) {
-            loadingStates[id] = state;
-        } else {
-            delete loadingStates[id];
-        }
-        loadingStates = { ...loadingStates }; // Trigger reactivity
+        loadingStatesStore.update(states => {
+            const newStates = { ...states };
+            if (state) {
+                newStates[id] = state;
+            } else {
+                delete newStates[id];
+            }
+            return newStates;
+        });
     }
 
-    function getLoadingState(id: string): string | null {
+    function getLoadingState(id: string): 'starting' | 'stopping' | 'deleting' | null {
         return loadingStates[id] || null;
     }
 
@@ -79,8 +85,7 @@
             // If status changed, clear any loading state
             if (prevStatus && prevStatus !== currentStatus) {
                 if (loadingStates[container.id]) {
-                    delete loadingStates[container.id];
-                    loadingStates = { ...loadingStates };
+                    setLoading(container.id, null);
                 }
             }
             lastKnownStatus[container.id] = currentStatus;
@@ -92,8 +97,7 @@
             if (!currentIds.has(id)) {
                 delete lastKnownStatus[id];
                 if (loadingStates[id]) {
-                    delete loadingStates[id];
-                    loadingStates = { ...loadingStates };
+                    setLoading(id, null);
                 }
             }
         }
