@@ -1906,6 +1906,8 @@
     .hero-stat-compact {
         margin-top: 10px;
         position: relative;
+        z-index: 50;
+        overflow: visible;
     }
 
     .hero-identity {
@@ -1969,15 +1971,15 @@
         position: absolute;
         top: calc(100% + 6px);
         left: 0;
-        right: 0;
+        width: 260px;
         background: var(--bg-elevated);
         border: 1px solid var(--accent);
         border-radius: 6px;
         padding: 10px;
-        z-index: 100;
+        z-index: 1000;
         box-shadow:
-            0 4px 16px rgba(0, 0, 0, 0.4),
-            0 0 12px rgba(0, 255, 65, 0.1);
+            0 4px 16px rgba(0, 0, 0, 0.8),
+            0 0 12px rgba(0, 255, 65, 0.2);
         animation: popoverSlide 0.15s ease-out;
     }
 
@@ -2034,7 +2036,7 @@
 
     .stat-label-sm {
         font-size: 10px;
-        width: 20px;
+        width: 24px;
         flex-shrink: 0;
     }
 

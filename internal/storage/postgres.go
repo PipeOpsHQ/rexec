@@ -560,9 +560,9 @@ func (s *PostgresStore) UpdateContainerStatus(ctx context.Context, id, status st
 	return err
 }
 
-// UpdateContainerDockerID updates a container's Docker ID
+// UpdateContainerDockerID updates a container's Docker ID (only for non-deleted containers)
 func (s *PostgresStore) UpdateContainerDockerID(ctx context.Context, id, dockerID string) error {
-	query := `UPDATE containers SET docker_id = $2 WHERE id = $1`
+	query := `UPDATE containers SET docker_id = $2 WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, query, id, dockerID)
 	return err
 }
@@ -602,11 +602,11 @@ func (s *PostgresStore) RestoreContainer(ctx context.Context, id string) error {
 	return err
 }
 
-// GetAllContainers retrieves all containers (for loading on startup)
+// GetAllContainers retrieves all non-deleted containers (for loading on startup)
 func (s *PostgresStore) GetAllContainers(ctx context.Context) ([]*ContainerRecord, error) {
 	query := `
 		SELECT id, user_id, name, image, status, docker_id, volume_name, created_at, last_used_at
-		FROM containers
+		FROM containers WHERE deleted_at IS NULL
 	`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -636,9 +636,9 @@ func (s *PostgresStore) GetAllContainers(ctx context.Context) ([]*ContainerRecor
 	return containers, nil
 }
 
-// TouchContainer updates the last_used_at timestamp
+// TouchContainer updates the last_used_at timestamp (only for non-deleted containers)
 func (s *PostgresStore) TouchContainer(ctx context.Context, id string) error {
-	query := `UPDATE containers SET last_used_at = $2 WHERE id = $1`
+	query := `UPDATE containers SET last_used_at = $2 WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, query, id, time.Now())
 	return err
 }

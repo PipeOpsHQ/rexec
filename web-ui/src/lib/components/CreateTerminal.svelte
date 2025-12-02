@@ -680,6 +680,7 @@
         display: flex;
         flex-direction: column;
         gap: 16px;
+        overflow: visible;
     }
 
     .section-header {
@@ -761,6 +762,7 @@
     .hero-stat-compact {
         margin-top: 12px;
         position: relative;
+        z-index: 50;
     }
 
     .hero-identity {
@@ -844,15 +846,15 @@
         position: absolute;
         top: calc(100% + 8px);
         left: 0;
-        right: 0;
+        width: 300px;
         background: var(--bg-elevated);
         border: 1px solid var(--accent);
         border-radius: 8px;
         padding: 12px;
-        z-index: 100;
+        z-index: 1000;
         box-shadow:
-            0 4px 20px rgba(0, 0, 0, 0.4),
-            0 0 15px rgba(0, 255, 65, 0.1);
+            0 4px 20px rgba(0, 0, 0, 0.8),
+            0 0 15px rgba(0, 255, 65, 0.2);
         animation: popoverSlide 0.15s ease-out;
     }
 
@@ -908,10 +910,10 @@
     }
 
     .stat-label {
-        font-size: 9px;
+        font-size: 10px;
         color: var(--text-muted);
         font-family: var(--font-mono);
-        width: 50px;
+        width: 60px;
         flex-shrink: 0;
     }
 

@@ -149,29 +149,26 @@
         </div>
 
         <div class="toolbar-actions">
-            {#if isConnected}
-                <button
-                    class="toolbar-btn connected-btn"
-                    disabled
-                    title="Terminal is connected"
-                >
-                    ● Connected
-                </button>
-            {:else if isConnecting}
-                <button
-                    class="toolbar-btn connecting-btn"
-                    disabled
-                    title="Connecting..."
-                >
-                    ◌ Connecting
-                </button>
-            {:else}
+            {#if isDisconnected}
                 <button
                     class="toolbar-btn reconnect-btn"
                     on:click={handleReconnect}
                     title="Reconnect"
                 >
-                    ↻ Reconnect
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"
+                        />
+                        <path
+                            fill-rule="evenodd"
+                            d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"
+                        />
+                    </svg>
+                    Reconnect
                 </button>
             {/if}
             <button
@@ -179,24 +176,73 @@
                 on:click={handleCopyLink}
                 title="Copy Terminal Link"
             >
-                🔗 Copy Link
+                <svg
+                    class="toolbar-icon"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                >
+                    <path
+                        d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"
+                    />
+                    <path
+                        d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"
+                    />
+                </svg>
+                Link
             </button>
             <button
                 class="toolbar-btn"
                 on:click={handleCopy}
                 title="Copy Selection"
             >
-                📋 Copy
+                <svg
+                    class="toolbar-icon"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                >
+                    <path
+                        d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"
+                    />
+                    <path
+                        d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"
+                    />
+                </svg>
+                Copy
             </button>
             <button class="toolbar-btn" on:click={handlePaste} title="Paste">
-                📥 Paste
+                <svg
+                    class="toolbar-icon"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                >
+                    <path
+                        d="M3.5 2a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5H12a.5.5 0 0 1 0-1h.5A1.5 1.5 0 0 1 14 2.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-12A1.5 1.5 0 0 1 3.5 1H4a.5.5 0 0 1 0 1h-.5z"
+                    />
+                    <path
+                        d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5z"
+                    />
+                </svg>
+                Paste
             </button>
             <button
                 class="toolbar-btn"
                 on:click={handleClear}
                 title="Clear Terminal"
             >
-                🗑 Clear
+                <svg
+                    class="toolbar-icon"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                >
+                    <path
+                        d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
+                    />
+                    <path
+                        fill-rule="evenodd"
+                        d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
+                    />
+                </svg>
+                Clear
             </button>
         </div>
     </div>
@@ -221,10 +267,31 @@
 
     {#if isDisconnected}
         <div class="disconnected-overlay">
-            <span class="disconnected-icon">⚠</span>
+            <svg
+                class="disconnected-icon"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+            >
+                <path
+                    d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"
+                />
+            </svg>
             <span>Disconnected</span>
             <button class="reconnect-btn" on:click={handleReconnect}>
-                ↻ Reconnect
+                <svg
+                    class="reconnect-icon"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                >
+                    <path
+                        d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"
+                    />
+                    <path
+                        fill-rule="evenodd"
+                        d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"
+                    />
+                </svg>
+                Reconnect
             </button>
         </div>
     {/if}
@@ -323,6 +390,9 @@
     }
 
     .toolbar-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
         background: none;
         border: 1px solid transparent;
         color: var(--text-muted);
@@ -331,6 +401,12 @@
         padding: 4px 8px;
         cursor: pointer;
         transition: all 0.15s;
+    }
+
+    .toolbar-icon {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
     }
 
     .toolbar-btn:hover:not(:disabled) {
@@ -342,24 +418,6 @@
     .toolbar-btn:disabled {
         cursor: default;
         opacity: 0.8;
-    }
-
-    .toolbar-btn.connected-btn {
-        color: var(--green);
-        border-color: var(--green);
-        background: rgba(0, 255, 65, 0.1);
-    }
-
-    .toolbar-btn.connecting-btn {
-        color: var(--yellow);
-        border-color: var(--yellow);
-        background: rgba(255, 200, 0, 0.1);
-    }
-
-    .toolbar-btn.connecting-btn::before {
-        content: "";
-        display: inline-block;
-        animation: spin 1s linear infinite;
     }
 
     .toolbar-btn.reconnect-btn {
@@ -445,7 +503,20 @@
     }
 
     .disconnected-icon {
-        font-size: 16px;
+        width: 20px;
+        height: 20px;
+        color: var(--red);
+    }
+
+    .reconnect-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .reconnect-icon {
+        width: 14px;
+        height: 14px;
     }
 
     .disconnected-overlay span {

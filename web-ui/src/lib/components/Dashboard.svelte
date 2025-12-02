@@ -15,6 +15,13 @@
         connect: { id: string; name: string };
     }>();
 
+    // Track containers being deleted
+    let deletingIds: Set<string> = new Set();
+
+    function isDeleting(id: string): boolean {
+        return deletingIds.has(id);
+    }
+
     // Container actions
     async function handleStart(container: Container) {
         const toastId = toast.loading(`Starting ${container.name}...`);
@@ -60,8 +67,16 @@
             return;
         }
 
+        // Mark as deleting
+        deletingIds.add(container.id);
+        deletingIds = deletingIds; // Trigger reactivity
+
         const toastId = toast.loading(`Deleting ${container.name}...`);
         const result = await containers.deleteContainer(container.id);
+
+        // Remove from deleting set
+        deletingIds.delete(container.id);
+        deletingIds = deletingIds; // Trigger reactivity
 
         if (result.success) {
             toast.update(toastId, `${container.name} deleted`, "success");
@@ -220,7 +235,16 @@
                 <div
                     class="container-card"
                     class:active={hasActiveSession(container.id)}
+                    class:deleting={isDeleting(container.id)}
                 >
+                    {#if isDeleting(container.id)}
+                        <div class="deleting-overlay">
+                            <div class="deleting-content">
+                                <div class="spinner"></div>
+                                <span>Deleting...</span>
+                            </div>
+                        </div>
+                    {/if}
                     <div class="container-header">
                         <span class="container-icon"
                             >{getImageIcon(container.image)}</span
@@ -290,12 +314,14 @@
                                 <button
                                     class="btn btn-secondary btn-sm flex-1"
                                     on:click={() => handleStop(container)}
+                                    disabled={isDeleting(container.id)}
                                 >
                                     Stop
                                 </button>
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
+                                    disabled={isDeleting(container.id)}
                                 >
                                     Delete
                                 </button>
@@ -305,12 +331,14 @@
                                 <button
                                     class="btn btn-primary btn-sm flex-1"
                                     on:click={() => handleStart(container)}
+                                    disabled={isDeleting(container.id)}
                                 >
                                     Start
                                 </button>
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
+                                    disabled={isDeleting(container.id)}
                                 >
                                     Delete
                                 </button>
@@ -320,6 +348,7 @@
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
                                     on:click={() => handleDelete(container)}
+                                    disabled={isDeleting(container.id)}
                                 >
                                     Delete
                                 </button>
@@ -396,6 +425,15 @@
         color: var(--text-muted);
     }
 
+    .spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
     /* Empty State */
     .empty-state {
         display: flex;
@@ -446,6 +484,46 @@
     .container-card.active {
         border-color: var(--accent);
         box-shadow: 0 0 10px var(--accent-dim);
+    }
+
+    .container-card.deleting {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.7;
+        border-color: var(--red, #ff6b6b);
+    }
+
+    .deleting-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+
+    .deleting-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: var(--red, #ff6b6b);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .deleting-content .spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--border);
+        border-top-color: var(--red, #ff6b6b);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
     }
 
     .container-header {
