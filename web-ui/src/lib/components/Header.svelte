@@ -577,7 +577,8 @@
         }
 
         .logo-text {
-            display: none;
+            display: inline; /* Keep logo text visible on mobile */
+            font-size: 14px;
         }
 
         .nav-actions {

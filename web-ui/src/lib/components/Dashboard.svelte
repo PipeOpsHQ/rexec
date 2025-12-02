@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, tick } from "svelte";
     import {
         containers,
         isCreating,
@@ -134,8 +134,14 @@
 
         const container = containerToDelete;
         containerToDelete = null;
+        showDeleteConfirm = false;
 
+        // Set loading state immediately and force UI update
         setLoading(container.id, 'deleting');
+        
+        // Use tick to ensure DOM updates before API call
+        await tick();
+        
         const toastId = toast.loading(`Deleting ${container.name}...`);
         const result = await containers.deleteContainer(container.id);
         setLoading(container.id, null);
@@ -205,7 +211,17 @@
 
     // Distro detection for icon selection
     function getDistro(image: string): string {
+        // Handle both full image names (rexec/ubuntu:latest) and simple names (ubuntu)
         const lower = image.toLowerCase();
+        
+        // Extract base name - handle formats like "rexec/ubuntu:latest" or "ubuntu"
+        const baseName = lower.split('/').pop()?.split(':')[0] || lower;
+        
+        // Direct match first
+        const directMatches = ['ubuntu', 'debian', 'alpine', 'fedora', 'centos', 'rocky', 'alma', 'arch', 'kali', 'manjaro', 'mint', 'gentoo', 'void', 'nixos', 'slackware'];
+        if (directMatches.includes(baseName)) return baseName;
+        
+        // Partial matches for special cases
         if (lower.includes("ubuntu")) return "ubuntu";
         if (lower.includes("debian")) return "debian";
         if (lower.includes("alpine")) return "alpine";
@@ -215,8 +231,18 @@
         if (lower.includes("alma")) return "alma";
         if (lower.includes("arch")) return "arch";
         if (lower.includes("kali")) return "kali";
-        if (lower.includes("opensuse") || lower.includes("suse")) return "suse";
+        if (lower.includes("opensuse") || lower.includes("suse") || lower.includes("tumbleweed")) return "suse";
         if (lower.includes("rhel") || lower.includes("redhat")) return "rhel";
+        if (lower.includes("manjaro")) return "manjaro";
+        if (lower.includes("mint")) return "mint";
+        if (lower.includes("gentoo")) return "gentoo";
+        if (lower.includes("void")) return "void";
+        if (lower.includes("nixos")) return "nixos";
+        if (lower.includes("slackware")) return "slackware";
+        if (lower.includes("parrot")) return "parrot";
+        if (lower.includes("blackarch")) return "blackarch";
+        if (lower.includes("oracle")) return "oracle";
+        
         return "linux";
     }
 
