@@ -140,7 +140,7 @@
         createContainer();
     }
 
-    async function createContainer() {
+    function createContainer() {
         if (!selectedImage || isCreating) return;
 
         isCreating = true;
@@ -155,37 +155,38 @@
         }
 
         function handleComplete(container: any) {
+            // Reset UI and dispatch event
+            isCreating = false;
+            progress = 0;
+            progressMessage = "";
+            progressStage = "";
             dispatch("created", { id: container.id, name: container.name });
         }
 
         function handleError(error: string) {
             progressMessage = error || "Failed to create terminal";
-        }
-
-        try {
-            // Generate a unique name
-            const terminalName = `terminal-${Date.now().toString(36)}`;
-            
-            await containers.createContainerWithProgress(
-                terminalName,
-                selectedImage,
-                undefined, // customImage
-                selectedRole,
-                handleProgress,
-                handleComplete,
-                handleError
-            );
-        } catch (error) {
-            console.error("Create container error:", error);
-            progressMessage = "An error occurred";
-        } finally {
+            // Keep showing error for a moment, then reset
             setTimeout(() => {
                 isCreating = false;
                 progress = 0;
                 progressMessage = "";
                 progressStage = "";
-            }, 500);
+            }, 3000);
         }
+
+        // Generate a unique name
+        const terminalName = `terminal-${Date.now().toString(36)}`;
+        
+        // Note: createContainerWithProgress is fire-and-forget with callbacks
+        containers.createContainerWithProgress(
+            terminalName,
+            selectedImage,
+            undefined, // customImage
+            selectedRole,
+            handleProgress,
+            handleComplete,
+            handleError
+        );
     }
 </script>
 
