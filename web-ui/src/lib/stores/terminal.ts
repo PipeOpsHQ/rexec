@@ -466,7 +466,7 @@ function createTerminalStore() {
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         updateSession(sessionId, (s) => ({ ...s, status: "disconnected" }));
 
         const currentSession = getState().sessions.get(sessionId);
@@ -476,7 +476,14 @@ function createTerminalStore() {
           clearInterval(currentSession.pingInterval);
         }
 
-        if (currentSession.reconnectAttempts < WS_MAX_RECONNECT) {
+        // Don't reconnect if we intentionally closed or container is gone
+        // Code 1000 = normal close, 1006 = abnormal (server rejected), 4000+ = custom codes
+        const shouldNotReconnect = event.code === 1000 || 
+          event.code === 1006 || 
+          event.code >= 4000 ||
+          currentSession.reconnectAttempts >= WS_MAX_RECONNECT;
+
+        if (!shouldNotReconnect && currentSession.reconnectAttempts < WS_MAX_RECONNECT) {
           updateSession(sessionId, (s) => ({
             ...s,
             status: "connecting",
@@ -493,14 +500,24 @@ function createTerminalStore() {
 
           updateSession(sessionId, (s) => ({ ...s, reconnectTimer: timer }));
         } else {
-          session.terminal.writeln(
-            "\r\n\x1b[31mConnection lost. Click reconnect to try again.\x1b[0m",
-          );
+          // Don't spam the terminal with reconnection messages
+          if (currentSession.reconnectAttempts === 0) {
+            session.terminal.writeln(
+              "\r\n\x1b[31mConnection closed. Container may be stopped or unavailable.\x1b[0m",
+            );
+          } else {
+            session.terminal.writeln(
+              "\r\n\x1b[31mConnection lost. Click reconnect to try again.\x1b[0m",
+            );
+          }
+          updateSession(sessionId, (s) => ({ ...s, status: "error" }));
         }
       };
 
-      ws.onerror = () => {
-        session.terminal.writeln("\r\n\x1b[31mWebSocket error\x1b[0m");
+      ws.onerror = (error) => {
+        // WebSocket errors before connection opens usually mean container is unavailable
+        // Don't write error message here - onclose will handle it
+        console.error("[Terminal] WebSocket error:", error);
       };
 
       // Handle terminal input

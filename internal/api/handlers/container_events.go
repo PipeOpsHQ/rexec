@@ -219,6 +219,7 @@ func (h *ContainerEventsHub) BroadcastToUser(userID string, event ContainerEvent
 	conns, ok := h.connections[userID]
 	if !ok {
 		h.mu.RUnlock()
+		log.Printf("[ContainerEvents] No connections for user %s, skipping broadcast of %s event", userID, event.Type)
 		return
 	}
 
@@ -234,6 +235,8 @@ func (h *ContainerEventsHub) BroadcastToUser(userID string, event ContainerEvent
 		log.Printf("[ContainerEvents] Failed to marshal event: %v", err)
 		return
 	}
+
+	log.Printf("[ContainerEvents] Broadcasting %s event to %d connections for user %s", event.Type, len(connList), userID)
 
 	for _, conn := range connList {
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
