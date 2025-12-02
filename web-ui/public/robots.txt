@@ -1,0 +1,14 @@
+# Robots.txt for Rexec - Terminal as a Service
+
+User-agent: *
+Allow: /
+
+# Disallow API and WebSocket endpoints
+Disallow: /api/
+Disallow: /ws/
+
+# Sitemap
+Sitemap: https://rexec.io/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

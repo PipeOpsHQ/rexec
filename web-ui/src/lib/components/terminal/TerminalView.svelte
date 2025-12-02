@@ -775,36 +775,60 @@
 
     .docked-tabs {
         display: flex;
-        flex: 1;
         gap: 4px;
         overflow-x: auto;
+        padding-right: 8px;
+        align-items: center;
     }
 
     .docked-tab {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 14px;
+        padding: 6px 12px;
         background: var(--bg-card);
         border: 1px solid var(--border);
-        border-bottom: none;
-        color: var(--text-muted);
-        font-size: 12px;
-        font-family: var(--font-mono);
+        border-radius: 4px 4px 0 0;
+        color: var(--text-secondary);
+        font-size: 13px;
         cursor: pointer;
         transition: all 0.15s ease;
+        border-bottom: none;
+        margin-bottom: -1px;
+        white-space: nowrap;
     }
 
     .docked-tab:hover {
+        background: var(--bg-secondary);
         color: var(--text);
-        background: var(--bg-tertiary);
     }
 
     .docked-tab.active {
-        color: var(--accent);
+        background: var(--bg);
         border-color: var(--accent);
-        border-bottom: 1px solid var(--bg-card);
-        background: var(--bg-card);
+        border-bottom-color: var(--bg);
+        color: var(--text);
+    }
+
+    .docked-tabs .new-tab-btn {
+        background: transparent;
+        border: 1px dashed var(--border);
+        color: var(--text-muted);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        margin-left: 4px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+    }
+
+    .docked-tabs .new-tab-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(0, 217, 255, 0.1);
     }
 
     .docked-actions {

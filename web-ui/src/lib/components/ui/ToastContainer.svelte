@@ -26,20 +26,21 @@
       animate:flip={{ duration: 200 }}
       in:fly={{ x: 100, duration: 200 }}
       out:fade={{ duration: 150 }}
+      on:click={() => toast.dismiss(t.id)}
+      role="button"
+      tabindex="0"
+      on:keydown={(e) => e.key === 'Enter' && toast.dismiss(t.id)}
     >
       <span class="toast-icon" class:spinning={t.type === 'loading'}>
         {getIcon(t.type)}
       </span>
       <span class="toast-message">{t.message}</span>
-      {#if t.dismissible}
-        <button
-          class="toast-close"
-          on:click={() => toast.dismiss(t.id)}
-          aria-label="Dismiss"
-        >
-          ×
-        </button>
-      {/if}
+      <button
+        class="toast-close"
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
     </div>
   {/each}
 </div>
@@ -69,6 +70,7 @@
     max-width: 400px;
     pointer-events: auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
   }
 
   .toast-success {

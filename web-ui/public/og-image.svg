@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0a0a0a" />
+
+  <!-- Grid pattern overlay -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a1a1a" stroke-width="1" />
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)" opacity="0.5" />
+
+  <!-- Gradient glow effect -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00ff41" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#00ff41" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <ellipse cx="600" cy="315" rx="500" ry="300" fill="url(#glow)" />
+
+  <!-- Terminal window -->
+  <rect x="200" y="140" width="800" height="350" fill="#111111" rx="16" stroke="#00ff41" stroke-width="2" />
+
+  <!-- Terminal title bar -->
+  <rect x="200" y="140" width="800" height="45" fill="#1a1a1a" rx="16" />
+  <rect x="200" y="165" width="800" height="20" fill="#1a1a1a" />
+
+  <!-- Window control dots -->
+  <circle cx="235" cy="162" r="10" fill="#ff5f57" />
+  <circle cx="265" cy="162" r="10" fill="#febc2e" />
+  <circle cx="295" cy="162" r="10" fill="#28c840" />
+
+  <!-- Terminal title text -->
+  <text x="600" y="168" font-family="monospace" font-size="16" fill="#888888" text-anchor="middle">rexec — terminal</text>
+
+  <!-- Terminal content -->
+  <!-- Prompt line 1 -->
+  <text x="240" y="230" font-family="monospace" font-size="20" fill="#00ff41">$</text>
+  <text x="270" y="230" font-family="monospace" font-size="20" fill="#e0e0e0">ssh user@rexec.io</text>
+
+  <!-- Prompt line 2 -->
+  <text x="240" y="270" font-family="monospace" font-size="20" fill="#888888">Connecting to secure terminal...</text>
+
+  <!-- Prompt line 3 -->
+  <text x="240" y="310" font-family="monospace" font-size="20" fill="#00ff41">✓</text>
+  <text x="270" y="310" font-family="monospace" font-size="20" fill="#e0e0e0">Connected to Ubuntu 22.04 LTS</text>
+
+  <!-- Prompt line 4 -->
+  <text x="240" y="350" font-family="monospace" font-size="20" fill="#00ff41">root@ubuntu:~#</text>
+  <text x="420" y="350" font-family="monospace" font-size="20" fill="#e0e0e0">_</text>
+
+  <!-- Blinking cursor -->
+  <rect x="420" y="335" width="12" height="22" fill="#00ff41">
+    <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite" />
+  </rect>
+
+  <!-- OS icons row -->
+  <g transform="translate(240, 400)">
+    <text x="0" y="20" font-family="sans-serif" font-size="14" fill="#666666">Available:</text>
+    <text x="80" y="20" font-size="20">🟠</text>
+    <text x="110" y="20" font-family="monospace" font-size="14" fill="#888888">Ubuntu</text>
+    <text x="200" y="20" font-size="20">🔴</text>
+    <text x="230" y="20" font-family="monospace" font-size="14" fill="#888888">Debian</text>
+    <text x="320" y="20" font-size="20">🔵</text>
+    <text x="350" y="20" font-family="monospace" font-size="14" fill="#888888">Alpine</text>
+    <text x="440" y="20" font-size="20">🔷</text>
+    <text x="470" y="20" font-family="monospace" font-size="14" fill="#888888">Arch</text>
+    <text x="540" y="20" font-family="monospace" font-size="14" fill="#666666">+ more</text>
+  </g>
+
+  <!-- Logo and branding -->
+  <g transform="translate(100, 520)">
+    <!-- Logo icon -->
+    <rect x="0" y="0" width="50" height="50" fill="#111111" rx="8" stroke="#00ff41" stroke-width="2" />
+    <path d="M 12 18 L 24 25 L 12 32" fill="none" stroke="#00ff41" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+    <rect x="28" y="22" width="10" height="5" fill="#00ff41" rx="1" />
+    <path d="M 38 17 L 45 25 L 38 33 Z" fill="#00ff41" />
+
+    <!-- Brand name -->
+    <text x="65" y="35" font-family="sans-serif" font-size="36" font-weight="bold" fill="#ffffff">rexec</text>
+  </g>
+
+  <!-- Tagline -->
+  <text x="600" y="560" font-family="sans-serif" font-size="28" fill="#00ff41" text-anchor="middle">Terminal as a Service</text>
+  <text x="600" y="595" font-family="sans-serif" font-size="18" fill="#888888" text-anchor="middle">Instant Linux terminals in your browser. No setup required.</text>
+
+  <!-- Border accent -->
+  <rect x="0" y="0" width="1200" height="4" fill="#00ff41" opacity="0.8" />
+  <rect x="0" y="626" width="1200" height="4" fill="#00ff41" opacity="0.8" />
+</svg>
