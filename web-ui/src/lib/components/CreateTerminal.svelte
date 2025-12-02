@@ -748,8 +748,56 @@
         font-family: var(--font-mono);
     }
 
-    /* Image Grid */
     .image-grid {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 9998;
+    }
+
+    .popover-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 8px;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+
+    .popover-close:hover {
+        color: var(--text);
+    }
+
+    @keyframes popoverSlide {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .stat-class {
+        font-size: 12px;
         font-weight: 600;
         color: var(--accent);
         font-family: var(--font-mono);

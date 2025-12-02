@@ -125,21 +125,21 @@
         }
     }
 
-    function getImageIcon(image: string): string {
+    // Distro detection for icon selection
+    function getDistro(image: string): string {
         const lower = image.toLowerCase();
-        if (lower.includes("ubuntu")) return "🟠";
-        if (lower.includes("debian")) return "🔴";
-        if (lower.includes("alpine")) return "🔵";
-        if (lower.includes("fedora")) return "🔵";
-        if (
-            lower.includes("centos") ||
-            lower.includes("rocky") ||
-            lower.includes("alma")
-        )
-            return "🟣";
-        if (lower.includes("arch")) return "🔷";
-        if (lower.includes("kali")) return "🐉";
-        return "🐧";
+        if (lower.includes("ubuntu")) return "ubuntu";
+        if (lower.includes("debian")) return "debian";
+        if (lower.includes("alpine")) return "alpine";
+        if (lower.includes("fedora")) return "fedora";
+        if (lower.includes("centos")) return "centos";
+        if (lower.includes("rocky")) return "rocky";
+        if (lower.includes("alma")) return "alma";
+        if (lower.includes("arch")) return "arch";
+        if (lower.includes("kali")) return "kali";
+        if (lower.includes("opensuse") || lower.includes("suse")) return "suse";
+        if (lower.includes("rhel") || lower.includes("redhat")) return "rhel";
+        return "linux";
     }
 
     // Reactive
@@ -178,7 +178,18 @@
                 class="btn btn-secondary btn-sm"
                 on:click={() => containers.fetchContainers()}
             >
-                ↻ Refresh
+                <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path
+                        d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"
+                    />
+                </svg>
+                Refresh
             </button>
             <button
                 class="btn btn-primary"
@@ -186,9 +197,24 @@
                 disabled={effectiveCount >= containerLimit || currentlyCreating}
             >
                 {#if currentlyCreating}
+                    <span class="spinner-sm"></span>
                     Creating...
                 {:else}
-                    + New Terminal
+                    <svg
+                        class="icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <line x1="12" y1="5" x2="12" y2="19" /><line
+                            x1="5"
+                            y1="12"
+                            x2="19"
+                            y2="12"
+                        />
+                    </svg>
+                    New Terminal
                 {/if}
             </button>
         </div>
@@ -201,7 +227,17 @@
         </div>
     {:else if containerList.length === 0}
         <div class="empty-state">
-            <div class="empty-icon">📦</div>
+            <div class="empty-icon">
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                >
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <path d="M8 21h8M12 17v4M6 8l4 4-4 4M12 16h4" />
+                </svg>
+            </div>
             <h2>No Terminals Yet</h2>
             <p>
                 Create your first terminal to get started with a Linux
@@ -211,7 +247,21 @@
                 class="btn btn-primary btn-lg"
                 on:click={() => dispatch("create")}
             >
-                + Create Terminal
+                <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <line x1="12" y1="5" x2="12" y2="19" /><line
+                        x1="5"
+                        y1="12"
+                        x2="19"
+                        y2="12"
+                    />
+                </svg>
+                Create Terminal
             </button>
         </div>
     {:else}
@@ -219,7 +269,17 @@
             {#if currentlyCreating && creatingInfo}
                 <div class="container-card creating-card">
                     <div class="container-header">
-                        <span class="container-icon">⏳</span>
+                        <span class="container-icon creating-icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 6v6l4 2" />
+                            </svg>
+                        </span>
                         <div class="container-info">
                             <h3 class="container-name">
                                 {creatingInfo.name || "New Terminal"}
@@ -270,9 +330,24 @@
                         </div>
                     {/if}
                     <div class="container-header">
-                        <span class="container-icon"
-                            >{getImageIcon(container.image)}</span
+                        <span
+                            class="container-icon distro-{getDistro(
+                                container.image,
+                            )}"
                         >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.5"
+                            >
+                                <circle cx="12" cy="12" r="10" />
+                                <path
+                                    d="M12 2a10 10 0 0110 10M12 2a10 10 0 00-10 10"
+                                />
+                                <circle cx="12" cy="12" r="4" />
+                            </svg>
+                        </span>
                         <div class="container-info">
                             <h3 class="container-name">{container.name}</h3>
                             <span class="container-image"
@@ -312,18 +387,52 @@
 
                     {#if container.resources}
                         <div class="container-resources">
-                            <div class="resource-item">
-                                <span class="resource-icon">💾</span>
-                                <span class="resource-value">{container.resources.memory_mb} MB</span>
-                            </div>
-                            <div class="resource-item">
-                                <span class="resource-icon">⚡</span>
-                                <span class="resource-value">{container.resources.cpu_shares} CPU</span>
-                            </div>
-                            <div class="resource-item">
-                                <span class="resource-icon">💿</span>
-                                <span class="resource-value">{container.resources.disk_mb} MB</span>
-                            </div>
+                            <span class="resource-spec">
+                                <svg
+                                    class="resource-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <rect
+                                        x="4"
+                                        y="4"
+                                        width="16"
+                                        height="16"
+                                        rx="2"
+                                    />
+                                    <rect x="9" y="9" width="6" height="6" />
+                                </svg>
+                                {container.resources.memory_mb}M
+                            </span>
+                            <span class="resource-divider">/</span>
+                            <span class="resource-spec">
+                                <svg
+                                    class="resource-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                                </svg>
+                                {container.resources.cpu_shares}
+                            </span>
+                            <span class="resource-divider">/</span>
+                            <span class="resource-spec">
+                                <svg
+                                    class="resource-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <circle cx="12" cy="12" r="10" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                {container.resources.disk_mb}M
+                            </span>
                         </div>
                     {/if}
 
@@ -333,18 +442,61 @@
                                 {#if !hasActiveSession(container.id)}
                                     <button
                                         class="btn btn-primary btn-sm flex-1"
-                                        on:click={() => handleConnect(container)}
+                                        on:click={() =>
+                                            handleConnect(container)}
                                     >
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <rect
+                                                x="2"
+                                                y="3"
+                                                width="20"
+                                                height="14"
+                                                rx="2"
+                                            />
+                                            <path d="M6 8l4 4-4 4" />
+                                        </svg>
                                         Connect
                                     </button>
                                 {:else}
-                                    <span class="connected-badge flex-1">Connected</span>
+                                    <span class="connected-badge flex-1">
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path d="M20 6L9 17l-5-5" />
+                                        </svg>
+                                        Connected
+                                    </span>
                                 {/if}
                                 <button
                                     class="btn btn-secondary btn-sm"
                                     title="SSH Info"
                                 >
-                                    SSH
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <rect
+                                            x="3"
+                                            y="11"
+                                            width="18"
+                                            height="11"
+                                            rx="2"
+                                        />
+                                        <path d="M7 11V7a5 5 0 0110 0v4" />
+                                    </svg>
                                 </button>
                             </div>
                             <div class="action-row">
@@ -353,6 +505,20 @@
                                     on:click={() => handleStop(container)}
                                     disabled={isDeleting(container.id)}
                                 >
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <rect
+                                            x="6"
+                                            y="6"
+                                            width="12"
+                                            height="12"
+                                        />
+                                    </svg>
                                     Stop
                                 </button>
                                 <button
@@ -360,6 +526,17 @@
                                     on:click={() => handleDelete(container)}
                                     disabled={isDeleting(container.id)}
                                 >
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
                                     Delete
                                 </button>
                             </div>
@@ -370,6 +547,15 @@
                                     on:click={() => handleStart(container)}
                                     disabled={isDeleting(container.id)}
                                 >
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <polygon points="5,3 19,12 5,21" />
+                                    </svg>
                                     Start
                                 </button>
                                 <button
@@ -377,6 +563,17 @@
                                     on:click={() => handleDelete(container)}
                                     disabled={isDeleting(container.id)}
                                 >
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
                                     Delete
                                 </button>
                             </div>
@@ -387,6 +584,17 @@
                                     on:click={() => handleDelete(container)}
                                     disabled={isDeleting(container.id)}
                                 >
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
                                     Delete
                                 </button>
                             </div>
@@ -448,6 +656,12 @@
         gap: 8px;
     }
 
+    .icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+    }
+
     /* Loading State */
     .loading-state {
         display: flex;
@@ -484,8 +698,15 @@
     }
 
     .empty-icon {
-        font-size: 48px;
+        width: 64px;
+        height: 64px;
         margin-bottom: 16px;
+        color: var(--text-muted);
+    }
+
+    .empty-icon svg {
+        width: 100%;
+        height: 100%;
     }
 
     .empty-state h2 {
@@ -526,8 +747,35 @@
     .container-card.deleting {
         position: relative;
         pointer-events: none;
-        opacity: 0.7;
+        opacity: 0.6;
         border-color: var(--red, #ff6b6b);
+        background: linear-gradient(
+            135deg,
+            rgba(255, 107, 107, 0.05) 0%,
+            rgba(255, 0, 60, 0.1) 100%
+        );
+        transform: scale(0.98);
+        transition: all 0.3s ease;
+    }
+
+    .container-card.deleting::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--red, #ff6b6b), transparent);
+        animation: strikethrough 0.5s ease forwards;
+    }
+
+    @keyframes strikethrough {
+        from {
+            transform: scaleX(0);
+        }
+        to {
+            transform: scaleX(1);
+        }
     }
 
     .deleting-overlay {
@@ -536,43 +784,99 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0, 0, 0, 0.7);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 10;
+        backdrop-filter: blur(2px);
     }
 
     .deleting-content {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         color: var(--red, #ff6b6b);
-        font-size: 12px;
+        font-size: 13px;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 1px;
+        text-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
     }
 
     .deleting-content .spinner {
-        width: 24px;
-        height: 24px;
-        border: 2px solid var(--border);
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(255, 107, 107, 0.3);
         border-top-color: var(--red, #ff6b6b);
         border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+        animation: spin 0.6s linear infinite;
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.3);
     }
 
     .container-header {
         display: flex;
         align-items: flex-start;
         gap: 12px;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
     }
 
     .container-icon {
-        font-size: 24px;
-        line-height: 1;
+        width: 28px;
+        height: 28px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .container-icon svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Distro-specific colors */
+    .distro-ubuntu {
+        color: #e95420;
+    }
+    .distro-debian {
+        color: #a80030;
+    }
+    .distro-alpine {
+        color: #0d597f;
+    }
+    .distro-fedora {
+        color: #51a2da;
+    }
+    .distro-centos {
+        color: #932279;
+    }
+    .distro-rocky {
+        color: #10b981;
+    }
+    .distro-alma {
+        color: #0f4266;
+    }
+    .distro-arch {
+        color: #1793d1;
+    }
+    .distro-kali {
+        color: #557c94;
+    }
+    .distro-suse {
+        color: #73ba25;
+    }
+    .distro-rhel {
+        color: #ee0000;
+    }
+    .distro-linux {
+        color: var(--accent);
+    }
+
+    .creating-icon {
+        color: var(--yellow);
+        animation: pulse 1s infinite;
     }
 
     .container-info {
@@ -703,8 +1007,8 @@
     .container-meta {
         display: flex;
         gap: 16px;
-        margin-bottom: 12px;
-        padding: 10px 12px;
+        margin-bottom: 8px;
+        padding: 8px 10px;
         background: var(--bg-secondary);
         border: 1px solid var(--border-muted);
     }
@@ -730,31 +1034,34 @@
         font-family: var(--font-mono);
     }
 
+    /* Compact terminal-style resource display */
     .container-resources {
         display: flex;
-        gap: 12px;
-        margin-bottom: 12px;
-        padding: 8px 12px;
-        background: rgba(0, 255, 65, 0.05);
-        border: 1px solid rgba(0, 255, 65, 0.15);
-        border-radius: 4px;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        padding: 6px 10px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-muted);
+        font-family: var(--font-mono);
+        font-size: 11px;
     }
 
-    .resource-item {
-        display: flex;
+    .resource-spec {
+        display: inline-flex;
         align-items: center;
         gap: 4px;
-        font-size: 11px;
-        color: var(--text-secondary);
+        color: var(--accent);
     }
 
     .resource-icon {
-        font-size: 12px;
+        width: 12px;
+        height: 12px;
+        color: var(--text-muted);
     }
 
-    .resource-value {
-        font-family: var(--font-mono);
-        color: var(--accent);
+    .resource-divider {
+        color: var(--text-muted);
     }
 
     .container-actions {
@@ -776,6 +1083,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 6px;
         padding: 6px 12px;
         font-size: 11px;
         font-family: var(--font-mono);
@@ -784,7 +1092,7 @@
         color: var(--accent);
         background: rgba(0, 255, 65, 0.1);
         border: 1px solid var(--accent);
-        border-radius: 4px;
+        border-radius: 0;
     }
 
     .spinner-sm {
