@@ -569,6 +569,20 @@
         }
     }
 
+    // Handle container deletion - close any associated terminal sessions
+    function handleContainerDeleted(event: Event) {
+        const customEvent = event as CustomEvent<{ containerId: string }>;
+        const containerId = customEvent.detail?.containerId;
+        if (containerId) {
+            // Close all sessions for this container
+            for (const [sessionId, session] of $terminal.sessions) {
+                if (session.containerId === containerId) {
+                    terminal.closeSession(sessionId);
+                }
+            }
+        }
+    }
+
     // Window event listeners
     onMount(() => {
         // Listen for container deletions
