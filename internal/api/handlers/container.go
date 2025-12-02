@@ -608,6 +608,21 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 		return
 	}
 
+	// Quick Docker connectivity check before starting SSE stream
+	// This prevents 502 errors from proxy timeouts when Docker is unavailable
+	checkCtx, checkCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_, dockerErr := h.manager.GetClient().Ping(checkCtx)
+	checkCancel()
+
+	if dockerErr != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error":   "Docker daemon is not available",
+			"message": "Please try again in a moment or contact support if the issue persists",
+			"detail":  dockerErr.Error(),
+		})
+		return
+	}
+
 	// Set SSE headers - include multiple anti-buffering headers for various proxies
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
