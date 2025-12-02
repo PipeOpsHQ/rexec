@@ -214,7 +214,7 @@
                             on:click={() => (selectedRole = role.id)}
                             title={role.desc}
                         >
-                            <PlatformIcon platform={role.id} size={28} />
+                            <PlatformIcon platform={role.id} size={36} />
                             <span class="role-name">{role.name}</span>
                         </button>
                     {/each}
@@ -222,10 +222,10 @@
                 {#if currentRole}
                     <div class="role-info">
                         <div class="role-header-row">
-                            <PlatformIcon platform={currentRole.id} size={18} />
+                            <PlatformIcon platform={currentRole.id} size={20} />
                             <span class="role-name-sm">{currentRole.name}</span>
                             <span class="role-os-badge">
-                                <PlatformIcon platform={currentRole.recommendedOS.toLowerCase()} size={14} />
+                                <PlatformIcon platform={currentRole.recommendedOS.toLowerCase()} size={16} />
                                 {currentRole.recommendedOS}
                             </span>
                         </div>
@@ -247,7 +247,7 @@
                             class="os-card"
                             on:click={() => selectAndCreate(image.name)}
                         >
-                            <PlatformIcon platform={image.name} size={28} />
+                            <PlatformIcon platform={image.name} size={36} />
                             <span class="os-name">{image.display_name || image.name}</span>
                             {#if image.popular}
                                 <span class="popular-badge">Popular</span>
@@ -258,7 +258,7 @@
                         class="os-card"
                         on:click={() => selectAndCreate("custom")}
                     >
-                        <PlatformIcon platform="custom" size={28} />
+                        <PlatformIcon platform="custom" size={36} />
                         <span class="os-name">Custom</span>
                     </button>
                 </div>
@@ -269,14 +269,16 @@
 
 <style>
     .inline-create {
-        padding: 16px;
+        padding: 20px;
         height: 100%;
         overflow-y: auto;
         background: #0a0a0a;
+        display: flex;
+        flex-direction: column;
     }
 
     .inline-create.compact {
-        padding: 12px;
+        padding: 16px;
     }
 
     /* Progress */
@@ -368,12 +370,14 @@
     .create-content {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 24px;
+        flex: 1;
+        max-width: 100%;
     }
 
     .create-section h4 {
-        margin: 0 0 12px 0;
-        font-size: 13px;
+        margin: 0 0 16px 0;
+        font-size: 14px;
         font-weight: 600;
         color: var(--accent);
         text-transform: uppercase;
@@ -383,19 +387,19 @@
     /* Role Grid */
     .role-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
     }
 
     .role-card {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
-        padding: 12px 8px;
+        gap: 10px;
+        padding: 16px 12px;
         background: #1a1a1a;
         border: 1px solid #333;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.15s ease;
     }
@@ -416,7 +420,7 @@
     }
 
     .role-name {
-        font-size: 11px;
+        font-size: 12px;
         color: #e0e0e0;
         text-align: center;
         font-weight: 500;
@@ -424,22 +428,22 @@
 
     /* Role Info */
     .role-info {
-        margin-top: 12px;
-        padding: 10px;
+        margin-top: 16px;
+        padding: 14px;
         background: #111;
         border: 1px solid #333;
-        border-radius: 4px;
+        border-radius: 6px;
     }
 
     .role-header-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
+        gap: 10px;
+        margin-bottom: 10px;
     }
 
     .role-name-sm {
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
         color: var(--text);
     }
@@ -476,19 +480,19 @@
     /* OS Grid */
     .os-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
     }
 
     .os-card {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 6px;
-        padding: 12px 8px;
+        gap: 8px;
+        padding: 16px 12px;
         background: #1a1a1a;
         border: 1px solid #333;
-        border-radius: 6px;
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.15s ease;
         position: relative;
@@ -505,27 +509,36 @@
     }
 
     .os-name {
-        font-size: 11px;
+        font-size: 12px;
         color: #e0e0e0;
         text-align: center;
     }
 
     .popular-badge {
         position: absolute;
-        top: 4px;
-        right: 4px;
-        padding: 1px 4px;
+        top: 6px;
+        right: 6px;
+        padding: 2px 6px;
         background: var(--accent);
         color: #000;
-        font-size: 8px;
+        font-size: 9px;
         font-weight: 600;
-        border-radius: 2px;
+        border-radius: 3px;
         text-transform: uppercase;
     }
 
     /* Compact mode adjustments */
     .compact .role-grid {
-        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+
+    .compact .os-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+
+    .compact .role-card,
+    .compact .os-card {
+        padding: 12px 8px;
     }
 
     .compact .os-grid {
