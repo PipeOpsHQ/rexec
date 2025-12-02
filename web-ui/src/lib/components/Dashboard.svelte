@@ -25,9 +25,12 @@
     let showDeleteConfirm = false;
     let containerToDelete: Container | null = null;
 
-    // Check if container has active terminal connection
+    // Reactive connected container IDs - direct subscription for proper reactivity
+    $: connectedIds = $connectedContainerIds;
+
+    // Check if container has active terminal connection (reactive version)
     function isConnected(containerId: string): boolean {
-        return $connectedContainerIds.has(containerId);
+        return connectedIds.has(containerId);
     }
 
     // Track loading states for containers
@@ -382,10 +385,11 @@
                 </div>
             {/if}
             {#each containerList as container (container.id)}
+                {@const containerConnected = connectedIds.has(container.id)}
                 <div
                     class="container-card"
                     class:active={hasActiveSession(container.id)}
-                    class:connected={isConnected(container.id)}
+                    class:connected={containerConnected}
                     class:loading={isContainerLoading(container.id)}
                     class:deleting={getLoadingState(container.id) === 'deleting'}
                     class:starting={getLoadingState(container.id) === 'starting'}
@@ -407,7 +411,7 @@
                             </div>
                         </div>
                     {/if}
-                    {#if isConnected(container.id)}
+                    {#if containerConnected}
                         <div class="connected-badge">
                             <span class="connected-dot"></span>
                             Connected
@@ -508,7 +512,7 @@
                     <div class="container-actions">
                         {#if container.status === "running"}
                             <div class="action-row">
-                                {#if !isConnected(container.id) && !isConnecting(container.id)}
+                                {#if !containerConnected && !isConnecting(container.id)}
                                     <button
                                         class="btn btn-primary btn-sm flex-1"
                                         on:click={() =>
