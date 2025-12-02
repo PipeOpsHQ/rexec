@@ -11,6 +11,7 @@
     import { toast } from "$stores/toast";
     import { formatRelativeTime } from "$utils/api";
     import ConfirmModal from "./ConfirmModal.svelte";
+    import PlatformIcon from "./icons/PlatformIcon.svelte";
 
     const dispatch = createEventDispatcher<{
         create: void;
@@ -312,15 +313,7 @@
                 <div class="container-card creating-card">
                     <div class="container-header">
                         <span class="container-icon creating-icon">
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M12 6v6l4 2" />
-                            </svg>
+                            <PlatformIcon platform={getDistro(creatingInfo.image || '')} size={32} />
                         </span>
                         <div class="container-info">
                             <h3 class="container-name">
@@ -390,23 +383,8 @@
                         </div>
                     {/if}
                     <div class="container-header">
-                        <span
-                            class="container-icon distro-{getDistro(
-                                container.image,
-                            )}"
-                        >
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.5"
-                            >
-                                <circle cx="12" cy="12" r="10" />
-                                <path
-                                    d="M12 2a10 10 0 0110 10M12 2a10 10 0 00-10 10"
-                                />
-                                <circle cx="12" cy="12" r="4" />
-                            </svg>
+                        <span class="container-icon">
+                            <PlatformIcon platform={getDistro(container.image)} size={32} />
                         </span>
                         <div class="container-info">
                             <h3 class="container-name">{container.name}</h3>
@@ -981,59 +959,15 @@
     }
 
     .container-icon {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
     }
 
-    .container-icon svg {
-        width: 100%;
-        height: 100%;
-    }
-
-    /* Distro-specific colors */
-    .distro-ubuntu {
-        color: #e95420;
-    }
-    .distro-debian {
-        color: #a80030;
-    }
-    .distro-alpine {
-        color: #0d597f;
-    }
-    .distro-fedora {
-        color: #51a2da;
-    }
-    .distro-centos {
-        color: #932279;
-    }
-    .distro-rocky {
-        color: #10b981;
-    }
-    .distro-alma {
-        color: #0f4266;
-    }
-    .distro-arch {
-        color: #1793d1;
-    }
-    .distro-kali {
-        color: #557c94;
-    }
-    .distro-suse {
-        color: #73ba25;
-    }
-    .distro-rhel {
-        color: #ee0000;
-    }
-    .distro-linux {
-        color: var(--accent);
-    }
-
     .creating-icon {
-        color: var(--yellow);
         animation: pulse 1s infinite;
     }
 

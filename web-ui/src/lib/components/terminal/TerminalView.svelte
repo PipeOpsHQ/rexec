@@ -1,11 +1,9 @@
 <script lang="ts">
     import { onMount, onDestroy, tick } from "svelte";
     import { terminal, sessionCount, isFloating } from "$stores/terminal";
-    import { containers, type ProgressEvent } from "$stores/containers";
     import { toast } from "$stores/toast";
-    import { api } from "$utils/api";
     import TerminalPanel from "./TerminalPanel.svelte";
-    import PlatformIcon from "../icons/PlatformIcon.svelte";
+    import InlineCreateTerminal from "../InlineCreateTerminal.svelte";
 
     // Track view mode changes to force terminal re-render
     let viewModeKey = 0;
@@ -39,326 +37,21 @@
 
     // Inline create terminal state
     let showCreatePanel = false;
-    let selectedImage = "";
-    let customImage = "";
-    let isCreating = false;
-    let selectedRole = "standard"; // Default role
-    let progress = 0;
-    let progressMessage = "";
-    let progressStage = "";
-
-    // Progress steps for visual display
-    const progressSteps = [
-        { id: "validating", label: "Validating" },
-        { id: "pulling", label: "Pulling Image" },
-        { id: "creating", label: "Creating Container" },
-        { id: "starting", label: "Starting" },
-        { id: "configuring", label: "Configuring" },
-        { id: "ready", label: "Ready" },
-    ];
-
-    // Get step status
-    function getStepStatus(stepId: string): "pending" | "active" | "completed" {
-        const stepOrder = progressSteps.map((s) => s.id);
-        const currentIndex = stepOrder.indexOf(progressStage);
-        const stepIndex = stepOrder.indexOf(stepId);
-
-        if (stepIndex < currentIndex) return "completed";
-        if (stepIndex === currentIndex) return "active";
-        return "pending";
-    }
-
-    // Round progress to integer
-    $: displayProgress = Math.round(progress);
-    let images: Array<{
-        name: string;
-        display_name: string;
-        description: string;
-        category: string;
-        popular?: boolean;
-    }> = [];
 
 
-
-    // Role to preferred OS mapping
-    const roleToOS: Record<string, string> = {
-        standard: "alpine", // Minimalist loves lightweight
-        node: "ubuntu", // Best Node.js support
-        python: "ubuntu", // Best Python/data science support
-        go: "alpine", // Go's preferred container OS
-        neovim: "arch", // Power users love Arch
-        devops: "alpine", // Container standard
-        overemployed: "alpine", // Fast startup
-    };
-
-    // Auto-select OS when role changes
-    $: if (selectedRole && roleToOS[selectedRole]) {
-        const preferredOS = roleToOS[selectedRole];
-        // Only auto-select if images are loaded and the preferred OS exists
-        if (
-            images.length > 0 &&
-            images.some((img) => img.name === preferredOS)
-        ) {
-            selectedImage = preferredOS;
-        }
-    }
-
-    // Available roles with detailed descriptions
-    const roles = [
-        {
-            id: "standard",
-            name: "The Minimalist",
-            desc: "I use Arch btw. Just give me a shell.",
-            tools: ["bash", "git", "curl", "vim"],
-            recommendedOS: "Alpine",
-            useCase: "Quick tasks, scripting, and basic development",
-        },
-        {
-            id: "node",
-            name: "10x JS Ninja",
-            desc: "Ship fast, break things, npm install everything.",
-            tools: ["node", "npm", "yarn", "pnpm", "git"],
-            recommendedOS: "Ubuntu",
-            useCase: "Full-stack JavaScript/TypeScript development",
-        },
-        {
-            id: "python",
-            name: "Data Wizard",
-            desc: "Import antigravity. I speak in list comprehensions.",
-            tools: ["python3", "pip", "jupyter", "pandas", "numpy"],
-            recommendedOS: "Ubuntu",
-            useCase: "Data science, ML, and Python development",
-        },
-        {
-            id: "go",
-            name: "The Gopher",
-            desc: "If err != nil { panic(err) }. Simplicity is key.",
-            tools: ["go", "git", "make", "delve"],
-            recommendedOS: "Alpine",
-            useCase: "Go development, CLI tools, and microservices",
-        },
-        {
-            id: "neovim",
-            name: "Neovim God",
-            desc: "My config is longer than your code. Mouse? What mouse?",
-            tools: ["neovim", "tmux", "fzf", "ripgrep", "lazygit"],
-            recommendedOS: "Arch",
-            useCase: "Terminal-first development with powerful editing",
-        },
-        {
-            id: "devops",
-            name: "YAML Herder",
-            desc: "I don't write code, I write config. Prod is my playground.",
-            tools: ["kubectl", "docker", "terraform", "helm", "aws-cli"],
-            recommendedOS: "Alpine",
-            useCase: "Infrastructure, containers, and cloud operations",
-        },
-        {
-            id: "overemployed",
-            name: "The Overemployed",
-            desc: "Working 4 remote jobs. Need max efficiency.",
-            tools: ["tmux", "git", "ssh", "docker", "zsh"],
-            recommendedOS: "Alpine",
-            useCase: "Maximum productivity with minimal overhead",
-        },
-    ];
-
-    // Get current selected role details
-    $: currentRole = roles.find((r) => r.id === selectedRole);
-
-
-
-    // Load available images when create panel opens
-    async function loadImages() {
-        if (images.length > 0) return; // Already loaded
-
-        const { data, error } = await api.get<{
-            images?: typeof images;
-            popular?: typeof images;
-        }>("/api/images?all=true");
-
-        if (data) {
-            images = data.images || data.popular || [];
-        } else if (error) {
-            toast.error("Failed to load images");
-        }
-    }
-
-    // Generate random name
-    function generateName(): string {
-        const adjectives = [
-            "swift",
-            "bold",
-            "calm",
-            "dark",
-            "eager",
-            "fast",
-            "grand",
-            "happy",
-            "keen",
-            "light",
-            "merry",
-            "noble",
-            "proud",
-            "quick",
-            "rare",
-            "sharp",
-        ];
-        const nouns = [
-            "ant",
-            "bear",
-            "cat",
-            "fox",
-            "hawk",
-            "lion",
-            "owl",
-            "wolf",
-            "tiger",
-            "eagle",
-            "shark",
-            "cobra",
-            "raven",
-            "viper",
-            "lynx",
-            "orca",
-        ];
-        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const noun = nouns[Math.floor(Math.random() * nouns.length)];
-        const num = Math.floor(Math.random() * 1000);
-        return `${adj}-${noun}-${num}`;
-    }
-
-    // Handle image selection and creation
-    async function selectAndCreate(imageName: string) {
-        if (isCreating) return;
-
-        selectedImage = imageName;
-
-        // For custom image, show input (TODO: could add a modal)
-        if (imageName === "custom") {
-            const input = prompt(
-                "Enter Docker image name (e.g., nginx:latest):",
-            );
-            if (!input || !input.trim()) {
-                selectedImage = "";
-                return;
-            }
-            customImage = input.trim();
-        }
-
-        // Start creation - set state first for immediate UI feedback
-        isCreating = true;
-        progress = 0;
-        progressMessage = "Starting...";
-        progressStage = "initializing";
-
-        // Defer heavy work to next tick to allow UI to update
-        await new Promise((resolve) => setTimeout(resolve, 0));
-
-        const name = generateName();
-        const image = selectedImage;
-        const custom = selectedImage === "custom" ? customImage : undefined;
-
-        containers.createContainerWithProgress(
-            name,
-            image,
-            custom,
-            selectedRole,
-            // onProgress
-            (event: ProgressEvent) => {
-                progress = event.progress || 0;
-                progressMessage = event.message || "";
-                progressStage = event.stage || "";
-                // Don't handle errors here - let onError handle them
-            },
-            // onComplete
-            (container) => {
-                isCreating = false;
-                showCreatePanel = false;
-                selectedImage = "";
-                customImage = "";
-
-                // Debug logging
-                console.log(
-                    "[TerminalView] Container creation complete:",
-                    container,
-                );
-
-                // Defensive checks for container object
-                if (!container) {
-                    console.error(
-                        "[TerminalView] Container object is null/undefined",
-                    );
-                    toast.error("Container creation failed. Please try again.");
-                    return;
-                }
-
-                const containerName =
-                    container.name || name || `Terminal-${Date.now()}`;
-                const containerId = container.id || container.db_id;
-
-                console.log("[TerminalView] Creating session with:", {
-                    containerId,
-                    containerName,
-                });
-
-                if (!containerId) {
-                    console.error(
-                        "[TerminalView] No container ID found in:",
-                        container,
-                    );
-                    toast.error(
-                        "Container created but ID not found. Please refresh.",
-                    );
-                    return;
-                }
-
-                toast.success(`Terminal "${containerName}" created!`);
-
-                // Add a small delay to ensure container is fully ready
-                // before attempting WebSocket connection
-                setTimeout(() => {
-                    console.log("[TerminalView] Creating session after delay");
-                    terminal.createSession(containerId, containerName);
-                }, 1000);
-            },
-            // onError
-            (error) => {
-                console.error(
-                    "[TerminalView] Container creation error:",
-                    error,
-                );
-                isCreating = false;
-                showCreatePanel = false;
-                // Ensure error is a string
-                let errorMsg = "Failed to create terminal";
-                if (typeof error === "string" && error.trim()) {
-                    errorMsg = error;
-                } else if (error && typeof error === "object") {
-                    errorMsg =
-                        error.message || error.error || JSON.stringify(error);
-                }
-                // Avoid showing 'undefined' or empty messages
-                if (!errorMsg || errorMsg === "undefined") {
-                    errorMsg = "Failed to create terminal. Please try again.";
-                }
-                toast.error(errorMsg);
-            },
-        );
-    }
 
     function openCreatePanel() {
         showCreatePanel = true;
-        loadImages();
     }
 
     function closeCreatePanel() {
-        if (!isCreating) {
-            showCreatePanel = false;
-            selectedImage = "";
-            customImage = "";
-            selectedRole = "standard";
-        }
+        showCreatePanel = false;
+    }
+
+    function handleInlineCreated(id: string, name: string) {
+        showCreatePanel = false;
+        terminal.createSession(id, name);
+        toast.success(`Created and connected to ${name}`);
     }
 
     // Floating drag handlers
@@ -706,133 +399,16 @@
                         <div class="create-panel">
                             <div class="create-panel-header">
                                 <h3>New Terminal</h3>
-                                {#if !isCreating}
-                                    <button
-                                        class="close-create"
-                                        on:click={closeCreatePanel}>×</button
-                                    >
-                                {/if}
+                                <button
+                                    class="close-create"
+                                    on:click={closeCreatePanel}>×</button
+                                >
                             </div>
-
-                            {#if isCreating}
-                                <div class="create-progress">
-                                    <div class="progress-header-inline">
-                                        <span class="progress-percent"
-                                            >{displayProgress}%</span
-                                        >
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div
-                                            class="progress-fill"
-                                            style="width: {displayProgress}%"
-                                        ></div>
-                                    </div>
-                                    <div class="progress-steps-inline">
-                                        {#each progressSteps as step}
-                                            <div
-                                                class="progress-step-inline {getStepStatus(
-                                                    step.id,
-                                                )}"
-                                            >
-                                                <span class="step-indicator"></span>
-                                                <span class="step-label"
-                                                    >{step.label}</span
-                                                >
-                                            </div>
-                                        {/each}
-                                    </div>
-                                    <p class="progress-message">
-                                        {progressMessage}
-                                    </p>
-                                    {#if currentRole && progressStage === "configuring"}
-                                        <div class="installing-tools-inline">
-                                            <p class="installing-label">
-                                                Installing {currentRole.name} tools:
-                                            </p>
-                                            <div class="tools-installing">
-                                                {#each currentRole.tools as tool}
-                                                    <span
-                                                        class="tool-badge-installing"
-                                                        >{tool}</span
-                                                    >
-                                                {/each}
-                                            </div>
-                                        </div>
-                                    {/if}
-                                    <div class="spinner"></div>
-                                </div>
-                            {:else}
-                                <div class="create-panel-content">
-                                    <!-- Role Selection -->
-                                    <div class="create-section">
-                                        <h4>Environment</h4>
-                                        <div class="role-grid">
-                                            {#each roles as role}
-                                                <button
-                                                    class="role-card"
-                                                    class:selected={selectedRole ===
-                                                        role.id}
-                                                    on:click={() =>
-                                                        (selectedRole =
-                                                            role.id)}
-                                                    title={role.desc}
-                                                >
-                                                    <PlatformIcon platform={role.id} size={24} />
-                                                    <span class="role-name"
-                                                        >{role.name}</span
-                                                    >
-                                                </button>
-                                            {/each}
-                                        </div>
-                                        {#if currentRole}
-                                            <div class="role-info-compact">
-                                                <div class="role-header-row">
-                                                    <PlatformIcon platform={currentRole.id} size={16} />
-                                                    <span class="role-name-sm">{currentRole.name}</span>
-                                                    <span class="role-os-badge"><PlatformIcon platform={currentRole.recommendedOS.toLowerCase()} size={16} /> {currentRole.recommendedOS}</span>
-                                                </div>
-                                                <div class="role-tools">
-                                                    {#each currentRole.tools as tool}
-                                                        <span class="tool-badge">{tool}</span>
-                                                    {/each}
-                                                </div>
-                                            </div>
-                                        {/if}
-                                    </div>
-
-                                    <!-- OS Selection -->
-                                    <div class="create-section">
-                                        <h4>Operating System</h4>
-                                        <div class="os-grid">
-                                            {#each images as image (image.name)}
-                                                <button
-                                                    class="os-card"
-                                                    on:click={() =>
-                                                        selectAndCreate(
-                                                            image.name,
-                                                        )}
-                                                >
-                                                    <PlatformIcon platform={image.name} size={24} />
-                                                    <span class="os-name"
-                                                        >{image.display_name ||
-                                                            image.name}</span
-                                                    >
-                                                </button>
-                                            {/each}
-                                            <button
-                                                class="os-card"
-                                                on:click={() =>
-                                                    selectAndCreate("custom")}
-                                            >
-                                                <PlatformIcon platform="custom" size={24} />
-                                                <span class="os-name"
-                                                    >Custom</span
-                                                >
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            {/if}
+                            <InlineCreateTerminal
+                                compact={true}
+                                on:created={(e) => handleInlineCreated(e.detail.id, e.detail.name)}
+                                on:cancel={closeCreatePanel}
+                            />
                         </div>
                     {:else}
                         {#each dockedSessions as [id, session] (`float-${viewModeKey}-${id}`)}
@@ -961,144 +537,17 @@
                         <div class="create-panel docked-create">
                             <div class="create-panel-header">
                                 <h3>New Terminal</h3>
-                                {#if !isCreating}
-                                    <button
-                                        class="close-create"
-                                        on:click={closeCreatePanel}
-                                        >× Cancel</button
-                                    >
-                                {/if}
-                            </div>
-
-                            {#if isCreating}
-                                <div class="create-progress">
-                                    <div class="progress-header-inline">
-                                        <span class="progress-percent"
-                                            >{displayProgress}%</span
-                                        >
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div
-                                            class="progress-fill"
-                                            style="width: {displayProgress}%"
-                                        ></div>
-                                    </div>
-                                    <div class="progress-steps-inline">
-                                        {#each progressSteps as step}
-                                            <div
-                                                class="progress-step-inline {getStepStatus(
-                                                    step.id,
-                                                )}"
-                                            >
-                                                <span class="step-icon"
-                                                    >{step.icon}</span
-                                                >
-                                                <span class="step-label"
-                                                    >{step.label}</span
-                                                >
-                                            </div>
-                                        {/each}
-                                    </div>
-                                    <p class="progress-message">
-                                        {progressMessage}
-                                    </p>
-                                    {#if currentRole && progressStage === "configuring"}
-                                        <div class="installing-tools-inline">
-                                            <p class="installing-label">
-                                                Installing {currentRole.name} tools:
-                                            </p>
-                                            <div class="tools-installing">
-                                                {#each currentRole.tools as tool}
-                                                    <span
-                                                        class="tool-badge-installing"
-                                                        >{tool}</span
-                                                    >
-                                                {/each}
-                                            </div>
-                                        </div>
-                                    {/if}
-                                    <div class="spinner"></div>
-                                </div>
-                            {:else}
-                                <div
-                                    class="create-panel-content docked-content"
+                                <button
+                                    class="close-create"
+                                    on:click={closeCreatePanel}
+                                    >× Cancel</button
                                 >
-                                    <!-- Role Selection -->
-                                    <div class="create-section">
-                                        <h4>Environment</h4>
-                                        <div class="role-grid">
-                                            {#each roles as role}
-                                                <button
-                                                    class="role-card"
-                                                    class:selected={selectedRole ===
-                                                        role.id}
-                                                    on:click={() =>
-                                                        (selectedRole =
-                                                            role.id)}
-                                                    title={role.desc}
-                                                >
-                                                    <PlatformIcon platform={role.id} size={24} />
-                                                    <span class="role-name"
-                                                        >{role.name}</span
-                                                    >
-                                                </button>
-                                            {/each}
-                                        </div>
-                                        {#if currentRole}
-                                            <div class="role-info-compact">
-                                                <div class="role-header-row">
-                                                    <PlatformIcon platform={currentRole.id} size={16} />
-                                                    <span class="role-name-sm">{currentRole.name}</span>
-                                                    <span class="role-os-badge"><PlatformIcon platform={currentRole.recommendedOS.toLowerCase()} size={16} /> {currentRole.recommendedOS}</span>
-                                                </div>
-                                                <div class="role-tools">
-                                                    {#each currentRole.tools as tool}
-                                                        <span class="tool-badge">{tool}</span>
-                                                    {/each}
-                                                </div>
-                                            </div>
-                                        {/if}
-                                    </div>
-
-                                    <!-- OS Selection -->
-                                    <div class="create-section">
-                                        <h4>Operating System</h4>
-                                        <div class="os-grid docked-grid">
-                                            {#each images as image (image.name)}
-                                                <button
-                                                    class="os-card"
-                                                    on:click={() =>
-                                                        selectAndCreate(
-                                                            image.name,
-                                                        )}
-                                                >
-                                                    <PlatformIcon platform={image.name} size={24} />
-                                                    <span class="os-name"
-                                                        >{image.display_name ||
-                                                            image.name}</span
-                                                    >
-                                                    {#if image.popular}
-                                                        <span
-                                                            class="popular-badge"
-                                                            >Popular</span
-                                                        >
-                                                    {/if}
-                                                </button>
-                                            {/each}
-                                            <button
-                                                class="os-card"
-                                                on:click={() =>
-                                                    selectAndCreate("custom")}
-                                            >
-                                                <PlatformIcon platform="custom" size={24} />
-                                                <span class="os-name"
-                                                    >Custom Image</span
-                                                >
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            {/if}
+                            </div>
+                            <InlineCreateTerminal
+                                compact={false}
+                                on:created={(e) => handleInlineCreated(e.detail.id, e.detail.name)}
+                                on:cancel={closeCreatePanel}
+                            />
                         </div>
                     {:else}
                         {#each dockedSessions as [id, session] (`dock-${viewModeKey}-${id}`)}
@@ -1369,6 +818,14 @@
         overflow-x: auto;
         padding-right: 8px;
         align-items: center;
+        /* Hide scrollbar - Firefox */
+        scrollbar-width: none;
+        /* Hide scrollbar - WebKit */
+        -ms-overflow-style: none;
+    }
+
+    .docked-tabs::-webkit-scrollbar {
+        display: none;
     }
 
     .docked-tab {
