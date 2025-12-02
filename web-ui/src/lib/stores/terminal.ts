@@ -650,8 +650,18 @@ function createTerminalStore() {
       // Clear the new container
       element.innerHTML = "";
 
-      // Re-open terminal in new container
-      session.terminal.open(element);
+      // Instead of calling terminal.open() which clears the input buffer,
+      // move the existing terminal DOM element to preserve all state
+      const existingElement = session.terminal.element;
+      if (existingElement) {
+        // Move the terminal's existing DOM element to the new container
+        // This preserves the terminal state including current input buffer
+        element.appendChild(existingElement);
+      } else {
+        // Fallback: if somehow there's no element, open normally
+        // This should rarely happen, only on first attachment
+        session.terminal.open(element);
+      }
 
       // Force a refresh to ensure proper rendering after reattachment
       session.terminal.refresh(0, session.terminal.rows - 1);
