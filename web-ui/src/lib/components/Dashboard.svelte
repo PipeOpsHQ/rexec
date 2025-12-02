@@ -662,23 +662,18 @@
                                     on:click={() => handleDelete(container)}
                                     disabled={getLoadingState(container.id) === 'deleting'}
                                 >
-                                    {#if getLoadingState(container.id) === 'deleting'}
-                                        <span class="spinner"></span>
-                                        Deleting...
-                                    {:else}
-                                        <svg
-                                            class="icon"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <path
-                                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                            />
-                                        </svg>
-                                        Delete
-                                    {/if}
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
+                                    Delete
                                 </button>
                             </div>
                         {:else if container.status === "stopped"}
@@ -704,23 +699,18 @@
                                     on:click={() => handleDelete(container)}
                                     disabled={getLoadingState(container.id) === 'deleting'}
                                 >
-                                    {#if getLoadingState(container.id) === 'deleting'}
-                                        <span class="spinner"></span>
-                                        Deleting...
-                                    {:else}
-                                        <svg
-                                            class="icon"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <path
-                                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                            />
-                                        </svg>
-                                        Delete
-                                    {/if}
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
+                                    Delete
                                 </button>
                             </div>
                         {:else if container.status === "error"}
@@ -730,23 +720,18 @@
                                     on:click={() => handleDelete(container)}
                                     disabled={getLoadingState(container.id) === 'deleting'}
                                 >
-                                    {#if getLoadingState(container.id) === 'deleting'}
-                                        <span class="spinner"></span>
-                                        Deleting...
-                                    {:else}
-                                        <svg
-                                            class="icon"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-                                            <path
-                                                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-                                            />
-                                        </svg>
-                                        Delete
-                                    {/if}
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
+                                    Delete
                                 </button>
                             </div>
                         {:else}
