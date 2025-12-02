@@ -48,7 +48,7 @@ web-ui/node_modules/
 # Build artifacts
 dist/
 build/
-
+web/
 # Docker
 docker/data/
 

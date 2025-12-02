@@ -292,26 +292,33 @@
             },
             // onComplete
             (container) => {
-                isCreating = false;
                 const containerName = container?.name || name;
                 const containerId = container?.id || container?.db_id;
 
                 if (!containerId) {
+                    isCreating = false;
                     toast.error(
                         "Container created but ID not found. Please refresh.",
                     );
                     return;
                 }
 
+                // Update progress to show completion
+                progress = 100;
+                progressMessage = "Terminal ready! Opening...";
+                progressStage = "ready";
+
                 toast.success(`Terminal "${containerName}" created!`);
 
                 // Delay before dispatching to ensure container is ready
+                // Keep isCreating true until we navigate away
                 setTimeout(() => {
                     dispatch("created", {
                         id: containerId,
                         name: containerName,
                     });
-                }, 1000);
+                    // isCreating will be reset when component is destroyed on navigation
+                }, 800);
             },
             // onError
             (error) => {
@@ -449,13 +456,8 @@
                             </div>
                             <button
                                 class="stat-toggle"
-                                on:click={() =>
+                                on:click|stopPropagation={() =>
                                     (showStatPopover = !showStatPopover)}
-                                on:blur={() =>
-                                    setTimeout(
-                                        () => (showStatPopover = false),
-                                        150,
-                                    )}
                             >
                                 <span class="stat-toggle-icon"
                                     >{showStatPopover ? "▼" : "▶"}</span
@@ -465,7 +467,18 @@
                         </div>
 
                         {#if showStatPopover}
+                            <!-- svelte-ignore a11y-click-events-have-key-events -->
+                            <!-- svelte-ignore a11y-no-static-element-interactions -->
+                            <div
+                                class="hero-stat-popover-backdrop"
+                                on:click={() => (showStatPopover = false)}
+                            ></div>
                             <div class="hero-stat-popover">
+                                <button
+                                    class="popover-close"
+                                    on:click={() => (showStatPopover = false)}
+                                    >✕</button
+                                >
                                 <div class="stat-header">
                                     <span class="stat-class"
                                         >{currentRole.name}</span
@@ -762,7 +775,7 @@
     .hero-stat-compact {
         margin-top: 12px;
         position: relative;
-        z-index: 50;
+        z-index: 100;
     }
 
     .hero-identity {
@@ -843,19 +856,49 @@
 
     /* Hero Stat Popover */
     .hero-stat-popover {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        width: 300px;
-        background: var(--bg-elevated);
-        border: 1px solid var(--accent);
+        position: fixed;
+        top: auto;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 320px;
+        max-width: 90vw;
+        background: var(--bg, #0a0a0a);
+        border: 2px solid var(--accent);
         border-radius: 8px;
-        padding: 12px;
-        z-index: 1000;
+        padding: 14px;
+        z-index: 9999;
         box-shadow:
-            0 4px 20px rgba(0, 0, 0, 0.8),
-            0 0 15px rgba(0, 255, 65, 0.2);
+            0 8px 32px rgba(0, 0, 0, 0.9),
+            0 0 20px rgba(0, 255, 65, 0.3);
         animation: popoverSlide 0.15s ease-out;
+    }
+
+    .hero-stat-popover-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 9998;
+    }
+
+    .popover-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 8px;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+
+    .popover-close:hover {
+        color: var(--text);
     }
 
     @keyframes popoverSlide {
