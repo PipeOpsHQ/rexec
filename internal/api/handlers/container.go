@@ -901,10 +901,44 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 	sendEvent(container.ProgressEvent{
 		Stage:    "starting",
 		Message:  "Container started successfully",
-		Progress: 95,
+		Progress: 90,
 	})
 
-	// Stage 5: Ready
+	// Stage 5: Configuring shell (install oh-my-zsh)
+	sendEvent(container.ProgressEvent{
+		Stage:    "configuring",
+		Message:  "Setting up enhanced shell environment...",
+		Progress: 92,
+		Detail:   "Installing zsh and oh-my-zsh",
+	})
+
+	// Run shell setup in background - don't block container creation if it fails
+	shellResult, shellErr := container.SetupEnhancedShell(ctx, h.manager.GetClient(), info.ID)
+	if shellErr != nil {
+		// Log error but continue - shell setup is optional
+		sendEvent(container.ProgressEvent{
+			Stage:    "configuring",
+			Message:  "Shell setup skipped (will use default shell)",
+			Progress: 95,
+			Detail:   shellErr.Error(),
+		})
+	} else if !shellResult.Success {
+		sendEvent(container.ProgressEvent{
+			Stage:    "configuring",
+			Message:  "Shell setup incomplete (will use default shell)",
+			Progress: 95,
+			Detail:   shellResult.Message,
+		})
+	} else {
+		sendEvent(container.ProgressEvent{
+			Stage:    "configuring",
+			Message:  "Enhanced shell configured successfully",
+			Progress: 98,
+			Detail:   "zsh with oh-my-zsh ready",
+		})
+	}
+
+	// Stage 6: Ready
 	response := map[string]interface{}{
 		"id":         info.ID,
 		"db_id":      record.ID,
