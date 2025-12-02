@@ -188,6 +188,17 @@
             <div class="progress-bar">
                 <div class="progress-fill" style="width: {displayProgress}%"></div>
             </div>
+            
+            <!-- Step Indicators -->
+            <div class="progress-steps">
+                {#each progressSteps as step}
+                    <div class="progress-step {getStepStatus(step.id)}">
+                        <span class="step-dot"></span>
+                        <span class="step-label">{step.label}</span>
+                    </div>
+                {/each}
+            </div>
+            
             <p class="progress-message">{progressMessage}</p>
             {#if currentRole && progressStage === "configuring"}
                 <div class="installing-tools">
@@ -287,13 +298,15 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 12px;
-        padding: 24px;
+        gap: 16px;
+        padding: 40px 24px;
         text-align: center;
+        flex: 1;
+        min-height: 300px;
     }
 
     .progress-header {
-        font-size: 24px;
+        font-size: 32px;
         font-weight: 600;
         color: var(--accent);
         font-family: var(--font-mono);
@@ -301,10 +314,10 @@
 
     .progress-bar {
         width: 100%;
-        max-width: 300px;
-        height: 4px;
+        max-width: 400px;
+        height: 6px;
         background: var(--bg-tertiary);
-        border-radius: 2px;
+        border-radius: 3px;
         overflow: hidden;
     }
 
@@ -314,35 +327,92 @@
         transition: width 0.3s ease;
     }
 
+    /* Progress Steps */
+    .progress-steps {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 500px;
+        margin: 8px 0;
+    }
+
+    .progress-step {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+    }
+
+    .step-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border);
+        transition: all 0.2s ease;
+    }
+
+    .progress-step.pending .step-dot {
+        background: var(--border);
+    }
+
+    .progress-step.active .step-dot {
+        background: var(--accent);
+        box-shadow: 0 0 8px var(--accent);
+        animation: pulse 1s infinite;
+    }
+
+    .progress-step.active {
+        color: var(--accent);
+    }
+
+    .progress-step.completed .step-dot {
+        background: var(--accent);
+    }
+
+    .progress-step.completed {
+        color: var(--text);
+    }
+
+    .step-label {
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
     .progress-message {
         color: var(--text-muted);
-        font-size: 13px;
+        font-size: 14px;
         margin: 0;
     }
 
     .installing-tools {
-        margin-top: 8px;
+        margin-top: 12px;
     }
 
     .installing-label {
-        font-size: 11px;
+        font-size: 12px;
         color: var(--text-muted);
-        margin-bottom: 6px;
+        margin-bottom: 8px;
     }
 
     .tools-installing {
         display: flex;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 6px;
         justify-content: center;
     }
 
     .tool-badge-installing {
-        padding: 2px 6px;
+        padding: 4px 8px;
         background: rgba(0, 255, 65, 0.1);
         border: 1px solid rgba(0, 255, 65, 0.3);
-        border-radius: 3px;
-        font-size: 10px;
+        border-radius: 4px;
+        font-size: 11px;
         color: var(--accent);
         font-family: var(--font-mono);
         animation: pulse 1s infinite;
@@ -354,9 +424,9 @@
     }
 
     .spinner {
-        width: 24px;
-        height: 24px;
-        border: 2px solid var(--border);
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--border);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;

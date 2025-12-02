@@ -1025,6 +1025,11 @@
         display: flex;
         flex-direction: column;
         padding: 16px;
+        overflow: hidden;
+    }
+
+    .create-panel :global(.inline-create) {
+        flex: 1;
         overflow-y: auto;
     }
 
@@ -1035,6 +1040,7 @@
         margin-bottom: 16px;
         padding-bottom: 12px;
         border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
     }
 
     .create-panel-header h3 {
@@ -1402,13 +1408,19 @@
     }
 
     .docked-create {
-        align-items: center;
-        justify-content: center;
+        display: flex;
+        flex-direction: column;
     }
 
     .docked-create .create-panel-header {
+        flex-shrink: 0;
+    }
+
+    .docked-create :global(.inline-create) {
+        flex: 1;
+        max-width: 1000px;
+        margin: 0 auto;
         width: 100%;
-        max-width: 800px;
     }
 
     .os-card {
