@@ -37,6 +37,30 @@
     let progress = 0;
     let progressMessage = "";
     let progressStage = "";
+
+    // Progress steps for visual display
+    const progressSteps = [
+        { id: "validating", label: "Validating", icon: "✓" },
+        { id: "pulling", label: "Pulling Image", icon: "📦" },
+        { id: "creating", label: "Creating Container", icon: "🔧" },
+        { id: "starting", label: "Starting", icon: "🚀" },
+        { id: "configuring", label: "Configuring", icon: "⚙️" },
+        { id: "ready", label: "Ready", icon: "✨" },
+    ];
+
+    // Get step status
+    function getStepStatus(stepId: string): "pending" | "active" | "completed" {
+        const stepOrder = progressSteps.map((s) => s.id);
+        const currentIndex = stepOrder.indexOf(progressStage);
+        const stepIndex = stepOrder.indexOf(stepId);
+
+        if (stepIndex < currentIndex) return "completed";
+        if (stepIndex === currentIndex) return "active";
+        return "pending";
+    }
+
+    // Round progress to integer
+    $: displayProgress = Math.round(progress);
     let images: Array<{
         name: string;
         display_name: string;
@@ -692,23 +716,51 @@
 
                             {#if isCreating}
                                 <div class="create-progress">
+                                    <div class="progress-header-inline">
+                                        <span class="progress-percent"
+                                            >{displayProgress}%</span
+                                        >
+                                    </div>
                                     <div class="progress-bar">
                                         <div
                                             class="progress-fill"
-                                            style="width: {progress}%"
+                                            style="width: {displayProgress}%"
                                         ></div>
                                     </div>
-                                    <div class="progress-info">
-                                        <span class="progress-stage"
-                                            >{progressStage}</span
-                                        >
-                                        <span class="progress-percent"
-                                            >{progress}%</span
-                                        >
+                                    <div class="progress-steps-inline">
+                                        {#each progressSteps as step}
+                                            <div
+                                                class="progress-step-inline {getStepStatus(
+                                                    step.id,
+                                                )}"
+                                            >
+                                                <span class="step-icon"
+                                                    >{step.icon}</span
+                                                >
+                                                <span class="step-label"
+                                                    >{step.label}</span
+                                                >
+                                            </div>
+                                        {/each}
                                     </div>
                                     <p class="progress-message">
                                         {progressMessage}
                                     </p>
+                                    {#if currentRole && progressStage === "configuring"}
+                                        <div class="installing-tools-inline">
+                                            <p class="installing-label">
+                                                Installing {currentRole.name} tools:
+                                            </p>
+                                            <div class="tools-installing">
+                                                {#each currentRole.tools as tool}
+                                                    <span
+                                                        class="tool-badge-installing"
+                                                        >{tool}</span
+                                                    >
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
                                     <div class="spinner"></div>
                                 </div>
                             {:else}
@@ -948,23 +1000,51 @@
 
                             {#if isCreating}
                                 <div class="create-progress">
+                                    <div class="progress-header-inline">
+                                        <span class="progress-percent"
+                                            >{displayProgress}%</span
+                                        >
+                                    </div>
                                     <div class="progress-bar">
                                         <div
                                             class="progress-fill"
-                                            style="width: {progress}%"
+                                            style="width: {displayProgress}%"
                                         ></div>
                                     </div>
-                                    <div class="progress-info">
-                                        <span class="progress-stage"
-                                            >{progressStage}</span
-                                        >
-                                        <span class="progress-percent"
-                                            >{progress}%</span
-                                        >
+                                    <div class="progress-steps-inline">
+                                        {#each progressSteps as step}
+                                            <div
+                                                class="progress-step-inline {getStepStatus(
+                                                    step.id,
+                                                )}"
+                                            >
+                                                <span class="step-icon"
+                                                    >{step.icon}</span
+                                                >
+                                                <span class="step-label"
+                                                    >{step.label}</span
+                                                >
+                                            </div>
+                                        {/each}
                                     </div>
                                     <p class="progress-message">
                                         {progressMessage}
                                     </p>
+                                    {#if currentRole && progressStage === "configuring"}
+                                        <div class="installing-tools-inline">
+                                            <p class="installing-label">
+                                                Installing {currentRole.name} tools:
+                                            </p>
+                                            <div class="tools-installing">
+                                                {#each currentRole.tools as tool}
+                                                    <span
+                                                        class="tool-badge-installing"
+                                                        >{tool}</span
+                                                    >
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
                                     <div class="spinner"></div>
                                 </div>
                             {:else}
@@ -1818,6 +1898,106 @@
     @keyframes spin {
         to {
             transform: rotate(360deg);
+        }
+    }
+
+    /* Progress Steps Inline */
+    .progress-header-inline {
+        margin-bottom: 8px;
+    }
+
+    .progress-header-inline .progress-percent {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--accent);
+    }
+
+    .progress-steps-inline {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        margin: 12px 0;
+    }
+
+    .progress-step-inline {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 4px 8px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 10px;
+        font-family: var(--font-mono);
+        transition: all 0.2s;
+    }
+
+    .progress-step-inline.pending {
+        opacity: 0.4;
+        color: var(--text-muted);
+    }
+
+    .progress-step-inline.active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(0, 255, 65, 0.1);
+        animation: pulse 1.5s infinite;
+    }
+
+    .progress-step-inline.completed {
+        border-color: var(--green);
+        color: var(--green);
+    }
+
+    .progress-step-inline .step-icon {
+        font-size: 10px;
+    }
+
+    .progress-step-inline .step-label {
+        font-size: 9px;
+        text-transform: uppercase;
+    }
+
+    .installing-tools-inline {
+        margin: 12px 0;
+        padding: 10px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+    }
+
+    .installing-tools-inline .installing-label {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin: 0 0 8px 0;
+        font-family: var(--font-mono);
+    }
+
+    .tools-installing {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .tool-badge-installing {
+        padding: 3px 6px;
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid var(--accent);
+        border-radius: 3px;
+        font-size: 9px;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
         }
     }
 

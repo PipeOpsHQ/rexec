@@ -199,7 +199,9 @@
                         <div class="progress-bar">
                             <div
                                 class="progress-fill"
-                                style="width: {creatingInfo.progress}%"
+                                style="width: {Math.round(
+                                    creatingInfo.progress,
+                                )}%"
                             ></div>
                         </div>
                         <div class="progress-info">
@@ -207,7 +209,7 @@
                                 >{creatingInfo.stage}</span
                             >
                             <span class="progress-percent"
-                                >{creatingInfo.progress}%</span
+                                >{Math.round(creatingInfo.progress)}%</span
                             >
                         </div>
                         <p class="progress-message">{creatingInfo.message}</p>

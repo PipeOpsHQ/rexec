@@ -19,6 +19,30 @@
     let progressMessage = "";
     let progressStage = "";
 
+    // Progress steps for visual display
+    const progressSteps = [
+        { id: "validating", label: "Validating", icon: "✓" },
+        { id: "pulling", label: "Pulling Image", icon: "📦" },
+        { id: "creating", label: "Creating Container", icon: "🔧" },
+        { id: "starting", label: "Starting", icon: "🚀" },
+        { id: "configuring", label: "Configuring", icon: "⚙️" },
+        { id: "ready", label: "Ready", icon: "✨" },
+    ];
+
+    // Get step status
+    function getStepStatus(stepId: string): "pending" | "active" | "completed" {
+        const stepOrder = progressSteps.map((s) => s.id);
+        const currentIndex = stepOrder.indexOf(progressStage);
+        const stepIndex = stepOrder.indexOf(stepId);
+
+        if (stepIndex < currentIndex) return "completed";
+        if (stepIndex === currentIndex) return "active";
+        return "pending";
+    }
+
+    // Round progress to integer
+    $: displayProgress = Math.round(progress);
+
     // Available images
     let images: Array<{
         name: string;
@@ -325,17 +349,43 @@
         <div class="progress-section">
             <div class="progress-header">
                 <h2>Creating Terminal</h2>
-                <span class="progress-percent">{progress}%</span>
+                <span class="progress-percent">{displayProgress}%</span>
             </div>
 
             <div class="progress-bar">
-                <div class="progress-fill" style="width: {progress}%"></div>
+                <div
+                    class="progress-fill"
+                    style="width: {displayProgress}%"
+                ></div>
+            </div>
+
+            <!-- Step Indicators -->
+            <div class="progress-steps">
+                {#each progressSteps as step}
+                    <div class="progress-step {getStepStatus(step.id)}">
+                        <span class="step-icon">{step.icon}</span>
+                        <span class="step-label">{step.label}</span>
+                    </div>
+                {/each}
             </div>
 
             <div class="progress-info">
-                <span class="progress-stage">{progressStage}</span>
                 <span class="progress-message">{progressMessage}</span>
             </div>
+
+            <!-- Role-specific info -->
+            {#if currentRole && progressStage === "configuring"}
+                <div class="installing-tools">
+                    <p class="installing-label">
+                        Installing tools for {currentRole.name}:
+                    </p>
+                    <div class="tools-being-installed">
+                        {#each currentRole.tools as tool}
+                            <span class="tool-installing">{tool}</span>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
 
             <div class="progress-spinner">
                 <div class="spinner-large"></div>
@@ -805,22 +855,107 @@
         transition: width 0.3s ease;
     }
 
+    .progress-steps {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        max-width: 500px;
+    }
+
+    .progress-step {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: var(--font-mono);
+        transition: all 0.2s;
+    }
+
+    .progress-step.pending {
+        opacity: 0.4;
+        color: var(--text-muted);
+    }
+
+    .progress-step.active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(0, 255, 65, 0.1);
+        animation: pulse 1.5s infinite;
+    }
+
+    .progress-step.completed {
+        border-color: var(--green);
+        color: var(--green);
+    }
+
+    .step-icon {
+        font-size: 12px;
+    }
+
+    .step-label {
+        font-size: 10px;
+        text-transform: uppercase;
+    }
+
     .progress-info {
         display: flex;
         flex-direction: column;
         gap: 4px;
-        margin-bottom: 32px;
-    }
-
-    .progress-stage {
-        font-size: 12px;
-        text-transform: uppercase;
-        color: var(--accent);
+        margin-bottom: 16px;
     }
 
     .progress-message {
         font-size: 13px;
         color: var(--text-muted);
+    }
+
+    .installing-tools {
+        margin-bottom: 24px;
+        padding: 16px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        max-width: 400px;
+    }
+
+    .installing-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 0 0 12px 0;
+        font-family: var(--font-mono);
+    }
+
+    .tools-being-installed {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .tool-installing {
+        padding: 4px 8px;
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid var(--accent);
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
     }
 
     .progress-spinner {
