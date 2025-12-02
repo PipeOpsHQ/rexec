@@ -18,22 +18,23 @@ install_packages() {
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
-        apt-get install -y -qq zsh git curl wget locales >/dev/null 2>&1
+        # Reinstall git with proper dependencies to fix libpcre2 version issues
+        apt-get install -y -qq --reinstall zsh git libpcre2-8-0 curl wget locales >/dev/null 2>&1
         # Generate locale
         if [ -f /etc/locale.gen ]; then
             sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
             locale-gen >/dev/null 2>&1 || true
         fi
     elif command -v apk >/dev/null 2>&1; then
-        apk add --no-cache zsh git curl wget shadow >/dev/null 2>&1
+        apk add --no-cache zsh git pcre2 curl wget shadow >/dev/null 2>&1
     elif command -v dnf >/dev/null 2>&1; then
-        dnf install -y -q zsh git curl wget >/dev/null 2>&1
+        dnf install -y -q zsh git pcre2 curl wget >/dev/null 2>&1
     elif command -v yum >/dev/null 2>&1; then
-        yum install -y -q zsh git curl wget >/dev/null 2>&1
+        yum install -y -q zsh git pcre2 curl wget >/dev/null 2>&1
     elif command -v pacman >/dev/null 2>&1; then
-        pacman -Sy --noconfirm zsh git curl wget >/dev/null 2>&1
+        pacman -Sy --noconfirm zsh git pcre2 curl wget >/dev/null 2>&1
     elif command -v zypper >/dev/null 2>&1; then
-        zypper install -y -q zsh git curl wget >/dev/null 2>&1
+        zypper install -y -q zsh git libpcre2-8-0 curl wget >/dev/null 2>&1
     else
         echo "Unsupported package manager"
         exit 1
