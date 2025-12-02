@@ -77,27 +77,23 @@
 
         isSaving = true;
         try {
-            const response = await api.fetch(`/api/containers/${containerId}/settings`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: name.trim(),
-                    memory_mb: memoryMB,
-                    cpu_shares: cpuShares,
-                    disk_mb: diskMB
-                })
+            const response = await api.patch(`/api/containers/${containerId}/settings`, {
+                name: name.trim(),
+                memory_mb: memoryMB,
+                cpu_shares: cpuShares,
+                disk_mb: diskMB
             });
 
             if (response.ok) {
-                const updated = await response.json();
                 toast.success("Terminal settings updated");
-                dispatch("updated", updated.container);
+                if (response.data) {
+                    dispatch("updated", (response.data as { container: Container }).container);
+                }
                 handleClose();
                 // Refresh containers to get latest data
                 containers.fetchContainers();
             } else {
-                const error = await response.json();
-                toast.error(error.error || "Failed to update settings");
+                toast.error(response.error || "Failed to update settings");
             }
         } catch (err) {
             console.error("Settings update error:", err);
