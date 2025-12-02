@@ -163,29 +163,22 @@
         connectingIds.add(container.id);
         connectingIds = new Set(connectingIds); // Trigger reactivity
         dispatch("connect", { id: container.id, name: container.name });
-        // The connected state will be handled by connectedContainerIds store
-        // Keep checking until connected or timeout
-        let attempts = 0;
-        const checkConnected = () => {
-            attempts++;
-            if (connectedIds.has(container.id)) {
-                // Now connected, remove from connecting
-                connectingIds.delete(container.id);
-                connectingIds = new Set(connectingIds);
-                return;
-            }
-            if (attempts < 20) { // Check for up to 10 seconds
-                setTimeout(checkConnected, 500);
-            } else {
-                // Timeout - remove from connecting state
-                connectingIds.delete(container.id);
+    }
+
+    // Reactively clear connecting state when container becomes connected
+    $: {
+        // When connectedIds changes, check if any connecting containers are now connected
+        for (const id of connectingIds) {
+            if (connectedIds.has(id)) {
+                connectingIds.delete(id);
                 connectingIds = new Set(connectingIds);
             }
-        };
-        setTimeout(checkConnected, 500);
+        }
     }
 
     function isConnecting(containerId: string): boolean {
+        // Not connecting if already connected
+        if (connectedIds.has(containerId)) return false;
         return connectingIds.has(containerId);
     }
 
