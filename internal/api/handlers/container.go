@@ -863,7 +863,8 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 
 	// Update in database
 	if err := h.store.UpdateContainerSettings(ctx, found.ID, req.Name, req.MemoryMB, req.CPUShares, req.DiskMB); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update settings"})
+		log.Printf("[UpdateSettings] Failed to update settings for container %s: %v", found.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update settings: " + err.Error()})
 		return
 	}
 

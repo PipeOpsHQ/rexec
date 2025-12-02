@@ -68,9 +68,16 @@
     async function handleSave() {
         if (!container) return;
 
+        // Use db_id if available, fallback to id (docker_id)
+        const containerId = container.db_id || container.id;
+        if (!containerId) {
+            toast.error("Container ID not found");
+            return;
+        }
+
         isSaving = true;
         try {
-            const response = await api.fetch(`/api/containers/${container.id}/settings`, {
+            const response = await api.fetch(`/api/containers/${containerId}/settings`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -93,6 +100,7 @@
                 toast.error(error.error || "Failed to update settings");
             }
         } catch (err) {
+            console.error("Settings update error:", err);
             toast.error("Failed to update settings");
         } finally {
             isSaving = false;
