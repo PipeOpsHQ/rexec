@@ -916,18 +916,8 @@ function handleContainerEvent(event: {
 let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startAutoRefresh() {
-  // Temporarily disable WebSocket due to initialization issues
-  // TODO: Re-enable after fixing event handler setup
-  console.log("[ContainerEvents] Using polling mode");
-
-  if (refreshInterval) return;
-
-  refreshInterval = setInterval(() => {
-    const currentToken = get(token);
-    if (currentToken) {
-      containers.fetchContainers(true); // Silent refresh - no loading indicator
-    }
-  }, 30000); // Poll every 30 seconds instead of 5
+  // Use WebSocket for real-time updates
+  startContainerEvents();
 }
 
 export function stopAutoRefresh() {
