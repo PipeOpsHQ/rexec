@@ -251,6 +251,7 @@ configure_rootless_service() {
     mkdir -p "$PODMAN_USER_HOME/.config/systemd/user"
     
     # Create rootless Podman API service (runs as user)
+    # Uses port 2375 internally (localhost only)
     cat > "$PODMAN_USER_HOME/.config/systemd/user/podman-api.service" <<EOF
 [Unit]
 Description=Podman API Service (Rootless)
@@ -259,7 +260,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/podman system service --time=0 tcp://127.0.0.1:2377
+ExecStart=/usr/bin/podman system service --time=0 tcp://127.0.0.1:2375
 Restart=always
 RestartSec=5
 
@@ -287,7 +288,7 @@ EOF
 configure_rootful_service() {
     log_step "Configuring rootful Podman service..."
     
-    # Create Podman local service (no TLS, only localhost)
+    # Create Podman local service (no TLS, only localhost on port 2375)
     cat > /etc/systemd/system/podman-api-local.service <<EOF
 [Unit]
 Description=Podman API Service (Local only)
@@ -296,7 +297,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/podman system service --time=0 tcp://127.0.0.1:2377
+ExecStart=/usr/bin/podman system service --time=0 tcp://127.0.0.1:2375
 Restart=always
 RestartSec=5
 
@@ -308,9 +309,9 @@ EOF
     systemctl daemon-reload
     systemctl enable --now podman-api-local
     
-    log_info "Rootful Podman API service started"
+    log_info "Rootful Podman API service started on localhost:2375"
     
-    # Setup nginx TLS proxy
+    # Setup nginx TLS proxy (exposes on port 2378)
     setup_nginx_proxy
 }
 
@@ -325,11 +326,12 @@ setup_nginx_proxy() {
     fi
     
     # Create nginx config for TLS proxy
+    # Proxies external port 2378 (TLS) to internal port 2375 (plain)
     mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
     
     cat > /etc/nginx/sites-available/podman-tls <<EOF
 upstream podman {
-    server 127.0.0.1:2377;
+    server 127.0.0.1:2375;
 }
 
 server {

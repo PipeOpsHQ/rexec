@@ -499,8 +499,10 @@ if [ "$USE_PODMAN" = true ]; then
     systemctl stop podman-tcp.socket podman.socket podman-api.service podman-tls.service 2>/dev/null || true
     systemctl disable podman-tcp.socket podman.socket 2>/dev/null || true
     
-    # Kill any process holding port 2377
-    fuser -k 2377/tcp 2>/dev/null || true
+    # Kill any process holding ports 2375 (internal) or 2378 (external TLS)
+    echo -e "${CYAN}Freeing ports 2375 and 2378...${NC}"
+    fuser -k 2375/tcp 2>/dev/null || true
+    fuser -k 2378/tcp 2>/dev/null || true
     sleep 1
     
     # Create Podman system service with TLS
@@ -524,6 +526,7 @@ if [ "$USE_PODMAN" = true ]; then
     chmod 644 /etc/stunnel/ca.pem
     
     # Configure stunnel for TLS termination with client cert verification
+    # Podman uses port 2378 (different from Docker's 2377) to allow both to run on same host
     cat > /etc/stunnel/podman.conf <<EOF
 ; Stunnel configuration for Podman API
 pid = /run/stunnel-podman.pid
@@ -532,14 +535,15 @@ setgid = root
 foreground = yes
 
 [podman-api]
-accept = 0.0.0.0:2377
-connect = 127.0.0.1:2376
+accept = 0.0.0.0:2378
+connect = 127.0.0.1:2375
 cert = /etc/stunnel/podman.pem
 CAfile = /etc/stunnel/ca.pem
 verify = 2
 EOF
     
     # Create Podman API service (plain TCP on localhost only - secure)
+    # Uses port 2375 internally (only localhost), exposed via stunnel on 2378
     cat > /etc/systemd/system/podman-api.service <<EOF
 [Unit]
 Description=Podman API Service (Local)
@@ -547,7 +551,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/podman system service --time=0 tcp://127.0.0.1:2376
+ExecStart=/usr/bin/podman system service --time=0 tcp://127.0.0.1:2375
 Restart=always
 RestartSec=5
 
@@ -579,10 +583,10 @@ EOF
     systemctl enable podman-api.service
     systemctl start podman-api.service
     
-    # Wait for Podman API to be ready
+    # Wait for Podman API to be ready on localhost:2375
     echo -e "${CYAN}Waiting for Podman API to start...${NC}"
     for i in {1..10}; do
-        if curl -s http://127.0.0.1:2376/_ping > /dev/null 2>&1; then
+        if curl -s http://127.0.0.1:2375/_ping > /dev/null 2>&1; then
             echo -e "${GREEN}✓ Podman API is ready${NC}"
             break
         fi
@@ -597,7 +601,7 @@ EOF
     sleep 2
     
     if systemctl is-active --quiet podman-api.service && systemctl is-active --quiet podman-tls.service; then
-        echo -e "${GREEN}✓ Podman API + TLS proxy running on port 2377${NC}"
+        echo -e "${GREEN}✓ Podman API + TLS proxy running on port 2378${NC}"
     else
         echo -e "${RED}✗ Podman services failed to start${NC}"
         echo "Podman API status:"
@@ -606,14 +610,24 @@ EOF
         echo "TLS proxy status:"
         systemctl status podman-tls.service --no-pager -l | head -10
         echo ""
-        echo "Checking port 2377:"
-        ss -tlnp | grep 2377 || echo "Port 2377 not listening"
+        echo "Checking port 2378:"
+        ss -tlnp | grep 2378 || echo "Port 2378 not listening"
     fi
     
-    echo -e "${GREEN}Podman configured for remote TLS access${NC}"
+    echo -e "${GREEN}Podman configured for remote TLS access on port 2378${NC}"
     echo ""
 else
     echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Configuring Docker daemon for TLS...${NC}"
+
+    # Stop Podman if running to avoid port conflicts
+    echo -e "${CYAN}Stopping Podman services if running...${NC}"
+    systemctl stop podman-api.service podman-tls.service podman-api-local.service 2>/dev/null || true
+    systemctl disable podman-api.service podman-tls.service podman-api-local.service 2>/dev/null || true
+    
+    # Kill any process on port 2377
+    echo -e "${CYAN}Freeing port 2377...${NC}"
+    fuser -k 2377/tcp 2>/dev/null || true
+    sleep 1
 
     # Backup existing config
     if [ -f /etc/docker/daemon.json ]; then
@@ -726,21 +740,28 @@ fi
 STEP_NUM=$((STEP_NUM + 1))
 echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Configuring firewall...${NC}"
 
+# Determine port based on runtime
+if [ "$USE_PODMAN" = true ]; then
+    FW_PORT=2378
+else
+    FW_PORT=2377
+fi
+
 # Try UFW first (Ubuntu/Debian)
 if command -v ufw &> /dev/null; then
-    ufw allow 2377/tcp
-    echo -e "${GREEN}UFW: Opened port 2377${NC}"
+    ufw allow ${FW_PORT}/tcp
+    echo -e "${GREEN}UFW: Opened port ${FW_PORT}${NC}"
 # Try firewalld (CentOS/RHEL/Fedora)
 elif command -v firewall-cmd &> /dev/null; then
-    firewall-cmd --permanent --add-port=2377/tcp
+    firewall-cmd --permanent --add-port=${FW_PORT}/tcp
     firewall-cmd --reload
-    echo -e "${GREEN}firewalld: Opened port 2377${NC}"
+    echo -e "${GREEN}firewalld: Opened port ${FW_PORT}${NC}"
 # Fall back to iptables
 elif command -v iptables &> /dev/null; then
-    iptables -A INPUT -p tcp --dport 2377 -j ACCEPT
-    echo -e "${GREEN}iptables: Opened port 2377${NC}"
+    iptables -A INPUT -p tcp --dport ${FW_PORT} -j ACCEPT
+    echo -e "${GREEN}iptables: Opened port ${FW_PORT}${NC}"
 else
-    echo -e "${YELLOW}No firewall detected. Make sure port 2377 is accessible.${NC}"
+    echo -e "${YELLOW}No firewall detected. Make sure port ${FW_PORT} is accessible.${NC}"
 fi
 
 echo ""
@@ -755,22 +776,22 @@ sleep 2  # Wait for service to fully start
 
 if [ "$USE_PODMAN" = true ]; then
     CERT_DIR="/etc/docker/certs"
-    # Test Podman API via stunnel TLS proxy
+    # Test Podman API via stunnel TLS proxy on port 2378
     if curl -s --cacert "$CERT_DIR/ca.pem" \
         --cert "$CERT_DIR/client/cert.pem" \
         --key "$CERT_DIR/client/key.pem" \
-        "https://127.0.0.1:2377/v4.0.0/libpod/info" > /dev/null 2>&1; then
+        "https://127.0.0.1:2378/v4.0.0/libpod/info" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Podman TLS connection successful!${NC}"
     elif curl -s --cacert "$CERT_DIR/ca.pem" \
         --cert "$CERT_DIR/client/cert.pem" \
         --key "$CERT_DIR/client/key.pem" \
-        "https://127.0.0.1:2377/_ping" > /dev/null 2>&1; then
+        "https://127.0.0.1:2378/_ping" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Podman TLS connection successful!${NC}"
     else
         echo -e "${YELLOW}⚠ TLS connection test - checking services...${NC}"
-        echo "Podman API (local):"
-        curl -s http://127.0.0.1:2376/_ping && echo " - Local API works" || echo " - Local API failed"
-        echo "Stunnel proxy:"
+        echo "Podman API (local on 2375):"
+        curl -s http://127.0.0.1:2375/_ping && echo " - Local API works" || echo " - Local API failed"
+        echo "Stunnel proxy (TLS on 2378):"
         systemctl status podman-tls.service --no-pager -l | head -5
     fi
 else
@@ -796,9 +817,17 @@ echo -e "${GREEN}=============================================${NC}"
 echo -e "${GREEN}  Setup Complete!${NC}"
 echo -e "${GREEN}=============================================${NC}"
 echo ""
+
+# Set port based on runtime
+if [ "$USE_PODMAN" = true ]; then
+    RUNTIME_PORT=2378
+else
+    RUNTIME_PORT=2377
+fi
+
 echo -e "${YELLOW}Set these environment variables in your Railway/PipeOps deployment:${NC}"
 echo ""
-echo -e "${BLUE}DOCKER_HOST${NC}=tcp://${PUBLIC_IP}:2377"
+echo -e "${BLUE}DOCKER_HOST${NC}=tcp://${PUBLIC_IP}:${RUNTIME_PORT}"
 echo -e "${BLUE}DOCKER_TLS_VERIFY${NC}=1"
 if [ "$USE_PODMAN" = true ]; then
     echo -e "${BLUE}CONTAINER_ENGINE${NC}=podman"
@@ -824,8 +853,9 @@ if [ "$USE_PODMAN" = true ]; then
 # Rexec Podman Host Environment Variables
 # Generated on $(date)
 # Podman Host: $PUBLIC_IP
+# Port: 2378 (Podman TLS)
 
-DOCKER_HOST=tcp://${PUBLIC_IP}:2377
+DOCKER_HOST=tcp://${PUBLIC_IP}:2378
 DOCKER_TLS_VERIFY=1
 CONTAINER_ENGINE=podman
 
@@ -843,6 +873,7 @@ else
 # Rexec Docker Host Environment Variables
 # Generated on $(date)
 # Docker Host: $PUBLIC_IP
+# Port: 2377 (Docker TLS)
 
 DOCKER_HOST=tcp://${PUBLIC_IP}:2377
 DOCKER_TLS_VERIFY=1
@@ -867,11 +898,11 @@ echo "3. Test the connection from your Rexec instance"
 echo ""
 
 if [ "$USE_PODMAN" = true ]; then
-    echo -e "${GREEN}Your Podman host is ready at: tcp://${PUBLIC_IP}:2377${NC}"
+    echo -e "${GREEN}Your Podman host is ready at: tcp://${PUBLIC_IP}:2378${NC}"
     echo ""
     echo -e "${BLUE}Summary:${NC}"
     echo "  - Local access: podman commands work normally"
-    echo "  - Remote access (TLS): tcp://${PUBLIC_IP}:2377"
+    echo "  - Remote access (TLS): tcp://${PUBLIC_IP}:2378"
     echo ""
     echo -e "${CYAN}Podman Benefits:${NC}"
     echo "  - Docker-compatible API (works with Docker SDK)"
