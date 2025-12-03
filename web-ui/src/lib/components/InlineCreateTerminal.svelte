@@ -56,6 +56,59 @@
         { id: "ready", label: "Ready" },
     ];
 
+    // Matrix characters for animation
+    const matrixChars = '█▓▒░╬╫╪┼┿╀╁╂╃╄╅╆╇╈╉╊╋';
+    
+    // ASCII art frames for animation
+    const asciiFrames = [
+`╔══════════════════════════════════════════╗
+║  ██████╗ ███████╗██╗  ██╗███████╗ ██████╗ ║
+║  ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝ ║
+║  ██████╔╝█████╗   ╚███╔╝ █████╗  ██║      ║
+║  ██╔══██╗██╔══╝   ██╔██╗ ██╔══╝  ██║      ║
+║  ██║  ██║███████╗██╔╝ ██╗███████╗╚██████╗ ║
+║  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ║
+╠══════════════════════════════════════════╣
+║  ▓▓▓ INITIALIZING SECURE CONTAINER ▓▓▓   ║
+╚══════════════════════════════════════════╝`,
+`╔══════════════════════════════════════════╗
+║  ██████╗ ███████╗██╗  ██╗███████╗ ██████╗ ║
+║  ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝ ║
+║  ██████╔╝█████╗   ╚███╔╝ █████╗  ██║      ║
+║  ██╔══██╗██╔══╝   ██╔██╗ ██╔══╝  ██║      ║
+║  ██║  ██║███████╗██╔╝ ██╗███████╗╚██████╗ ║
+║  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ║
+╠══════════════════════════════════════════╣
+║  ░░░ INITIALIZING SECURE CONTAINER ░░░   ║
+╚══════════════════════════════════════════╝`,
+`╔══════════════════════════════════════════╗
+║  ██████╗ ███████╗██╗  ██╗███████╗ ██████╗ ║
+║  ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝ ║
+║  ██████╔╝█████╗   ╚███╔╝ █████╗  ██║      ║
+║  ██╔══██╗██╔══╝   ██╔██╗ ██╔══╝  ██║      ║
+║  ██║  ██║███████╗██╔╝ ██╗███████╗╚██████╗ ║
+║  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝ ║
+╠══════════════════════════════════════════╣
+║  ▒▒▒ INITIALIZING SECURE CONTAINER ▒▒▒   ║
+╚══════════════════════════════════════════╝`
+    ];
+    
+    let asciiFrameIndex = 0;
+    let asciiFrame = asciiFrames[0];
+    let animationInterval: ReturnType<typeof setInterval>;
+    
+    $: if (isCreating && !animationInterval) {
+        animationInterval = setInterval(() => {
+            asciiFrameIndex = (asciiFrameIndex + 1) % asciiFrames.length;
+            asciiFrame = asciiFrames[asciiFrameIndex];
+        }, 400);
+    }
+    
+    $: if (!isCreating && animationInterval) {
+        clearInterval(animationInterval);
+        animationInterval = undefined as any;
+    }
+
     // Hacker-style log messages
     let logMessages: Array<{ text: string; type: 'info' | 'success' | 'cmd' | 'data' }> = [];
     let logContainer: HTMLDivElement;
@@ -288,44 +341,53 @@
 <div class="inline-create" class:compact>
     {#if isCreating}
         <div class="create-progress">
-            <!-- Hacker-style terminal header -->
-            <div class="hacker-header">
-                <div class="terminal-title">
-                    <span class="blink">▌</span> REXEC INIT SEQUENCE
-                </div>
-                <div class="progress-stats">
-                    <span class="stat">[{displayProgress}%]</span>
-                    <span class="stage">{progressStage.toUpperCase()}</span>
-                </div>
+            <!-- Cyber ASCII Art Header -->
+            <div class="ascii-container">
+                <pre class="ascii-art">{asciiFrame}</pre>
             </div>
             
-            <!-- Progress bar styled as loading bar -->
-            <div class="hacker-progress">
-                <div class="progress-track">
-                    {#each Array(20) as _, i}
-                        <span class="progress-block" class:filled={i < displayProgress / 5}>█</span>
+            <!-- Matrix-style progress bar -->
+            <div class="matrix-progress">
+                <div class="matrix-bar">
+                    {#each Array(40) as _, i}
+                        <span 
+                            class="matrix-cell" 
+                            class:active={i < (displayProgress / 100) * 40}
+                            class:pulse={i === Math.floor((displayProgress / 100) * 40) - 1}
+                        >{i < (displayProgress / 100) * 40 ? matrixChars[Math.floor(Math.random() * matrixChars.length)] : '░'}</span>
                     {/each}
                 </div>
+                <div class="progress-label">
+                    <span class="hex-progress">0x{displayProgress.toString(16).toUpperCase().padStart(2, '0')}</span>
+                    <span class="stage-text">{progressStage.toUpperCase()}</span>
+                    <span class="percent">{displayProgress}%</span>
+                </div>
             </div>
             
-            <!-- Hacker log display -->
-            <div class="hacker-logs" bind:this={logContainer}>
+            <!-- Cyberpunk log stream -->
+            <div class="cyber-logs" bind:this={logContainer}>
+                <div class="scanline"></div>
                 {#each logMessages as log, i}
-                    <div class="log-line" class:cmd={log.type === 'cmd'} class:success={log.type === 'success'} class:data={log.type === 'data'}>
-                        <span class="log-prefix">{log.type === 'cmd' ? '' : '>'}</span>
-                        <span class="log-text">{log.text}</span>
+                    <div class="log-entry" class:cmd={log.type === 'cmd'} class:success={log.type === 'success'} class:data={log.type === 'data'}>
+                        <span class="log-time">[{String(i).padStart(3, '0')}]</span>
+                        <span class="log-icon">{log.type === 'cmd' ? '▶' : log.type === 'success' ? '✓' : '→'}</span>
+                        <span class="log-msg">{log.text}</span>
                         {#if i === logMessages.length - 1}
-                            <span class="cursor">_</span>
+                            <span class="blink-cursor">█</span>
                         {/if}
                     </div>
                 {/each}
             </div>
             
-            <!-- Current stage indicator -->
-            <div class="stage-indicator">
-                {#each progressSteps as step}
-                    <div class="step" class:active={progressStage === step.id} class:completed={getStepStatus(step.id) === 'completed'}>
-                        <span class="step-dot">{getStepStatus(step.id) === 'completed' ? '●' : getStepStatus(step.id) === 'active' ? '◉' : '○'}</span>
+            <!-- DNA-style stage helix -->
+            <div class="stage-helix">
+                {#each progressSteps as step, i}
+                    <div class="helix-node" class:active={progressStage === step.id} class:done={getStepStatus(step.id) === 'completed'}>
+                        <span class="node-line">{getStepStatus(step.id) === 'completed' ? '═══' : getStepStatus(step.id) === 'active' ? '▓▓▓' : '───'}</span>
+                        <span class="node-dot">{getStepStatus(step.id) === 'completed' ? '◆' : getStepStatus(step.id) === 'active' ? '◈' : '◇'}</span>
+                        {#if i < progressSteps.length - 1}
+                            <span class="node-line">{getStepStatus(step.id) === 'completed' ? '═══' : '───'}</span>
+                        {/if}
                     </div>
                 {/each}
             </div>
@@ -487,176 +549,249 @@
         padding: 12px;
     }
 
-    /* Progress - Hacker Style */
+    /* Progress - Cyberpunk Style */
     .create-progress {
         display: flex;
         flex-direction: column;
         gap: 12px;
         padding: 16px;
-        background: #000;
+        background: linear-gradient(135deg, #000 0%, #0a0a0a 50%, #000 100%);
         border: 1px solid #00ff41;
         border-radius: 4px;
         font-family: var(--font-mono);
-        box-shadow: 0 0 20px rgba(0, 255, 65, 0.1), inset 0 0 40px rgba(0, 255, 65, 0.02);
+        box-shadow: 
+            0 0 30px rgba(0, 255, 65, 0.15),
+            inset 0 0 60px rgba(0, 255, 65, 0.03),
+            0 0 1px #00ff41;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .create-progress::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.05), transparent);
+        animation: shimmer 2s infinite;
+    }
+    
+    @keyframes shimmer {
+        100% { left: 100%; }
     }
 
-    .hacker-header {
+    /* ASCII Art Container */
+    .ascii-container {
+        text-align: center;
+        padding: 8px 0;
+    }
+    
+    .ascii-art {
+        font-size: 7px;
+        line-height: 1.1;
+        color: #00ff41;
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.8), 0 0 20px rgba(0, 255, 65, 0.4);
+        margin: 0;
+        letter-spacing: 0.5px;
+        animation: glow 2s ease-in-out infinite alternate;
+    }
+    
+    @keyframes glow {
+        from { text-shadow: 0 0 5px rgba(0, 255, 65, 0.5), 0 0 10px rgba(0, 255, 65, 0.3); }
+        to { text-shadow: 0 0 15px rgba(0, 255, 65, 0.9), 0 0 30px rgba(0, 255, 65, 0.5); }
+    }
+    
+    /* Matrix Progress Bar */
+    .matrix-progress {
+        padding: 8px 0;
+    }
+    
+    .matrix-bar {
+        display: flex;
+        justify-content: center;
+        font-size: 12px;
+        letter-spacing: -1px;
+    }
+    
+    .matrix-cell {
+        color: #1a3a1a;
+        transition: all 0.1s ease;
+    }
+    
+    .matrix-cell.active {
+        color: #00ff41;
+        text-shadow: 0 0 8px rgba(0, 255, 65, 0.9);
+        animation: matrix-flicker 0.1s ease;
+    }
+    
+    .matrix-cell.pulse {
+        animation: matrix-pulse 0.5s ease infinite;
+    }
+    
+    @keyframes matrix-flicker {
+        0% { opacity: 0.3; }
+        50% { opacity: 1; }
+        100% { opacity: 0.9; }
+    }
+    
+    @keyframes matrix-pulse {
+        0%, 100% { color: #00ff41; text-shadow: 0 0 10px rgba(0, 255, 65, 1); }
+        50% { color: #00aa28; text-shadow: 0 0 5px rgba(0, 255, 65, 0.5); }
+    }
+    
+    .progress-label {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 8px;
-        border-bottom: 1px solid rgba(0, 255, 65, 0.3);
-    }
-
-    .terminal-title {
-        font-size: 12px;
-        color: #00ff41;
-        font-weight: 600;
-        letter-spacing: 2px;
-        text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
-    }
-
-    .blink {
-        animation: blink-cursor 1s step-end infinite;
-    }
-
-    @keyframes blink-cursor {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-    }
-
-    .progress-stats {
-        display: flex;
-        gap: 12px;
-        font-size: 11px;
-    }
-
-    .progress-stats .stat {
-        color: #00ff41;
-        font-weight: 600;
-    }
-
-    .progress-stats .stage {
-        color: #0af;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .hacker-progress {
-        padding: 4px 0;
-    }
-
-    .progress-track {
-        display: flex;
+        margin-top: 8px;
+        padding: 0 4px;
         font-size: 10px;
-        letter-spacing: 1px;
     }
-
-    .progress-block {
-        color: #333;
-        transition: color 0.15s ease;
+    
+    .hex-progress {
+        color: #ff00ff;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
     }
-
-    .progress-block.filled {
+    
+    .stage-text {
+        color: #0af;
+        letter-spacing: 2px;
+        animation: stage-blink 1s ease infinite;
+    }
+    
+    @keyframes stage-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    
+    .percent {
         color: #00ff41;
-        text-shadow: 0 0 5px rgba(0, 255, 65, 0.8);
+        font-weight: bold;
     }
-
-    .hacker-logs {
-        height: 180px;
+    
+    /* Cyber Logs */
+    .cyber-logs {
+        height: 140px;
         overflow-y: auto;
-        background: rgba(0, 0, 0, 0.5);
-        border: 1px solid #222;
+        background: rgba(0, 0, 0, 0.8);
+        border: 1px solid #00ff4133;
         border-radius: 2px;
         padding: 8px;
+        position: relative;
         scrollbar-width: thin;
         scrollbar-color: #00ff41 #111;
     }
-
-    .hacker-logs::-webkit-scrollbar {
-        width: 4px;
+    
+    .cyber-logs::-webkit-scrollbar { width: 3px; }
+    .cyber-logs::-webkit-scrollbar-track { background: #0a0a0a; }
+    .cyber-logs::-webkit-scrollbar-thumb { background: #00ff41; }
+    
+    .scanline {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.3), transparent);
+        animation: scanline 3s linear infinite;
+        pointer-events: none;
     }
-
-    .hacker-logs::-webkit-scrollbar-track {
-        background: #111;
+    
+    @keyframes scanline {
+        0% { top: 0; }
+        100% { top: 100%; }
     }
-
-    .hacker-logs::-webkit-scrollbar-thumb {
-        background: #00ff41;
-        border-radius: 2px;
-    }
-
-    .log-line {
+    
+    .log-entry {
         display: flex;
-        gap: 6px;
-        font-size: 11px;
-        line-height: 1.6;
-        color: #888;
-        animation: fadeIn 0.2s ease;
+        gap: 8px;
+        font-size: 10px;
+        line-height: 1.8;
+        color: #666;
+        animation: log-slide 0.2s ease;
     }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateX(-5px); }
+    
+    @keyframes log-slide {
+        from { opacity: 0; transform: translateX(-10px); }
         to { opacity: 1; transform: translateX(0); }
     }
-
-    .log-line.cmd {
-        color: #fff;
-        font-weight: 500;
+    
+    .log-time {
+        color: #444;
+        font-size: 9px;
     }
-
-    .log-line.success {
-        color: #00ff41;
-    }
-
-    .log-line.data {
-        color: #0af;
-    }
-
-    .log-prefix {
+    
+    .log-icon {
         color: #555;
-        user-select: none;
     }
-
-    .log-line.cmd .log-prefix {
+    
+    .log-entry.cmd { color: #fff; }
+    .log-entry.cmd .log-icon { color: #00ff41; }
+    .log-entry.success { color: #00ff41; }
+    .log-entry.success .log-icon { color: #00ff41; }
+    .log-entry.data { color: #0af; }
+    
+    .blink-cursor {
+        animation: blink 0.7s step-end infinite;
         color: #00ff41;
     }
-
-    .cursor {
-        animation: blink-cursor 0.7s step-end infinite;
-        color: #00ff41;
+    
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
     }
-
-    .stage-indicator {
+    
+    /* DNA Helix Stage Indicator */
+    .stage-helix {
         display: flex;
         justify-content: center;
-        gap: 8px;
-        padding-top: 8px;
-        border-top: 1px solid rgba(0, 255, 65, 0.2);
+        align-items: center;
+        padding: 8px 0;
+        border-top: 1px solid rgba(0, 255, 65, 0.15);
     }
-
-    .step {
-        transition: all 0.2s ease;
+    
+    .helix-node {
+        display: flex;
+        align-items: center;
+        font-size: 10px;
     }
-
-    .step-dot {
-        font-size: 8px;
+    
+    .node-line {
+        color: #222;
+        letter-spacing: -2px;
+    }
+    
+    .node-dot {
         color: #333;
+        font-size: 12px;
+        transition: all 0.3s ease;
     }
-
-    .step.active .step-dot {
+    
+    .helix-node.active .node-dot {
         color: #00ff41;
-        text-shadow: 0 0 8px rgba(0, 255, 65, 0.8);
-        animation: pulse-dot 1s ease infinite;
+        text-shadow: 0 0 10px rgba(0, 255, 65, 1);
+        animation: node-pulse 1s ease infinite;
     }
-
-    .step.completed .step-dot {
+    
+    .helix-node.active .node-line {
+        color: #00aa28;
+    }
+    
+    .helix-node.done .node-dot {
         color: #00ff41;
     }
-
-    @keyframes pulse-dot {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+    
+    .helix-node.done .node-line {
+        color: #00ff41;
+        text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+    }
+    
+    @keyframes node-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.3); }
     }
 
     /* Content */
