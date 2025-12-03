@@ -422,27 +422,58 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	h.store.UpdateContainerDockerID(ctx, recordID, info.ID)
 	h.store.UpdateContainerStatus(ctx, recordID, info.Status)
 
-	// Send configuring progress
-	sendProgress("configuring", "Configuring environment...", 75)
+	// Send configuring progress - now we actually wait for environment setup
+	sendProgress("configuring", "Setting up enhanced shell environment...", 65)
+
+	// Run shell setup (zsh + oh-my-zsh)
+	shellResult, shellErr := container.SetupEnhancedShell(ctx, h.manager.GetClient(), info.ID)
+	if shellErr != nil {
+		log.Printf("[Container] Shell setup error for %s: %v", info.ID[:12], shellErr)
+		sendProgress("configuring", "Shell setup skipped (will use default shell)", 75)
+	} else if !shellResult.Success {
+		log.Printf("[Container] Shell setup incomplete for %s: %s", info.ID[:12], shellResult.Message)
+		sendProgress("configuring", "Shell setup incomplete (will use default shell)", 75)
+	} else {
+		log.Printf("[Container] Shell setup complete for %s", info.ID[:12])
+		sendProgress("configuring", "Enhanced shell configured", 80)
+	}
+
+	// Setup role if specified
+	if role != "" && role != "standard" {
+		sendProgress("configuring", fmt.Sprintf("Setting up %s environment...", role), 85)
+		
+		roleResult, roleErr := container.SetupRole(ctx, h.manager.GetClient(), info.ID, role)
+		if roleErr != nil {
+			log.Printf("[Container] Role setup error for %s (%s): %v", info.ID[:12], role, roleErr)
+			sendProgress("configuring", fmt.Sprintf("Role %s setup skipped", role), 90)
+		} else if !roleResult.Success {
+			log.Printf("[Container] Role setup incomplete for %s (%s): %s", info.ID[:12], role, roleResult.Message)
+			sendProgress("configuring", fmt.Sprintf("Role %s setup incomplete", role), 90)
+		} else {
+			log.Printf("[Container] Role setup complete for %s (%s)", info.ID[:12], role)
+			sendProgress("configuring", fmt.Sprintf("Role %s configured", role), 95)
+		}
+	}
+
+	// Determine the image name for response
+	imageName := imageType
+	if imageType == "custom" {
+		imageName = "custom:" + customImage
+	}
+	
+	// Get actual resources from the database record
+	record, err := h.store.GetContainerByID(ctx, recordID)
+	memoryMB := int64(512)
+	cpuShares := int64(512)
+	diskMB := int64(2048)
+	if err == nil && record != nil {
+		memoryMB = record.MemoryMB
+		cpuShares = record.CPUShares
+		diskMB = record.DiskMB
+	}
 
 	// Notify via WebSocket that container is ready
 	if h.eventsHub != nil {
-		// Determine the image name for response
-		imageName := imageType
-		if imageType == "custom" {
-			imageName = "custom:" + customImage
-		}
-		// Get actual resources from the database record
-		record, err := h.store.GetContainerByID(ctx, recordID)
-		memoryMB := int64(512)
-		cpuShares := int64(512)
-		diskMB := int64(2048)
-		if err == nil && record != nil {
-			memoryMB = record.MemoryMB
-			cpuShares = record.CPUShares
-			diskMB = record.DiskMB
-		}
-
 		// Send ready progress with container data
 		h.eventsHub.NotifyContainerProgress(userID, gin.H{
 			"id":           recordID,

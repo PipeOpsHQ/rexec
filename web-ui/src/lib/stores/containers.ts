@@ -473,44 +473,74 @@ function createContainersStore() {
             } else if (status === "starting") {
               updateStage("starting");
             } else if (status === "running") {
-              // Show configuring briefly before ready
+              // Container is running but environment setup may still be in progress.
+              // The backend sends WebSocket progress events during setup.
+              // Show configuring and wait for WebSocket to send "ready" event with container data.
+              
               if (currentStage !== "configuring" && currentStage !== "ready") {
                 updateStage("configuring");
-                await new Promise(resolve => setTimeout(resolve, 800));
               }
               
-              // Now show ready
-              updateStage("ready");
-
-              // Container is ready!
-              const container: Container = {
-                id: containerData.id || containerData.docker_id || containerId,
-                db_id: containerData.db_id || containerId,
-                user_id: containerData.user_id || "",
-                name: containerData.name || name,
-                image: containerData.image || image,
-                status: "running",
-                created_at:
-                  containerData.created_at || new Date().toISOString(),
-                ip_address: containerData.ip_address,
-                resources: containerData.resources,
-              };
-
-              update((state) => ({
-                ...state,
-                containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
-                creating: null,
-              }));
-
-              onProgress?.({
-                stage: "ready",
-                message: "Terminal ready!",
-                progress: 100,
-                complete: true,
-                container_id: container.id,
+              // Check if we've already been notified via WebSocket by seeing if creating is cleared
+              let creatingCleared = false;
+              const unsub = subscribe((state) => {
+                if (!state.creating) {
+                  creatingCleared = true;
+                }
               });
+              unsub();
+              
+              if (creatingCleared) {
+                // Already completed via WebSocket event
+                return;
+              }
+              
+              // Wait for WebSocket to confirm environment setup is complete
+              // The backend will send a progress event with complete:true when ready
+              // Continue polling to update local state, but don't trigger onComplete here
+              // - WebSocket handler will dispatch 'container-created' event when truly ready
+              
+              // However, if WebSocket is not connected, we need a fallback
+              // Give the backend up to 60 more seconds to complete environment setup
+              const configTimeout = 60;
+              if (attempts > (maxAttempts - configTimeout)) {
+                // Fallback: if we've been waiting too long after running, complete anyway
+                console.log("[Containers] Environment setup timeout, completing anyway");
+                updateStage("ready");
+                
+                const container: Container = {
+                  id: containerData.id || containerData.docker_id || containerId,
+                  db_id: containerData.db_id || containerId,
+                  user_id: containerData.user_id || "",
+                  name: containerData.name || name,
+                  image: containerData.image || image,
+                  status: "running",
+                  created_at:
+                    containerData.created_at || new Date().toISOString(),
+                  ip_address: containerData.ip_address,
+                  resources: containerData.resources,
+                };
 
-              onComplete?.(container);
+                update((state) => ({
+                  ...state,
+                  containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
+                  creating: null,
+                }));
+
+                onProgress?.({
+                  stage: "ready",
+                  message: "Terminal ready!",
+                  progress: 100,
+                  complete: true,
+                  container_id: container.id,
+                });
+
+                onComplete?.(container);
+                return;
+              }
+              
+              // Keep polling to check if creating state is cleared by WebSocket
+              setTimeout(pollStatus, pollInterval);
               return;
             }
 
