@@ -22,14 +22,14 @@
     let isSaving = false;
     let initialized = false;
 
-    // Trial/free tier limits - more memory than CPU
+    // Trial/free tier limits - generous during 60-day trial period
     $: resourceLimits = {
         minMemory: 256,
-        maxMemory: isPaidUser ? 8192 : 2048,  // Allow more memory
-        minCPU: 256,
-        maxCPU: isPaidUser ? 2048 : 1024,
+        maxMemory: isPaidUser ? 8192 : 4096,  // 4GB for trial, 8GB for paid
+        minCPU: 250,
+        maxCPU: isPaidUser ? 4000 : 2000,     // 2 vCPU for trial, 4 for paid
         minDisk: 1024,
-        maxDisk: isPaidUser ? 20480 : 8192
+        maxDisk: isPaidUser ? 51200 : 16384   // 16GB for trial, 50GB for paid
     };
 
     // Initialize form values when modal opens
@@ -44,12 +44,12 @@
         const rawDisk = container.resources?.disk_mb ?? 2048;
         
         // Clamp values to be within slider range
-        const maxMem = isPaidUser ? 8192 : 2048;
-        const maxCpu = isPaidUser ? 2048 : 1024;
-        const maxDisk = isPaidUser ? 20480 : 8192;
+        const maxMem = isPaidUser ? 8192 : 4096;
+        const maxCpu = isPaidUser ? 4000 : 2000;
+        const maxDisk = isPaidUser ? 51200 : 16384;
         
         memoryMB = Math.max(256, Math.min(rawMemory, maxMem));
-        cpuShares = Math.max(256, Math.min(rawCpu, maxCpu));
+        cpuShares = Math.max(250, Math.min(rawCpu, maxCpu));
         diskMB = Math.max(1024, Math.min(rawDisk, maxDisk));
         
         console.log('[Settings] Initialized:', { 

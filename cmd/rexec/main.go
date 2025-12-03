@@ -109,6 +109,8 @@ func main() {
 	terminalHandler := handlers.NewTerminalHandler(containerManager)
 	fileHandler := handlers.NewFileHandler(containerManager, store)
 	sshHandler := handlers.NewSSHHandler(store, containerManager)
+	collabHandler := handlers.NewCollabHandler(store, containerManager, terminalHandler)
+	recordingHandler := handlers.NewRecordingHandler(store, os.Getenv("RECORDINGS_PATH"))
 	var billingHandler *handlers.BillingHandler
 	if billingService != nil {
 		billingHandler = handlers.NewBillingHandler(billingService, store)
@@ -208,6 +210,28 @@ func main() {
 		// WebSocket for real-time container events
 		api.GET("/containers/events", containerEventsHub.HandleWebSocket)
 
+		// Collaboration endpoints
+		collab := api.Group("/collab")
+		{
+			collab.POST("/start", collabHandler.StartSession)
+			collab.GET("/join/:code", collabHandler.JoinSession)
+			collab.DELETE("/sessions/:id", collabHandler.EndSession)
+			collab.GET("/sessions", collabHandler.GetActiveSessions)
+		}
+
+		// Recording endpoints
+		recordings := api.Group("/recordings")
+		{
+			recordings.GET("", recordingHandler.GetRecordings)
+			recordings.POST("/start", recordingHandler.StartRecording)
+			recordings.POST("/stop/:containerId", recordingHandler.StopRecording)
+			recordings.GET("/status/:containerId", recordingHandler.GetRecordingStatus)
+			recordings.GET("/:id", recordingHandler.GetRecording)
+			recordings.GET("/:id/stream", recordingHandler.StreamRecording)
+			recordings.PATCH("/:id", recordingHandler.UpdateRecording)
+			recordings.DELETE("/:id", recordingHandler.DeleteRecording)
+		}
+
 		// Billing endpoints (if enabled)
 		if billingHandler != nil {
 			billing := api.Group("/billing")
@@ -228,6 +252,13 @@ func main() {
 
 	// WebSocket terminal endpoint - with rate limiting
 	router.GET("/ws/terminal/:containerId", wsLimiter.Middleware(), middleware.AuthMiddleware(), terminalHandler.HandleWebSocket)
+
+	// WebSocket collaboration endpoint
+	router.GET("/ws/collab/:code", wsLimiter.Middleware(), middleware.AuthMiddleware(), collabHandler.HandleCollabWebSocket)
+
+	// Public recording access (no auth required for shared recordings)
+	router.GET("/r/:token", recordingHandler.GetRecordingByToken)
+	router.GET("/r/:token/stream", recordingHandler.StreamRecordingByToken)
 
 	// Serve static files (frontend)
 	webDir := os.Getenv("WEB_DIR")

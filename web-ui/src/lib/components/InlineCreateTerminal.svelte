@@ -24,14 +24,14 @@
     let cpuShares = 512;
     let diskMB = 2048;
     
-    // Trial limits - allow more memory than CPU
+    // Trial limits - generous during 60-day trial period
     const resourceLimits = {
         minMemory: 256,
-        maxMemory: 2048,  // Allow up to 2GB for trial
-        minCPU: 256,
-        maxCPU: 1024,
+        maxMemory: 4096,  // 4GB for trial
+        minCPU: 250,
+        maxCPU: 2000,     // 2 vCPU for trial
         minDisk: 1024,
-        maxDisk: 8192
+        maxDisk: 16384    // 16GB for trial
     };
 
     // Slider event handlers

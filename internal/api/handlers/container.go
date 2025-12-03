@@ -820,19 +820,17 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	// For trial/free users, enforce limits
 	isPaidUser := tier == "pro" || tier == "enterprise"
 	if !isPaidUser {
-		// Trial limits - allow some customization above defaults for 60-day trial
-		maxMemory := int64(2048)  // 2GB max for trial
-		maxCPU := int64(1024)     // 1 vCPU max for trial
-		maxDisk := int64(8192)    // 8GB max for trial
+		// Trial limits - generous for 60-day trial period
+		trialLimits := models.GetTrialResourceLimits()
 		
-		if req.MemoryMB > maxMemory {
-			req.MemoryMB = maxMemory
+		if req.MemoryMB > trialLimits.MaxMemoryMB {
+			req.MemoryMB = trialLimits.MaxMemoryMB
 		}
-		if req.CPUShares > maxCPU {
-			req.CPUShares = maxCPU
+		if req.CPUShares > trialLimits.MaxCPUShares {
+			req.CPUShares = trialLimits.MaxCPUShares
 		}
-		if req.DiskMB > maxDisk {
-			req.DiskMB = maxDisk
+		if req.DiskMB > trialLimits.MaxDiskMB {
+			req.DiskMB = trialLimits.MaxDiskMB
 		}
 	} else {
 		// Paid users can use their tier limits
@@ -848,14 +846,15 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	// Enforce minimum values
-	if req.MemoryMB < 256 {
-		req.MemoryMB = 256
+	trialLimits := models.GetTrialResourceLimits()
+	if req.MemoryMB < trialLimits.MinMemoryMB {
+		req.MemoryMB = trialLimits.MinMemoryMB
 	}
-	if req.CPUShares < 256 {
-		req.CPUShares = 256
+	if req.CPUShares < trialLimits.MinCPUShares {
+		req.CPUShares = trialLimits.MinCPUShares
 	}
-	if req.DiskMB < 1024 {
-		req.DiskMB = 1024
+	if req.DiskMB < trialLimits.MinDiskMB {
+		req.DiskMB = trialLimits.MinDiskMB
 	}
 
 	log.Printf("[UpdateSettings] After validation: memory_mb=%d, cpu_shares=%d, disk_mb=%d", 

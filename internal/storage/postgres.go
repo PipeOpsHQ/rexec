@@ -146,7 +146,55 @@ func (s *PostgresStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_users_pipeops_id ON users(pipeops_id);
 	`
 
-	_, err := s.db.Exec(createIndexes)
+	if _, err := s.db.Exec(createIndexes); err != nil {
+		return err
+	}
+
+	// Step 4: Create collaboration and recording tables
+	collabTables := `
+	CREATE TABLE IF NOT EXISTS terminal_recordings (
+		id VARCHAR(36) PRIMARY KEY,
+		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		container_id VARCHAR(64) NOT NULL,
+		title VARCHAR(255) NOT NULL,
+		duration_ms BIGINT DEFAULT 0,
+		size_bytes BIGINT DEFAULT 0,
+		share_token VARCHAR(64) UNIQUE,
+		is_public BOOLEAN DEFAULT false,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		expires_at TIMESTAMP WITH TIME ZONE
+	);
+
+	CREATE TABLE IF NOT EXISTS collab_sessions (
+		id VARCHAR(36) PRIMARY KEY,
+		container_id VARCHAR(64) NOT NULL,
+		owner_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		share_code VARCHAR(10) UNIQUE NOT NULL,
+		mode VARCHAR(20) DEFAULT 'view',
+		max_users INTEGER DEFAULT 5,
+		is_active BOOLEAN DEFAULT true,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+	);
+
+	CREATE TABLE IF NOT EXISTS collab_participants (
+		id VARCHAR(36) PRIMARY KEY,
+		session_id VARCHAR(36) NOT NULL REFERENCES collab_sessions(id) ON DELETE CASCADE,
+		user_id VARCHAR(36) NOT NULL,
+		username VARCHAR(255) NOT NULL,
+		role VARCHAR(20) DEFAULT 'viewer',
+		joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		left_at TIMESTAMP WITH TIME ZONE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_recordings_user_id ON terminal_recordings(user_id);
+	CREATE INDEX IF NOT EXISTS idx_recordings_share_token ON terminal_recordings(share_token);
+	CREATE INDEX IF NOT EXISTS idx_collab_sessions_share_code ON collab_sessions(share_code);
+	CREATE INDEX IF NOT EXISTS idx_collab_sessions_container ON collab_sessions(container_id);
+	CREATE INDEX IF NOT EXISTS idx_collab_participants_session ON collab_participants(session_id);
+	`
+
+	_, err := s.db.Exec(collabTables)
 	return err
 }
 
@@ -701,4 +749,331 @@ func (s *PostgresStore) TouchContainer(ctx context.Context, id string) error {
 	query := `UPDATE containers SET last_used_at = $2 WHERE id = $1 AND deleted_at IS NULL`
 	_, err := s.db.ExecContext(ctx, query, id, time.Now())
 	return err
+}
+
+// ============================================================================
+// Terminal Recordings
+// ============================================================================
+
+// RecordingRecord represents a terminal recording in the database
+type RecordingRecord struct {
+	ID          string     `db:"id"`
+	UserID      string     `db:"user_id"`
+	ContainerID string     `db:"container_id"`
+	Title       string     `db:"title"`
+	Duration    int64      `db:"duration_ms"`    // Duration in milliseconds
+	Size        int64      `db:"size_bytes"`     // Size of recording data
+	ShareToken  string     `db:"share_token"`    // Public share link token
+	IsPublic    bool       `db:"is_public"`      // Whether publicly accessible
+	CreatedAt   time.Time  `db:"created_at"`
+	ExpiresAt   *time.Time `db:"expires_at"`     // Optional expiration
+}
+
+// CreateRecording creates a new recording record
+func (s *PostgresStore) CreateRecording(ctx context.Context, rec *RecordingRecord) error {
+	query := `
+		INSERT INTO terminal_recordings (id, user_id, container_id, title, duration_ms, size_bytes, share_token, is_public, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		rec.ID,
+		rec.UserID,
+		rec.ContainerID,
+		rec.Title,
+		rec.Duration,
+		rec.Size,
+		rec.ShareToken,
+		rec.IsPublic,
+		rec.CreatedAt,
+		rec.ExpiresAt,
+	)
+	return err
+}
+
+// GetRecordingsByUserID retrieves all recordings for a user
+func (s *PostgresStore) GetRecordingsByUserID(ctx context.Context, userID string) ([]*RecordingRecord, error) {
+	query := `
+		SELECT id, user_id, container_id, title, duration_ms, size_bytes, share_token, is_public, created_at, expires_at
+		FROM terminal_recordings WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var recordings []*RecordingRecord
+	for rows.Next() {
+		var r RecordingRecord
+		err := rows.Scan(
+			&r.ID,
+			&r.UserID,
+			&r.ContainerID,
+			&r.Title,
+			&r.Duration,
+			&r.Size,
+			&r.ShareToken,
+			&r.IsPublic,
+			&r.CreatedAt,
+			&r.ExpiresAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		recordings = append(recordings, &r)
+	}
+	return recordings, nil
+}
+
+// GetRecordingByID retrieves a recording by ID
+func (s *PostgresStore) GetRecordingByID(ctx context.Context, id string) (*RecordingRecord, error) {
+	var r RecordingRecord
+	query := `
+		SELECT id, user_id, container_id, title, duration_ms, size_bytes, share_token, is_public, created_at, expires_at
+		FROM terminal_recordings WHERE id = $1
+	`
+	row := s.db.QueryRowContext(ctx, query, id)
+	err := row.Scan(
+		&r.ID,
+		&r.UserID,
+		&r.ContainerID,
+		&r.Title,
+		&r.Duration,
+		&r.Size,
+		&r.ShareToken,
+		&r.IsPublic,
+		&r.CreatedAt,
+		&r.ExpiresAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// GetRecordingByShareToken retrieves a public recording by share token
+func (s *PostgresStore) GetRecordingByShareToken(ctx context.Context, token string) (*RecordingRecord, error) {
+	var r RecordingRecord
+	query := `
+		SELECT id, user_id, container_id, title, duration_ms, size_bytes, share_token, is_public, created_at, expires_at
+		FROM terminal_recordings 
+		WHERE share_token = $1 AND is_public = true AND (expires_at IS NULL OR expires_at > NOW())
+	`
+	row := s.db.QueryRowContext(ctx, query, token)
+	err := row.Scan(
+		&r.ID,
+		&r.UserID,
+		&r.ContainerID,
+		&r.Title,
+		&r.Duration,
+		&r.Size,
+		&r.ShareToken,
+		&r.IsPublic,
+		&r.CreatedAt,
+		&r.ExpiresAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// UpdateRecordingVisibility updates a recording's public visibility
+func (s *PostgresStore) UpdateRecordingVisibility(ctx context.Context, id string, isPublic bool) error {
+	query := `UPDATE terminal_recordings SET is_public = $2 WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id, isPublic)
+	return err
+}
+
+// DeleteRecording deletes a recording
+func (s *PostgresStore) DeleteRecording(ctx context.Context, id string) error {
+	query := `DELETE FROM terminal_recordings WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// ============================================================================
+// Collaboration Sessions
+// ============================================================================
+
+// CollabSessionRecord represents a collaborative terminal session
+type CollabSessionRecord struct {
+	ID          string    `db:"id"`
+	ContainerID string    `db:"container_id"`
+	OwnerID     string    `db:"owner_id"`
+	ShareCode   string    `db:"share_code"`      // Short code for joining (e.g., "ABC123")
+	Mode        string    `db:"mode"`            // "view" or "control"
+	MaxUsers    int       `db:"max_users"`
+	IsActive    bool      `db:"is_active"`
+	CreatedAt   time.Time `db:"created_at"`
+	ExpiresAt   time.Time `db:"expires_at"`
+}
+
+// CollabParticipantRecord represents a participant in a collab session
+type CollabParticipantRecord struct {
+	ID        string    `db:"id"`
+	SessionID string    `db:"session_id"`
+	UserID    string    `db:"user_id"`
+	Username  string    `db:"username"`
+	Role      string    `db:"role"`       // "owner", "editor", "viewer"
+	JoinedAt  time.Time `db:"joined_at"`
+	LeftAt    *time.Time `db:"left_at"`
+}
+
+// CreateCollabSession creates a new collaboration session
+func (s *PostgresStore) CreateCollabSession(ctx context.Context, session *CollabSessionRecord) error {
+	query := `
+		INSERT INTO collab_sessions (id, container_id, owner_id, share_code, mode, max_users, is_active, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		session.ID,
+		session.ContainerID,
+		session.OwnerID,
+		session.ShareCode,
+		session.Mode,
+		session.MaxUsers,
+		session.IsActive,
+		session.CreatedAt,
+		session.ExpiresAt,
+	)
+	return err
+}
+
+// GetCollabSessionByShareCode retrieves an active collab session by share code
+func (s *PostgresStore) GetCollabSessionByShareCode(ctx context.Context, code string) (*CollabSessionRecord, error) {
+	var session CollabSessionRecord
+	query := `
+		SELECT id, container_id, owner_id, share_code, mode, max_users, is_active, created_at, expires_at
+		FROM collab_sessions 
+		WHERE share_code = $1 AND is_active = true AND expires_at > NOW()
+	`
+	row := s.db.QueryRowContext(ctx, query, code)
+	err := row.Scan(
+		&session.ID,
+		&session.ContainerID,
+		&session.OwnerID,
+		&session.ShareCode,
+		&session.Mode,
+		&session.MaxUsers,
+		&session.IsActive,
+		&session.CreatedAt,
+		&session.ExpiresAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// GetCollabSessionByContainerID retrieves the active collab session for a container
+func (s *PostgresStore) GetCollabSessionByContainerID(ctx context.Context, containerID string) (*CollabSessionRecord, error) {
+	var session CollabSessionRecord
+	query := `
+		SELECT id, container_id, owner_id, share_code, mode, max_users, is_active, created_at, expires_at
+		FROM collab_sessions 
+		WHERE container_id = $1 AND is_active = true AND expires_at > NOW()
+	`
+	row := s.db.QueryRowContext(ctx, query, containerID)
+	err := row.Scan(
+		&session.ID,
+		&session.ContainerID,
+		&session.OwnerID,
+		&session.ShareCode,
+		&session.Mode,
+		&session.MaxUsers,
+		&session.IsActive,
+		&session.CreatedAt,
+		&session.ExpiresAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// EndCollabSession marks a collab session as inactive
+func (s *PostgresStore) EndCollabSession(ctx context.Context, id string) error {
+	query := `UPDATE collab_sessions SET is_active = false WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// AddCollabParticipant adds a participant to a collab session
+func (s *PostgresStore) AddCollabParticipant(ctx context.Context, p *CollabParticipantRecord) error {
+	query := `
+		INSERT INTO collab_participants (id, session_id, user_id, username, role, joined_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		p.ID,
+		p.SessionID,
+		p.UserID,
+		p.Username,
+		p.Role,
+		p.JoinedAt,
+	)
+	return err
+}
+
+// GetCollabParticipants retrieves all active participants in a session
+func (s *PostgresStore) GetCollabParticipants(ctx context.Context, sessionID string) ([]*CollabParticipantRecord, error) {
+	query := `
+		SELECT id, session_id, user_id, username, role, joined_at, left_at
+		FROM collab_participants 
+		WHERE session_id = $1 AND left_at IS NULL
+		ORDER BY joined_at
+	`
+	rows, err := s.db.QueryContext(ctx, query, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var participants []*CollabParticipantRecord
+	for rows.Next() {
+		var p CollabParticipantRecord
+		err := rows.Scan(
+			&p.ID,
+			&p.SessionID,
+			&p.UserID,
+			&p.Username,
+			&p.Role,
+			&p.JoinedAt,
+			&p.LeftAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		participants = append(participants, &p)
+	}
+	return participants, nil
+}
+
+// RemoveCollabParticipant marks a participant as left
+func (s *PostgresStore) RemoveCollabParticipant(ctx context.Context, sessionID, userID string) error {
+	query := `UPDATE collab_participants SET left_at = NOW() WHERE session_id = $1 AND user_id = $2 AND left_at IS NULL`
+	_, err := s.db.ExecContext(ctx, query, sessionID, userID)
+	return err
+}
+
+// GetActiveCollabSessionCount returns the count of active participants in a session
+func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, sessionID string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM collab_participants WHERE session_id = $1 AND left_at IS NULL`
+	err := s.db.QueryRowContext(ctx, query, sessionID).Scan(&count)
+	return count, err
 }

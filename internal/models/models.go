@@ -123,14 +123,15 @@ type TrialResourceLimits struct {
 
 // GetTrialResourceLimits returns the allowed resource customization range for trial users
 // CPUShares in millicores (500 = 0.5 CPU, 1000 = 1 CPU)
+// During 60-day trial, allow generous limits - enforcement happens after trial ends
 func GetTrialResourceLimits() TrialResourceLimits {
 	return TrialResourceLimits{
 		MinMemoryMB:  256,
-		MaxMemoryMB:  2048, // 2GB max for trial
+		MaxMemoryMB:  4096, // 4GB max for trial (generous during 60-day period)
 		MinCPUShares: 250,  // 0.25 CPU
-		MaxCPUShares: 1000, // 1 CPU
+		MaxCPUShares: 2000, // 2 CPU max for trial
 		MinDiskMB:    1024,
-		MaxDiskMB:    8192, // 8GB max for trial
+		MaxDiskMB:    16384, // 16GB max for trial
 	}
 }
 
