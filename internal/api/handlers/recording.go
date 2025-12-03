@@ -62,7 +62,7 @@ type RecordingMetadata struct {
 // NewRecordingHandler creates a new recording handler
 func NewRecordingHandler(store *storage.PostgresStore, storagePath string) *RecordingHandler {
 	if storagePath == "" {
-		storagePath = "/data/recordings"
+		storagePath = "/app/recordings"
 	}
 	
 	// Ensure storage directory exists
@@ -481,12 +481,14 @@ func (h *RecordingHandler) saveRecording(recording *ActiveRecording, filePath st
 	// Ensure directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create recordings directory: %w", err)
+		return fmt.Errorf("failed to create recordings directory %s: %w", dir, err)
 	}
+	
+	log.Printf("[Recording] Saving recording to: %s (events: %d)", filePath, len(recording.Events))
 	
 	file, err := os.Create(filePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create file %s: %w", filePath, err)
 	}
 	defer file.Close()
 

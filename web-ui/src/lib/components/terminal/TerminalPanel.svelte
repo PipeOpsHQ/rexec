@@ -136,6 +136,7 @@
 
     // Collab and Recording handlers
     function handleCollab() {
+        console.log('[TerminalPanel] Opening collab panel for:', session.containerId);
         dispatch('openCollab', { containerId: session.containerId });
     }
 
@@ -154,6 +155,7 @@
     }
 
     function handleRecordingsPanel() {
+        console.log('[TerminalPanel] Opening recordings panel for:', session.containerId);
         dispatch('openRecordings', { containerId: session.containerId });
     }
 

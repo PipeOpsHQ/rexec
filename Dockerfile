@@ -93,6 +93,9 @@ RUN mkdir -p /var/lib/rexec/volumes && \
     mkdir -p /app/recordings && \
     chown -R rexec:rexec /var/lib/rexec /home/rexec /app/recordings
 
+# Volume for persistent recordings
+VOLUME /app/recordings
+
 # Set working directory
 WORKDIR /app
 
