@@ -95,11 +95,30 @@ const REXEC_BANNER =
   "  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝\r\n" +
   "\x1b[0m\x1b[38;5;243m  Terminal as a Service · rexec.dev\x1b[0m\r\n\r\n";
 
+// Calculate responsive font size based on screen dimensions
+function getResponsiveFontSize(): number {
+  if (typeof window === "undefined") return 13;
+  
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const minDim = Math.min(width, height);
+  
+  // Scale font size based on screen size
+  // Small screens (< 768px): 11px
+  // Medium screens (768-1200px): 12px
+  // Large screens (1200-1600px): 13px
+  // Extra large (> 1600px): 14px
+  if (minDim < 768) return 11;
+  if (width < 1200) return 12;
+  if (width < 1600) return 13;
+  return 14;
+}
+
 // Terminal configuration - optimized for large data handling
 const TERMINAL_OPTIONS = {
   cursorBlink: true,
   cursorStyle: "bar" as const,
-  fontSize: 14,
+  fontSize: getResponsiveFontSize(),
   fontFamily: '"JetBrains Mono", "Fira Code", Menlo, Monaco, monospace',
   theme: {
     background: "#0a0a0a",
@@ -910,6 +929,25 @@ function createTerminalStore() {
       }
     },
 
+    // Update font size for all terminals (called on window resize)
+    updateFontSize() {
+      const newFontSize = getResponsiveFontSize();
+      const state = getState();
+      state.sessions.forEach((session) => {
+        try {
+          session.terminal.options.fontSize = newFontSize;
+          session.fitAddon.fit();
+          // Also update split panes
+          session.splitPanes.forEach((pane) => {
+            pane.terminal.options.fontSize = newFontSize;
+            pane.fitAddon.fit();
+          });
+        } catch (e) {
+          console.error("Failed to update font size:", e);
+        }
+      });
+    },
+
     // Attach terminal to DOM element
     attachTerminal(sessionId: string, element: HTMLElement) {
       const state = getState();
@@ -1378,6 +1416,18 @@ function createTerminalStore() {
 
 // Export the store
 export const terminal = createTerminalStore();
+
+// Setup window resize listener for responsive font size
+if (typeof window !== "undefined") {
+  let resizeTimeout: ReturnType<typeof setTimeout>;
+  window.addEventListener("resize", () => {
+    // Debounce resize events
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      terminal.updateFontSize();
+    }, 150);
+  });
+}
 
 // Derived stores
 export const activeSession = derived(terminal, ($terminal) =>

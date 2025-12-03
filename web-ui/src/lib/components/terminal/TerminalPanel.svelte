@@ -187,6 +187,52 @@
         toast.success("Split terminal vertically");
     }
 
+    // Split pane resizing
+    let isResizingSplit = false;
+    let resizeIndex = 0;
+    let resizeStartPos = 0;
+    let resizeStartSizes: number[] = [];
+    let splitContainerEl: HTMLDivElement;
+
+    function handleSplitResizeStart(event: MouseEvent, index: number) {
+        event.preventDefault();
+        isResizingSplit = true;
+        resizeIndex = index;
+        resizeStartSizes = [...(splitLayout?.sizes || [50, 50])];
+        resizeStartPos = splitLayout?.direction === 'horizontal' ? event.clientX : event.clientY;
+        
+        window.addEventListener('mousemove', handleSplitResizeMove);
+        window.addEventListener('mouseup', handleSplitResizeEnd);
+    }
+
+    function handleSplitResizeMove(event: MouseEvent) {
+        if (!isResizingSplit || !splitContainerEl) return;
+
+        const rect = splitContainerEl.getBoundingClientRect();
+        const totalSize = splitLayout?.direction === 'horizontal' ? rect.width : rect.height;
+        const currentPos = splitLayout?.direction === 'horizontal' ? event.clientX : event.clientY;
+        const startOffset = splitLayout?.direction === 'horizontal' ? rect.left : rect.top;
+        
+        // Calculate the position as a percentage
+        const posPercent = ((currentPos - startOffset) / totalSize) * 100;
+        
+        // Clamp between 20% and 80%
+        const clampedPercent = Math.max(20, Math.min(80, posPercent));
+        
+        // Update sizes
+        const newSizes = [clampedPercent, 100 - clampedPercent];
+        terminal.setSplitPaneSizes(session.id, newSizes);
+    }
+
+    function handleSplitResizeEnd() {
+        isResizingSplit = false;
+        window.removeEventListener('mousemove', handleSplitResizeMove);
+        window.removeEventListener('mouseup', handleSplitResizeEnd);
+        
+        // Fit terminals after resize
+        setTimeout(() => terminal.fitSession(session.id), 50);
+    }
+
     // Focus terminal when clicking on container
     function handleContainerClick() {
         if (session.terminal) {
@@ -305,13 +351,6 @@
                 </svg>
             </button>
             
-            <!-- Share -->
-            <button class="toolbar-btn icon-btn share-btn" on:click={handleCollab} title="Share & Collaborate">
-                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5zm-8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm11 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>
-                </svg>
-            </button>
-            
             <span class="toolbar-divider"></span>
             
             <!-- More Actions Dropdown -->
@@ -370,6 +409,8 @@
             class="split-container" 
             class:horizontal={splitLayout.direction === 'horizontal'}
             class:vertical={splitLayout.direction === 'vertical'}
+            class:resizing={isResizingSplit}
+            bind:this={splitContainerEl}
         >
             <!-- Main terminal pane -->
             <div 
@@ -388,7 +429,12 @@
             
             <!-- Additional split panes -->
             {#each splitPanes as pane, index (pane.id)}
-                <div class="split-resizer"></div>
+                <div 
+                    class="split-resizer"
+                    on:mousedown={(e) => handleSplitResizeStart(e, index)}
+                    role="separator"
+                    tabindex="-1"
+                ></div>
                 <div 
                     class="split-pane-wrapper"
                     style="flex: {splitLayout.sizes[index + 1] || 50};"
@@ -875,6 +921,13 @@
         background: var(--border);
         transition: background 0.2s;
         cursor: col-resize;
+        position: relative;
+    }
+
+    .split-resizer::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
     }
 
     .split-container.horizontal .split-resizer {
@@ -887,8 +940,18 @@
         cursor: row-resize;
     }
 
-    .split-resizer:hover {
+    .split-resizer:hover,
+    .split-container.resizing .split-resizer {
         background: var(--accent);
+    }
+
+    .split-container.resizing {
+        user-select: none;
+    }
+
+    .split-container.resizing .terminal-container,
+    .split-container.resizing .split-pane-terminal {
+        pointer-events: none;
     }
 
     /* Terminal Container */
