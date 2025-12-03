@@ -4,6 +4,7 @@
     import { api, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import { toast } from "$stores/toast";
     import { containers, type Container } from "$stores/containers";
+    import { terminal } from "$stores/terminal";
 
     export let show: boolean = false;
     export let container: Container | null = null;
@@ -97,9 +98,24 @@
             });
 
             if (response.ok) {
-                toast.success("Terminal settings updated");
-                if (response.data) {
-                    dispatch("updated", (response.data as { container: Container }).container);
+                const responseData = response.data as { container: Container; restarted?: boolean };
+                
+                // If container was restarted, trigger reconnect after a short delay
+                if (responseData.restarted && container) {
+                    toast.success("Terminal settings updated - reconnecting...");
+                    // Give the container time to restart, then reconnect
+                    setTimeout(() => {
+                        const dockerId = container?.id;
+                        if (dockerId) {
+                            terminal.reconnectSession(dockerId);
+                        }
+                    }, 2000);
+                } else {
+                    toast.success("Terminal settings updated");
+                }
+                
+                if (responseData.container) {
+                    dispatch("updated", responseData.container);
                 }
                 handleClose();
                 // Refresh containers to get latest data

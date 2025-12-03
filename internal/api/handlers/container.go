@@ -805,6 +805,9 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
+	log.Printf("[UpdateSettings] Received request: name=%s, memory_mb=%d, cpu_shares=%d, disk_mb=%d", 
+		req.Name, req.MemoryMB, req.CPUShares, req.DiskMB)
+
 	// Validate name
 	if req.Name == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
@@ -855,6 +858,9 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 		req.DiskMB = 1024
 	}
 
+	log.Printf("[UpdateSettings] After validation: memory_mb=%d, cpu_shares=%d, disk_mb=%d", 
+		req.MemoryMB, req.CPUShares, req.DiskMB)
+
 	ctx := c.Request.Context()
 
 	// Find container by ID (could be docker_id or db_id)
@@ -877,11 +883,25 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	// Update running container's resources in Docker (if it has a Docker ID and is running)
+	// Track if container was restarted (for frontend auto-reconnect)
+	containerRestarted := false
+	
+	// Update running container - need to recreate with new env vars for MOTD
 	if found.DockerID != "" && found.Status == "running" {
-		if err := h.manager.UpdateContainerResources(ctx, found.DockerID, req.MemoryMB, req.CPUShares); err != nil {
+		log.Printf("[UpdateSettings] Container %s is running, will update resources and restart for env var changes", found.DockerID)
+		
+		// Update resources live first
+		cpuMillicores := (req.CPUShares * 1000) / 1024
+		if err := h.manager.UpdateContainerResources(ctx, found.DockerID, req.MemoryMB, cpuMillicores); err != nil {
 			log.Printf("[UpdateSettings] Warning: failed to update Docker container resources for %s: %v", found.DockerID, err)
-			// Continue anyway - we'll still update the database, and changes will apply on restart
+		}
+		
+		// Restart container to apply new environment variables (for MOTD display)
+		if err := h.manager.RestartContainer(ctx, found.DockerID); err != nil {
+			log.Printf("[UpdateSettings] Warning: failed to restart container %s: %v", found.DockerID, err)
+		} else {
+			log.Printf("[UpdateSettings] Successfully restarted container %s", found.DockerID)
+			containerRestarted = true
 		}
 	}
 
@@ -899,11 +919,12 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	// Notify via WebSocket
 	if h.eventsHub != nil {
 		h.eventsHub.NotifyContainerUpdated(userID, gin.H{
-			"id":     found.DockerID,
-			"db_id":  found.ID,
-			"name":   req.Name,
-			"image":  found.Image,
-			"status": found.Status,
+			"id":        found.DockerID,
+			"db_id":     found.ID,
+			"name":      req.Name,
+			"image":     found.Image,
+			"status":    found.Status,
+			"restarted": containerRestarted,
 			"resources": gin.H{
 				"memory_mb":  req.MemoryMB,
 				"cpu_shares": req.CPUShares,
@@ -913,7 +934,8 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "settings updated",
+		"message":   "settings updated",
+		"restarted": containerRestarted,
 		"container": gin.H{
 			"id":     found.DockerID,
 			"db_id":  found.ID,

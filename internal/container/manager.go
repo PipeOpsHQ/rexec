@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"runtime"
 	"strings"
@@ -1028,6 +1029,14 @@ func (m *Manager) StartContainerByUserID(ctx context.Context, userID string) err
 	return m.StartContainer(ctx, dockerIDs[0])
 }
 
+// RestartContainer restarts a container by docker ID
+func (m *Manager) RestartContainer(ctx context.Context, dockerID string) error {
+	timeout := 10 // seconds
+	return m.client.ContainerRestart(ctx, dockerID, container.StopOptions{
+		Timeout: &timeout,
+	})
+}
+
 // RemoveContainer removes a container by docker ID
 func (m *Manager) RemoveContainer(ctx context.Context, dockerID string) error {
 	m.mu.Lock()
@@ -1146,6 +1155,8 @@ func (m *Manager) UpdateContainerStatus(dockerID string, status string) {
 // UpdateContainerResources updates a running container's resource limits via Docker API
 // Note: Disk quota cannot be changed on a running container
 func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string, memoryMB int64, cpuMillicores int64) error {
+	log.Printf("[UpdateContainerResources] Updating container %s: memory=%dMB, cpu=%d millicores", dockerID, memoryMB, cpuMillicores)
+	
 	// Convert memory from MB to bytes
 	memoryBytes := memoryMB * 1024 * 1024
 	
@@ -1155,8 +1166,11 @@ func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string,
 	// Cap CPU to available host CPUs
 	maxCPUMillicores := int64(runtime.NumCPU()) * 1000
 	if cpuMillicores > maxCPUMillicores {
+		log.Printf("[UpdateContainerResources] CPU capped from %d to %d millicores (max host CPUs)", cpuMillicores, maxCPUMillicores)
 		nanoCPUs = maxCPUMillicores * 1000000
 	}
+
+	log.Printf("[UpdateContainerResources] Docker update: memory=%d bytes, nanoCPUs=%d", memoryBytes, nanoCPUs)
 
 	// Update the container's resources using Docker API
 	updateConfig := container.UpdateConfig{
@@ -1168,9 +1182,11 @@ func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string,
 
 	_, err := m.client.ContainerUpdate(ctx, dockerID, updateConfig)
 	if err != nil {
+		log.Printf("[UpdateContainerResources] Docker API error: %v", err)
 		return fmt.Errorf("failed to update container resources: %w", err)
 	}
 
+	log.Printf("[UpdateContainerResources] Successfully updated container %s", dockerID)
 	return nil
 }
 
