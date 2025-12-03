@@ -210,14 +210,28 @@ show_system_stats() {
     # Container Memory info from cgroups (shows container limits, not host)
     local mem_limit_bytes=0
     local mem_used_bytes=0
+    local mem_cache_bytes=0
     # Try cgroup v2 first
     if [ -f /sys/fs/cgroup/memory.max ]; then
         mem_limit_bytes=$(cat /sys/fs/cgroup/memory.max 2>/dev/null)
         mem_used_bytes=$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo "0")
+        # cgroup v2: subtract inactive_file (cache) to match Docker stats
+        if [ -f /sys/fs/cgroup/memory.stat ]; then
+            mem_cache_bytes=$(grep -E "^inactive_file " /sys/fs/cgroup/memory.stat 2>/dev/null | awk '{print $2}' || echo "0")
+        fi
     # Fall back to cgroup v1
     elif [ -f /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
         mem_limit_bytes=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)
         mem_used_bytes=$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null || echo "0")
+        # cgroup v1: subtract cache to match Docker stats
+        if [ -f /sys/fs/cgroup/memory/memory.stat ]; then
+            mem_cache_bytes=$(grep -E "^cache " /sys/fs/cgroup/memory/memory.stat 2>/dev/null | awk '{print $2}' || echo "0")
+        fi
+    fi
+    # Subtract cache from used memory (matches Docker stats calculation)
+    if [ -n "$mem_cache_bytes" ] && [ "$mem_cache_bytes" -gt 0 ] 2>/dev/null; then
+        mem_used_bytes=$((mem_used_bytes - mem_cache_bytes))
+        [ "$mem_used_bytes" -lt 0 ] && mem_used_bytes=0
     fi
     
     # Convert to MB and handle "max" value (unlimited)
@@ -305,23 +319,35 @@ show_system_stats() {
         fi
     fi
     
-    # Print banner
+    # Get terminal width (default to 80 if unavailable)
+    local term_width=80
+    if command -v tput >/dev/null 2>&1; then
+        term_width=$(tput cols 2>/dev/null || echo 80)
+    elif [ -n "$COLUMNS" ]; then
+        term_width=$COLUMNS
+    fi
+    
+    # Print banner - use compact format for narrow terminals (< 50 cols)
     echo ""
-    echo "\033[38;5;105m  ╭─────────────────────────────────────────────────────────╮\033[0m"
-    echo "\033[38;5;105m  │\033[0m           \033[1;36mWelcome to Rexec Terminal\033[0m                   \033[38;5;105m│\033[0m"
-    echo "\033[38;5;105m  ╰─────────────────────────────────────────────────────────╯\033[0m"
+    if [ "$term_width" -ge 50 ]; then
+        echo "\033[38;5;105m  ╭───────────────────────────────────────╮\033[0m"
+        echo "\033[38;5;105m  │\033[0m    \033[1;36mWelcome to Rexec Terminal\033[0m      \033[38;5;105m│\033[0m"
+        echo "\033[38;5;105m  ╰───────────────────────────────────────╯\033[0m"
+    else
+        echo "\033[1;36m  ═══ Rexec Terminal ═══\033[0m"
+    fi
     echo ""
     echo "\033[1;33m  Container:\033[0m"
-    echo "\033[38;5;243m  ├─ ID:\033[0m          ${container_id:0:12}"
-    echo "\033[38;5;243m  ├─ OS:\033[0m          $os_name"
-    echo "\033[38;5;243m  └─ Uptime:\033[0m      ${uptime_days}d ${uptime_hours}h ${uptime_mins}m"
+    echo "\033[38;5;243m  ├─ ID:\033[0m    ${container_id:0:12}"
+    echo "\033[38;5;243m  ├─ OS:\033[0m    $os_name"
+    echo "\033[38;5;243m  └─ Up:\033[0m    ${uptime_days}d ${uptime_hours}h ${uptime_mins}m"
     echo ""
-    echo "\033[1;33m  Resources (Allocated):\033[0m"
-    echo "\033[38;5;243m  ├─ CPU:\033[0m         ${cpu_cores} vCPU"
-    echo "\033[38;5;243m  ├─ Memory:\033[0m      ${mem_used_mb}MB / ${mem_limit_display}"
-    echo "\033[38;5;243m  └─ Storage:\033[0m     ${disk_quota} (allocated)"
+    echo "\033[1;33m  Resources:\033[0m"
+    echo "\033[38;5;243m  ├─ CPU:\033[0m   ${cpu_cores} vCPU"
+    echo "\033[38;5;243m  ├─ Mem:\033[0m   ${mem_used_mb}MB / ${mem_limit_display}"
+    echo "\033[38;5;243m  └─ Disk:\033[0m  ${disk_quota}"
     echo ""
-    echo "\033[38;5;243m  Type '\033[1;37mhelp\033[38;5;243m' for common commands\033[0m"
+    echo "\033[38;5;243m  Type '\033[1;37mhelp\033[0m\033[38;5;243m' for commands\033[0m"
     echo ""
 }
 

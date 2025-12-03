@@ -101,16 +101,20 @@ const TERMINAL_OPTIONS = {
     brightWhite: "#ffffff",
   },
   allowProposedApi: true,
-  scrollback: 10000,            // Increased scrollback for large outputs
+  scrollback: 50000,            // Large scrollback for heavy output (e.g., opencode)
   fastScrollModifier: "alt",    // Alt+scroll for fast scrolling
-  fastScrollSensitivity: 10,    // Fast scroll speed
-  scrollSensitivity: 3,         // Normal scroll speed
+  fastScrollSensitivity: 15,    // Faster scroll speed
+  scrollSensitivity: 5,         // Improved normal scroll speed
   smoothScrollDuration: 0,      // Disable smooth scrolling for performance
   windowsMode: false,           // Optimize for non-Windows
   convertEol: false,            // Don't convert line endings
   rightClickSelectsWord: true,
   drawBoldTextInBrightColors: true,
   minimumContrastRatio: 1,      // Don't adjust colors (faster)
+  // Performance optimizations for large data
+  rescaleOverlappingGlyphs: true,
+  scrollOnUserInput: true,      // Auto-scroll on new input
+  linkHandler: undefined,       // Disable link detection for performance
 };
 
 // Initial state
@@ -407,6 +411,20 @@ function createTerminalStore() {
         updateSession(sessionId, (s) => ({ ...s, pingInterval }));
       };
 
+      // Output buffer for batching writes (prevents browser freeze on large outputs)
+      let outputBuffer = '';
+      let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+      const FLUSH_INTERVAL = 16; // ~60fps
+      const MAX_BUFFER_SIZE = 64 * 1024; // 64KB max before force flush
+      
+      const flushBuffer = () => {
+        if (outputBuffer && session.terminal) {
+          session.terminal.write(outputBuffer);
+          outputBuffer = '';
+        }
+        flushTimeout = null;
+      };
+
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
@@ -451,7 +469,19 @@ function createTerminalStore() {
               }, 3000);
             }
 
-            session.terminal.write(data);
+            // Buffer output for batched writes (prevents freeze on large outputs)
+            outputBuffer += data;
+            
+            // Force flush if buffer is too large
+            if (outputBuffer.length >= MAX_BUFFER_SIZE) {
+              if (flushTimeout) {
+                clearTimeout(flushTimeout);
+              }
+              flushBuffer();
+            } else if (!flushTimeout) {
+              // Schedule flush on next animation frame
+              flushTimeout = setTimeout(flushBuffer, FLUSH_INTERVAL);
+            }
           } else if (msg.type === "error") {
             session.terminal.writeln(`\r\n\x1b[31mError: ${msg.data}\x1b[0m`);
           } else if (msg.type === "ping") {
@@ -490,8 +520,16 @@ function createTerminalStore() {
             }
           }
         } catch {
-          // Raw data fallback
-          session.terminal.write(event.data);
+          // Raw data fallback - also buffer this
+          outputBuffer += event.data;
+          if (outputBuffer.length >= MAX_BUFFER_SIZE) {
+            if (flushTimeout) {
+              clearTimeout(flushTimeout);
+            }
+            flushBuffer();
+          } else if (!flushTimeout) {
+            flushTimeout = setTimeout(flushBuffer, FLUSH_INTERVAL);
+          }
         }
       };
 

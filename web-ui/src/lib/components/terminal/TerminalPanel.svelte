@@ -6,6 +6,23 @@
 
     export let session: TerminalSession;
 
+    // Get usage color based on percentage
+    function getUsageColor(percent: number): string {
+        if (percent >= 90) return '#ff4444';      // Red - critical
+        if (percent >= 75) return '#ff8800';      // Orange - warning  
+        if (percent >= 50) return '#ffcc00';      // Yellow - moderate
+        return '#44ff44';                          // Green - healthy
+    }
+
+    // Calculate memory percentage
+    $: memoryPercent = session.stats.memoryLimit > 0 
+        ? (session.stats.memory / session.stats.memoryLimit) * 100 
+        : 0;
+    
+    // CPU is already a percentage (0-100+)
+    $: cpuColor = getUsageColor(session.stats.cpu);
+    $: memColor = getUsageColor(memoryPercent);
+
     let containerElement: HTMLDivElement;
     let attachedToContainer: HTMLDivElement | null = null;
 
@@ -142,18 +159,21 @@
             </span>
             {#if isConnected && (session.stats.cpu > 0 || session.stats.memory > 0)}
                 <span class="terminal-stats">
-                    <span class="stat-item stat-cpu" title="CPU Usage">
+                    <span class="stat-item" style="color: {cpuColor}" title="CPU Usage ({session.stats.cpu.toFixed(1)}%)">
                         <svg class="stat-icon" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M5 0a.5.5 0 0 1 .5.5V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2A2.5 2.5 0 0 1 14 4.5h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14a2.5 2.5 0 0 1-2.5 2.5v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14A2.5 2.5 0 0 1 2 11.5H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2A2.5 2.5 0 0 1 4.5 2V.5A.5.5 0 0 1 5 0zm-.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3h-7zM5 6.5A1.5 1.5 0 0 1 6.5 5h3A1.5 1.5 0 0 1 11 6.5v3A1.5 1.5 0 0 1 9.5 11h-3A1.5 1.5 0 0 1 5 9.5v-3zM6.5 6a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
                         </svg>
-                        {session.stats.cpu.toFixed(1)}%
+                        <span class="stat-value">{session.stats.cpu.toFixed(1)}%</span>
                     </span>
                     <span class="stat-divider">|</span>
-                    <span class="stat-item stat-mem" title="Memory Usage">
+                    <span class="stat-item" style="color: {memColor}" title="Memory: {formatMemoryBytes(session.stats.memory)} / {formatMemoryBytes(session.stats.memoryLimit)} ({memoryPercent.toFixed(0)}%)">
                         <svg class="stat-icon" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M1 3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4.586a1 1 0 0 0 .707-.293l.353-.353a.5.5 0 0 1 .708 0l.353.353a1 1 0 0 0 .707.293H15a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H1zm.5 1h3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5zm5 0h3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5zm4.5.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-4z"/>
                         </svg>
-                        {formatMemoryBytes(session.stats.memory)}
+                        <span class="stat-value">{formatMemoryBytes(session.stats.memory)}</span>
+                        {#if session.stats.memoryLimit > 0}
+                            <span class="stat-limit">/ {formatMemoryBytes(session.stats.memoryLimit)}</span>
+                        {/if}
                     </span>
                     <span class="stat-divider">|</span>
                     <span class="stat-item stat-disk" title="Disk I/O (Read/Write)">
@@ -161,14 +181,16 @@
                             <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
                             <path d="M5 4h6v2H5zm0 4h6v2H5zm0 4h6v1H5z"/>
                         </svg>
-                        {formatMemoryBytes(session.stats.diskRead)}/{formatMemoryBytes(session.stats.diskWrite)}
+                        <span class="stat-value" style="color: #88aaff">↓{formatMemoryBytes(session.stats.diskRead)}</span>
+                        <span class="stat-value" style="color: #ffaa88">↑{formatMemoryBytes(session.stats.diskWrite)}</span>
                     </span>
                     <span class="stat-divider">|</span>
                     <span class="stat-item stat-net" title="Network (RX/TX)">
                         <svg class="stat-icon" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm5.904-2.803a.5.5 0 1 0-.707.707L9.293 10H6.525a.5.5 0 0 0 0 1H10.5a.5.5 0 0 0 .5-.5V6.525a.5.5 0 0 0-1 0v2.768L5.904 5.197z"/>
                         </svg>
-                        ↓{formatMemoryBytes(session.stats.netRx)} ↑{formatMemoryBytes(session.stats.netTx)}
+                        <span class="stat-value" style="color: #44ddff">↓{formatMemoryBytes(session.stats.netRx)}</span>
+                        <span class="stat-value" style="color: #ff88dd">↑{formatMemoryBytes(session.stats.netTx)}</span>
                     </span>
                 </span>
             {/if}
@@ -444,20 +466,22 @@
         align-items: center;
         gap: 4px;
         white-space: nowrap;
+        transition: color 0.3s ease;
+    }
+
+    .stat-value {
+        font-weight: 500;
+    }
+
+    .stat-limit {
+        opacity: 0.6;
+        font-size: 0.85em;
     }
 
     .stat-icon {
         width: 10px;
         height: 10px;
         opacity: 0.8;
-    }
-
-    .stat-cpu {
-        color: #ff6b6b;
-    }
-
-    .stat-mem {
-        color: #4ecdc4;
     }
 
     .stat-disk {
