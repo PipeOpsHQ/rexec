@@ -277,10 +277,15 @@ func (h *ContainerEventsHub) NotifyContainerUpdated(userID string, containerData
 }
 
 // NotifyContainerDeleted notifies a user that a container was deleted
-func (h *ContainerEventsHub) NotifyContainerDeleted(userID string, containerID string) {
+func (h *ContainerEventsHub) NotifyContainerDeleted(userID string, containerID string, dbID ...string) {
+	data := gin.H{"id": containerID}
+	// Include db_id if provided
+	if len(dbID) > 0 && dbID[0] != "" {
+		data["db_id"] = dbID[0]
+	}
 	h.BroadcastToUser(userID, ContainerEvent{
 		Type:      "deleted",
-		Container: gin.H{"id": containerID},
+		Container: data,
 		Timestamp: time.Now(),
 	})
 }

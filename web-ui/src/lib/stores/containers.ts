@@ -202,7 +202,7 @@ function createContainersStore() {
       name: string,
       image: string,
       customImage?: string,
-      role?: string,
+      _role?: string, // Role is sent to backend but not used client-side
       onProgress?: (event: ProgressEvent) => void,
       onComplete?: (container: Container) => void,
       onError?: (error: string) => void,

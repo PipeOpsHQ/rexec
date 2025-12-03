@@ -647,12 +647,12 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 
 	// Notify via WebSocket - send both IDs so frontend can match
 	if h.eventsHub != nil {
-		// Use the ID that was passed in (could be docker ID or db ID)
-		h.eventsHub.NotifyContainerDeleted(userID, dockerID)
-		// Also notify with db_id if different
-		if found.ID != dockerID && found.DockerID != dockerID {
-			h.eventsHub.NotifyContainerDeleted(userID, found.ID)
+		// Send deletion notification with both docker ID and db_id
+		dockerIDToSend := found.DockerID
+		if dockerIDToSend == "" {
+			dockerIDToSend = found.ID // Use db_id if no docker ID (error containers)
 		}
+		h.eventsHub.NotifyContainerDeleted(userID, dockerIDToSend, found.ID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
