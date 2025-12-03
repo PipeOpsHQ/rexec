@@ -189,7 +189,7 @@
                                 dispatch("pricing");
                             }}
                         >
-                            <span>💎</span>
+                            <StatusIcon status="diamond" size={14} />
                             Pricing
                         </button>
 
@@ -201,7 +201,7 @@
                                     dispatch("home");
                                 }}
                             >
-                                <span>📊</span>
+                                <StatusIcon status="chart" size={14} />
                                 Dashboard
                             </button>
                         {/if}
@@ -252,7 +252,7 @@
                                     <span class="btn-spinner-sm"></span>
                                     Connecting...
                                 {:else}
-                                    <span>🔗</span>
+                                    <StatusIcon status="link" size={14} />
                                     Sign in with PipeOps
                                 {/if}
                             </button>
@@ -264,7 +264,7 @@
                             class="user-menu-item danger"
                             on:click={handleLogout}
                         >
-                            <span>🚪</span>
+                            <StatusIcon status="logout" size={14} />
                             Sign Out
                         </button>
                     </div>

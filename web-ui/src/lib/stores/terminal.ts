@@ -395,7 +395,7 @@ function createTerminalStore() {
         // Clear terminal and write banner immediately
         session.terminal.clear();
         session.terminal.write(REXEC_BANNER);
-        session.terminal.writeln("\x1b[32m⚡ Connected\x1b[0m");
+        session.terminal.writeln("\x1b[32m› Connected\x1b[0m");
         session.terminal.writeln(
           "\x1b[38;5;243m  Type 'help' for tips & shortcuts\x1b[0m\r\n",
         );

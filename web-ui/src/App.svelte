@@ -16,6 +16,7 @@
     import ToastContainer from "$components/ui/ToastContainer.svelte";
     import JoinSession from "$components/JoinSession.svelte";
     import Pricing from "$components/Pricing.svelte";
+    import StatusIcon from "$components/icons/StatusIcon.svelte";
 
     // App state
     let currentView:
@@ -379,7 +380,7 @@
                         </div>
 
                         <p class="modal-hint">
-                            🕐 Guest access lasts 30 minutes. Sign in with
+                            <StatusIcon status="validating" size={14} /> Guest access lasts 30 minutes. Sign in with
                             PipeOps for unlimited access.
                         </p>
                     </div>
