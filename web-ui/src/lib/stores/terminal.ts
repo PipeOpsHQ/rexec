@@ -48,6 +48,7 @@ export interface TerminalState {
   isMinimized: boolean;
   floatingPosition: { x: number; y: number };
   floatingSize: { width: number; height: number };
+  dockedHeight: number; // Height in vh units for docked mode
   topZIndex: number; // Track highest z-index for detached windows
 }
 
@@ -116,6 +117,7 @@ const initialState: TerminalState = {
   isMinimized: false,
   floatingPosition: { x: 100, y: 100 },
   floatingSize: { width: 700, height: 500 },
+  dockedHeight: 45, // 45vh default
   topZIndex: 1000,
 };
 
@@ -132,6 +134,7 @@ function loadPreferences(): Partial<TerminalState> {
         floatingPosition:
           prefs.floatingPosition || initialState.floatingPosition,
         floatingSize: prefs.floatingSize || initialState.floatingSize,
+        dockedHeight: prefs.dockedHeight || initialState.dockedHeight,
       };
     }
   } catch (e) {
@@ -150,6 +153,7 @@ function savePreferences(state: TerminalState) {
         viewMode: state.viewMode,
         floatingPosition: state.floatingPosition,
         floatingSize: state.floatingSize,
+        dockedHeight: state.dockedHeight,
       }),
     );
   } catch (e) {
@@ -716,6 +720,17 @@ function createTerminalStore() {
     setFloatingSize(width: number, height: number) {
       update((state) => {
         const newState = { ...state, floatingSize: { width, height } };
+        savePreferences(newState);
+        return newState;
+      });
+    },
+
+    // Update docked height (in vh units)
+    setDockedHeight(height: number) {
+      update((state) => {
+        // Clamp between 20vh and 90vh
+        const clampedHeight = Math.max(20, Math.min(90, height));
+        const newState = { ...state, dockedHeight: clampedHeight };
         savePreferences(newState);
         return newState;
       });

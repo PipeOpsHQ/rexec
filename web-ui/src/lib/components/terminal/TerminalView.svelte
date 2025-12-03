@@ -21,6 +21,11 @@
     let isResizing = false;
     let dragOffset = { x: 0, y: 0 };
 
+    // Docked resize state
+    let isResizingDocked = false;
+    let dockedResizeStartY = 0;
+    let dockedResizeStartHeight = 0;
+
     // Tab drag-out state
     let draggingTabId: string | null = null;
     let tabDragStart: { x: number; y: number } | null = null;
@@ -30,6 +35,7 @@
     $: isMinimized = $terminal.isMinimized;
     $: floatingPosition = $terminal.floatingPosition;
     $: floatingSize = $terminal.floatingSize;
+    $: dockedHeight = $terminal.dockedHeight;
     $: sessions = Array.from($terminal.sessions.entries());
     $: dockedSessions = sessions.filter(([_, s]) => !s.isDetached);
     $: detachedSessions = sessions.filter(([_, s]) => s.isDetached);
@@ -92,6 +98,14 @@
             const height = Math.max(300, event.clientY - floatingPosition.y);
             terminal.setFloatingSize(width, height);
         }
+
+        // Handle docked resize
+        if (isResizingDocked) {
+            const deltaY = dockedResizeStartY - event.clientY;
+            const deltaVh = (deltaY / window.innerHeight) * 100;
+            const newHeight = dockedResizeStartHeight + deltaVh;
+            terminal.setDockedHeight(newHeight);
+        }
     }
 
     function handleMouseUp() {
@@ -101,12 +115,47 @@
             // Fit terminals after resize
             setTimeout(() => terminal.fitAll(), 50);
         }
+        if (isResizingDocked) {
+            isResizingDocked = false;
+            setTimeout(() => terminal.fitAll(), 50);
+        }
     }
 
     function handleResizeStart(event: MouseEvent) {
         event.preventDefault();
         event.stopPropagation();
         isResizing = true;
+    }
+
+    // Docked resize handlers
+    function handleDockedResizeStart(event: MouseEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        isResizingDocked = true;
+        dockedResizeStartY = event.clientY;
+        dockedResizeStartHeight = dockedHeight;
+    }
+
+    function handleDockedTouchStart(event: TouchEvent) {
+        event.preventDefault();
+        isResizingDocked = true;
+        dockedResizeStartY = event.touches[0].clientY;
+        dockedResizeStartHeight = dockedHeight;
+    }
+
+    function handleDockedTouchMove(event: TouchEvent) {
+        if (!isResizingDocked) return;
+        const deltaY = dockedResizeStartY - event.touches[0].clientY;
+        const deltaVh = (deltaY / window.innerHeight) * 100;
+        const newHeight = dockedResizeStartHeight + deltaVh;
+        terminal.setDockedHeight(newHeight);
+    }
+
+    function handleDockedTouchEnd() {
+        if (isResizingDocked) {
+            isResizingDocked = false;
+            setTimeout(() => terminal.fitAll(), 50);
+        }
     }
 
     // Toggle between floating and docked
@@ -549,7 +598,21 @@
                 </button>
             </div>
         {:else}
-            <div class="docked-terminal">
+            <div class="docked-terminal" style="height: {dockedHeight}vh;">
+                <!-- Resize Handle at Top -->
+                <div 
+                    class="docked-resize-handle"
+                    on:mousedown={handleDockedResizeStart}
+                    on:touchstart={handleDockedTouchStart}
+                    on:touchmove={handleDockedTouchMove}
+                    on:touchend={handleDockedTouchEnd}
+                    role="separator"
+                    aria-orientation="horizontal"
+                    tabindex="-1"
+                    title="Drag to resize"
+                >
+                    <div class="resize-grip"></div>
+                </div>
                 <!-- Header -->
                 <div class="docked-header">
                     <div class="docked-tabs">
@@ -948,13 +1011,51 @@
         background: linear-gradient(135deg, transparent 50%, var(--accent) 50%);
     }
 
+    /* Docked Resize Handle */
+    .docked-resize-handle {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 8px;
+        cursor: ns-resize;
+        background: transparent;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+
+    .docked-resize-handle:hover {
+        background: rgba(0, 255, 65, 0.1);
+    }
+
+    .docked-resize-handle:active {
+        background: rgba(0, 255, 65, 0.2);
+    }
+
+    .docked-resize-handle .resize-grip {
+        width: 40px;
+        height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        transition: background 0.2s;
+    }
+
+    .docked-resize-handle:hover .resize-grip {
+        background: var(--accent);
+    }
+
     /* Docked Terminal Container */
     .docked-terminal {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        height: 45vh;
+        /* height is now set dynamically via style attribute */
+        min-height: 150px;
+        max-height: 90vh;
         background: var(--bg);
         border-top: 1px solid var(--border);
         z-index: 1000;
@@ -966,9 +1067,13 @@
     @media (max-width: 768px) {
         .docked-terminal {
             /* Full height on mobile for better usability */
-            height: 100vh;
+            height: 100vh !important;
             top: 0;
             border-top: none;
+        }
+
+        .docked-resize-handle {
+            display: none;
         }
 
         .docked-toolbar {
