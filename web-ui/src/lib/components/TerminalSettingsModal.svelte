@@ -32,45 +32,42 @@
         maxDisk: isPaidUser ? 20480 : 8192
     };
 
-    // Initialize form values only once when modal opens
-    $: if (show && container && !initialized) {
+    // Initialize form values when modal opens
+    function initializeValues() {
+        if (!container) return;
+        
         name = container.name || "";
-        if (container.resources) {
-            // Use explicit checks for 0 values - they are valid
-            const rawMemory = typeof container.resources.memory_mb === 'number' ? container.resources.memory_mb : 512;
-            const rawCpu = typeof container.resources.cpu_shares === 'number' ? container.resources.cpu_shares : 512;
-            const rawDisk = typeof container.resources.disk_mb === 'number' ? container.resources.disk_mb : 2048;
-            
-            // Clamp values to be within slider range
-            memoryMB = Math.max(256, Math.min(rawMemory, isPaidUser ? 8192 : 2048));
-            cpuShares = Math.max(256, Math.min(rawCpu, isPaidUser ? 2048 : 1024));
-            diskMB = Math.max(1024, Math.min(rawDisk, isPaidUser ? 20480 : 8192));
-        } else {
-            // Fallback defaults
-            memoryMB = 512;
-            cpuShares = 512;
-            diskMB = 2048;
-        }
-        console.log('[Settings] Initialized from container:', { memoryMB, cpuShares, diskMB, resources: container.resources });
+        
+        // Get raw values from container resources
+        const rawMemory = container.resources?.memory_mb ?? 512;
+        const rawCpu = container.resources?.cpu_shares ?? 512;
+        const rawDisk = container.resources?.disk_mb ?? 2048;
+        
+        // Clamp values to be within slider range
+        const maxMem = isPaidUser ? 8192 : 2048;
+        const maxCpu = isPaidUser ? 2048 : 1024;
+        const maxDisk = isPaidUser ? 20480 : 8192;
+        
+        memoryMB = Math.max(256, Math.min(rawMemory, maxMem));
+        cpuShares = Math.max(256, Math.min(rawCpu, maxCpu));
+        diskMB = Math.max(1024, Math.min(rawDisk, maxDisk));
+        
+        console.log('[Settings] Initialized:', { 
+            name, memoryMB, cpuShares, diskMB, 
+            raw: { rawMemory, rawCpu, rawDisk },
+            resources: container.resources 
+        });
+    }
+
+    // React to modal opening
+    $: if (show && container && !initialized) {
+        initializeValues();
         initialized = true;
     }
 
     // Reset initialized flag when modal closes
     $: if (!show) {
         initialized = false;
-    }
-
-    // Handler functions for sliders
-    function handleMemoryChange(e: Event) {
-        memoryMB = parseInt((e.target as HTMLInputElement).value);
-    }
-
-    function handleCpuChange(e: Event) {
-        cpuShares = parseInt((e.target as HTMLInputElement).value);
-    }
-
-    function handleDiskChange(e: Event) {
-        diskMB = parseInt((e.target as HTMLInputElement).value);
     }
 
     function handleClose() {
@@ -189,8 +186,7 @@
                     <input
                         id="memory"
                         type="range"
-                        value={memoryMB}
-                        on:input={handleMemoryChange}
+                        bind:value={memoryMB}
                         min={resourceLimits.minMemory}
                         max={resourceLimits.maxMemory}
                         step="128"
@@ -210,8 +206,7 @@
                     <input
                         id="cpu"
                         type="range"
-                        value={cpuShares}
-                        on:input={handleCpuChange}
+                        bind:value={cpuShares}
                         min={resourceLimits.minCPU}
                         max={resourceLimits.maxCPU}
                         step="128"
@@ -231,8 +226,7 @@
                     <input
                         id="disk"
                         type="range"
-                        value={diskMB}
-                        on:input={handleDiskChange}
+                        bind:value={diskMB}
                         min={resourceLimits.minDisk}
                         max={resourceLimits.maxDisk}
                         step="512"
