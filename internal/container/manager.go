@@ -59,59 +59,64 @@ func formatBytes(bytes int64) string {
 // Uses custom rexec images if available (with SSH pre-installed), otherwise falls back to base images
 // NOTE: Only verified working images are included here
 var SupportedImages = map[string]string{
-	// Debian-based
-	"ubuntu":     "ubuntu:22.04",
-	"ubuntu-24":  "ubuntu:24.04",
-	"ubuntu-20":  "ubuntu:20.04",
-	"debian":     "debian:bookworm",
-	"debian-11":  "debian:bullseye",
+	// Debian-based (Updated Dec 2025)
+	"ubuntu":     "ubuntu:24.04",    // LTS until 2029, latest security patches
+	"ubuntu-24":  "ubuntu:24.04",    // Noble Numbat LTS
+	"ubuntu-22":  "ubuntu:22.04",    // Jammy Jellyfish LTS
+	"ubuntu-20":  "ubuntu:20.04",    // Focal Fossa LTS (EOL Apr 2025, still supported)
+	"debian":     "debian:12",       // Bookworm (current stable)
+	"debian-12":  "debian:12",       // Bookworm
+	"debian-11":  "debian:11",       // Bullseye (oldstable)
 	"kali":       "kalilinux/kali-rolling:latest",
 	"parrot":     "parrotsec/core:latest",
-	"mint":       "linuxmintd/mint21-amd64:latest",
-	"elementary": "elementary/docker:latest",
-	"devuan":     "devuan/devuan:daedalus",
+	"mint":       "linuxmintd/mint22-amd64:latest", // Linux Mint 22 (latest)
+	"elementary": "elementary/docker:stable",
+	"devuan":     "devuan/devuan:excalibur", // Devuan 5.0
 	// Security & Penetration Testing
 	"blackarch":       "blackarchlinux/blackarch:latest",
 	"parrot-security": "parrotsec/security:latest",
-	// Red Hat-based
-	"fedora":    "fedora:latest",
-	"fedora-39": "fedora:39",
-	"centos":    "centos:7",
-	"centos-8":  "centos:8",
-	"rocky":     "rockylinux:9",
-	"alma":      "almalinux:9",
-	"oracle":    "oraclelinux:9",
-	"rhel":      "redhat/ubi9:latest",
-	"openeuler": "openeuler/openeuler:latest",
+	// Red Hat-based (Updated Dec 2025)
+	"fedora":    "fedora:41",       // Fedora 41 (latest stable)
+	"fedora-40": "fedora:40",       // Previous stable
+	"fedora-39": "fedora:39",       // Older stable
+	"centos":    "quay.io/centos/centos:stream9", // CentOS Stream 9
+	"centos-stream": "quay.io/centos/centos:stream9",
+	"rocky":     "rockylinux:9.5",  // Rocky Linux 9.5 (latest)
+	"rocky-8":   "rockylinux:8.10", // Rocky Linux 8.10
+	"alma":      "almalinux:9.5",   // AlmaLinux 9.5 (latest)
+	"alma-8":    "almalinux:8.10",  // AlmaLinux 8.10
+	"oracle":    "oraclelinux:9",   // Oracle Linux 9
+	"rhel":      "redhat/ubi9:latest", // Red Hat UBI 9
+	"openeuler": "openeuler/openeuler:24.03-lts",
 	// Arch-based
-	"archlinux": "archlinux:latest",
+	"archlinux": "archlinux:latest", // Rolling release
 	"manjaro":   "manjarolinux/base:latest",
-	// SUSE-based
-	"opensuse":   "opensuse/leap:latest",
-	"tumbleweed": "opensuse/tumbleweed:latest",
+	// SUSE-based (Updated Dec 2025)
+	"opensuse":   "opensuse/leap:15.6",     // openSUSE Leap 15.6
+	"tumbleweed": "opensuse/tumbleweed:latest", // Rolling release
 	// Independent Distributions
 	"gentoo":    "gentoo/stage3:latest",
 	"void":      "voidlinux/voidlinux:latest",
 	"nixos":     "nixos/nix:latest",
-	"slackware": "aclemons/slackware:current",
-	// Minimal / Embedded
-	"alpine":      "alpine:latest",
-	"alpine-3.18": "alpine:3.18",
-	"busybox":     "busybox:latest",
+	"slackware": "aclemons/slackware:15.0",
+	// Minimal / Embedded (Updated Dec 2025)
+	"alpine":      "alpine:3.21",   // Alpine 3.21 (latest stable)
+	"alpine-3.20": "alpine:3.20",   // Previous stable
+	"alpine-3.18": "alpine:3.18",   // Older stable
+	"busybox":     "busybox:1.37",  // Latest busybox
 	// Container / Cloud Optimized
 	"rancheros": "rancher/os:latest",
-	// Cloud Provider Specific
-	"amazonlinux":     "amazonlinux:2023",
-	"amazonlinux2":    "amazonlinux:2",
-	"amazonlinux2022": "amazonlinux:2022",
-	"oracle-slim":     "oraclelinux:8-slim",
+	// Cloud Provider Specific (Updated Dec 2025)
+	"amazonlinux":     "amazonlinux:2023.6", // Amazon Linux 2023 latest
+	"amazonlinux2":    "amazonlinux:2",      // Amazon Linux 2 (EOL 2025)
+	"oracle-slim":     "oraclelinux:9-slim",
 	// Scientific
 	"scientific": "scientificlinux/sl:latest",
 	// Specialized
 	"clearlinux": "clearlinux:latest",
-	"photon":     "photon:latest",
-	// Raspberry Pi
-	"raspberrypi": "balenalib/raspberry-pi-debian:latest",
+	"photon":     "photon:5.0",     // VMware Photon OS 5.0
+	// Raspberry Pi / ARM
+	"raspberrypi": "balenalib/raspberry-pi-debian:bookworm",
 }
 
 // CustomImages maps to rexec custom images with SSH pre-installed
@@ -136,73 +141,78 @@ type ImageMetadata struct {
 }
 
 // GetImageMetadata returns metadata for all supported images
-// NOTE: Only includes verified working Docker images
+// NOTE: Only includes verified working Docker images - Updated Dec 2025
 func GetImageMetadata() []ImageMetadata {
 	return []ImageMetadata{
-		// Debian-based (Popular)
-		{Name: "ubuntu", DisplayName: "Ubuntu 22.04 LTS", Description: "Most popular Linux distro with excellent package support", Category: "debian", Tags: []string{"lts", "popular", "beginner-friendly"}, Popular: true},
-		{Name: "ubuntu-24", DisplayName: "Ubuntu 24.04 LTS", Description: "Latest Ubuntu LTS release", Category: "debian", Tags: []string{"lts", "latest"}, Popular: true},
-		{Name: "ubuntu-20", DisplayName: "Ubuntu 20.04 LTS", Description: "Stable Ubuntu with long-term support", Category: "debian", Tags: []string{"lts", "stable"}, Popular: false},
+		// Debian-based (Popular) - Updated Dec 2025
+		{Name: "ubuntu", DisplayName: "Ubuntu 24.04 LTS", Description: "Latest Ubuntu LTS with best-in-class security", Category: "debian", Tags: []string{"lts", "popular", "beginner-friendly"}, Popular: true},
+		{Name: "ubuntu-24", DisplayName: "Ubuntu 24.04 LTS", Description: "Noble Numbat - Latest Ubuntu LTS release", Category: "debian", Tags: []string{"lts", "latest"}, Popular: true},
+		{Name: "ubuntu-22", DisplayName: "Ubuntu 22.04 LTS", Description: "Jammy Jellyfish - Stable and well-tested", Category: "debian", Tags: []string{"lts", "stable"}, Popular: false},
+		{Name: "ubuntu-20", DisplayName: "Ubuntu 20.04 LTS", Description: "Focal Fossa - Long-term support until 2025", Category: "debian", Tags: []string{"lts", "legacy"}, Popular: false},
 		{Name: "debian", DisplayName: "Debian 12 (Bookworm)", Description: "Rock-solid stability with extensive packages", Category: "debian", Tags: []string{"stable", "server"}, Popular: true},
+		{Name: "debian-12", DisplayName: "Debian 12 (Bookworm)", Description: "Current stable Debian release", Category: "debian", Tags: []string{"stable"}, Popular: false},
 		{Name: "debian-11", DisplayName: "Debian 11 (Bullseye)", Description: "Previous stable Debian release", Category: "debian", Tags: []string{"oldstable"}, Popular: false},
-		{Name: "mint", DisplayName: "Linux Mint", Description: "User-friendly Ubuntu derivative with Cinnamon desktop", Category: "debian", Tags: []string{"desktop", "beginner-friendly"}, Popular: true},
+		{Name: "mint", DisplayName: "Linux Mint 22", Description: "User-friendly Ubuntu derivative with Cinnamon", Category: "debian", Tags: []string{"desktop", "beginner-friendly"}, Popular: true},
 		{Name: "elementary", DisplayName: "elementary OS", Description: "Beautiful and privacy-focused desktop OS", Category: "debian", Tags: []string{"desktop", "beautiful"}, Popular: false},
-		{Name: "devuan", DisplayName: "Devuan", Description: "Debian without systemd", Category: "debian", Tags: []string{"init-freedom", "advanced"}, Popular: false},
+		{Name: "devuan", DisplayName: "Devuan 5 (Excalibur)", Description: "Debian without systemd - init freedom", Category: "debian", Tags: []string{"init-freedom", "advanced"}, Popular: false},
 
 		// Security & Penetration Testing
 		{Name: "kali", DisplayName: "Kali Linux", Description: "Industry-standard penetration testing distro", Category: "security", Tags: []string{"security", "pentest", "hacking"}, Popular: true},
 		{Name: "parrot", DisplayName: "Parrot OS", Description: "Security-focused with privacy tools", Category: "security", Tags: []string{"security", "privacy", "pentest"}, Popular: true},
-		{Name: "parrot-security", DisplayName: "Parrot Security", Description: "Full Parrot security edition", Category: "security", Tags: []string{"security", "pentest", "full"}, Popular: false},
-		{Name: "blackarch", DisplayName: "BlackArch Linux", Description: "Arch-based with 2800+ security tools", Category: "security", Tags: []string{"security", "pentest", "arch"}, Popular: false},
+		{Name: "parrot-security", DisplayName: "Parrot Security", Description: "Full Parrot security edition with all tools", Category: "security", Tags: []string{"security", "pentest", "full"}, Popular: false},
+		{Name: "blackarch", DisplayName: "BlackArch Linux", Description: "Arch-based with 2900+ security tools", Category: "security", Tags: []string{"security", "pentest", "arch"}, Popular: false},
 
-		// Red Hat-based
-		{Name: "fedora", DisplayName: "Fedora", Description: "Cutting-edge features, RHEL upstream", Category: "redhat", Tags: []string{"modern", "rhel-upstream"}, Popular: true},
-		{Name: "fedora-39", DisplayName: "Fedora 39", Description: "Stable Fedora release", Category: "redhat", Tags: []string{"stable"}, Popular: false},
-		{Name: "centos", DisplayName: "CentOS 7", Description: "Enterprise-grade community Linux", Category: "redhat", Tags: []string{"enterprise", "rhel-compatible"}, Popular: true},
-		{Name: "centos-8", DisplayName: "CentOS 8", Description: "CentOS 8 release", Category: "redhat", Tags: []string{"enterprise", "rhel-compatible"}, Popular: false},
-		{Name: "rocky", DisplayName: "Rocky Linux 9", Description: "Enterprise-grade RHEL-compatible OS", Category: "redhat", Tags: []string{"enterprise", "rhel-compatible"}, Popular: true},
-		{Name: "alma", DisplayName: "AlmaLinux 9", Description: "Community-driven RHEL fork", Category: "redhat", Tags: []string{"enterprise", "rhel-compatible"}, Popular: true},
-		{Name: "oracle", DisplayName: "Oracle Linux 9", Description: "Oracle's enterprise Linux", Category: "redhat", Tags: []string{"enterprise", "oracle"}, Popular: false},
-		{Name: "rhel", DisplayName: "Red Hat Enterprise Linux (UBI)", Description: "Industry-leading enterprise Linux", Category: "redhat", Tags: []string{"enterprise", "commercial"}, Popular: true},
-		{Name: "openeuler", DisplayName: "openEuler", Description: "Enterprise Linux by Huawei", Category: "redhat", Tags: []string{"enterprise", "china"}, Popular: false},
+		// Red Hat-based - Updated Dec 2025
+		{Name: "fedora", DisplayName: "Fedora 41", Description: "Latest Fedora with cutting-edge features", Category: "redhat", Tags: []string{"modern", "rhel-upstream", "latest"}, Popular: true},
+		{Name: "fedora-40", DisplayName: "Fedora 40", Description: "Previous stable Fedora release", Category: "redhat", Tags: []string{"stable"}, Popular: false},
+		{Name: "fedora-39", DisplayName: "Fedora 39", Description: "Older Fedora release", Category: "redhat", Tags: []string{"stable"}, Popular: false},
+		{Name: "centos", DisplayName: "CentOS Stream 9", Description: "Upstream for RHEL, community-driven", Category: "redhat", Tags: []string{"enterprise", "rhel-upstream"}, Popular: true},
+		{Name: "centos-stream", DisplayName: "CentOS Stream 9", Description: "Rolling preview of future RHEL", Category: "redhat", Tags: []string{"enterprise", "rolling"}, Popular: false},
+		{Name: "rocky", DisplayName: "Rocky Linux 9.5", Description: "Enterprise-grade 1:1 RHEL-compatible", Category: "redhat", Tags: []string{"enterprise", "rhel-compatible"}, Popular: true},
+		{Name: "rocky-8", DisplayName: "Rocky Linux 8.10", Description: "Rocky Linux 8 branch - stable and tested", Category: "redhat", Tags: []string{"enterprise", "stable"}, Popular: false},
+		{Name: "alma", DisplayName: "AlmaLinux 9.5", Description: "Community-driven RHEL fork with long support", Category: "redhat", Tags: []string{"enterprise", "rhel-compatible"}, Popular: true},
+		{Name: "alma-8", DisplayName: "AlmaLinux 8.10", Description: "AlmaLinux 8 branch - stable enterprise", Category: "redhat", Tags: []string{"enterprise", "stable"}, Popular: false},
+		{Name: "oracle", DisplayName: "Oracle Linux 9", Description: "Oracle's enterprise Linux with Ksplice", Category: "redhat", Tags: []string{"enterprise", "oracle"}, Popular: false},
+		{Name: "rhel", DisplayName: "Red Hat UBI 9", Description: "Official Red Hat Universal Base Image", Category: "redhat", Tags: []string{"enterprise", "commercial"}, Popular: true},
+		{Name: "openeuler", DisplayName: "openEuler 24.03 LTS", Description: "Enterprise Linux from Huawei", Category: "redhat", Tags: []string{"enterprise", "lts"}, Popular: false},
 
 		// Arch-based
 		{Name: "archlinux", DisplayName: "Arch Linux", Description: "Rolling release with latest packages and AUR", Category: "arch", Tags: []string{"rolling", "bleeding-edge", "aur"}, Popular: true},
-		{Name: "manjaro", DisplayName: "Manjaro", Description: "User-friendly Arch with easy installation", Category: "arch", Tags: []string{"rolling", "beginner-friendly"}, Popular: true},
+		{Name: "manjaro", DisplayName: "Manjaro", Description: "User-friendly Arch with curated updates", Category: "arch", Tags: []string{"rolling", "beginner-friendly"}, Popular: true},
 
-		// SUSE-based
-		{Name: "opensuse", DisplayName: "openSUSE Leap", Description: "Stable enterprise-grade openSUSE", Category: "suse", Tags: []string{"enterprise", "stable", "zypper"}, Popular: true},
-		{Name: "tumbleweed", DisplayName: "openSUSE Tumbleweed", Description: "Rolling release openSUSE", Category: "suse", Tags: []string{"rolling", "testing"}, Popular: false},
+		// SUSE-based - Updated Dec 2025
+		{Name: "opensuse", DisplayName: "openSUSE Leap 15.6", Description: "Stable enterprise-grade openSUSE", Category: "suse", Tags: []string{"enterprise", "stable", "zypper"}, Popular: true},
+		{Name: "tumbleweed", DisplayName: "openSUSE Tumbleweed", Description: "Rolling release with tested updates", Category: "suse", Tags: []string{"rolling", "tested"}, Popular: false},
 
 		// Independent Distributions
 		{Name: "gentoo", DisplayName: "Gentoo Linux", Description: "Source-based with extreme customization", Category: "independent", Tags: []string{"source-based", "advanced", "performance"}, Popular: false},
 		{Name: "void", DisplayName: "Void Linux", Description: "Independent distro with runit init system", Category: "independent", Tags: []string{"independent", "runit", "rolling"}, Popular: false},
 		{Name: "nixos", DisplayName: "NixOS", Description: "Declarative configuration and reproducible builds", Category: "independent", Tags: []string{"declarative", "nix", "reproducible"}, Popular: false},
-		{Name: "slackware", DisplayName: "Slackware", Description: "Oldest maintained Linux distro, Unix-like", Category: "independent", Tags: []string{"classic", "stable", "unix-like"}, Popular: false},
+		{Name: "slackware", DisplayName: "Slackware 15.0", Description: "Oldest maintained Linux distro, Unix-like", Category: "independent", Tags: []string{"classic", "stable", "unix-like"}, Popular: false},
 
-		// Minimal / Embedded
-		{Name: "alpine", DisplayName: "Alpine Linux", Description: "Lightweight and security-oriented for containers", Category: "minimal", Tags: []string{"minimal", "docker", "security"}, Popular: true},
-		{Name: "alpine-3.18", DisplayName: "Alpine 3.18", Description: "Stable Alpine release", Category: "minimal", Tags: []string{"minimal", "stable"}, Popular: false},
-		{Name: "busybox", DisplayName: "BusyBox", Description: "Ultra-minimal Unix utilities in single binary", Category: "minimal", Tags: []string{"minimal", "embedded"}, Popular: false},
+		// Minimal / Embedded - Updated Dec 2025
+		{Name: "alpine", DisplayName: "Alpine 3.21", Description: "Lightweight and security-oriented (6MB)", Category: "minimal", Tags: []string{"minimal", "docker", "security"}, Popular: true},
+		{Name: "alpine-3.20", DisplayName: "Alpine 3.20", Description: "Previous stable Alpine release", Category: "minimal", Tags: []string{"minimal", "stable"}, Popular: false},
+		{Name: "alpine-3.18", DisplayName: "Alpine 3.18", Description: "Older stable Alpine release", Category: "minimal", Tags: []string{"minimal", "legacy"}, Popular: false},
+		{Name: "busybox", DisplayName: "BusyBox 1.37", Description: "Ultra-minimal Unix utilities (~2MB)", Category: "minimal", Tags: []string{"minimal", "embedded"}, Popular: false},
 
 		// Container / Cloud Optimized
 		{Name: "rancheros", DisplayName: "RancherOS", Description: "Entire OS as Docker containers", Category: "container", Tags: []string{"containers", "docker", "minimal"}, Popular: false},
 
-		// Cloud Provider Specific
-		{Name: "amazonlinux", DisplayName: "Amazon Linux 2023", Description: "Optimized for AWS cloud", Category: "cloud", Tags: []string{"aws", "cloud", "enterprise"}, Popular: true},
-		{Name: "amazonlinux2", DisplayName: "Amazon Linux 2", Description: "Long-term support release for AWS", Category: "cloud", Tags: []string{"aws", "cloud", "lts"}, Popular: true},
-		{Name: "amazonlinux2022", DisplayName: "Amazon Linux 2022", Description: "Previous AWS Linux version", Category: "cloud", Tags: []string{"aws", "cloud"}, Popular: false},
-		{Name: "oracle-slim", DisplayName: "Oracle Linux 8 Slim", Description: "Lightweight Oracle Linux", Category: "cloud", Tags: []string{"oracle", "cloud", "minimal"}, Popular: false},
+		// Cloud Provider Specific - Updated Dec 2025
+		{Name: "amazonlinux", DisplayName: "Amazon Linux 2023", Description: "Latest Amazon Linux optimized for AWS", Category: "cloud", Tags: []string{"aws", "cloud", "enterprise"}, Popular: true},
+		{Name: "amazonlinux2", DisplayName: "Amazon Linux 2", Description: "LTS Amazon Linux (EOL Jun 2025)", Category: "cloud", Tags: []string{"aws", "cloud", "legacy"}, Popular: false},
+		{Name: "oracle-slim", DisplayName: "Oracle Linux 9 Slim", Description: "Lightweight Oracle Linux", Category: "cloud", Tags: []string{"oracle", "cloud", "minimal"}, Popular: false},
 
 		// Scientific
 		{Name: "scientific", DisplayName: "Scientific Linux", Description: "For scientific computing and research", Category: "developer", Tags: []string{"scientific", "research", "rhel"}, Popular: false},
 
 		// Specialized
-		{Name: "clearlinux", DisplayName: "Clear Linux", Description: "Intel-optimized for performance", Category: "specialized", Tags: []string{"performance", "intel", "cloud"}, Popular: false},
-		{Name: "photon", DisplayName: "VMware Photon OS", Description: "Optimized for VMware and containers", Category: "specialized", Tags: []string{"vmware", "container", "minimal"}, Popular: false},
+		{Name: "clearlinux", DisplayName: "Clear Linux", Description: "Intel-optimized for maximum performance", Category: "specialized", Tags: []string{"performance", "intel", "cloud"}, Popular: false},
+		{Name: "photon", DisplayName: "VMware Photon OS 5.0", Description: "Optimized for VMware and containers", Category: "specialized", Tags: []string{"vmware", "container", "minimal"}, Popular: false},
 
-		// Raspberry Pi
-		{Name: "raspberrypi", DisplayName: "Raspberry Pi OS", Description: "Debian-based OS for Raspberry Pi", Category: "embedded", Tags: []string{"raspberry-pi", "arm", "iot"}, Popular: false},
+		// Raspberry Pi / ARM
+		{Name: "raspberrypi", DisplayName: "Raspberry Pi OS", Description: "Debian-based OS for Raspberry Pi/ARM", Category: "embedded", Tags: []string{"raspberry-pi", "arm", "iot"}, Popular: false},
 	}
 }
 
@@ -303,8 +313,10 @@ var ImageShells = map[string]string{
 	// Debian-based
 	"ubuntu":     "/bin/bash",
 	"ubuntu-24":  "/bin/bash",
+	"ubuntu-22":  "/bin/bash",
 	"ubuntu-20":  "/bin/bash",
 	"debian":     "/bin/bash",
+	"debian-12":  "/bin/bash",
 	"debian-11":  "/bin/bash",
 	"kali":       "/bin/bash",
 	"parrot":     "/bin/bash",
@@ -316,23 +328,30 @@ var ImageShells = map[string]string{
 	"devuan":     "/bin/bash",
 	"antix":      "/bin/bash",
 	// Security
-	"blackarch":   "/bin/bash",
-	"backbox":     "/bin/bash",
-	"dracos":      "/bin/bash",
-	"pentoo":      "/bin/bash",
-	"samurai":     "/bin/bash",
-	"kali-purple": "/bin/bash",
+	"blackarch":       "/bin/bash",
+	"parrot-security": "/bin/bash",
+	"backbox":         "/bin/bash",
+	"dracos":          "/bin/bash",
+	"pentoo":          "/bin/bash",
+	"samurai":         "/bin/bash",
+	"kali-purple":     "/bin/bash",
 	// Red Hat-based
-	"fedora":     "/bin/bash",
-	"fedora-39":  "/bin/bash",
-	"centos":     "/bin/bash",
-	"rocky":      "/bin/bash",
-	"alma":       "/bin/bash",
-	"oracle":     "/bin/bash",
-	"rhel":       "/bin/bash",
-	"openeuler":  "/bin/bash",
-	"springdale": "/bin/bash",
-	"navy":       "/bin/bash",
+	"fedora":        "/bin/bash",
+	"fedora-41":     "/bin/bash",
+	"fedora-40":     "/bin/bash",
+	"fedora-39":     "/bin/bash",
+	"centos":        "/bin/bash",
+	"centos-stream": "/bin/bash",
+	"rocky":         "/bin/bash",
+	"rocky-8":       "/bin/bash",
+	"alma":          "/bin/bash",
+	"alma-8":        "/bin/bash",
+	"oracle":        "/bin/bash",
+	"oracle-slim":   "/bin/bash",
+	"rhel":          "/bin/bash",
+	"openeuler":     "/bin/bash",
+	"springdale":    "/bin/bash",
+	"navy":          "/bin/bash",
 	// Arch-based
 	"archlinux":   "/bin/bash",
 	"manjaro":     "/bin/bash",
@@ -347,12 +366,14 @@ var ImageShells = map[string]string{
 	// Independent
 	"gentoo":    "/bin/bash",
 	"void":      "/bin/bash",
-	"nixos":     "/bin/bash",
+	"nixos":     "/bin/sh",
 	"slackware": "/bin/bash",
 	"solus":     "/bin/bash",
 	"pclinuxos": "/bin/bash",
 	// Minimal (use sh)
 	"alpine":      "/bin/sh",
+	"alpine-3.21": "/bin/sh",
+	"alpine-3.20": "/bin/sh",
 	"alpine-3.18": "/bin/sh",
 	"tinycore":    "/bin/sh",
 	"puppy":       "/bin/sh",
@@ -370,11 +391,12 @@ var ImageShells = map[string]string{
 	"netbsd":       "/bin/sh",
 	"dragonflybsd": "/bin/sh",
 	// Special Purpose
-	"qubes":      "/bin/bash",
-	"tails":      "/bin/bash",
-	"whonix":     "/bin/bash",
-	"raspbian":   "/bin/bash",
-	"ubuntucore": "/bin/bash",
+	"qubes":       "/bin/bash",
+	"tails":       "/bin/bash",
+	"whonix":      "/bin/bash",
+	"raspbian":    "/bin/bash",
+	"raspberrypi": "/bin/bash",
+	"ubuntucore":  "/bin/bash",
 	// Gaming
 	"steamos":   "/bin/bash",
 	"chimeraos": "/bin/bash",
@@ -384,7 +406,6 @@ var ImageShells = map[string]string{
 	// Cloud Provider Specific
 	"amazonlinux":      "/bin/bash",
 	"amazonlinux2":     "/bin/bash",
-	"amazonlinux2022":  "/bin/bash",
 	"cos":              "/bin/bash",
 	"azurelinux":       "/bin/bash",
 	"oracleautonomous": "/bin/bash",

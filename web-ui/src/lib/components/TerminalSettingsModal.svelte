@@ -35,10 +35,22 @@
     $: if (show && container && !initialized) {
         name = container.name || "";
         if (container.resources) {
-            memoryMB = container.resources.memory_mb || 512;
-            cpuShares = container.resources.cpu_shares || 512;
-            diskMB = container.resources.disk_mb || 2048;
+            // Use explicit checks for 0 values - they are valid
+            const rawMemory = typeof container.resources.memory_mb === 'number' ? container.resources.memory_mb : 512;
+            const rawCpu = typeof container.resources.cpu_shares === 'number' ? container.resources.cpu_shares : 512;
+            const rawDisk = typeof container.resources.disk_mb === 'number' ? container.resources.disk_mb : 2048;
+            
+            // Clamp values to be within slider range
+            memoryMB = Math.max(256, Math.min(rawMemory, isPaidUser ? 8192 : 2048));
+            cpuShares = Math.max(256, Math.min(rawCpu, isPaidUser ? 2048 : 1024));
+            diskMB = Math.max(1024, Math.min(rawDisk, isPaidUser ? 20480 : 8192));
+        } else {
+            // Fallback defaults
+            memoryMB = 512;
+            cpuShares = 512;
+            diskMB = 2048;
         }
+        console.log('[Settings] Initialized from container:', { memoryMB, cpuShares, diskMB, resources: container.resources });
         initialized = true;
     }
 
