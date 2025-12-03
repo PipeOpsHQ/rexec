@@ -206,11 +206,13 @@ func (h *RecordingHandler) StopRecording(c *gin.Context) {
 
 	// Save recording to file (asciinema format)
 	filePath := filepath.Join(h.storagePath, recording.ID+".cast")
+	log.Printf("[Recording] Attempting to save to: %s (storage path: %s, events: %d)", filePath, h.storagePath, len(recording.Events))
 	if err := h.saveRecording(recording, filePath); err != nil {
-		log.Printf("Failed to save recording: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save recording"})
+		log.Printf("[Recording] Failed to save recording to %s: %v", filePath, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save recording: %v", err)})
 		return
 	}
+	log.Printf("[Recording] Successfully saved recording to: %s", filePath)
 
 	// Get file size
 	fileInfo, _ := os.Stat(filePath)

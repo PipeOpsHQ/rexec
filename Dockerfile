@@ -123,6 +123,7 @@ EXPOSE 8080
 
 # Set default environment variables
 ENV PORT=8080
+ENV RECORDINGS_PATH=/app/recordings
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

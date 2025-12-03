@@ -802,21 +802,13 @@
 {/each}
 
 <!-- Recordings Panel Modal -->
-{#if showRecordingsPanel && panelContainerId}
-    <div class="panel-overlay" on:click={closePanels} on:keydown={() => {}} role="button" tabindex="-1">
-        <div class="panel-modal" on:click|stopPropagation on:keydown={() => {}} role="dialog">
-            <RecordingPanel containerId={panelContainerId} on:close={closePanels} />
-        </div>
-    </div>
+{#if panelContainerId}
+    <RecordingPanel containerId={panelContainerId} isOpen={showRecordingsPanel} on:close={closePanels} />
 {/if}
 
 <!-- Collab Panel Modal -->
-{#if showCollabPanel && panelContainerId}
-    <div class="panel-overlay" on:click={closePanels} on:keydown={() => {}} role="button" tabindex="-1">
-        <div class="panel-modal" on:click|stopPropagation on:keydown={() => {}} role="dialog">
-            <CollabPanel containerId={panelContainerId} on:close={closePanels} />
-        </div>
-    </div>
+{#if panelContainerId}
+    <CollabPanel containerId={panelContainerId} isOpen={showCollabPanel} on:close={closePanels} />
 {/if}
 
 <style>
