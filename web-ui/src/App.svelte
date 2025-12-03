@@ -14,6 +14,7 @@
     import SSHKeys from "$components/SSHKeys.svelte";
     import TerminalView from "$components/terminal/TerminalView.svelte";
     import ToastContainer from "$components/ui/ToastContainer.svelte";
+    import JoinSession from "$components/JoinSession.svelte";
 
     // App state
     let currentView:
@@ -21,9 +22,11 @@
         | "dashboard"
         | "create"
         | "settings"
-        | "sshkeys" = "landing";
+        | "sshkeys"
+        | "join" = "landing";
     let isLoading = true;
     let isInitialized = false; // Prevents reactive statements from firing before token validation
+    let joinCode = ""; // For /join/:code route
 
     // Guest email modal state
     let showGuestModal = false;
@@ -127,6 +130,14 @@
     async function handleTerminalUrl() {
         const path = window.location.pathname;
         const params = new URLSearchParams(window.location.search);
+
+        // Check for /join/:code route
+        const joinMatch = path.match(/^\/join\/([A-Z0-9]{6})$/i);
+        if (joinMatch) {
+            joinCode = joinMatch[1].toUpperCase();
+            currentView = "join";
+            return;
+        }
 
         // Check for popped-out terminal window (?terminal=containerId&name=containerName)
         const terminalParam = params.get("terminal");
@@ -300,6 +311,11 @@
                 <Settings on:back={goToDashboard} />
             {:else if currentView === "sshkeys"}
                 <SSHKeys on:back={goToDashboard} />
+            {:else if currentView === "join"}
+                <JoinSession code={joinCode} on:joined={(e) => {
+                    terminal.createSession(e.detail.containerId, e.detail.containerName);
+                    currentView = "dashboard";
+                }} on:cancel={goToDashboard} />
             {/if}
         </main>
 

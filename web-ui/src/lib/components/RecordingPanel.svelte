@@ -1,10 +1,11 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   import { recordings, type Recording } from '../stores/recordings';
-  import { fade, fly } from 'svelte/transition';
+  import { slide } from 'svelte/transition';
 
   export let containerId: string = '';
   export let isOpen = false;
+  export let compact = false; // For inline terminal use
 
   const dispatch = createEventDispatcher();
 
@@ -12,6 +13,7 @@
   let isStarting = false;
   let currentTab: 'record' | 'library' = 'record';
   let selectedRecording: Recording | null = null;
+  let playerElement: HTMLDivElement;
 
   $: recordingsList = $recordings.recordings;
   $: activeRecording = $recordings.activeRecordings.get(containerId);
@@ -77,251 +79,167 @@
 </script>
 
 {#if isOpen}
-  <div class="recording-overlay" transition:fade={{ duration: 200 }} on:click={close}>
-    <div class="recording-panel" transition:fly={{ y: 20, duration: 300 }} on:click|stopPropagation>
-      <div class="panel-header">
-        <h3>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <circle cx="12" cy="12" r="3" fill="currentColor"/>
-          </svg>
-          Recordings
-        </h3>
-        <button class="close-btn" on:click={close}>✕</button>
+  <div class="recording-panel" class:compact transition:slide={{ duration: 200 }}>
+    <div class="panel-header">
+      <div class="header-left">
+        <span class="rec-icon">⏺</span>
+        <span class="title">REC</span>
+      </div>
+      <button class="close-btn" on:click={close}>×</button>
+    </div>
+
+    {#if selectedRecording}
+      <div class="player-section">
+        <div class="player-bar">
+          <button class="back-btn" on:click={() => selectedRecording = null}>←</button>
+          <span class="player-title">{selectedRecording.title || 'Recording'}</span>
+        </div>
+        <div class="player-container" bind:this={playerElement}>
+          <div class="player-placeholder">
+            <span class="play-icon">▶</span>
+            <span class="duration">{selectedRecording.duration}</span>
+          </div>
+        </div>
+        <div class="player-actions">
+          <a href={`/api/recordings/${selectedRecording.id}/stream`} class="action-link" download>
+            ↓ Download .cast
+          </a>
+        </div>
+      </div>
+    {:else}
+      <div class="tabs">
+        <button class="tab" class:active={currentTab === 'record'} on:click={() => currentTab = 'record'}>
+          Record
+        </button>
+        <button class="tab" class:active={currentTab === 'library'} on:click={() => currentTab = 'library'}>
+          Library <span class="count">{recordingsList.length}</span>
+        </button>
       </div>
 
-      {#if selectedRecording}
-        <div class="player-section">
-          <div class="player-header">
-            <button class="back-btn" on:click={() => selectedRecording = null}>
-              ← Back
-            </button>
-            <h4>{selectedRecording.title}</h4>
-          </div>
-          <div class="player-container">
-            <div class="asciinema-player">
-              <!-- In production, integrate asciinema-player here -->
-              <div class="player-placeholder">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                <p>Terminal Recording</p>
-                <span class="duration">{selectedRecording.duration}</span>
-              </div>
-            </div>
-          </div>
-          <div class="player-controls">
-            <a href={`/api/recordings/${selectedRecording.id}/stream`} class="download-btn" download>
-              Download .cast
-            </a>
-          </div>
-        </div>
-      {:else}
-        <div class="tabs">
-          <button 
-            class="tab" 
-            class:active={currentTab === 'record'}
-            on:click={() => currentTab = 'record'}
-          >
-            Record
-          </button>
-          <button 
-            class="tab" 
-            class:active={currentTab === 'library'}
-            on:click={() => currentTab = 'library'}
-          >
-            Library ({recordingsList.length})
-          </button>
-        </div>
-
+      <div class="panel-content">
         {#if currentTab === 'record'}
-          <div class="record-section">
-            {#if isRecordingActive}
-              <div class="active-recording">
-                <div class="recording-indicator">
-                  <span class="rec-dot"></span>
-                  <span>Recording</span>
-                </div>
-                <div class="recording-stats">
-                  <div class="stat">
-                    <span class="label">Duration</span>
-                    <span class="value">{Math.floor((activeRecording?.durationMs || 0) / 1000)}s</span>
-                  </div>
-                  <div class="stat">
-                    <span class="label">Events</span>
-                    <span class="value">{activeRecording?.eventsCount || 0}</span>
-                  </div>
-                </div>
-                <button class="stop-btn" on:click={stopRecording}>
-                  <span class="stop-icon">■</span>
-                  Stop Recording
+          {#if isRecordingActive}
+            <div class="active-recording">
+              <div class="rec-status">
+                <span class="rec-dot blink"></span>
+                <span>Recording</span>
+                <span class="elapsed">{Math.floor((activeRecording?.durationMs || 0) / 1000)}s</span>
+              </div>
+              <button class="stop-btn" on:click={stopRecording}>■ Stop</button>
+            </div>
+          {:else}
+            <div class="start-section">
+              {#if containerId}
+                <input 
+                  type="text" 
+                  bind:value={recordingTitle}
+                  placeholder="Recording title (optional)"
+                  class="title-input"
+                />
+                <button class="start-btn" on:click={startRecording} disabled={isStarting}>
+                  {#if isStarting}
+                    <span class="spinner-sm"></span>
+                  {:else}
+                    <span class="rec-dot"></span>
+                  {/if}
+                  {isStarting ? 'Starting...' : 'Start Recording'}
                 </button>
-              </div>
-            {:else}
-              <div class="start-recording">
-                <p class="description">
-                  Record your terminal session to share or replay later.
-                </p>
-                
-                {#if containerId}
-                  <div class="input-group">
-                    <label>Recording Title (optional)</label>
-                    <input 
-                      type="text" 
-                      bind:value={recordingTitle}
-                      placeholder="My awesome session"
-                    />
-                  </div>
-
-                  <button class="start-btn" on:click={startRecording} disabled={isStarting}>
-                    {#if isStarting}
-                      <span class="spinner"></span>
-                      Starting...
-                    {:else}
-                      <span class="rec-dot"></span>
-                      Start Recording
-                    {/if}
-                  </button>
-                {:else}
-                  <p class="no-terminal">
-                    Connect to a terminal to start recording.
-                  </p>
-                {/if}
-              </div>
-            {/if}
-          </div>
+              {:else}
+                <p class="hint">Connect to a terminal first</p>
+              {/if}
+            </div>
+          {/if}
         {:else}
-          <div class="library-section">
+          <div class="library-list">
             {#if isLoading}
-              <div class="loading">
-                <span class="spinner"></span>
-                Loading recordings...
-              </div>
+              <div class="loading"><span class="spinner-sm"></span> Loading...</div>
             {:else if recordingsList.length === 0}
-              <div class="empty-library">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                  <polyline points="17 8 12 3 7 8"/>
-                  <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <p>No recordings yet</p>
-                <span>Start recording to capture your terminal sessions</span>
-              </div>
+              <p class="empty">No recordings yet</p>
             {:else}
-              <div class="recordings-list">
-                {#each recordingsList as recording}
-                  <div class="recording-item">
-                    <div class="recording-info" on:click={() => playRecording(recording)}>
-                      <span class="title">{recording.title || 'Untitled Recording'}</span>
-                      <div class="meta">
-                        <span>{recording.duration}</span>
-                        <span>•</span>
-                        <span>{recordings.formatSize(recording.sizeBytes)}</span>
-                        <span>•</span>
-                        <span>{formatDate(recording.createdAt)}</span>
-                      </div>
-                    </div>
-                    <div class="recording-actions">
-                      <button 
-                        class="action-btn" 
-                        class:active={recording.isPublic}
-                        on:click={() => togglePublic(recording)}
-                        title={recording.isPublic ? 'Make Private' : 'Make Public'}
-                      >
-                        {#if recording.isPublic}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="2" y1="12" x2="22" y2="12"/>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                          </svg>
-                        {:else}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                          </svg>
-                        {/if}
-                      </button>
-                      {#if recording.isPublic}
-                        <button 
-                          class="action-btn"
-                          on:click={() => copyShareLink(recording)}
-                          title="Copy Share Link"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                          </svg>
-                        </button>
-                      {/if}
-                      <button 
-                        class="action-btn delete"
-                        on:click={() => deleteRecording(recording)}
-                        title="Delete"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <polyline points="3 6 5 6 21 6"/>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        </svg>
-                      </button>
-                    </div>
+              {#each recordingsList as recording}
+                <div class="recording-item">
+                  <div class="rec-info" on:click={() => playRecording(recording)}>
+                    <span class="rec-title">{recording.title || 'Untitled'}</span>
+                    <span class="rec-meta">{recording.duration} • {recordings.formatSize(recording.sizeBytes)}</span>
                   </div>
-                {/each}
-              </div>
+                  <div class="rec-actions">
+                    <button 
+                      class="icon-btn" 
+                      class:active={recording.isPublic}
+                      on:click={() => togglePublic(recording)}
+                      title={recording.isPublic ? 'Public' : 'Private'}
+                    >
+                      {recording.isPublic ? '🌐' : '🔒'}
+                    </button>
+                    {#if recording.isPublic}
+                      <button class="icon-btn" on:click={() => copyShareLink(recording)} title="Copy link">
+                        🔗
+                      </button>
+                    {/if}
+                    <button class="icon-btn delete" on:click={() => deleteRecording(recording)} title="Delete">
+                      🗑
+                    </button>
+                  </div>
+                </div>
+              {/each}
             {/if}
           </div>
         {/if}
-      {/if}
-    </div>
+      </div>
+    {/if}
   </div>
 {/if}
 
 <style>
-  .recording-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
+  .recording-panel {
+    position: absolute;
+    right: 8px;
+    top: 40px;
+    width: 320px;
+    background: #0d0d1a;
+    border: 1px solid #1a1a2e;
+    z-index: 100;
+    font-size: 12px;
   }
 
-  .recording-panel {
-    background: #1a1a2e;
-    border: 1px solid #2a2a4e;
-    border-radius: 12px;
-    width: 480px;
-    max-width: 90vw;
-    max-height: 80vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+  .recording-panel.compact {
+    width: 280px;
   }
 
   .panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid #2a2a4e;
+    padding: 8px 12px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #252542;
   }
 
-  .panel-header h3 {
+  .header-left {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin: 0;
-    font-size: 1.1rem;
-    color: #fff;
+    gap: 6px;
+  }
+
+  .rec-icon {
+    color: #ff4444;
+    font-size: 10px;
+  }
+
+  .title {
+    color: #888;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .close-btn {
     background: none;
     border: none;
     color: #666;
-    font-size: 1.25rem;
+    font-size: 16px;
     cursor: pointer;
-    padding: 0.25rem;
+    padding: 0 4px;
   }
 
   .close-btn:hover {
@@ -330,24 +248,24 @@
 
   .tabs {
     display: flex;
-    border-bottom: 1px solid #2a2a4e;
+    border-bottom: 1px solid #1a1a2e;
   }
 
   .tab {
     flex: 1;
-    padding: 0.875rem;
+    padding: 8px;
     background: none;
     border: none;
-    color: #888;
+    color: #666;
+    font-size: 11px;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     position: relative;
   }
 
   .tab:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.05);
+    color: #888;
   }
 
   .tab.active {
@@ -360,79 +278,51 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 2px;
+    height: 1px;
     background: #00ff88;
   }
 
-  .record-section, .library-section {
-    padding: 1.25rem;
+  .count {
+    opacity: 0.5;
+    margin-left: 4px;
+  }
+
+  .panel-content {
+    padding: 12px;
+    max-height: 300px;
     overflow-y: auto;
-    flex: 1;
   }
 
-  .description {
-    color: #888;
-    margin: 0 0 1.25rem;
-    font-size: 0.9rem;
+  .active-recording {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    padding: 16px 0;
   }
 
-  .input-group {
-    margin-bottom: 1.25rem;
-  }
-
-  .input-group label {
-    display: block;
-    color: #aaa;
-    font-size: 0.85rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .input-group input {
-    width: 100%;
-    padding: 0.75rem;
-    background: #0a0a1a;
-    border: 1px solid #2a2a4e;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 0.9rem;
-  }
-
-  .input-group input:focus {
-    outline: none;
-    border-color: #00ff88;
-  }
-
-  .start-btn {
-    width: 100%;
-    padding: 0.875rem;
-    background: #3a1a1a;
-    border: 1px solid #5a2a2a;
-    border-radius: 8px;
-    color: #ff6b6b;
-    font-weight: 600;
-    cursor: pointer;
+  .rec-status {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
+    gap: 8px;
+    color: #ff4444;
+    font-size: 13px;
   }
 
-  .start-btn:hover:not(:disabled) {
-    background: #4a1a1a;
-    border-color: #ff6b6b;
-  }
-
-  .start-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+  .elapsed {
+    color: #888;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   .rec-dot {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
+    background: #ff4444;
     border-radius: 50%;
-    background: #ff6b6b;
+  }
+
+  .rec-dot.blink {
     animation: blink 1s ease-in-out infinite;
   }
 
@@ -441,105 +331,231 @@
     50% { opacity: 0.3; }
   }
 
-  .active-recording {
-    text-align: center;
-  }
-
-  .recording-indicator {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    color: #ff6b6b;
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-  }
-
-  .recording-stats {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .stat .label {
-    color: #666;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    margin-bottom: 0.25rem;
-  }
-
-  .stat .value {
-    color: #fff;
-    font-size: 1.5rem;
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
   .stop-btn {
-    padding: 0.875rem 2rem;
-    background: #ff6b6b;
+    padding: 10px 20px;
+    background: #ff4444;
     border: none;
-    border-radius: 8px;
     color: #fff;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   .stop-btn:hover {
     background: #ff5555;
-    transform: scale(1.02);
   }
 
-  .stop-icon {
-    font-size: 0.75rem;
+  .start-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
-  .no-terminal {
+  .title-input {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0a0a14;
+    border: 1px solid #1a1a2e;
+    color: #fff;
+    font-size: 12px;
+  }
+
+  .title-input:focus {
+    outline: none;
+    border-color: #00ff88;
+  }
+
+  .start-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    background: #1a0a0a;
+    border: 1px solid #3a1a1a;
+    color: #ff6666;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .start-btn:hover:not(:disabled) {
+    background: #2a0a0a;
+    border-color: #ff4444;
+  }
+
+  .start-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .hint {
     color: #666;
     text-align: center;
-    padding: 2rem;
+    padding: 20px;
+    margin: 0;
   }
 
-  .loading, .empty-library {
+  .library-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .loading, .empty {
+    color: #666;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .recording-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: #0a0a14;
+    border: 1px solid transparent;
+  }
+
+  .recording-item:hover {
+    border-color: #1a1a2e;
+  }
+
+  .rec-info {
+    flex: 1;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .rec-title {
+    display: block;
+    color: #ddd;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rec-meta {
+    color: #666;
+    font-size: 10px;
+  }
+
+  .rec-actions {
+    display: flex;
+    gap: 2px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.5;
+  }
+
+  .icon-btn:hover {
+    opacity: 1;
+  }
+
+  .icon-btn.active {
+    opacity: 1;
+  }
+
+  .icon-btn.delete:hover {
+    color: #ff4444;
+  }
+
+  .player-section {
+    padding: 0;
+  }
+
+  .player-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #252542;
+  }
+
+  .back-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+  }
+
+  .back-btn:hover {
+    color: #fff;
+  }
+
+  .player-title {
+    color: #ddd;
+    font-size: 12px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .player-container {
+    background: #000;
+    aspect-ratio: 16/9;
+    max-height: 180px;
+  }
+
+  .player-placeholder {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 3rem 1rem;
+    height: 100%;
     color: #666;
-    text-align: center;
+    gap: 8px;
   }
 
-  .empty-library svg {
-    margin-bottom: 1rem;
+  .play-icon {
+    font-size: 24px;
     opacity: 0.5;
   }
 
-  .empty-library p {
+  .duration {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .player-actions {
+    padding: 10px 12px;
+    text-align: center;
+    border-top: 1px solid #1a1a2e;
+  }
+
+  .action-link {
     color: #888;
-    margin: 0 0 0.25rem;
+    font-size: 11px;
+    text-decoration: none;
   }
 
-  .empty-library span {
-    font-size: 0.85rem;
+  .action-link:hover {
+    color: #00ff88;
   }
 
-  .spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid transparent;
+  .spinner-sm {
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid transparent;
     border-top-color: currentColor;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
@@ -549,148 +565,16 @@
     to { transform: rotate(360deg); }
   }
 
-  .recordings-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  /* Scrollbar */
+  .panel-content::-webkit-scrollbar {
+    width: 4px;
   }
 
-  .recording-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem;
-    background: #0a0a1a;
-    border-radius: 8px;
-    transition: background 0.2s;
+  .panel-content::-webkit-scrollbar-track {
+    background: transparent;
   }
 
-  .recording-item:hover {
-    background: #151525;
-  }
-
-  .recording-info {
-    flex: 1;
-    cursor: pointer;
-  }
-
-  .recording-info .title {
-    display: block;
-    color: #fff;
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .recording-info .meta {
-    display: flex;
-    gap: 0.5rem;
-    color: #666;
-    font-size: 0.75rem;
-  }
-
-  .recording-actions {
-    display: flex;
-    gap: 0.25rem;
-  }
-
-  .action-btn {
-    padding: 0.5rem;
-    background: none;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: all 0.2s;
-  }
-
-  .action-btn:hover {
-    background: #252542;
-    color: #fff;
-  }
-
-  .action-btn.active {
-    color: #00ff88;
-  }
-
-  .action-btn.delete:hover {
-    color: #ff6b6b;
-  }
-
-  .player-section {
-    padding: 1.25rem;
-  }
-
-  .player-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .back-btn {
-    background: none;
-    border: none;
-    color: #888;
-    cursor: pointer;
-    font-size: 0.9rem;
-  }
-
-  .back-btn:hover {
-    color: #fff;
-  }
-
-  .player-header h4 {
-    margin: 0;
-    color: #fff;
-  }
-
-  .player-container {
-    background: #0a0a1a;
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 1rem;
-  }
-
-  .player-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    color: #666;
-  }
-
-  .player-placeholder svg {
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-
-  .player-placeholder p {
-    margin: 0 0 0.25rem;
-    color: #888;
-  }
-
-  .player-placeholder .duration {
-    font-size: 0.85rem;
-  }
-
-  .player-controls {
-    display: flex;
-    justify-content: center;
-  }
-
-  .download-btn {
-    padding: 0.625rem 1.25rem;
-    background: #252542;
-    border: 1px solid #3a3a5e;
-    border-radius: 6px;
-    color: #888;
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-  }
-
-  .download-btn:hover {
-    background: #2a2a4e;
-    color: #fff;
+  .panel-content::-webkit-scrollbar-thumb {
+    background: #333;
   }
 </style>

@@ -499,7 +499,7 @@ func (h *RecordingHandler) GetRecordingStatus(c *gin.Context) {
 func (h *RecordingHandler) saveRecording(recording *ActiveRecording, filePath string) error {
 	// Ensure directory exists
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0777); err != nil {
 		return fmt.Errorf("failed to create recordings directory %s: %w", dir, err)
 	}
 	
@@ -507,7 +507,18 @@ func (h *RecordingHandler) saveRecording(recording *ActiveRecording, filePath st
 	
 	file, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", filePath, err)
+		// Try fallback to /tmp if primary fails
+		fallbackPath := filepath.Join("/tmp/rexec-recordings", filepath.Base(filePath))
+		if mkErr := os.MkdirAll("/tmp/rexec-recordings", 0777); mkErr == nil {
+			file, err = os.Create(fallbackPath)
+			if err == nil {
+				log.Printf("[Recording] Using fallback path: %s", fallbackPath)
+				filePath = fallbackPath
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("failed to create file %s: %w", filePath, err)
+		}
 	}
 	defer file.Close()
 
