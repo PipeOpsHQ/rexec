@@ -628,8 +628,14 @@ function createContainersStore() {
     },
 
     // Delete a container
-    async deleteContainer(id: string) {
-      const { error } = await apiCall(`/api/containers/${id}`, {
+    async deleteContainer(id: string, dbId?: string) {
+      // Use db_id as fallback if id is empty (for error state containers)
+      const deleteId = id || dbId;
+      if (!deleteId) {
+        return { success: false, error: "No container ID provided" };
+      }
+      
+      const { error } = await apiCall(`/api/containers/${deleteId}`, {
         method: "DELETE",
       });
 
@@ -639,7 +645,7 @@ function createContainersStore() {
 
       update((state) => ({
         ...state,
-        containers: state.containers.filter((c) => c.id !== id),
+        containers: state.containers.filter((c) => c.id !== id && c.id !== dbId && c.db_id !== id && c.db_id !== dbId),
       }));
 
       return { success: true };

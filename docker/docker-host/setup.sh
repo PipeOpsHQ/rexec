@@ -57,6 +57,21 @@ for arg in "$@"; do
     esac
 done
 
+# Auto-detect installed runtimes if not explicitly requested
+if [ "$INSTALL_GVISOR" = false ]; then
+    if command -v runsc &> /dev/null; then
+        echo -e "${YELLOW}Detected gVisor (runsc) installed. Enabling gVisor configuration...${NC}"
+        INSTALL_GVISOR=true
+    fi
+fi
+
+if [ "$INSTALL_KATA" = false ]; then
+    if command -v kata-runtime &> /dev/null; then
+        echo -e "${YELLOW}Detected Kata Containers installed. Enabling Kata configuration...${NC}"
+        INSTALL_KATA=true
+    fi
+fi
+
 echo -e "${BLUE}=============================================${NC}"
 echo -e "${BLUE}  Rexec Remote Docker Host Setup${NC}"
 if [ "$USE_PODMAN" = true ]; then

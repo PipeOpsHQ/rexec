@@ -121,8 +121,13 @@ func (h *ContainerHandler) List(c *gin.Context) {
 			diskMB = limits.DiskMB
 		}
 
+		// Use DockerID as primary ID, fallback to DB ID for error state containers
+		containerID := record.DockerID
+		if containerID == "" {
+			containerID = record.ID
+		}
 		containers = append(containers, gin.H{
-			"id":           record.DockerID,
+			"id":           containerID,
 			"db_id":        record.ID,
 			"user_id":      record.UserID,
 			"name":         record.Name,

@@ -170,14 +170,15 @@
         showDeleteConfirm = false;
 
         // Set loading state immediately and force UI update
-        setLoading(container.id, 'deleting');
+        const loadingId = container.id || container.db_id;
+        if (loadingId) setLoading(loadingId, 'deleting');
         
         // Use tick to ensure DOM updates before API call
         await tick();
         
         const toastId = toast.loading(`Deleting ${container.name}...`);
-        const result = await containers.deleteContainer(container.id);
-        setLoading(container.id, null);
+        const result = await containers.deleteContainer(container.id, container.db_id);
+        if (loadingId) setLoading(loadingId, null);
 
         if (result.success) {
             toast.update(toastId, `${container.name} deleted`, "success");
