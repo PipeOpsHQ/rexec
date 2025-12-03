@@ -1062,14 +1062,24 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")           // nginx
 	c.Header("X-Content-Type-Options", "nosniff") // Prevents content sniffing
-	c.Header("Transfer-Encoding", "chunked")      // Force chunked encoding
+	// Note: Don't set Transfer-Encoding manually - Go handles this
+	// Note: HTTP/2 doesn't support chunked encoding, so this header can cause issues
 
 	// Flush headers immediately
 	c.Writer.WriteHeader(200)
 	c.Writer.Flush()
 
+	// Use request context to detect client disconnection
+	ctx := c.Request.Context()
+	
 	// Helper to send SSE events with padding to bypass proxy buffering
 	sendEvent := func(event container.ProgressEvent) {
+		// Check if client disconnected
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		data, _ := json.Marshal(event)
 		// Add padding comment to ensure minimum chunk size (some proxies buffer small chunks)
 		padding := ": padding " + strings.Repeat(".", 256) + "\n"
@@ -1077,8 +1087,6 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 		c.Writer.Write([]byte("data: " + string(data) + "\n\n"))
 		c.Writer.Flush()
 	}
-
-	ctx := context.Background()
 
 	// Send initial comment to establish connection (helps with proxy buffering)
 	c.Writer.Write([]byte(": stream connected\n\n"))
