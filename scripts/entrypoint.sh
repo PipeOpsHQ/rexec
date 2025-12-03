@@ -82,6 +82,27 @@ if [ -n "$DOCKER_CA_CERT" ] || [ -n "$DOCKER_CLIENT_CERT" ] || [ -n "$DOCKER_CLI
     fi
 fi
 
+# Ensure recordings directory is writable
+RECORDINGS_DIR="${RECORDINGS_PATH:-/app/recordings}"
+if [ -d "$RECORDINGS_DIR" ]; then
+    # Test if we can write to it
+    if ! touch "$RECORDINGS_DIR/.write_test" 2>/dev/null; then
+        echo "Warning: Recordings directory $RECORDINGS_DIR is not writable"
+        echo "Recordings will be stored in /tmp/recordings instead"
+        export RECORDINGS_PATH="/tmp/recordings"
+        mkdir -p "$RECORDINGS_PATH"
+    else
+        rm -f "$RECORDINGS_DIR/.write_test"
+    fi
+else
+    mkdir -p "$RECORDINGS_DIR" 2>/dev/null || {
+        echo "Warning: Cannot create recordings directory $RECORDINGS_DIR"
+        echo "Recordings will be stored in /tmp/recordings instead"
+        export RECORDINGS_PATH="/tmp/recordings"
+        mkdir -p "$RECORDINGS_PATH"
+    }
+fi
+
 # Setup SSH for remote Docker connection via SSH
 if [ -n "$SSH_PRIVATE_KEY" ]; then
     mkdir -p "$HOME/.ssh"

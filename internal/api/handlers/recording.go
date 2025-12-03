@@ -65,9 +65,26 @@ func NewRecordingHandler(store *storage.PostgresStore, storagePath string) *Reco
 		storagePath = "/app/recordings"
 	}
 	
-	// Ensure storage directory exists
+	// Ensure storage directory exists and is writable
 	if err := os.MkdirAll(storagePath, 0755); err != nil {
 		log.Printf("[Recording] Warning: failed to create storage directory %s: %v", storagePath, err)
+	}
+	
+	// Test if directory is writable
+	testFile := filepath.Join(storagePath, ".write_test")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		log.Printf("[Recording] WARNING: Storage directory %s is not writable: %v", storagePath, err)
+		log.Printf("[Recording] Hint: If using a mounted volume, ensure the host directory is owned by uid 1000")
+		log.Printf("[Recording] Run: chown -R 1000:1000 /path/to/recordings on the host")
+		
+		// Fallback to temp directory
+		fallbackPath := "/tmp/rexec-recordings"
+		if err := os.MkdirAll(fallbackPath, 0755); err == nil {
+			log.Printf("[Recording] Using fallback storage path: %s (recordings will NOT persist across restarts)", fallbackPath)
+			storagePath = fallbackPath
+		}
+	} else {
+		os.Remove(testFile)
 	}
 
 	handler := &RecordingHandler{

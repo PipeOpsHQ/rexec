@@ -113,7 +113,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN chown -R rexec:rexec /app
 
 # Switch to non-root user
-USER rexec
+# USER rexec
 
 # Set HOME for the rexec user (needed for .docker and .ssh directories)
 ENV HOME=/home/rexec
