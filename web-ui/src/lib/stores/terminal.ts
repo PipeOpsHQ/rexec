@@ -570,7 +570,7 @@ function createTerminalStore() {
           // Don't spam the terminal with reconnection messages
           if (currentSession.reconnectAttempts === 0) {
             session.terminal.writeln(
-              "\r\n\x1b[31mConnection closed. Container may be stopped or unavailable.\x1b[0m",
+              "\r\n\x1b[31mConnection closed. Terminal session may be stopped or unavailable.\x1b[0m",
             );
           } else {
             session.terminal.writeln(
