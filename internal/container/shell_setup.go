@@ -221,14 +221,26 @@ show_system_stats() {
     fi
     
     # Convert to MB and handle "max" value (unlimited)
-    local mem_total_mb=512
+    local mem_total_mb=0
     local mem_used_mb=0
     if [ "$mem_limit_bytes" = "max" ] || [ "$mem_limit_bytes" -gt 17179869184 ] 2>/dev/null; then
-        # If unlimited or >16GB, use container default
-        mem_total_mb=512
+        # If unlimited or >16GB, use env var fallback
+        mem_total_mb=0
     elif [ -n "$mem_limit_bytes" ] && [ "$mem_limit_bytes" -gt 0 ] 2>/dev/null; then
         mem_total_mb=$((mem_limit_bytes / 1024 / 1024))
     fi
+    
+    # Fallback to env var if cgroup didn't give valid limit
+    if [ "$mem_total_mb" -eq 0 ] && [ -n "$REXEC_MEMORY_LIMIT" ]; then
+        # Parse REXEC_MEMORY_LIMIT (e.g., "512M", "1G", "2048M")
+        local limit_val=$(echo "$REXEC_MEMORY_LIMIT" | sed 's/[^0-9]//g')
+        if echo "$REXEC_MEMORY_LIMIT" | grep -qi 'G$'; then
+            mem_total_mb=$((limit_val * 1024))
+        else
+            mem_total_mb=$limit_val
+        fi
+    fi
+    [ "$mem_total_mb" -eq 0 ] && mem_total_mb=512
     
     if [ -n "$mem_used_bytes" ] && [ "$mem_used_bytes" -gt 0 ] 2>/dev/null; then
         mem_used_mb=$((mem_used_bytes / 1024 / 1024))
@@ -265,11 +277,12 @@ show_system_stats() {
         cpu_cores="$REXEC_CPU_LIMIT"
     fi
     
-    # Container Disk info - use allocated quota from environment
+    # Container Disk info - check config file first (updated by settings), then env var
     local disk_quota="${REXEC_DISK_QUOTA:-2G}"
-    # Note: Accurate container disk usage requires Docker API (docker system df)
-    # From inside container, we can only estimate by checking user-created files
-    # Show allocated quota only - usage tracking happens at platform level
+    if [ -f /etc/rexec/config ]; then
+        local file_disk=$(grep '^DISK=' /etc/rexec/config 2>/dev/null | cut -d= -f2)
+        [ -n "$file_disk" ] && disk_quota="$file_disk"
+    fi
     
     # Memory limit - prefer cgroup value (updated in real-time), clean up format
     local mem_limit="${mem_total_mb}M"

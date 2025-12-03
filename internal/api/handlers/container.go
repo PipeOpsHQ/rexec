@@ -896,6 +896,13 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 			log.Printf("[UpdateSettings] Warning: failed to update Docker container resources for %s: %v", found.DockerID, err)
 		}
 		
+		// Write config file inside container for MOTD to read (disk quota can't be updated via cgroups)
+		diskQuota := formatDiskQuota(req.DiskMB)
+		configCmd := fmt.Sprintf("mkdir -p /etc/rexec && echo 'DISK=%s' > /etc/rexec/config", diskQuota)
+		if err := h.manager.ExecInContainer(ctx, found.DockerID, []string{"sh", "-c", configCmd}); err != nil {
+			log.Printf("[UpdateSettings] Warning: failed to write config file for %s: %v", found.DockerID, err)
+		}
+		
 		// Restart container to apply new environment variables (for MOTD display)
 		if err := h.manager.RestartContainer(ctx, found.DockerID); err != nil {
 			log.Printf("[UpdateSettings] Warning: failed to restart container %s: %v", found.DockerID, err)
@@ -1555,4 +1562,12 @@ func getImageNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// formatDiskQuota formats disk MB to human readable format (e.g., 2048 -> "2G")
+func formatDiskQuota(diskMB int64) string {
+	if diskMB >= 1024 {
+		return fmt.Sprintf("%dG", diskMB/1024)
+	}
+	return fmt.Sprintf("%dM", diskMB)
 }

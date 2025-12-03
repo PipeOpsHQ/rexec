@@ -1190,6 +1190,26 @@ func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string,
 	return nil
 }
 
+// ExecInContainer runs a command inside a running container
+func (m *Manager) ExecInContainer(ctx context.Context, dockerID string, cmd []string) error {
+	execConfig := container.ExecOptions{
+		Cmd:          cmd,
+		AttachStdout: false,
+		AttachStderr: false,
+	}
+	
+	execResp, err := m.client.ContainerExecCreate(ctx, dockerID, execConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create exec: %w", err)
+	}
+	
+	if err := m.client.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{}); err != nil {
+		return fmt.Errorf("failed to start exec: %w", err)
+	}
+	
+	return nil
+}
+
 // GetIdleContainers returns containers that have been idle for longer than the threshold
 func (m *Manager) GetIdleContainers(threshold time.Duration) []*ContainerInfo {
 	m.mu.RLock()
