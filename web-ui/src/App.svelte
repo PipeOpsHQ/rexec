@@ -418,6 +418,9 @@
         justify-content: center;
         gap: 16px;
         background: var(--bg);
+        background-image: var(--bg-grid);
+        background-size: 20px 20px;
+        z-index: 9999;
     }
 
     .loading-screen p {
