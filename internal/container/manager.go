@@ -825,8 +825,9 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	hostConfig := &container.HostConfig{
 		Runtime: containerRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor)
 		Resources: container.Resources{
-			Memory:   cfg.MemoryLimit,
-			NanoCPUs: nanoCPUs,
+			Memory:     cfg.MemoryLimit,
+			MemorySwap: cfg.MemoryLimit, // Set equal to Memory to disable swap and enforce hard limit
+			NanoCPUs:   nanoCPUs,
 		},
 		Mounts: []mount.Mount{
 			{
@@ -1204,8 +1205,9 @@ func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string,
 	// Update the container's resources using Docker API
 	updateConfig := container.UpdateConfig{
 		Resources: container.Resources{
-			Memory:   memoryBytes,
-			NanoCPUs: nanoCPUs,
+			Memory:     memoryBytes,
+			MemorySwap: memoryBytes, // Set equal to Memory to disable swap and enforce hard limit
+			NanoCPUs:   nanoCPUs,
 		},
 	}
 
