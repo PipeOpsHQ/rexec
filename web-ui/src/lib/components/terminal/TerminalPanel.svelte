@@ -9,6 +9,19 @@
 
     const dispatch = createEventDispatcher();
 
+    // Track connected status for showing brief "connected" indicator
+    let showConnectedIndicator = false;
+    let previousStatus = session?.status;
+    
+    // Show connected indicator briefly when status changes to connected
+    $: if (session?.status === 'connected' && previousStatus === 'connecting') {
+        showConnectedIndicator = true;
+        setTimeout(() => {
+            showConnectedIndicator = false;
+        }, 2000);
+    }
+    $: previousStatus = session?.status;
+
     // Check if recording this terminal
     $: isRecording = $recordings.activeRecordings.get(session.containerId)?.recording || false;
 
@@ -393,11 +406,18 @@
         tabindex="0"
     ></div>
 
-    <!-- Connection overlay -->
+    <!-- Connection status - minimal, non-blocking -->
     {#if isConnecting}
-        <div class="connection-overlay">
-            <div class="connection-spinner"></div>
-            <span>Connecting...</span>
+        <div class="connection-status">
+            <span class="rexec-logo">⌘</span>
+            <span class="connection-text">rexec</span>
+            <span class="connection-dots">...</span>
+        </div>
+    {:else if showConnectedIndicator}
+        <div class="connection-status connected">
+            <span class="rexec-logo">⌘</span>
+            <span class="connection-text">rexec</span>
+            <span class="connected-check">✓</span>
         </div>
     {/if}
 
@@ -686,32 +706,65 @@
         width: 100% !important;
     }
 
-    /* Connection Overlay */
-    .connection-overlay {
+    /* Connection Status - minimal, non-blocking */
+    .connection-status {
         position: absolute;
-        inset: 0;
-        top: 40px; /* Below toolbar */
+        top: 50px;
+        left: 16px;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 16px;
-        background: rgba(10, 10, 10, 0.9);
-        z-index: 10;
+        gap: 6px;
+        padding: 4px 10px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        z-index: 5;
+        animation: fadeIn 0.2s ease;
     }
 
-    .connection-spinner {
-        width: 32px;
-        height: 32px;
-        border: 3px solid var(--border);
-        border-top-color: var(--accent);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
+    .rexec-logo {
+        font-size: 14px;
+        color: var(--accent);
     }
 
-    .connection-overlay span {
+    .connection-text {
+        font-size: 11px;
         color: var(--text-muted);
-        font-size: 13px;
+        font-family: var(--font-mono);
+    }
+
+    .connection-dots {
+        font-size: 11px;
+        color: var(--accent);
+        animation: dots 1.4s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+        0%, 20% { content: ''; opacity: 0.3; }
+        40% { content: '.'; opacity: 0.6; }
+        60% { content: '..'; opacity: 0.8; }
+        80%, 100% { content: '...'; opacity: 1; }
+    }
+
+    .connection-status.connected {
+        border-color: var(--green);
+        animation: fadeInOut 2s ease forwards;
+    }
+
+    .connection-status.connected .rexec-logo {
+        color: var(--green);
+    }
+
+    .connected-check {
+        font-size: 12px;
+        color: var(--green);
+    }
+
+    @keyframes fadeInOut {
+        0% { opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { opacity: 0; }
     }
 
     /* Disconnected Overlay */
