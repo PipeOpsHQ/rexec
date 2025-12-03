@@ -23,13 +23,14 @@ import (
 
 // ProgressEvent represents a progress update during container creation
 type ProgressEvent struct {
-	Stage       string  `json:"stage"`                  // "validating", "pulling", "creating", "starting", "ready"
-	Message     string  `json:"message"`                // Human-readable message
-	Progress    float64 `json:"progress"`               // 0-100 percentage
-	Detail      string  `json:"detail"`                 // Additional detail (e.g., layer being pulled)
-	Error       string  `json:"error,omitempty"`        // Error message if failed
-	Complete    bool    `json:"complete"`               // Whether the whole process is complete
-	ContainerID string  `json:"container_id,omitempty"` // Set when complete
+	Stage       string                 `json:"stage"`                  // "validating", "pulling", "creating", "starting", "ready"
+	Message     string                 `json:"message"`                // Human-readable message
+	Progress    float64                `json:"progress"`               // 0-100 percentage
+	Detail      string                 `json:"detail"`                 // Additional detail (e.g., layer being pulled)
+	Error       string                 `json:"error,omitempty"`        // Error message if failed
+	Complete    bool                   `json:"complete"`               // Whether the whole process is complete
+	ContainerID string                 `json:"container_id,omitempty"` // Set when complete
+	Container   map[string]interface{} `json:"container,omitempty"`    // Full container data when complete
 }
 
 // PullProgress represents Docker's image pull progress JSON

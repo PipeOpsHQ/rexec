@@ -1367,15 +1367,13 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 		})
 	}
 
-	responseJSON, _ := json.Marshal(response)
-
 	sendEvent(container.ProgressEvent{
 		Stage:       "ready",
 		Message:     "Terminal ready!",
 		Progress:    100,
 		Complete:    true,
 		ContainerID: info.ID,
-		Detail:      string(responseJSON),
+		Container:   response,
 	})
 }
 
