@@ -318,7 +318,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 
 	session.ExecID = execResp.ID
 
-	// Attach to exec
+	// Attach to exec (this also starts it for Podman compatibility)
+	// ContainerExecAttach implicitly starts the exec session
 	attachResp, err := client.ContainerExecAttach(ctx, execResp.ID, container.ExecAttachOptions{
 		Tty: true,
 	})
@@ -327,15 +328,6 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		return false
 	}
 	defer attachResp.Close()
-
-	// Start the exec
-	err = client.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{
-		Tty: true,
-	})
-	if err != nil {
-		session.SendError("Failed to start terminal: " + err.Error())
-		return false
-	}
 
 	// Handle bidirectional communication
 	var wg sync.WaitGroup

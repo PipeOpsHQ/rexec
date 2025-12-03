@@ -461,8 +461,12 @@ type Manager struct {
 //   - DOCKER_HOST=tcp://host:2376 (TLS) or tcp://host:2375 (no TLS)
 //   - DOCKER_TLS_VERIFY=1 (for TLS connections)
 //   - DOCKER_CERT_PATH=/path/to/certs (for TLS connections)
+//
+// Works with both Docker and Podman (Podman implements Docker's API).
+// Set CONTAINER_RUNTIME=podman to enable Podman-specific features.
 func NewManager(volumePaths ...string) (*Manager, error) {
 	dockerHost := os.Getenv("DOCKER_HOST")
+	containerRuntime := os.Getenv("CONTAINER_RUNTIME") // "docker" or "podman"
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -484,8 +488,12 @@ func NewManager(volumePaths ...string) (*Manager, error) {
 	if err != nil {
 		cli.Close()
 		if dockerHost != "" {
-			// Provide helpful error message for remote Docker host issues
-			errMsg := fmt.Sprintf("failed to connect to remote Docker daemon at %s", dockerHost)
+			// Provide helpful error message for remote Docker/Podman host issues
+			runtimeName := "Docker"
+			if containerRuntime == "podman" {
+				runtimeName = "Podman"
+			}
+			errMsg := fmt.Sprintf("failed to connect to remote %s daemon at %s", runtimeName, dockerHost)
 			if strings.Contains(dockerHost, ":2376") {
 				errMsg += " (TLS enabled - check DOCKER_TLS_VERIFY and DOCKER_CERT_PATH)"
 			} else if strings.Contains(dockerHost, "ssh://") {
@@ -493,7 +501,14 @@ func NewManager(volumePaths ...string) (*Manager, error) {
 			}
 			return nil, fmt.Errorf("%s: %w", errMsg, err)
 		}
-		return nil, fmt.Errorf("failed to connect to docker daemon: %w", err)
+		return nil, fmt.Errorf("failed to connect to container daemon: %w", err)
+	}
+
+	// Log runtime info
+	if containerRuntime == "podman" {
+		log.Printf("[Container] Using Podman runtime at %s", dockerHost)
+	} else if dockerHost != "" {
+		log.Printf("[Container] Using Docker runtime at %s", dockerHost)
 	}
 
 	// Default volume path
@@ -794,11 +809,14 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// CPULimit is in millicores (500 = 0.5 CPU), convert to nanocpus
 	nanoCPUs := cfg.CPULimit * 1000000 // millicores to nanocpus (500 -> 500000000 = 0.5 CPU)
 	
-	// Check for Kata/Firecracker runtime
+	// Use default Docker runtime (runc)
+	// Kata/Firecracker support can be enabled via CONTAINER_RUNTIME env var
+	// Set CONTAINER_RUNTIME=kata-fc to use Kata with Firecracker
 	containerRuntime := os.Getenv("CONTAINER_RUNTIME")
 	if containerRuntime == "" {
-		containerRuntime = "runc" // default Docker runtime
+		containerRuntime = "runc" // Default to runc
 	}
+	// Valid runtimes: "runc" (default), "kata", "kata-fc"
 	
 	hostConfig := &container.HostConfig{
 		Runtime: containerRuntime, // "runc" (default), "kata", or "kata-fc"
