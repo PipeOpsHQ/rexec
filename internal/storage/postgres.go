@@ -630,8 +630,17 @@ func (s *PostgresStore) DeleteContainer(ctx context.Context, id string) error {
 // UpdateContainerSettings updates a container's name and resource settings
 func (s *PostgresStore) UpdateContainerSettings(ctx context.Context, id, name string, memoryMB, cpuShares, diskMB int64) error {
 	query := `UPDATE containers SET name = $2, memory_mb = $3, cpu_shares = $4, disk_mb = $5 WHERE id = $1 AND deleted_at IS NULL`
-	_, err := s.db.ExecContext(ctx, query, id, name, memoryMB, cpuShares, diskMB)
-	return err
+	result, err := s.db.ExecContext(ctx, query, id, name, memoryMB, cpuShares, diskMB)
+	if err != nil {
+		return fmt.Errorf("update query failed: %w", err)
+	}
+	
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return fmt.Errorf("no container found with id %s or it was deleted", id)
+	}
+	
+	return nil
 }
 
 // HardDeleteContainer permanently deletes a container record (for cleanup)

@@ -817,10 +817,10 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	// For trial/free users, enforce limits
 	isPaidUser := tier == "pro" || tier == "enterprise"
 	if !isPaidUser {
-		// Trial limits
-		maxMemory := int64(1024)
-		maxCPU := int64(1024)
-		maxDisk := int64(4096)
+		// Trial limits - allow some customization above defaults for 60-day trial
+		maxMemory := int64(2048)  // 2GB max for trial
+		maxCPU := int64(1024)     // 1 vCPU max for trial
+		maxDisk := int64(8192)    // 8GB max for trial
 		
 		if req.MemoryMB > maxMemory {
 			req.MemoryMB = maxMemory
@@ -885,12 +885,16 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
+	log.Printf("[UpdateSettings] Updating container %s with memory=%d, cpu=%d, disk=%d", found.ID, req.MemoryMB, req.CPUShares, req.DiskMB)
+
 	// Update in database
 	if err := h.store.UpdateContainerSettings(ctx, found.ID, req.Name, req.MemoryMB, req.CPUShares, req.DiskMB); err != nil {
 		log.Printf("[UpdateSettings] Failed to update settings for container %s: %v", found.ID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update settings: " + err.Error()})
 		return
 	}
+	
+	log.Printf("[UpdateSettings] Successfully updated container %s settings in database", found.ID)
 
 	// Notify via WebSocket
 	if h.eventsHub != nil {
