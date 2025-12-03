@@ -94,7 +94,7 @@ RUN mkdir -p /var/lib/rexec/volumes && \
     chown -R rexec:rexec /var/lib/rexec /home/rexec /app/recordings
 
 # Volume for persistent recordings
-VOLUME /app/recordings
+VOLUME /recordings
 
 # Set working directory
 WORKDIR /app
@@ -110,7 +110,7 @@ COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set ownership
-RUN chown -R rexec:rexec /app
+RUN chown -R rexec:rexec /app && mkdir -p /app/recordings
 
 # Switch to non-root user
 # USER rexec
