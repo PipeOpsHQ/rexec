@@ -231,37 +231,50 @@
 
     // Distro detection for icon selection
     function getDistro(image: string): string {
+        if (!image) return "linux";
+        
         // Handle both full image names (rexec/ubuntu:latest) and simple names (ubuntu)
         const lower = image.toLowerCase();
         
-        // Extract base name - handle formats like "rexec/ubuntu:latest" or "ubuntu"
+        // Extract base name - handle formats like "rexec/ubuntu:latest", "ubuntu-24", "ubuntu"
         const baseName = lower.split('/').pop()?.split(':')[0] || lower;
+        // Also get the core name without version suffix (ubuntu-24 -> ubuntu)
+        const coreName = baseName.split('-')[0];
         
-        // Direct match first
-        const directMatches = ['ubuntu', 'debian', 'alpine', 'fedora', 'centos', 'rocky', 'alma', 'arch', 'kali', 'manjaro', 'mint', 'gentoo', 'void', 'nixos', 'slackware'];
-        if (directMatches.includes(baseName)) return baseName;
+        // Direct match on core name first
+        const directMatches = ['ubuntu', 'debian', 'alpine', 'fedora', 'centos', 'rocky', 'alma', 'arch', 'archlinux', 'kali', 'manjaro', 'mint', 'gentoo', 'void', 'nixos', 'slackware', 'parrot', 'blackarch', 'oracle', 'rhel', 'devuan', 'elementary'];
+        if (directMatches.includes(coreName)) {
+            // Normalize archlinux to arch
+            return coreName === 'archlinux' ? 'arch' : coreName;
+        }
+        if (directMatches.includes(baseName)) {
+            return baseName === 'archlinux' ? 'arch' : baseName;
+        }
         
         // Partial matches for special cases
         if (lower.includes("ubuntu")) return "ubuntu";
         if (lower.includes("debian")) return "debian";
         if (lower.includes("alpine")) return "alpine";
         if (lower.includes("fedora")) return "fedora";
-        if (lower.includes("centos")) return "centos";
+        if (lower.includes("centos") || lower.includes("centos-stream")) return "centos";
         if (lower.includes("rocky")) return "rocky";
         if (lower.includes("alma")) return "alma";
-        if (lower.includes("arch")) return "arch";
+        if (lower.includes("archlinux") || lower.includes("arch")) return "arch";
         if (lower.includes("kali")) return "kali";
         if (lower.includes("opensuse") || lower.includes("suse") || lower.includes("tumbleweed")) return "suse";
-        if (lower.includes("rhel") || lower.includes("redhat")) return "rhel";
+        if (lower.includes("rhel") || lower.includes("redhat") || lower.includes("ubi")) return "rhel";
         if (lower.includes("manjaro")) return "manjaro";
         if (lower.includes("mint")) return "mint";
         if (lower.includes("gentoo")) return "gentoo";
         if (lower.includes("void")) return "void";
-        if (lower.includes("nixos")) return "nixos";
+        if (lower.includes("nixos") || lower.includes("nix")) return "nixos";
         if (lower.includes("slackware")) return "slackware";
         if (lower.includes("parrot")) return "parrot";
         if (lower.includes("blackarch")) return "blackarch";
         if (lower.includes("oracle")) return "oracle";
+        if (lower.includes("devuan")) return "devuan";
+        if (lower.includes("elementary")) return "elementary";
+        if (lower.includes("openeuler")) return "linux";
         
         return "linux";
     }
