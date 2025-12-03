@@ -11,17 +11,6 @@
         cancel: void;
     }>();
 
-    // Resource type selection (future-ready)
-    type ResourceType = 'container' | 'gpu' | 'ssh' | 'custom';
-    let selectedResourceType: ResourceType = 'container';
-    
-    const resourceTypes = [
-        { id: 'container' as ResourceType, name: 'Container', icon: '🐳', desc: 'Linux environments in seconds', available: true },
-        { id: 'gpu' as ResourceType, name: 'GPU Session', icon: '⚡', desc: 'AI/ML workloads with GPU access', available: false, comingSoon: true },
-        { id: 'ssh' as ResourceType, name: 'SSH Target', icon: '🔐', desc: 'Connect to your own servers', available: false, comingSoon: true },
-        { id: 'custom' as ResourceType, name: 'Custom', icon: '🔧', desc: 'Bring your own Docker image', available: false, comingSoon: true },
-    ];
-
     let selectedImage = "";
     let isCreating = false;
     let selectedRole = "standard";
@@ -271,28 +260,6 @@
         </div>
     {:else}
         <div class="create-content">
-            <!-- Resource Type Selection -->
-            <div class="create-section">
-                <h4>Session Type</h4>
-                <div class="resource-type-grid">
-                    {#each resourceTypes as rt}
-                        <button
-                            class="resource-type-card"
-                            class:selected={selectedResourceType === rt.id}
-                            class:disabled={!rt.available}
-                            on:click={() => rt.available && (selectedResourceType = rt.id)}
-                            disabled={!rt.available}
-                        >
-                            <span class="rt-icon">{rt.icon}</span>
-                            <span class="rt-name">{rt.name}</span>
-                            {#if rt.comingSoon}
-                                <span class="coming-soon-badge">Soon</span>
-                            {/if}
-                        </button>
-                    {/each}
-                </div>
-            </div>
-
             <!-- Role Selection -->
             <div class="create-section">
                 <h4>Environment</h4>
@@ -623,69 +590,6 @@
         color: var(--accent);
         text-transform: uppercase;
         letter-spacing: 1px;
-    }
-
-    /* Resource Type Grid */
-    .resource-type-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
-    }
-
-    .resource-type-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        padding: 12px 8px;
-        background: #1a1a1a;
-        border: 1px solid #333;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        position: relative;
-    }
-
-    .resource-type-card:hover:not(.disabled) {
-        border-color: var(--accent);
-        background: rgba(0, 255, 65, 0.05);
-    }
-
-    .resource-type-card.selected {
-        border-color: var(--accent);
-        background: rgba(0, 255, 65, 0.1);
-        box-shadow: 0 0 12px rgba(0, 255, 65, 0.2);
-    }
-
-    .resource-type-card.disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .rt-icon {
-        font-size: 24px;
-        filter: drop-shadow(0 0 4px rgba(0, 255, 65, 0.3));
-    }
-
-    .rt-name {
-        font-size: 10px;
-        color: #e0e0e0;
-        text-align: center;
-        font-weight: 500;
-    }
-
-    .coming-soon-badge {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        padding: 2px 5px;
-        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
-        color: #fff;
-        font-size: 7px;
-        font-weight: 700;
-        border-radius: 3px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
     /* Role Grid */
