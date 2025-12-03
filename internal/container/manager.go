@@ -818,16 +818,15 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	nanoCPUs := cfg.CPULimit * 1000000 // millicores to nanocpus (500 -> 500000000 = 0.5 CPU)
 	
 	// Use default Docker runtime (runc)
-	// Kata/Firecracker support can be enabled via CONTAINER_RUNTIME env var
-	// Set CONTAINER_RUNTIME=kata-fc to use Kata with Firecracker
-	containerRuntime := os.Getenv("CONTAINER_RUNTIME")
-	if containerRuntime == "" {
-		containerRuntime = "runc" // Default to runc
-	}
+	// OCI runtime can be configured via OCI_RUNTIME env var
 	// Valid runtimes: "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
+	ociRuntime := os.Getenv("OCI_RUNTIME")
+	if ociRuntime == "" {
+		ociRuntime = "runc" // Default to runc for maximum compatibility
+	}
 	
 	hostConfig := &container.HostConfig{
-		Runtime: containerRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor)
+		Runtime: ociRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
 		Resources: container.Resources{
 			Memory:     cfg.MemoryLimit,
 			MemorySwap: cfg.MemoryLimit, // Set equal to Memory to disable swap and enforce hard limit

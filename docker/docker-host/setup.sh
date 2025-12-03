@@ -16,7 +16,7 @@ set -e
 #   sudo ./setup.sh                    # Docker + containerd only
 #   sudo ./setup.sh --with-gvisor      # Docker + gVisor sandboxing (recommended)
 #
-# Runtime Options (set via CONTAINER_RUNTIME env var in Rexec):
+# Runtime Options (set via OCI_RUNTIME env var in Rexec):
 #   - runc (default): Standard Docker runtime
 #   - runsc: gVisor sandbox (user-space kernel, no VM overhead)
 #   - runsc-kvm: gVisor with KVM acceleration (requires /dev/kvm)
@@ -997,7 +997,7 @@ if [ "$INSTALL_KATA" = true ]; then
     echo "  - Run containers with microVM isolation:"
     echo "    docker run --runtime=kata -it alpine sh"
     echo ""
-    echo "  - In Rexec, set CONTAINER_RUNTIME=kata to use Firecracker VMs"
+    echo "  - In Rexec, set OCI_RUNTIME=kata to use Firecracker VMs"
     echo "  - Each terminal will run in its own microVM for full isolation"
     echo ""
     echo -e "${CYAN}Benefits:${NC}"
@@ -1022,9 +1022,9 @@ if [ "$INSTALL_GVISOR" = true ]; then
     echo "  - Run containers with gVisor sandboxing:"
     echo "    docker run --runtime=runsc -it alpine sh"
     echo ""
-    echo "  - In Rexec, set CONTAINER_RUNTIME=runsc to use gVisor"
+    echo "  - In Rexec, set OCI_RUNTIME=runsc to use gVisor"
     if [ "$GVISOR_PLATFORM" = "kvm" ]; then
-        echo "  - For explicit KVM: CONTAINER_RUNTIME=runsc-kvm"
+        echo "  - For explicit KVM: OCI_RUNTIME=runsc-kvm"
     fi
     echo ""
     echo -e "${CYAN}Benefits:${NC}"
