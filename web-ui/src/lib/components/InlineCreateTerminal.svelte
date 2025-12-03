@@ -56,16 +56,17 @@
         { id: "ready", label: "Ready", icon: "✨" },
     ];
 
-    // Get step status
-    function getStepStatus(stepId: string): "pending" | "active" | "completed" {
+    // Reactive step statuses - must depend on progressStage to update
+    $: stepStatuses = progressSteps.reduce((acc, step) => {
         const stepOrder = progressSteps.map((s) => s.id);
         const currentIndex = stepOrder.indexOf(progressStage);
-        const stepIndex = stepOrder.indexOf(stepId);
-
-        if (stepIndex < currentIndex) return "completed";
-        if (stepIndex === currentIndex) return "active";
-        return "pending";
-    }
+        const stepIndex = stepOrder.indexOf(step.id);
+        
+        if (stepIndex < currentIndex) acc[step.id] = "completed";
+        else if (stepIndex === currentIndex) acc[step.id] = "active";
+        else acc[step.id] = "pending";
+        return acc;
+    }, {} as Record<string, "pending" | "active" | "completed">);
 
     $: displayProgress = Math.round(progress);
 
@@ -232,8 +233,8 @@
             
             <!-- Step Indicators -->
             <div class="progress-steps">
-                {#each progressSteps as step}
-                    <div class="progress-step {getStepStatus(step.id)}">
+                {#each progressSteps as step (step.id)}
+                    <div class="progress-step {stepStatuses[step.id] || 'pending'}">
                         <span class="step-icon">{step.icon}</span>
                         <span class="step-label">{step.label}</span>
                     </div>
