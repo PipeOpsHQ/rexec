@@ -342,6 +342,21 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	ctx := context.Background()
 	userID := cfg.UserID
 
+	// Helper to send progress updates via WebSocket
+	sendProgress := func(stage string, message string, progress int) {
+		if h.eventsHub != nil {
+			h.eventsHub.NotifyContainerProgress(userID, gin.H{
+				"id":       recordID,
+				"stage":    stage,
+				"message":  message,
+				"progress": progress,
+			})
+		}
+	}
+
+	// Send pulling progress
+	sendProgress("pulling", "Pulling image...", 15)
+
 	// Pull image if needed
 	var pullErr error
 	if imageType == "custom" {
@@ -354,8 +369,16 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 		// Update record with error status
 		h.store.UpdateContainerStatus(ctx, recordID, "error")
 		h.store.UpdateContainerError(ctx, recordID, "failed to pull image: "+pullErr.Error())
-		// Notify via WebSocket
+		// Notify via WebSocket with error
 		if h.eventsHub != nil {
+			h.eventsHub.NotifyContainerProgress(userID, gin.H{
+				"id":       recordID,
+				"stage":    "error",
+				"message":  "Failed to pull image",
+				"progress": 0,
+				"error":    "failed to pull image: " + pullErr.Error(),
+				"complete": true,
+			})
 			h.eventsHub.NotifyContainerUpdated(userID, gin.H{
 				"id":     recordID,
 				"status": "error",
@@ -365,13 +388,24 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 		return
 	}
 
+	// Send creating progress
+	sendProgress("creating", "Creating container...", 35)
+
 	// Create the container
 	info, err := h.manager.CreateContainer(ctx, cfg)
 	if err != nil {
 		h.store.UpdateContainerStatus(ctx, recordID, "error")
 		h.store.UpdateContainerError(ctx, recordID, "failed to create container: "+err.Error())
-		// Notify via WebSocket
+		// Notify via WebSocket with error
 		if h.eventsHub != nil {
+			h.eventsHub.NotifyContainerProgress(userID, gin.H{
+				"id":       recordID,
+				"stage":    "error",
+				"message":  "Failed to create container",
+				"progress": 0,
+				"error":    "failed to create container: " + err.Error(),
+				"complete": true,
+			})
 			h.eventsHub.NotifyContainerUpdated(userID, gin.H{
 				"id":     recordID,
 				"status": "error",
@@ -381,9 +415,15 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 		return
 	}
 
+	// Send starting progress
+	sendProgress("starting", "Starting container...", 55)
+
 	// Update the record with Docker container info
 	h.store.UpdateContainerDockerID(ctx, recordID, info.ID)
 	h.store.UpdateContainerStatus(ctx, recordID, info.Status)
+
+	// Send configuring progress
+	sendProgress("configuring", "Configuring environment...", 75)
 
 	// Notify via WebSocket that container is ready
 	if h.eventsHub != nil {
@@ -402,6 +442,32 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 			cpuShares = record.CPUShares
 			diskMB = record.DiskMB
 		}
+
+		// Send ready progress with container data
+		h.eventsHub.NotifyContainerProgress(userID, gin.H{
+			"id":           recordID,
+			"stage":        "ready",
+			"message":      "Terminal ready!",
+			"progress":     100,
+			"complete":     true,
+			"container_id": info.ID,
+			"container": gin.H{
+				"id":         info.ID,
+				"db_id":      recordID,
+				"user_id":    userID,
+				"name":       cfg.ContainerName,
+				"image":      imageName,
+				"status":     info.Status,
+				"created_at": info.CreatedAt,
+				"ip_address": info.IPAddress,
+				"resources": gin.H{
+					"memory_mb":  memoryMB,
+					"cpu_shares": cpuShares,
+					"disk_mb":    diskMB,
+				},
+			},
+		})
+
 		h.eventsHub.NotifyContainerCreated(userID, gin.H{
 			"id":         info.ID,
 			"db_id":      recordID,

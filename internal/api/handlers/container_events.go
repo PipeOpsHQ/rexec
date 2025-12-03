@@ -302,3 +302,12 @@ func (h *ContainerEventsHub) NotifyContainerStopped(userID string, containerData
 		Timestamp: time.Now(),
 	})
 }
+
+// NotifyContainerProgress notifies a user of container creation progress
+func (h *ContainerEventsHub) NotifyContainerProgress(userID string, progressData interface{}) {
+	h.BroadcastToUser(userID, ContainerEvent{
+		Type:      "progress",
+		Container: progressData,
+		Timestamp: time.Now(),
+	})
+}

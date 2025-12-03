@@ -197,7 +197,7 @@ function createContainersStore() {
       return { success: true, container: data };
     },
 
-    // Create container with SSE progress streaming (falls back to polling if SSE fails)
+    // Create container with progress via WebSocket events (uses polling as primary method)
     createContainerWithProgress(
       name: string,
       image: string,
@@ -226,271 +226,68 @@ function createContainersStore() {
         },
       }));
 
-      const body: Record<string, string | number> = { name, image };
-      if (image === "custom" && customImage) {
-        body.custom_image = customImage;
-      }
-      if (role) {
-        body.role = role;
-      }
-      // Add resource customization if provided
-      if (resources?.memory_mb) {
-        body.memory_mb = resources.memory_mb;
-      }
-      if (resources?.cpu_shares) {
-        body.cpu_shares = resources.cpu_shares;
-      }
-      if (resources?.disk_mb) {
-        body.disk_mb = resources.disk_mb;
-      }
+      // Set up WebSocket event listeners for progress updates
+      const handleCreated = (e: CustomEvent) => {
+        const container = e.detail;
+        cleanup();
+        
+        const containerObj: Container = {
+          id: container.id,
+          db_id: container.db_id || container.id,
+          user_id: container.user_id,
+          name: container.name || name,
+          image: container.image || image,
+          status: "running",
+          created_at: container.created_at || new Date().toISOString(),
+          ip_address: container.ip_address,
+          resources: container.resources,
+        };
 
-      // Try SSE endpoint first, fall back to polling if it fails
-      fetch("/api/containers/stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(body),
-      })
-        .then(async (response) => {
-          const contentType = response.headers.get("content-type") || "";
+        update((state) => ({
+          ...state,
+          containers: [containerObj, ...state.containers.filter(c => c.id !== containerObj.id && c.db_id !== containerObj.id)],
+          creating: null,
+        }));
 
-          // Check if we got an SSE response or something else (like Cloudflare error page)
-          if (!contentType.includes("text/event-stream")) {
-            // Not SSE - likely Cloudflare blocking. Fall back to polling.
-            console.warn(
-              "SSE not available (got " +
-              contentType +
-              "), falling back to polling",
-            );
-            // Use the polling fallback
-            this.createContainerFallback(
-              name,
-              image,
-              customImage,
-              onProgress,
-              onComplete,
-              onError,
-              resources,
-            );
-            return;
-          }
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(
-              errorData.error ||
-              `Request failed with status ${response.status}`,
-            );
-          }
-
-          const reader = response.body?.getReader();
-          const decoder = new TextDecoder();
-
-          if (!reader) {
-            throw new Error("No response body");
-          }
-
-          let buffer = "";
-          let receivedAnyData = false;
-
-          const processEvents = () => {
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                receivedAnyData = true;
-                try {
-                  const event: ProgressEvent = JSON.parse(line.slice(6));
-
-                  // Update store state
-                  update((state) => ({
-                    ...state,
-                    creating: state.creating
-                      ? {
-                        ...state.creating,
-                        progress: event.progress || state.creating.progress,
-                        message: event.message || state.creating.message,
-                        stage: event.stage || state.creating.stage,
-                      }
-                      : null,
-                  }));
-
-                  // Call progress callback
-                  onProgress?.(event);
-
-                  // Handle completion
-                  if (event.complete) {
-                    if (event.error) {
-                      update((state) => ({ ...state, creating: null }));
-                      onError?.(
-                        typeof event.error === "string"
-                          ? event.error
-                          : "Terminal creation failed",
-                      );
-                    } else if (event.container) {
-                      // Use container data directly from SSE event
-                      const containerData = event.container;
-                      const container: Container = {
-                        id: containerData.id,
-                        db_id: containerData.db_id || containerData.id,
-                        user_id: containerData.user_id,
-                        name: containerData.name || name,
-                        image: containerData.image || image,
-                        status: "running",
-                        created_at: containerData.created_at || new Date().toISOString(),
-                        ip_address: containerData.ip_address,
-                        resources: containerData.resources,
-                      };
-
-                      update((state) => ({
-                        ...state,
-                        containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
-                        creating: null,
-                      }));
-
-                      onComplete?.(container);
-                    } else if (event.container_id) {
-                      // Fallback: Fetch the created container details
-                      fetch(`/api/containers/${event.container_id}`, {
-                        headers: {
-                          Authorization: `Bearer ${authToken}`,
-                        },
-                      })
-                        .then((res) => res.json())
-                        .then((containerData) => {
-                          const container: Container = {
-                            id:
-                              containerData.id ||
-                              containerData.docker_id ||
-                              event.container_id!,
-                            db_id: containerData.db_id || event.container_id,
-                            user_id: containerData.user_id,
-                            name: containerData.name || name,
-                            image: containerData.image || image,
-                            status: "running",
-                            created_at:
-                              containerData.created_at ||
-                              new Date().toISOString(),
-                            ip_address: containerData.ip_address,
-                            resources: containerData.resources,
-                          };
-
-                          update((state) => ({
-                            ...state,
-                            containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
-                            creating: null,
-                          }));
-
-                          onComplete?.(container);
-                        })
-                        .catch(() => {
-                          // Even if fetch fails, container was created
-                          const container: Container = {
-                            id: event.container_id!,
-                            db_id: event.container_id,
-                            user_id: "",
-                            name,
-                            image,
-                            status: "running",
-                            created_at: new Date().toISOString(),
-                          };
-
-                          update((state) => ({
-                            ...state,
-                            containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
-                            creating: null,
-                          }));
-
-                          onComplete?.(container);
-                        });
-                    } else {
-                      // Completion without container_id - shouldn't happen but handle it
-                      update((state) => ({ ...state, creating: null }));
-                      onError?.("Terminal created but no ID received");
-                    }
-                  }
-                } catch {
-                  // Ignore parse errors for malformed SSE
-                }
-              }
-            }
-          };
-
-          const read = async (): Promise<void> => {
-            try {
-              const { done, value } = await reader.read();
-
-              if (done) {
-                // Process any remaining buffer
-                if (buffer) {
-                  buffer += "\n";
-                  processEvents();
-                }
-                // If we never received any SSE data, the stream was blocked
-                if (!receivedAnyData) {
-                  console.warn(
-                    "SSE stream ended without data, falling back to polling",
-                  );
-                  this.createContainerFallback(
-                    name,
-                    image,
-                    customImage,
-                    onProgress,
-                    onComplete,
-                    onError,
-                    resources,
-                  );
-                }
-                return;
-              }
-
-              buffer += decoder.decode(value, { stream: true });
-              processEvents();
-
-              return read();
-            } catch (e) {
-              if (e instanceof Error && e.name !== "AbortError") {
-                // On stream error, try polling fallback if we haven't received data
-                if (!receivedAnyData) {
-                  console.warn(
-                    "SSE stream error, falling back to polling:",
-                    e.message,
-                  );
-                  this.createContainerFallback(
-                    name,
-                    image,
-                    customImage,
-                    onProgress,
-                    onComplete,
-                    onError,
-                    resources,
-                  );
-                } else {
-                  update((state) => ({ ...state, creating: null }));
-                  onError?.(e instanceof Error ? e.message : "Stream error");
-                }
-              }
-            }
-          };
-
-          return read();
-        })
-        .catch((e) => {
-          // Network error or fetch failed - try polling fallback
-          console.warn("SSE fetch failed, falling back to polling:", e.message);
-          this.createContainerFallback(
-            name,
-            image,
-            customImage,
-            onProgress,
-            onComplete,
-            onError,
-            resources,
-          );
+        onProgress?.({
+          stage: "ready",
+          message: "Terminal ready!",
+          progress: 100,
+          complete: true,
+          container_id: container.id,
         });
+
+        onComplete?.(containerObj);
+      };
+
+      const handleError = (e: CustomEvent) => {
+        cleanup();
+        update((state) => ({ ...state, creating: null }));
+        onError?.(e.detail?.error || "Terminal creation failed");
+      };
+
+      const cleanup = () => {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('container-created', handleCreated as EventListener);
+          window.removeEventListener('container-error', handleError as EventListener);
+        }
+      };
+
+      if (typeof window !== 'undefined') {
+        window.addEventListener('container-created', handleCreated as EventListener);
+        window.addEventListener('container-error', handleError as EventListener);
+      }
+
+      // Use polling-based creation (which the backend sends WebSocket progress events for)
+      this.createContainerFallback(
+        name,
+        image,
+        customImage,
+        onProgress,
+        onComplete,
+        onError,
+        resources,
+      );
     },
 
     // Container creation with polling for async backend
@@ -998,6 +795,44 @@ function handleContainerEvent(event: {
         limit: containerData.limit || 2,
         isLoading: false,
       }));
+      break;
+
+    case "progress":
+      // Container creation progress update
+      console.log("[ContainerEvents] Progress event:", containerData);
+      
+      // Update creating state with progress
+      containers.update((state) => {
+        // Only update if we're currently creating something
+        if (!state.creating) return state;
+        
+        return {
+          ...state,
+          creating: {
+            ...state.creating,
+            progress: containerData.progress || state.creating.progress,
+            message: containerData.message || state.creating.message,
+            stage: containerData.stage || state.creating.stage,
+          },
+        };
+      });
+      
+      // If this is a completion event with container data, dispatch to any listeners
+      if (containerData.complete && containerData.container) {
+        // Dispatch a custom event for components listening for container creation
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('container-created', {
+            detail: containerData.container
+          }));
+        }
+      } else if (containerData.complete && containerData.error) {
+        // Dispatch error event
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('container-error', {
+            detail: { error: containerData.error, id: containerData.id }
+          }));
+        }
+      }
       break;
 
     case "created":
