@@ -1446,6 +1446,21 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 	inspectInfo, err := m.client.ContainerInspect(ctx, containerID)
 	if err == nil && inspectInfo.HostConfig != nil && inspectInfo.HostConfig.Memory > 0 {
 		configuredMemoryLimit = inspectInfo.HostConfig.Memory
+		log.Printf("[StreamContainerStats] Container %s has configured memory limit: %d bytes", containerID, configuredMemoryLimit)
+	} else {
+		// Fallback: try to get memory limit from container labels (tier-based)
+		if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
+			tier := inspectInfo.Config.Labels["rexec.tier"]
+			switch tier {
+			case "pro":
+				configuredMemoryLimit = 2048 * 1024 * 1024 // 2GB
+			case "enterprise":
+				configuredMemoryLimit = 4096 * 1024 * 1024 // 4GB
+			default: // free/guest
+				configuredMemoryLimit = 512 * 1024 * 1024 // 512MB
+			}
+			log.Printf("[StreamContainerStats] Container %s: using tier-based memory limit (%s): %d bytes", containerID, tier, configuredMemoryLimit)
+		}
 	}
 
 	stats, err := m.client.ContainerStats(ctx, containerID, true)
@@ -1528,6 +1543,10 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 			if configuredMemoryLimit > 0 && (memLimit == 0 || memLimit > float64(configuredMemoryLimit)*2) {
 				// Docker returned 0 or host memory, use our configured limit
 				memLimit = float64(configuredMemoryLimit)
+			} else if configuredMemoryLimit == 0 && memLimit > 2*1024*1024*1024 {
+				// No configured limit found but Docker returned very high value (likely host memory)
+				// Default to 512MB for safety
+				memLimit = 512 * 1024 * 1024
 			}
 
 			statsCh <- ContainerResourceStats{
