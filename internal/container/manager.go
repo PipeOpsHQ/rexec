@@ -794,7 +794,14 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// CPULimit is in millicores (500 = 0.5 CPU), convert to nanocpus
 	nanoCPUs := cfg.CPULimit * 1000000 // millicores to nanocpus (500 -> 500000000 = 0.5 CPU)
 	
+	// Check for Kata/Firecracker runtime
+	containerRuntime := os.Getenv("CONTAINER_RUNTIME")
+	if containerRuntime == "" {
+		containerRuntime = "runc" // default Docker runtime
+	}
+	
 	hostConfig := &container.HostConfig{
+		Runtime: containerRuntime, // "runc" (default), "kata", or "kata-fc"
 		Resources: container.Resources{
 			Memory:   cfg.MemoryLimit,
 			NanoCPUs: nanoCPUs,

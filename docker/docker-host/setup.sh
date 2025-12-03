@@ -2,15 +2,22 @@
 set -e
 
 # =============================================================================
-# Rexec Remote Docker Host Setup
+# Rexec Remote Docker Host Setup with Kata Containers + Firecracker
 # =============================================================================
 # This script sets up a VM to serve as a remote Docker host for Rexec.
+# Includes optional Kata Containers with Firecracker for microVM isolation.
 # Run this on a fresh Ubuntu/Debian VM (Hetzner, DigitalOcean, Linode, etc.)
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/your-repo/rexec/main/docker/docker-host/setup.sh | sudo bash
 #   # or
-#   sudo ./setup.sh
+#   sudo ./setup.sh                    # Docker + containerd only
+#   sudo ./setup.sh --with-kata        # Docker + Kata/Firecracker microVMs
+#
+# Requirements for Kata/Firecracker:
+#   - KVM support (check: ls -la /dev/kvm)
+#   - At least 4GB RAM recommended
+#   - x86_64 or aarch64 architecture
 #
 # =============================================================================
 
@@ -19,10 +26,25 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
+
+# Parse arguments
+INSTALL_KATA=false
+for arg in "$@"; do
+    case $arg in
+        --with-kata|--kata|--firecracker)
+            INSTALL_KATA=true
+            shift
+            ;;
+    esac
+done
 
 echo -e "${BLUE}=============================================${NC}"
 echo -e "${BLUE}  Rexec Remote Docker Host Setup${NC}"
+if [ "$INSTALL_KATA" = true ]; then
+    echo -e "${CYAN}  + Kata Containers with Firecracker${NC}"
+fi
 echo -e "${BLUE}=============================================${NC}"
 echo ""
 
@@ -33,6 +55,23 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Check KVM support if installing Kata
+if [ "$INSTALL_KATA" = true ]; then
+    echo -e "${YELLOW}Checking KVM support for Firecracker...${NC}"
+    if [ ! -e /dev/kvm ]; then
+        echo -e "${RED}Error: /dev/kvm not found. KVM is required for Firecracker.${NC}"
+        echo "Make sure your VM has nested virtualization enabled."
+        echo "For cloud VMs, use bare-metal or KVM-enabled instances."
+        exit 1
+    fi
+    if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+        echo -e "${YELLOW}Fixing /dev/kvm permissions...${NC}"
+        chmod 666 /dev/kvm
+    fi
+    echo -e "${GREEN}✓ KVM is available${NC}"
+    echo ""
+fi
+
 # Detect public IP
 PUBLIC_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || hostname -I | awk '{print $1}')
 echo -e "Detected public IP: ${GREEN}${PUBLIC_IP}${NC}"
@@ -41,7 +80,13 @@ echo ""
 # =============================================================================
 # 1. Install Docker
 # =============================================================================
-echo -e "${YELLOW}[1/5] Installing Docker...${NC}"
+STEP_NUM=1
+TOTAL_STEPS=5
+if [ "$INSTALL_KATA" = true ]; then
+    TOTAL_STEPS=7
+fi
+
+echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Installing Docker...${NC}"
 
 if command -v docker &> /dev/null; then
     echo -e "${GREEN}Docker is already installed${NC}"
@@ -60,9 +105,134 @@ fi
 echo ""
 
 # =============================================================================
-# 2. Generate TLS Certificates
+# 2. Install Kata Containers with Firecracker (Optional)
 # =============================================================================
-echo -e "${YELLOW}[2/5] Generating TLS certificates...${NC}"
+if [ "$INSTALL_KATA" = true ]; then
+    STEP_NUM=$((STEP_NUM + 1))
+    echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Installing Kata Containers with Firecracker...${NC}"
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64) KATA_ARCH="amd64" ;;
+        aarch64) KATA_ARCH="arm64" ;;
+        *) 
+            echo -e "${RED}Unsupported architecture: $ARCH${NC}"
+            exit 1
+            ;;
+    esac
+    
+    # Install dependencies
+    apt-get update
+    apt-get install -y curl gnupg2 apt-transport-https ca-certificates
+    
+    # Add Kata Containers repo
+    KATA_VERSION="3.2.0"
+    KATA_URL="https://github.com/kata-containers/kata-containers/releases/download/${KATA_VERSION}"
+    
+    # Download and extract Kata
+    echo -e "${CYAN}Downloading Kata Containers ${KATA_VERSION}...${NC}"
+    mkdir -p /opt/kata
+    cd /opt/kata
+    
+    # Download kata-static bundle (includes Firecracker)
+    curl -LO "${KATA_URL}/kata-static-${KATA_VERSION}-${KATA_ARCH}.tar.xz"
+    tar -xf "kata-static-${KATA_VERSION}-${KATA_ARCH}.tar.xz"
+    
+    # Link binaries
+    ln -sf /opt/kata/bin/kata-runtime /usr/local/bin/kata-runtime
+    ln -sf /opt/kata/bin/kata-collect-data.sh /usr/local/bin/kata-collect-data.sh
+    ln -sf /opt/kata/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2
+    
+    # Create Kata configuration for Firecracker
+    mkdir -p /etc/kata-containers
+    cat > /etc/kata-containers/configuration-fc.toml <<'KATAEOF'
+# Kata Containers configuration for Firecracker hypervisor
+[hypervisor.firecracker]
+path = "/opt/kata/bin/firecracker"
+kernel = "/opt/kata/share/kata-containers/vmlinux.container"
+image = "/opt/kata/share/kata-containers/kata-containers.img"
+
+# Firecracker requires a jailer for security
+jailer_path = "/opt/kata/bin/jailer"
+enable_annotations = ["default_memory", "default_vcpus"]
+
+# Default resources (can be overridden per container)
+default_vcpus = 1
+default_memory = 512
+
+# Use vhost-user for better I/O performance
+enable_iothreads = true
+block_device_driver = "virtio-blk"
+
+# Security settings
+disable_guest_seccomp = false
+enable_debug = false
+
+[runtime]
+enable_cpu_memory_hotplug = true
+internetworking_model = "tcfilter"
+sandbox_cgroup_only = true
+
+[agent.kata]
+trace = false
+KATAEOF
+
+    # Verify Kata installation
+    if kata-runtime --version > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Kata Containers installed successfully${NC}"
+        kata-runtime --version
+    else
+        echo -e "${RED}✗ Kata Containers installation failed${NC}"
+        exit 1
+    fi
+    
+    # Check Firecracker
+    if /opt/kata/bin/firecracker --version > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Firecracker available${NC}"
+        /opt/kata/bin/firecracker --version
+    fi
+    
+    echo ""
+    STEP_NUM=$((STEP_NUM + 1))
+    echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Configuring containerd for Kata...${NC}"
+    
+    # Configure containerd for Kata runtime
+    mkdir -p /etc/containerd
+    
+    # Generate default containerd config if not exists
+    if [ ! -f /etc/containerd/config.toml ]; then
+        containerd config default > /etc/containerd/config.toml
+    fi
+    
+    # Add Kata runtime to containerd config
+    cat >> /etc/containerd/config.toml <<'CONTAINERDEOF'
+
+# Kata Containers with Firecracker runtime
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata]
+  runtime_type = "io.containerd.kata.v2"
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
+    ConfigPath = "/etc/kata-containers/configuration-fc.toml"
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-fc]
+  runtime_type = "io.containerd.kata-fc.v2"
+  privileged_without_host_devices = true
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-fc.options]
+    ConfigPath = "/etc/kata-containers/configuration-fc.toml"
+CONTAINERDEOF
+
+    # Restart containerd
+    systemctl restart containerd
+    echo -e "${GREEN}✓ containerd configured for Kata${NC}"
+    echo ""
+fi
+
+# =============================================================================
+# Next Step: Generate TLS Certificates
+# =============================================================================
+STEP_NUM=$((STEP_NUM + 1))
+echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Generating TLS certificates...${NC}"
 
 CERT_DIR="/etc/docker/certs"
 DAYS_VALID=3650
@@ -111,18 +281,46 @@ echo -e "${GREEN}TLS certificates generated${NC}"
 echo ""
 
 # =============================================================================
-# 3. Configure Docker Daemon
+# Configure Docker Daemon
 # =============================================================================
-echo -e "${YELLOW}[3/5] Configuring Docker daemon for TLS...${NC}"
+STEP_NUM=$((STEP_NUM + 1))
+echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Configuring Docker daemon for TLS...${NC}"
 
 # Backup existing config
 if [ -f /etc/docker/daemon.json ]; then
     cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
 fi
 
-# Write daemon config (WITHOUT hosts directive to avoid systemd conflicts)
-# The TCP listener is added via systemd override instead
-cat > /etc/docker/daemon.json <<EOF
+# Write daemon config with optional Kata runtime
+if [ "$INSTALL_KATA" = true ]; then
+    cat > /etc/docker/daemon.json <<EOF
+{
+  "tls": true,
+  "tlscacert": "$CERT_DIR/ca.pem",
+  "tlscert": "$CERT_DIR/server-cert.pem",
+  "tlskey": "$CERT_DIR/server-key.pem",
+  "tlsverify": true,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "storage-driver": "overlay2",
+  "runtimes": {
+    "kata": {
+      "path": "/usr/local/bin/kata-runtime",
+      "runtimeArgs": ["--config", "/etc/kata-containers/configuration-fc.toml"]
+    },
+    "kata-fc": {
+      "path": "/usr/local/bin/kata-runtime",
+      "runtimeArgs": ["--config", "/etc/kata-containers/configuration-fc.toml"]
+    }
+  }
+}
+EOF
+    echo -e "${CYAN}Docker configured with Kata/Firecracker runtimes${NC}"
+else
+    cat > /etc/docker/daemon.json <<EOF
 {
   "tls": true,
   "tlscacert": "$CERT_DIR/ca.pem",
@@ -137,6 +335,7 @@ cat > /etc/docker/daemon.json <<EOF
   "storage-driver": "overlay2"
 }
 EOF
+fi
 
 # Create systemd override to add TCP listener alongside unix socket
 # This keeps the unix socket working for local SSH/console access
@@ -172,9 +371,10 @@ echo -e "${GREEN}Docker daemon configured for TLS${NC}"
 echo ""
 
 # =============================================================================
-# 4. Configure Firewall
+# Configure Firewall
 # =============================================================================
-echo -e "${YELLOW}[4/5] Configuring firewall...${NC}"
+STEP_NUM=$((STEP_NUM + 1))
+echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Configuring firewall...${NC}"
 
 # Try UFW first (Ubuntu/Debian)
 if command -v ufw &> /dev/null; then
@@ -196,9 +396,10 @@ fi
 echo ""
 
 # =============================================================================
-# 5. Test Connection
+# Test Connection
 # =============================================================================
-echo -e "${YELLOW}[5/5] Testing TLS connection...${NC}"
+STEP_NUM=$((STEP_NUM + 1))
+echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Testing TLS connection...${NC}"
 
 sleep 2  # Wait for Docker to fully restart
 
@@ -273,3 +474,19 @@ echo ""
 echo -e "${BLUE}Summary:${NC}"
 echo "  - Local access (SSH/console): docker commands work normally"
 echo "  - Remote access (TLS): tcp://${PUBLIC_IP}:2376"
+
+if [ "$INSTALL_KATA" = true ]; then
+    echo ""
+    echo -e "${CYAN}Kata/Firecracker Usage:${NC}"
+    echo "  - Run containers with microVM isolation:"
+    echo "    docker run --runtime=kata -it alpine sh"
+    echo ""
+    echo "  - In Rexec, set CONTAINER_RUNTIME=kata to use Firecracker VMs"
+    echo "  - Each terminal will run in its own microVM for full isolation"
+    echo ""
+    echo -e "${CYAN}Benefits:${NC}"
+    echo "  - True VM-level isolation (not just container namespaces)"
+    echo "  - Dedicated kernel per terminal"
+    echo "  - Near-container boot times (~125ms)"
+    echo "  - Better security for multi-tenant environments"
+fi
