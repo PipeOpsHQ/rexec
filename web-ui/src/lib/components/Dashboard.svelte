@@ -10,7 +10,7 @@
     } from "$stores/containers";
     import { terminal, connectedContainerIds } from "$stores/terminal";
     import { toast } from "$stores/toast";
-    import { formatRelativeTime } from "$utils/api";
+    import { formatRelativeTime, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import ConfirmModal from "./ConfirmModal.svelte";
     import TerminalSettingsModal from "./TerminalSettingsModal.svelte";
     import PlatformIcon from "./icons/PlatformIcon.svelte";
@@ -264,24 +264,6 @@
         if (lower.includes("oracle")) return "oracle";
         
         return "linux";
-    }
-
-    // Format memory to show GB for values >= 1024MB
-    function formatMemory(mb: number): string {
-        if (mb >= 1024) {
-            const gb = mb / 1024;
-            return gb % 1 === 0 ? `${gb}G` : `${gb.toFixed(1)}G`;
-        }
-        return `${mb}M`;
-    }
-
-    // Format storage to show GB for values >= 1024MB
-    function formatStorage(mb: number): string {
-        if (mb >= 1024) {
-            const gb = mb / 1024;
-            return gb % 1 === 0 ? `${gb}G` : `${gb.toFixed(1)}G`;
-        }
-        return `${mb}M`;
     }
 
     // Reactive
@@ -563,7 +545,7 @@
                                 >
                                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                                 </svg>
-                                {(container.resources.cpu_shares / 1000).toFixed(1)} vCPU
+                                                                {formatCPU(container.resources.cpu_shares)}
                             </span>
                             <span class="resource-divider">/</span>
                             <span class="resource-spec">

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
     import { fade, scale } from "svelte/transition";
-    import { api } from "$utils/api";
+    import { api, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import { toast } from "$stores/toast";
     import { containers, type Container } from "$stores/containers";
 
@@ -45,24 +45,6 @@
     // Reset initialized flag when modal closes
     $: if (!show) {
         initialized = false;
-    }
-
-    // Format memory to show GB for values >= 1024MB
-    function formatMemory(mb: number): string {
-        if (mb >= 1024) {
-            const gb = mb / 1024;
-            return gb % 1 === 0 ? `${gb}GB` : `${gb.toFixed(1)}GB`;
-        }
-        return `${mb}MB`;
-    }
-
-    // Format disk to show GB for values >= 1024MB
-    function formatDisk(mb: number): string {
-        if (mb >= 1024) {
-            const gb = mb / 1024;
-            return gb % 1 === 0 ? `${gb}GB` : `${gb.toFixed(1)}GB`;
-        }
-        return `${mb}MB`;
     }
 
     // Handler functions for sliders
@@ -195,7 +177,7 @@
                 <div class="form-group">
                     <label for="cpu">
                         CPU
-                        <span class="value-display">{(cpuShares / 1000).toFixed(1)} vCPU</span>
+                        <span class="value-display">{formatCPU(cpuShares)}</span>
                     </label>
                     <input
                         id="cpu"
@@ -208,15 +190,15 @@
                         class="slider"
                     />
                     <div class="range-labels">
-                        <span>{(resourceLimits.minCPU / 1000).toFixed(1)} vCPU</span>
-                        <span>{(resourceLimits.maxCPU / 1000).toFixed(1)} vCPU</span>
+                        <span>{formatCPU(resourceLimits.minCPU)}</span>
+                        <span>{formatCPU(resourceLimits.maxCPU)}</span>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="disk">
                         Disk
-                        <span class="value-display">{formatDisk(diskMB)}</span>
+                        <span class="value-display">{formatStorage(diskMB)}</span>
                     </label>
                     <input
                         id="disk"
@@ -229,8 +211,8 @@
                         class="slider"
                     />
                     <div class="range-labels">
-                        <span>{formatDisk(resourceLimits.minDisk)}</span>
-                        <span>{formatDisk(resourceLimits.maxDisk)}</span>
+                        <span>{formatStorage(resourceLimits.minDisk)}</span>
+                        <span>{formatStorage(resourceLimits.maxDisk)}</span>
                     </div>
                 </div>
 

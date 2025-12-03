@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
     import { containers, type ProgressEvent } from "$stores/containers";
-    import { api } from "$utils/api";
+    import { api, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import PlatformIcon from "./icons/PlatformIcon.svelte";
 
     export let compact = false;
@@ -304,7 +304,7 @@
                     <span class="toggle-icon">{showResources ? '▼' : '▶'}</span>
                     <h4>Resources</h4>
                     <span class="resource-preview">
-                        {memoryMB}MB / {cpuShares} CPU / {diskMB}MB
+                        {formatMemory(memoryMB)} / {formatCPU(cpuShares)} / {formatStorage(diskMB)}
                     </span>
                 </button>
                 
@@ -313,7 +313,7 @@
                         <div class="resource-row">
                             <label>
                                 <span class="resource-label">Memory</span>
-                                <span class="resource-value">{memoryMB} MB</span>
+                                <span class="resource-value">{formatMemory(memoryMB)}</span>
                             </label>
                             <input 
                                 type="range" 
@@ -324,15 +324,15 @@
                                 step="128"
                             />
                             <div class="resource-range">
-                                <span>{resourceLimits.minMemory}MB</span>
-                                <span>{resourceLimits.maxMemory}MB</span>
+                                <span>{formatMemory(resourceLimits.minMemory)}</span>
+                                <span>{formatMemory(resourceLimits.maxMemory)}</span>
                             </div>
                         </div>
                         
                         <div class="resource-row">
                             <label>
                                 <span class="resource-label">CPU</span>
-                                <span class="resource-value">{cpuShares} shares</span>
+                                <span class="resource-value">{formatCPU(cpuShares)}</span>
                             </label>
                             <input 
                                 type="range" 
@@ -343,15 +343,15 @@
                                 step="128"
                             />
                             <div class="resource-range">
-                                <span>{resourceLimits.minCPU}</span>
-                                <span>{resourceLimits.maxCPU}</span>
+                                <span>{formatCPU(resourceLimits.minCPU)}</span>
+                                <span>{formatCPU(resourceLimits.maxCPU)}</span>
                             </div>
                         </div>
                         
                         <div class="resource-row">
                             <label>
                                 <span class="resource-label">Disk</span>
-                                <span class="resource-value">{diskMB} MB</span>
+                                <span class="resource-value">{formatStorage(diskMB)}</span>
                             </label>
                             <input 
                                 type="range" 
@@ -362,8 +362,8 @@
                                 step="256"
                             />
                             <div class="resource-range">
-                                <span>{resourceLimits.minDisk}MB</span>
-                                <span>{resourceLimits.maxDisk}MB</span>
+                                <span>{formatStorage(resourceLimits.minDisk)}</span>
+                                <span>{formatStorage(resourceLimits.maxDisk)}</span>
                             </div>
                         </div>
                         

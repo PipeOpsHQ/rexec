@@ -2,6 +2,7 @@
     import { onMount, onDestroy, tick } from "svelte";
     import { terminal, type TerminalSession } from "$stores/terminal";
     import { toast } from "$stores/toast";
+    import { formatMemoryBytes } from "$utils/api";
 
     export let session: TerminalSession;
 
@@ -146,7 +147,7 @@
                     </span>
                     <span class="stat-divider">|</span>
                     <span class="stat-item" title="Memory Usage">
-                        MEM: {(session.stats.memory / 1024 / 1024).toFixed(0)}MB
+                        MEM: {formatMemoryBytes(session.stats.memory)}
                     </span>
                 </span>
             {/if}

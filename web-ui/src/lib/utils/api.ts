@@ -321,3 +321,50 @@ export function getWebSocketUrl(path: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}${path}`;
 }
+
+// ========== Resource Formatting Utilities ==========
+
+/**
+ * Format memory value (in MB) to human readable string
+ * Shows GB for values >= 1024MB
+ */
+export function formatMemory(mb: number): string {
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return gb % 1 === 0 ? `${gb}G` : `${gb.toFixed(1)}G`;
+  }
+  return `${mb}M`;
+}
+
+/**
+ * Format storage value (in MB) to human readable string  
+ * Shows GB for values >= 1024MB
+ */
+export function formatStorage(mb: number): string {
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return gb % 1 === 0 ? `${gb}G` : `${gb.toFixed(1)}G`;
+  }
+  return `${mb}M`;
+}
+
+/**
+ * Format CPU shares to vCPU string
+ * Converts cpu_shares (1000 = 1 vCPU) to readable format
+ */
+export function formatCPU(cpuShares: number): string {
+  const vcpu = cpuShares / 1000;
+  return vcpu % 1 === 0 ? `${vcpu} vCPU` : `${vcpu.toFixed(1)} vCPU`;
+}
+
+/**
+ * Format memory bytes to readable string (for live stats)
+ */
+export function formatMemoryBytes(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return gb % 1 === 0 ? `${gb}G` : `${gb.toFixed(1)}G`;
+  }
+  return `${Math.round(mb)}M`;
+}
