@@ -417,9 +417,20 @@ function createTerminalStore() {
       const FLUSH_INTERVAL = 16; // ~60fps
       const MAX_BUFFER_SIZE = 64 * 1024; // 64KB max before force flush
       
+      // Filter corrupted mouse tracking data from output
+      // Pattern matches raw mouse coord spam like "35;166;10M35;165;10M..."
+      const sanitizeOutput = (data: string): string => {
+        // Remove mouse tracking spam (fragmented SGR mouse sequences)
+        return data.replace(/(?:\d+;\d+;\d+[Mm])+/g, '');
+      };
+      
       const flushBuffer = () => {
         if (outputBuffer && session.terminal) {
-          session.terminal.write(outputBuffer);
+          // Sanitize before writing to terminal
+          const sanitized = sanitizeOutput(outputBuffer);
+          if (sanitized) {
+            session.terminal.write(sanitized);
+          }
           outputBuffer = '';
         }
         flushTimeout = null;
@@ -627,14 +638,21 @@ function createTerminalStore() {
 
       // Filter out mouse tracking sequences (SGR mouse mode: \x1b[<...M or \x1b[<...m)
       // These are sent by xterm.js when mouse tracking is enabled by applications
-      // but can be noisy and cause issues when not needed
+      // Also filter fragmented mouse data that might appear without the escape prefix
+      // Pattern: \x1b[<button;x;y M/m  (complete sequence)
+      // Fragmented: just digits;digits;digitsM (incomplete/split sequence)
       const mouseTrackingRegex = /\x1b\[<[\d;]+[Mm]/g;
+      const fragmentedMouseRegex = /(?:^|(?<=\s))[\d]+;[\d]+;[\d]+[Mm](?:\s|$)?/g;
+      // Also catch pure mouse coordinate spam (e.g., "35;166;10M35;165;10M...")
+      const mouseSpamRegex = /(?:\d+;\d+;\d+[Mm])+/g;
       
       session.terminal.onData((data) => {
         if (ws.readyState !== WebSocket.OPEN) return;
 
         // Filter out mouse tracking sequences to reduce noise
-        const filteredData = data.replace(mouseTrackingRegex, '');
+        let filteredData = data.replace(mouseTrackingRegex, '');
+        // Filter out fragmented/spam mouse data
+        filteredData = filteredData.replace(mouseSpamRegex, '');
         if (!filteredData) return; // Skip if only mouse data
         
         // For large pastes, chunk the data
