@@ -264,37 +264,32 @@ show_system_stats() {
     
     # Container Disk info - use allocated quota from environment
     local disk_quota="${REXEC_DISK_QUOTA:-2G}"
-    # Get container's actual disk usage from overlay filesystem
+    # Get container's writable layer usage (not host disk)
     local disk_used="N/A"
-    # Try to get disk usage from df on root overlay
-    local df_output=""
-    if command -v df >/dev/null 2>&1; then
-        # Get used space on root filesystem (container overlay)
-        df_output=$(df -h / 2>/dev/null | tail -1 | awk '{print $3}')
-        if [ -n "$df_output" ] && [ "$df_output" != "-" ]; then
-            disk_used="$df_output"
-        fi
-    fi
-    # Fallback: estimate from common directories if df fails
-    if [ "$disk_used" = "N/A" ]; then
-        local used_kb=0
-        for dir in /root /home /var /opt /usr/local; do
-            if [ -d "$dir" ]; then
-                local dir_size=$(du -sk "$dir" 2>/dev/null | awk '{print $1}')
-                if [ -n "$dir_size" ]; then
-                    used_kb=$((used_kb + dir_size))
-                fi
-            fi
-        done
-        if [ "$used_kb" -gt 0 ]; then
-            if [ "$used_kb" -ge 1048576 ]; then
-                disk_used=$(awk "BEGIN {printf \"%.1fG\", $used_kb / 1048576}")
-            elif [ "$used_kb" -ge 1024 ]; then
-                disk_used=$(awk "BEGIN {printf \"%.0fM\", $used_kb / 1024}")
-            else
-                disk_used="${used_kb}K"
+    local used_kb=0
+    
+    # Calculate actual container usage from writable directories only
+    # These are the typical paths where container writes happen
+    for dir in /root /home /tmp /var/log /var/cache /opt /usr/local/bin; do
+        if [ -d "$dir" ]; then
+            local dir_size=$(du -sk "$dir" 2>/dev/null | awk '{print $1}')
+            if [ -n "$dir_size" ] && [ "$dir_size" -gt 0 ] 2>/dev/null; then
+                used_kb=$((used_kb + dir_size))
             fi
         fi
+    done
+    
+    # Format the used space
+    if [ "$used_kb" -gt 0 ]; then
+        if [ "$used_kb" -ge 1048576 ]; then
+            disk_used=$(awk "BEGIN {printf \"%.1fG\", $used_kb / 1048576}")
+        elif [ "$used_kb" -ge 1024 ]; then
+            disk_used=$(awk "BEGIN {printf \"%.0fM\", $used_kb / 1024}")
+        else
+            disk_used="${used_kb}K"
+        fi
+    else
+        disk_used="<1M"
     fi
     
     # Memory limit - prefer environment variable, clean up format
