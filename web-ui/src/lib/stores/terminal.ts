@@ -24,6 +24,8 @@ export interface SplitPane {
   webglAddon: WebglAddon | null;
   resizeObserver: ResizeObserver | null;
   ws: WebSocket | null; // Each split pane has its own independent WebSocket
+  reconnectAttempts: number;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
 
 export interface SplitPaneLayout {
@@ -1278,6 +1280,8 @@ function createTerminalStore() {
         webglAddon: null,
         resizeObserver: null,
         ws: null, // Each pane gets its own WebSocket
+        reconnectAttempts: 0,
+        reconnectTimer: null,
       };
 
       // Update session with new pane
@@ -1340,11 +1344,33 @@ function createTerminalStore() {
       const authToken = get(token);
       if (!authToken) return;
 
+      // Prevent duplicate connections
+      if (
+        pane.ws &&
+        (pane.ws.readyState === WebSocket.OPEN ||
+          pane.ws.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
+
+      // Clear existing timer
+      if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
+
       // Create independent WebSocket connection for this pane
       const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
+        // Reset reconnect attempts on successful connection
+        updateSession(sessionId, (s) => {
+          const newPanes = new Map(s.splitPanes);
+          const p = newPanes.get(paneId);
+          if (p) {
+            newPanes.set(paneId, { ...p, reconnectAttempts: 0 });
+          }
+          return { ...s, splitPanes: newPanes };
+        });
+
         // Send initial resize
         ws.send(
           JSON.stringify({
@@ -1403,12 +1429,77 @@ function createTerminalStore() {
         }
       };
 
-      ws.onclose = () => {
-        pane.terminal.writeln("\r\n\x1b[33m› Split session disconnected\x1b[0m");
+      ws.onclose = (event) => {
+        const currentSession = getState().sessions.get(sessionId);
+        if (!currentSession) return;
+        
+        const currentPane = currentSession.splitPanes.get(paneId);
+        if (!currentPane) return;
+
+        // Determine if we should attempt reconnection
+        const isIntentionalClose = event.code === 1000;
+        const isContainerGone = event.code >= 4000;
+        const maxAttemptsReached = currentPane.reconnectAttempts >= WS_MAX_RECONNECT;
+        
+        const shouldReconnect = !isIntentionalClose && !isContainerGone && !maxAttemptsReached;
+
+        if (shouldReconnect) {
+          const attemptNum = currentPane.reconnectAttempts + 1;
+          
+          // Calculate exponential backoff delay
+          const baseDelay = WS_RECONNECT_BASE_DELAY;
+          const delay = Math.min(baseDelay * Math.pow(1.5, currentPane.reconnectAttempts), WS_RECONNECT_MAX_DELAY);
+
+          // Update reconnect attempts
+          updateSession(sessionId, (s) => {
+            const newPanes = new Map(s.splitPanes);
+            const p = newPanes.get(paneId);
+            if (p) {
+              newPanes.set(paneId, { ...p, reconnectAttempts: attemptNum });
+            }
+            return { ...s, splitPanes: newPanes };
+          });
+
+          // Only show message after silent threshold is exceeded
+          if (attemptNum > WS_SILENT_RECONNECT_THRESHOLD) {
+            pane.terminal.writeln(
+              `\r\n\x1b[33m⟳ Split session reconnecting (${attemptNum}/${WS_MAX_RECONNECT})...\x1b[0m`,
+            );
+          } else {
+            console.log(`[Terminal] Split pane silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${paneId}`);
+          }
+
+          const timer = setTimeout(() => {
+            this.connectSplitPaneWebSocket(sessionId, paneId);
+          }, delay);
+
+          // Save timer
+          updateSession(sessionId, (s) => {
+            const newPanes = new Map(s.splitPanes);
+            const p = newPanes.get(paneId);
+            if (p) {
+              newPanes.set(paneId, { ...p, reconnectTimer: timer });
+            }
+            return { ...s, splitPanes: newPanes };
+          });
+        } else {
+          // Show appropriate message based on reason
+          if (isContainerGone) {
+            pane.terminal.writeln(
+              "\r\n\x1b[31m✖ Split session ended. Container may have been stopped or removed.\x1b[0m",
+            );
+          } else if (maxAttemptsReached) {
+            pane.terminal.writeln(
+              "\r\n\x1b[31m✖ Split session connection lost after multiple attempts.\x1b[0m",
+            );
+          } else {
+             pane.terminal.writeln("\r\n\x1b[33m› Split session disconnected\x1b[0m");
+          }
+        }
       };
 
       ws.onerror = () => {
-        console.log("[Terminal] Split pane WebSocket error");
+        console.log("[Terminal] Split pane WebSocket error - will attempt reconnect");
       };
 
       // Handle terminal input for split pane
@@ -1446,6 +1537,7 @@ function createTerminalStore() {
       if (!pane) return;
 
       // Cleanup pane resources
+      if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
       if (pane.ws) pane.ws.close();
       if (pane.resizeObserver) pane.resizeObserver.disconnect();
       if (pane.webglAddon) pane.webglAddon.dispose();

@@ -3,12 +3,21 @@
     import { get } from "svelte/store";
     import { terminal, type TerminalSession } from "$stores/terminal";
     import { recordings } from "$stores/recordings";
+    import { collab } from "$stores/collab";
     import { toast } from "$stores/toast";
     import { token } from "$stores/auth";
     import { formatMemoryBytes } from "$utils/api";
     import SplitTerminalView from "./SplitTerminalView.svelte";
 
     export let session: TerminalSession;
+    
+    // Check if current user is a guest in this session
+    $: isGuest = session.isCollabSession === true;
+    $: isViewOnly = session.collabMode === 'view';
+    
+    // Check if this session has active sharing (for pulsing indicator)
+    $: hasActiveSharing = $collab.activeSession?.containerId === session.containerId && 
+                          $collab.participants.length > 0;
 
     const dispatch = createEventDispatcher();
 
@@ -444,75 +453,81 @@
                 </button>
             {/if}
             
-            <!-- Primary Actions (Icons Only) -->
-            <button class="toolbar-btn icon-btn" on:click={handleSplitHorizontal} title="Split Horizontal">
-                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                    <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1"/>
-                </svg>
-            </button>
-            <button class="toolbar-btn icon-btn" on:click={handleSplitVertical} title="Split Vertical">
-                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                    <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1"/>
-                </svg>
-            </button>
-            
-            <span class="toolbar-divider"></span>
-            
-            <!-- Recording -->
-            <button
-                class="toolbar-btn icon-btn"
-                class:recording={isRecording}
-                on:click={handleRecording}
-                title={isRecording ? "Stop Recording" : "Start Recording"}
-            >
-                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                    {#if isRecording}
-                        <rect x="4" y="4" width="8" height="8" rx="1"/>
-                    {:else}
-                        <circle cx="8" cy="8" r="5"/>
-                    {/if}
-                </svg>
-            </button>
-            
-            <!-- Collaborate -->
-            <button
-                class="toolbar-btn icon-btn collab-btn"
-                on:click={handleCollab}
-                title="Collaborate"
-            >
-                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                    <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
-                    <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
-                </svg>
-            </button>
-            
-            <!-- File Upload -->
-            <input 
-                type="file" 
-                bind:this={fileInput} 
-                on:change={handleFileUpload}
-                style="display: none;"
-            />
-            <button
-                class="toolbar-btn icon-btn upload-btn"
-                on:click={handleUploadClick}
-                disabled={isUploading || !isConnected}
-                title="Upload File to Terminal"
-            >
-                {#if isUploading}
-                    <div class="mini-spinner"></div>
-                {:else}
+            <!-- Primary Actions (Icons Only) - Only for owners -->
+            {#if !isGuest}
+                <button class="toolbar-btn icon-btn" on:click={handleSplitHorizontal} title="Split Horizontal">
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 0a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 12.293V.5A.5.5 0 0 1 8 0z" transform="rotate(180 8 8)"/>
-                        <path d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                        <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                        <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1"/>
                     </svg>
-                {/if}
-            </button>
+                </button>
+                <button class="toolbar-btn icon-btn" on:click={handleSplitVertical} title="Split Vertical">
+                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                        <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1"/>
+                    </svg>
+                </button>
+                
+                <span class="toolbar-divider"></span>
+                
+                <!-- Recording - Owner only -->
+                <button
+                    class="toolbar-btn icon-btn"
+                    class:recording={isRecording}
+                    on:click={handleRecording}
+                    title={isRecording ? "Stop Recording" : "Start Recording"}
+                >
+                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
+                        {#if isRecording}
+                            <rect x="4" y="4" width="8" height="8" rx="1"/>
+                        {:else}
+                            <circle cx="8" cy="8" r="5"/>
+                        {/if}
+                    </svg>
+                </button>
+                
+                <!-- Collaborate - Owner only (with pulsing when active) -->
+                <button
+                    class="toolbar-btn icon-btn collab-btn"
+                    class:has-participants={hasActiveSharing}
+                    on:click={handleCollab}
+                    title={hasActiveSharing ? `Collaborate (${$collab.participants.length} connected)` : "Collaborate"}
+                >
+                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                        <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                        <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                    </svg>
+                    {#if hasActiveSharing}
+                        <span class="collab-badge">{$collab.participants.length}</span>
+                    {/if}
+                </button>
+                
+                <!-- File Upload - Owner only -->
+                <input 
+                    type="file" 
+                    bind:this={fileInput} 
+                    on:change={handleFileUpload}
+                    style="display: none;"
+                />
+                <button
+                    class="toolbar-btn icon-btn upload-btn"
+                    on:click={handleUploadClick}
+                    disabled={isUploading || !isConnected}
+                    title="Upload File to Terminal"
+                >
+                    {#if isUploading}
+                        <div class="mini-spinner"></div>
+                    {:else}
+                        <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 0a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 12.293V.5A.5.5 0 0 1 8 0z" transform="rotate(180 8 8)"/>
+                            <path d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                        </svg>
+                    {/if}
+                </button>
+            {/if}
             
-            <!-- File Download -->
+            <!-- File Download - Available to all -->
             <button
                 class="toolbar-btn icon-btn download-btn"
                 on:click={handleDownloadClick}
@@ -540,13 +555,15 @@
                         style="top: {menuPosition.top}px; right: {menuPosition.right}px;"
                         on:mouseleave={() => showMoreMenu = false}
                     >
-                        <button class="menu-item" on:click={() => { handleCopyLink(); showMoreMenu = false; }}>
-                            <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
-                                <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
-                            </svg>
-                            Copy Link
-                        </button>
+                        {#if !isGuest}
+                            <button class="menu-item" on:click={() => { handleCopyLink(); showMoreMenu = false; }}>
+                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
+                                    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+                                </svg>
+                                Copy Link
+                            </button>
+                        {/if}
                         <button class="menu-item" on:click={() => { handleCopy(); showMoreMenu = false; }}>
                             <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
@@ -554,27 +571,31 @@
                             </svg>
                             Copy Selection
                         </button>
-                        <button class="menu-item" on:click={() => { handlePaste(); showMoreMenu = false; }}>
-                            <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M3.5 2a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5H12a.5.5 0 0 1 0-1h.5A1.5 1.5 0 0 1 14 2.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-12A1.5 1.5 0 0 1 3.5 1H4a.5.5 0 0 1 0 1h-.5z"/>
-                                <path d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5z"/>
-                            </svg>
-                            Paste
-                        </button>
-                        <button class="menu-item" on:click={() => { handleClear(); showMoreMenu = false; }}>
-                            <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                            </svg>
-                            Clear Terminal
-                        </button>
-                        <div class="menu-divider"></div>
-                        <button class="menu-item" on:click={() => { handleRecordingsPanel(); showMoreMenu = false; }}>
-                            <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z"/>
-                            </svg>
-                            View Recordings
-                        </button>
+                        {#if !isViewOnly}
+                            <button class="menu-item" on:click={() => { handlePaste(); showMoreMenu = false; }}>
+                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M3.5 2a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5H12a.5.5 0 0 1 0-1h.5A1.5 1.5 0 0 1 14 2.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-12A1.5 1.5 0 0 1 3.5 1H4a.5.5 0 0 1 0 1h-.5z"/>
+                                    <path d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5z"/>
+                                </svg>
+                                Paste
+                            </button>
+                            <button class="menu-item" on:click={() => { handleClear(); showMoreMenu = false; }}>
+                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                </svg>
+                                Clear Terminal
+                            </button>
+                        {/if}
+                        {#if !isGuest}
+                            <div class="menu-divider"></div>
+                            <button class="menu-item" on:click={() => { handleRecordingsPanel(); showMoreMenu = false; }}>
+                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z"/>
+                                </svg>
+                                View Recordings
+                            </button>
+                        {/if}
                     </div>
                 {/if}
             </div>
@@ -986,6 +1007,66 @@
         border-color: var(--green);
         background: rgba(0, 255, 136, 0.1);
     }
+    
+    /* Collab button with active participants - pulsing effect */
+    .toolbar-btn.collab-btn.has-participants {
+        color: var(--green);
+        border-color: var(--green);
+        background: rgba(0, 255, 136, 0.15);
+        animation: collab-pulse 2s ease-in-out infinite;
+        position: relative;
+    }
+    
+    .toolbar-btn.collab-btn.has-participants::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: 4px;
+        border: 1px solid var(--green);
+        animation: collab-ring 2s ease-in-out infinite;
+        pointer-events: none;
+    }
+    
+    @keyframes collab-pulse {
+        0%, 100% { 
+            background: rgba(0, 255, 136, 0.15);
+            box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4);
+        }
+        50% { 
+            background: rgba(0, 255, 136, 0.25);
+            box-shadow: 0 0 8px 2px rgba(0, 255, 136, 0.3);
+        }
+    }
+    
+    @keyframes collab-ring {
+        0%, 100% { 
+            opacity: 0.3;
+            transform: scale(1);
+        }
+        50% { 
+            opacity: 0.6;
+            transform: scale(1.05);
+        }
+    }
+    
+    /* Participant count badge */
+    .collab-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        background: var(--green);
+        color: var(--bg);
+        font-size: 9px;
+        font-weight: 700;
+        min-width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 3px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
 
     /* Upload Button */
     .toolbar-btn.upload-btn:hover {
@@ -1013,6 +1094,7 @@
         padding: 6px;
         min-width: 28px;
         justify-content: center;
+        position: relative;
     }
 
     .toolbar-btn.icon-btn .toolbar-icon {

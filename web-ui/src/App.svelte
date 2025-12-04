@@ -251,7 +251,15 @@
 
     // React to auth changes (only after initialization to prevent race conditions)
     $: if (isInitialized && $isAuthenticated && currentView === "landing") {
-        currentView = "dashboard";
+        const pendingJoin = localStorage.getItem("pendingJoinCode");
+        if (pendingJoin) {
+            console.log("[App] Found pending join code, redirecting to join view");
+            localStorage.removeItem("pendingJoinCode");
+            joinCode = pendingJoin;
+            currentView = "join";
+        } else {
+            currentView = "dashboard";
+        }
         containers.fetchContainers();
         startAutoRefresh(); // Start polling when authenticated
     }
