@@ -142,23 +142,23 @@ HISTFILE=~/.zsh_history
 HISTSIZE=10000
 SAVEHIST=10000
 
-# Autosuggestions (detect path)
-if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
-    source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-elif [ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
-    source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-fi
+# Autosuggestions (detect path) - Disabled for input stability
+# if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+#     source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+# elif [ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
+#     source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+# fi
 
-# Syntax Highlighting (detect path)
-if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
-    source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-elif [ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
-    source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-fi
+# Syntax Highlighting (detect path) - Disabled for input stability
+# if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+#     source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# elif [ -f /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
+#     source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+# fi
 
 # Bind keys for autosuggestions
-bindkey '^ ' autosuggest-accept
-bindkey '^[[C' autosuggest-accept # Right arrow
+# bindkey '^ ' autosuggest-accept
+# bindkey '^[[C' autosuggest-accept # Right arrow
 
 # Prompt
 PROMPT='%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f %(?:%F{green}➜:%F{red}➜) %f'
