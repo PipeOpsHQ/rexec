@@ -322,14 +322,18 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 		JoinedAt:  time.Now(),
 	})
 
-	// Broadcast join message
-	session.broadcast <- CollabMessage{
+	// Broadcast join message (non-blocking)
+	select {
+	case session.broadcast <- CollabMessage{
 		Type:      "join",
 		UserID:    userID.(string),
 		Username:  username.(string),
 		Role:      role,
 		Color:     participant.Color,
 		Timestamp: time.Now().UnixMilli(),
+	}:
+	default:
+		log.Printf("Collab broadcast channel full, dropping join message for %s", userID)
 	}
 
 	// Send current participants list
@@ -343,11 +347,16 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 
 		h.store.RemoveCollabParticipant(c.Request.Context(), session.ID, userID.(string))
 
-		session.broadcast <- CollabMessage{
+		// Broadcast leave message (non-blocking)
+		select {
+		case session.broadcast <- CollabMessage{
 			Type:      "leave",
 			UserID:    userID.(string),
 			Username:  username.(string),
 			Timestamp: time.Now().UnixMilli(),
+		}:
+		default:
+			log.Printf("Collab broadcast channel full, dropping leave message for %s", userID)
 		}
 
 		conn.Close()
@@ -378,7 +387,10 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 		case "input":
 			// Only allow input from owners and editors
 			if role == "owner" || role == "editor" {
-				session.broadcast <- msg
+				select {
+				case session.broadcast <- msg:
+				default:
+				}
 			}
 
 		case "selection":
@@ -386,7 +398,12 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 			h.broadcastExcept(session, msg, userID.(string))
 
 		default:
-			session.broadcast <- msg
+			// Non-blocking broadcast
+			select {
+			case session.broadcast <- msg:
+			default:
+				// Channel full, drop message to prevent blocking
+			}
 		}
 	}
 }
