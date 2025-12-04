@@ -491,10 +491,11 @@ function createTerminalStore() {
       const MAX_BUFFER_SIZE = 64 * 1024; // 64KB max before force flush
       
       // Filter corrupted mouse tracking data from output
-      // Pattern matches raw mouse coord spam like "35;166;10M35;165;10M..."
+      // Pattern matches raw mouse coord spam like "35;166;10M35;165;10M..." and full sequences
       const sanitizeOutput = (data: string): string => {
         // Remove mouse tracking spam (fragmented SGR mouse sequences)
-        return data.replace(/(?:\d+;\d+;\d+[Mm])+/g, '');
+        // Includes handling for the CSI header \x1b[< to avoid leaving dangling escape codes
+        return data.replace(/(?:\x1b\[<)?(?:\d+;\d+;\d+[Mm])+/g, '');
       };
       
       const flushBuffer = () => {
