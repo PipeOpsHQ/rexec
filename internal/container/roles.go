@@ -160,8 +160,8 @@ SAVEHIST=10000
 # bindkey '^ ' autosuggest-accept
 # bindkey '^[[C' autosuggest-accept # Right arrow
 
-# Prompt
-PROMPT='%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f %(?:%F{green}➜:%F{red}➜) %f'
+# Prompt - commented out to fix xterm parsing errors
+# PROMPT='%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f %(?:%F{green}➜:%F{red}➜) %f'
 
 # Aliases
 alias ll='ls -alF'
