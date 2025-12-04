@@ -93,10 +93,12 @@
         { name: "rocky", display_name: "Rocky Linux 9", description: "Enterprise Linux", category: "rhel", popular: true },
         { name: "alma", display_name: "AlmaLinux 9", description: "Enterprise Linux", category: "rhel" },
         { name: "oracle", display_name: "Oracle Linux 9", description: "Enterprise Linux", category: "rhel" },
+        { name: "mageia", display_name: "Mageia 9", description: "Mandriva fork", category: "rhel" },
         
         // Arch-based
         { name: "archlinux", display_name: "Arch Linux", description: "Rolling release Linux", category: "arch", popular: true },
         { name: "manjaro", display_name: "Manjaro", description: "User-friendly Arch", category: "arch" },
+        { name: "artix", display_name: "Artix Linux", description: "Arch without systemd", category: "arch" },
         
         // SUSE-based
         { name: "opensuse", display_name: "openSUSE Leap 15.6", description: "Enterprise Linux", category: "suse" },
@@ -107,20 +109,25 @@
         { name: "void", display_name: "Void Linux", description: "Independent with runit", category: "independent" },
         { name: "nixos", display_name: "NixOS", description: "Declarative configuration", category: "independent" },
         { name: "slackware", display_name: "Slackware 15.0", description: "Classic Unix-like", category: "independent" },
+        { name: "crux", display_name: "CRUX", description: "Lightweight, BSD-style", category: "independent" },
+        { name: "guix", display_name: "Guix System", description: "Transactional package manager", category: "independent" },
         
         // Minimal / Embedded
         { name: "alpine", display_name: "Alpine 3.21", description: "Lightweight Linux (6MB)", category: "minimal", popular: true },
         { name: "alpine-3.20", display_name: "Alpine 3.20", description: "Previous stable", category: "minimal" },
         { name: "busybox", display_name: "BusyBox 1.37", description: "Ultra-minimal (~2MB)", category: "minimal" },
+        { name: "tinycore", display_name: "TinyCore", description: "Micro Linux (~16MB)", category: "minimal" },
         
         // Cloud Provider
         { name: "amazonlinux", display_name: "Amazon Linux 2023", description: "Optimized for AWS", category: "cloud", popular: true },
         { name: "amazonlinux2", display_name: "Amazon Linux 2", description: "Legacy AWS (EOL 2025)", category: "cloud" },
+        { name: "azurelinux", display_name: "Azure Linux", description: "Microsoft Cloud Linux", category: "cloud" },
         
         // Specialized
         { name: "clearlinux", display_name: "Clear Linux", description: "Intel-optimized", category: "specialized" },
         { name: "photon", display_name: "VMware Photon OS 5.0", description: "Container-optimized", category: "specialized" },
         { name: "rancheros", display_name: "RancherOS (Alpine)", description: "Container-optimized", category: "specialized" },
+        { name: "neurodebian", display_name: "NeuroDebian", description: "Neuroscience Research", category: "specialized" },
         
         // Security
         { name: "kali", display_name: "Kali Linux", description: "Penetration testing", category: "security", popular: true },
@@ -129,6 +136,7 @@
         
         // Embedded / IoT
         { name: "raspberrypi", display_name: "Raspberry Pi OS", description: "Debian-based for ARM", category: "embedded" },
+        { name: "openwrt", display_name: "OpenWrt", description: "Router/Embedded OS", category: "embedded" },
         
         // macOS
         { name: "macos", display_name: "macOS", description: "Apple macOS (VM-based)", category: "macos", popular: true },

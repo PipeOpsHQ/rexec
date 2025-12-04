@@ -153,27 +153,35 @@ var SupportedImages = map[string]string{
 	// Arch-based
 	"archlinux": "archlinux:latest", // Rolling release
 	"manjaro":   "manjarolinux/base:latest",
+	"artix":     "artixlinux/artixlinux:latest", // Arch without systemd
 	// SUSE-based (Updated Dec 2025)
 	"opensuse":   "opensuse/leap:15.6",     // openSUSE Leap 15.6
 	"tumbleweed": "opensuse/tumbleweed:latest", // Rolling release
+	"mageia":     "mageia:9",               // Mandriva fork
 	// Independent Distributions
 	"gentoo":    "gentoo/stage3:latest",
 	"void":      "voidlinux/voidlinux:latest",
 	"nixos":     "nixos/nix:latest",
 	"slackware": "aclemons/slackware:15.0",
+	"crux":      "crux/crux:latest",
+	"guix":      "gnu/guix:latest",
 	// Minimal / Embedded (Updated Dec 2025)
 	"alpine":      "alpine:3.21",   // Alpine 3.21 (latest stable)
 	"alpine-3.20": "alpine:3.20",   // Previous stable
 	"alpine-3.18": "alpine:3.18",   // Older stable
 	"busybox":     "busybox:1.37",  // Latest busybox
+	"tinycore":    "tatocaster/tinycore:latest",
+	"openwrt":     "openwrt/rootfs:latest",
 	// Container / Cloud Optimized
 	"rancheros": "alpine:3.21", // RancherOS discontinued, using Alpine as lightweight alternative
 	// Cloud Provider Specific (Updated Dec 2025)
 	"amazonlinux":     "amazonlinux:2023", // Amazon Linux 2023 latest
 	"amazonlinux2":    "amazonlinux:2",      // Amazon Linux 2 (EOL 2025)
 	"oracle-slim":     "oraclelinux:9-slim",
+	"azurelinux":      "mcr.microsoft.com/azurelinux/base/core:3.0",
 	// Scientific
-	"scientific": "scientificlinux/sl:latest",
+	"scientific":  "scientificlinux/sl:latest",
+	"neurodebian": "neurodebian:bookworm",
 	// Specialized
 	"clearlinux": "clearlinux:latest",
 	"photon":     "photon:5.0",     // VMware Photon OS 5.0
@@ -243,22 +251,28 @@ func GetImageMetadata() []ImageMetadata {
 		// Arch-based
 		{Name: "archlinux", DisplayName: "Arch Linux", Description: "Rolling release with latest packages and AUR", Category: "arch", Tags: []string{"rolling", "bleeding-edge", "aur"}, Popular: true},
 		{Name: "manjaro", DisplayName: "Manjaro", Description: "User-friendly Arch with curated updates", Category: "arch", Tags: []string{"rolling", "beginner-friendly"}, Popular: true},
+		{Name: "artix", DisplayName: "Artix Linux", Description: "Arch without systemd (OpenRC)", Category: "arch", Tags: []string{"rolling", "init-freedom"}, Popular: false},
 
 		// SUSE-based - Updated Dec 2025
 		{Name: "opensuse", DisplayName: "openSUSE Leap 15.6", Description: "Stable enterprise-grade openSUSE", Category: "suse", Tags: []string{"enterprise", "stable", "zypper"}, Popular: true},
 		{Name: "tumbleweed", DisplayName: "openSUSE Tumbleweed", Description: "Rolling release with tested updates", Category: "suse", Tags: []string{"rolling", "tested"}, Popular: false},
+		{Name: "mageia", DisplayName: "Mageia 9", Description: "Community-driven Mandriva fork", Category: "suse", Tags: []string{"rpm", "desktop", "stable"}, Popular: false},
 
 		// Independent Distributions
 		{Name: "gentoo", DisplayName: "Gentoo Linux", Description: "Source-based with extreme customization", Category: "independent", Tags: []string{"source-based", "advanced", "performance"}, Popular: false},
 		{Name: "void", DisplayName: "Void Linux", Description: "Independent distro with runit init system", Category: "independent", Tags: []string{"independent", "runit", "rolling"}, Popular: false},
 		{Name: "nixos", DisplayName: "NixOS", Description: "Declarative configuration and reproducible builds", Category: "independent", Tags: []string{"declarative", "nix", "reproducible"}, Popular: false},
 		{Name: "slackware", DisplayName: "Slackware 15.0", Description: "Oldest maintained Linux distro, Unix-like", Category: "independent", Tags: []string{"classic", "stable", "unix-like"}, Popular: false},
+		{Name: "crux", DisplayName: "CRUX 3.7", Description: "Lightweight, BSD-style init scripts", Category: "independent", Tags: []string{"lightweight", "bsd-style", "simple"}, Popular: false},
+		{Name: "guix", DisplayName: "Guix System", Description: "Advanced transactional package manager", Category: "independent", Tags: []string{"functional", "gnu", "scheme"}, Popular: false},
 
 		// Minimal / Embedded - Updated Dec 2025
 		{Name: "alpine", DisplayName: "Alpine 3.21", Description: "Lightweight and security-oriented (6MB)", Category: "minimal", Tags: []string{"minimal", "docker", "security"}, Popular: true},
 		{Name: "alpine-3.20", DisplayName: "Alpine 3.20", Description: "Previous stable Alpine release", Category: "minimal", Tags: []string{"minimal", "stable"}, Popular: false},
 		{Name: "alpine-3.18", DisplayName: "Alpine 3.18", Description: "Older stable Alpine release", Category: "minimal", Tags: []string{"minimal", "legacy"}, Popular: false},
 		{Name: "busybox", DisplayName: "BusyBox 1.37", Description: "Ultra-minimal Unix utilities (~2MB)", Category: "minimal", Tags: []string{"minimal", "embedded"}, Popular: false},
+		{Name: "tinycore", DisplayName: "TinyCore Linux", Description: "The smallest subset of Linux (~16MB)", Category: "minimal", Tags: []string{"micro", "fast", "ram-only"}, Popular: false},
+		{Name: "openwrt", DisplayName: "OpenWrt 23.05", Description: "Embedded operating system for routers", Category: "minimal", Tags: []string{"network", "embedded", "router"}, Popular: false},
 
 		// Container / Cloud Optimized
 		{Name: "rancheros", DisplayName: "RancherOS (Alpine)", Description: "Lightweight container-optimized OS (Alpine-based)", Category: "container", Tags: []string{"containers", "docker", "minimal"}, Popular: false},
@@ -267,9 +281,11 @@ func GetImageMetadata() []ImageMetadata {
 		{Name: "amazonlinux", DisplayName: "Amazon Linux 2023", Description: "Latest Amazon Linux optimized for AWS", Category: "cloud", Tags: []string{"aws", "cloud", "enterprise"}, Popular: true},
 		{Name: "amazonlinux2", DisplayName: "Amazon Linux 2", Description: "LTS Amazon Linux (EOL Jun 2025)", Category: "cloud", Tags: []string{"aws", "cloud", "legacy"}, Popular: false},
 		{Name: "oracle-slim", DisplayName: "Oracle Linux 9 Slim", Description: "Lightweight Oracle Linux", Category: "cloud", Tags: []string{"oracle", "cloud", "minimal"}, Popular: false},
+		{Name: "azurelinux", DisplayName: "Azure Linux 3.0", Description: "Microsoft's OS for Azure Kubernetes Service", Category: "cloud", Tags: []string{"azure", "microsoft", "cloud"}, Popular: false},
 
 		// Scientific
 		{Name: "scientific", DisplayName: "Scientific Linux", Description: "For scientific computing and research", Category: "developer", Tags: []string{"scientific", "research", "rhel"}, Popular: false},
+		{Name: "neurodebian", DisplayName: "NeuroDebian", Description: "Neuroscience-oriented Debian", Category: "developer", Tags: []string{"science", "brain", "research"}, Popular: false},
 
 		// Specialized
 		{Name: "clearlinux", DisplayName: "Clear Linux", Description: "Intel-optimized for maximum performance", Category: "specialized", Tags: []string{"performance", "intel", "cloud"}, Popular: false},
@@ -430,6 +446,7 @@ var ImageShells = map[string]string{
 	"opensuse":   "/bin/bash",
 	"tumbleweed": "/bin/bash",
 	"sles":       "/bin/bash",
+	"mageia":     "/bin/bash",
 	// Independent
 	"gentoo":    "/bin/bash",
 	"void":      "/bin/bash",
@@ -437,6 +454,8 @@ var ImageShells = map[string]string{
 	"slackware": "/bin/bash",
 	"solus":     "/bin/bash",
 	"pclinuxos": "/bin/bash",
+	"crux":      "/bin/bash",
+	"guix":      "/bin/bash",
 	// Minimal (use sh)
 	"alpine":      "/bin/sh",
 	"alpine-3.21": "/bin/sh",
@@ -446,6 +465,7 @@ var ImageShells = map[string]string{
 	"puppy":       "/bin/sh",
 	"dsl":         "/bin/sh",
 	"busybox":     "/bin/sh",
+	"openwrt":     "/bin/ash",
 	// Container optimized
 	"flatcar":      "/bin/bash",
 	"rancheros":    "/bin/sh", // Alpine-based, uses sh
@@ -470,6 +490,7 @@ var ImageShells = map[string]string{
 	// Developer
 	"ubuntustudio": "/bin/bash",
 	"scientific":   "/bin/bash",
+	"neurodebian":  "/bin/bash",
 	// Cloud Provider Specific
 	"amazonlinux":      "/bin/bash",
 	"amazonlinux2":     "/bin/bash",
