@@ -16,7 +16,6 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -909,10 +908,6 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// Generate unique container name: rexec-{userID}-{containerName}
 	containerName := fmt.Sprintf("rexec-%s-%s", cfg.UserID, cfg.ContainerName)
 
-	// Use Docker named volume for persistence (works on Mac/Windows/Linux)
-	// Each container gets its own volume
-	volumeName := fmt.Sprintf("rexec-%s-%s", cfg.UserID, cfg.ContainerName)
-
 	// Get the appropriate shell for this image - use /bin/sh as it's universally available
 	shell := ImageShells[cfg.ImageType]
 	if shell == "" {
@@ -994,14 +989,9 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		log.Printf("[Container] Disk quota requested (%s) but quotas not available on host", formatBytes(cfg.DiskQuota))
 	}
 	
-	// Build mounts list - always use Docker volume for /home/user
-	mounts := []mount.Mount{
-		{
-			Type:   mount.TypeVolume,
-			Source: volumeName,
-			Target: "/home/user",
-		},
-	}
+	// No volume mounts - use container's overlay filesystem for everything
+	// This ensures disk quota (StorageOpt size) is enforced on all writes including /home/user
+	// Note: Data is lost when container is deleted
 
 	hostConfig := &container.HostConfig{
 		Runtime: ociRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
@@ -1014,7 +1004,6 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		},
 		// Storage options for disk quota (requires overlay2 on XFS with pquota mount option)
 		StorageOpt: storageOpts,
-		Mounts:     mounts,
 		// Security options - prevent privilege escalation and add seccomp
 		SecurityOpt: []string{
 			"no-new-privileges:true",
