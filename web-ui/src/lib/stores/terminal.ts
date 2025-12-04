@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { token } from "./auth";
+import { toast } from "./toast";
 
 // Types
 export type SessionStatus =
@@ -742,6 +743,36 @@ function createTerminalStore() {
           ws.send(JSON.stringify({ type: "input", data: filteredData }));
         }
       });
+    },
+
+    // Reset terminal state (fix garbled output)
+    resetSession(sessionId: string) {
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      if (!session || !session.terminal) return;
+
+      // Send full reset sequence
+      session.terminal.write('\x1bc'); // Full reset
+      session.terminal.clear(); // Clear buffer
+      
+      // Re-write banner
+      session.terminal.write(REXEC_BANNER);
+      session.terminal.writeln("\x1b[32m› Terminal Reset\x1b[0m");
+      
+      // Resend resize to ensure backend sync
+      if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+        session.ws.send(
+          JSON.stringify({
+            type: "resize",
+            cols: session.terminal.cols,
+            rows: session.terminal.rows,
+          }),
+        );
+        // Request a redraw by sending a space and backspace (hacky but effective for some shells)
+        // Or just let the user press enter
+      }
+      
+      toast.success("Terminal reset");
     },
 
     // Reconnect a session
