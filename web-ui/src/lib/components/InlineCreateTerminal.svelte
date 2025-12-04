@@ -131,7 +131,7 @@
         { name: "raspberrypi", display_name: "Raspberry Pi OS", description: "Debian-based for ARM", category: "embedded" },
         
         // macOS
-        { name: "macos", display_name: "macOS Ventura", description: "Apple macOS (VM-based)", category: "macos", popular: true },
+        { name: "macos", display_name: "macOS", description: "Apple macOS (VM-based)", category: "macos", popular: true },
     ];
 
     const roleToOS: Record<string, string> = {
