@@ -58,6 +58,66 @@ func formatBytes(bytes int64) string {
 	return fmt.Sprintf("%dM", bytes/mb)
 }
 
+// SanitizeError removes sensitive information from error messages before showing to users.
+// This prevents leaking Docker host IPs, ports, and internal infrastructure details.
+func SanitizeError(err error) string {
+	if err == nil {
+		return ""
+	}
+	return SanitizeErrorString(err.Error())
+}
+
+// SanitizeErrorString removes sensitive information from error strings.
+func SanitizeErrorString(errMsg string) string {
+	if errMsg == "" {
+		return ""
+	}
+
+	// Patterns to remove (Docker host details, IPs, ports)
+	// Match: "tcp://IP:PORT" or "unix://path"
+	// Match: "Cannot connect to the Docker daemon at ..."
+	// Match: "Is the docker daemon running?"
+
+	// Replace Docker connection errors with generic message
+	if strings.Contains(errMsg, "Cannot connect to the Docker daemon") ||
+		strings.Contains(errMsg, "Is the docker daemon running") ||
+		strings.Contains(errMsg, "connection refused") ||
+		strings.Contains(errMsg, "tcp://") {
+		return "Container service temporarily unavailable. Please try again."
+	}
+
+	// Remove any tcp:// or unix:// URLs with IP/port
+	// Pattern: tcp://X.X.X.X:PORT or tcp://hostname:PORT
+	result := errMsg
+	for {
+		tcpIdx := strings.Index(result, "tcp://")
+		if tcpIdx == -1 {
+			break
+		}
+		// Find the end of the URL (space, quote, or end of string)
+		endIdx := tcpIdx + 6 // after "tcp://"
+		for endIdx < len(result) && result[endIdx] != ' ' && result[endIdx] != '"' && result[endIdx] != '\'' && result[endIdx] != ')' {
+			endIdx++
+		}
+		result = result[:tcpIdx] + "[docker-host]" + result[endIdx:]
+	}
+
+	// Remove unix:// paths too
+	for {
+		unixIdx := strings.Index(result, "unix://")
+		if unixIdx == -1 {
+			break
+		}
+		endIdx := unixIdx + 7
+		for endIdx < len(result) && result[endIdx] != ' ' && result[endIdx] != '"' && result[endIdx] != '\'' && result[endIdx] != ')' {
+			endIdx++
+		}
+		result = result[:unixIdx] + "[docker-socket]" + result[endIdx:]
+	}
+
+	return result
+}
+
 // SupportedImages maps user-friendly names to Docker images
 // Uses custom rexec images if available (with SSH pre-installed), otherwise falls back to base images
 // NOTE: Only verified working images are included here

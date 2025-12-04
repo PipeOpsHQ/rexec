@@ -399,23 +399,25 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	}
 
 	if pullErr != nil {
-		// Update record with error status
+		// Sanitize error to hide Docker host details from users
+		sanitizedErr := container.SanitizeError(pullErr)
+		// Update record with error status (store full error for debugging)
 		h.store.UpdateContainerStatus(ctx, recordID, "error")
 		h.store.UpdateContainerError(ctx, recordID, "failed to pull image: "+pullErr.Error())
-		// Notify via WebSocket with error
+		// Notify via WebSocket with sanitized error
 		if h.eventsHub != nil {
 			h.eventsHub.NotifyContainerProgress(userID, gin.H{
 				"id":       recordID,
 				"stage":    "error",
 				"message":  "Failed to pull image",
 				"progress": 0,
-				"error":    "failed to pull image: " + pullErr.Error(),
+				"error":    sanitizedErr,
 				"complete": true,
 			})
 			h.eventsHub.NotifyContainerUpdated(userID, gin.H{
 				"id":     recordID,
 				"status": "error",
-				"error":  "failed to pull image: " + pullErr.Error(),
+				"error":  sanitizedErr,
 			})
 		}
 		return
@@ -427,22 +429,24 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	// Create the container
 	info, err := h.manager.CreateContainer(ctx, cfg)
 	if err != nil {
+		// Sanitize error to hide Docker host details from users
+		sanitizedErr := container.SanitizeError(err)
 		h.store.UpdateContainerStatus(ctx, recordID, "error")
 		h.store.UpdateContainerError(ctx, recordID, "failed to create container: "+err.Error())
-		// Notify via WebSocket with error
+		// Notify via WebSocket with sanitized error
 		if h.eventsHub != nil {
 			h.eventsHub.NotifyContainerProgress(userID, gin.H{
 				"id":       recordID,
 				"stage":    "error",
 				"message":  "Failed to create container",
 				"progress": 0,
-				"error":    "failed to create container: " + err.Error(),
+				"error":    sanitizedErr,
 				"complete": true,
 			})
 			h.eventsHub.NotifyContainerUpdated(userID, gin.H{
 				"id":     recordID,
 				"status": "error",
-				"error":  "failed to create container: " + err.Error(),
+				"error":  sanitizedErr,
 			})
 		}
 		return
@@ -801,7 +805,7 @@ func (h *ContainerHandler) Start(c *gin.Context) {
 		newInfo, err := h.manager.RecreateContainer(ctx, recreateCfg)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "failed to recreate container: " + err.Error(),
+				"error":   container.SanitizeError(err),
 				"message": "Container was removed from server and could not be recreated",
 			})
 			return
@@ -825,7 +829,7 @@ func (h *ContainerHandler) Start(c *gin.Context) {
 
 	// Container exists in Docker, start it normally
 	if err := h.manager.StartContainer(ctx, dockerID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start container: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": container.SanitizeError(err)})
 		return
 	}
 
@@ -889,7 +893,7 @@ func (h *ContainerHandler) Stop(c *gin.Context) {
 	}
 
 	if err := h.manager.StopContainer(ctx, dockerID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to stop container: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": container.SanitizeError(err)})
 		return
 	}
 

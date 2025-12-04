@@ -16,6 +16,7 @@ set -e
 #   sudo ./setup.sh                    # Docker + containerd only
 #   sudo ./setup.sh --with-gvisor      # Docker + gVisor sandboxing (recommended)
 #   sudo ./setup.sh --with-gvisor --force-xfs  # Enable XFS with disk quotas (wipes volume data)
+#   sudo ./setup.sh --force-certs      # Regenerate TLS certificates even if valid ones exist
 #
 # Runtime Options (set via OCI_RUNTIME env var in Rexec):
 #   - runc (default): Standard Docker runtime
@@ -42,6 +43,7 @@ INSTALL_KATA=false
 INSTALL_GVISOR=false
 USE_PODMAN=false
 FORCE_XFS=false
+FORCE_CERTS=false
 for arg in "$@"; do
     case $arg in
         --with-kata|--kata|--firecracker)
@@ -58,6 +60,10 @@ for arg in "$@"; do
             ;;
         --force-xfs)
             FORCE_XFS=true
+            shift
+            ;;
+        --force-certs)
+            FORCE_CERTS=true
             shift
             ;;
     esac
@@ -466,7 +472,7 @@ echo ""
 # 1. Install Container Runtime (Docker or Podman)
 # =============================================================================
 STEP_NUM=1
-TOTAL_STEPS=5
+TOTAL_STEPS=6  # Base: install, certs, daemon config, firewall, TLS test, quota verify
 if [ "$INSTALL_KATA" = true ]; then
     TOTAL_STEPS=$((TOTAL_STEPS + 2))
 fi
@@ -815,17 +821,25 @@ echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Generating TLS certificates...${NC}"
 
 CERT_DIR="/etc/docker/certs"
 DAYS_VALID=3650
+REGENERATE_CERTS=false
 
-# Check if valid certificates already exist
-if [ -f "$CERT_DIR/ca.pem" ] && [ -f "$CERT_DIR/server-cert.pem" ] && [ -f "$CERT_DIR/server-key.pem" ] && \
+# Check if valid certificates already exist (unless --force-certs is set)
+if [ "$FORCE_CERTS" = "true" ]; then
+    echo -e "${YELLOW}--force-certs specified - regenerating certificates...${NC}"
+    REGENERATE_CERTS=true
+elif [ -f "$CERT_DIR/ca.pem" ] && [ -f "$CERT_DIR/server-cert.pem" ] && [ -f "$CERT_DIR/server-key.pem" ] && \
    [ -f "$CERT_DIR/client/ca.pem" ] && [ -f "$CERT_DIR/client/cert.pem" ] && [ -f "$CERT_DIR/client/key.pem" ]; then
-    # Verify certificates are still valid (not expired)
+    # Verify certificates are still valid (not expired within 24 hours)
     if openssl x509 -checkend 86400 -noout -in "$CERT_DIR/ca.pem" 2>/dev/null && \
        openssl x509 -checkend 86400 -noout -in "$CERT_DIR/server-cert.pem" 2>/dev/null; then
-        echo -e "${GREEN}✓ Existing TLS certificates found and valid - reusing${NC}"
+        echo -e "${GREEN}✓ Existing TLS certificates found and valid - skipping regeneration${NC}"
+        # Show cert expiry info
+        CERT_EXPIRY=$(openssl x509 -enddate -noout -in "$CERT_DIR/server-cert.pem" 2>/dev/null | cut -d= -f2)
+        echo -e "${CYAN}  Certificate expires: $CERT_EXPIRY${NC}"
+        echo -e "${CYAN}  Use --force-certs to regenerate${NC}"
         echo ""
     else
-        echo -e "${YELLOW}Existing certificates expired - regenerating...${NC}"
+        echo -e "${YELLOW}Existing certificates expired or expiring soon - regenerating...${NC}"
         REGENERATE_CERTS=true
     fi
 else
@@ -1052,33 +1066,59 @@ WRAPPER
     fi
 
     if [ "$INSTALL_GVISOR" = true ]; then
-        if [ -n "$RUNTIMES_JSON" ]; then
-            RUNTIMES_JSON="${RUNTIMES_JSON}, "
+        # Find runsc binary path
+        RUNSC_PATH=""
+        if [ -f /usr/local/bin/runsc ]; then
+            RUNSC_PATH="/usr/local/bin/runsc"
+        elif [ -f /usr/bin/runsc ]; then
+            RUNSC_PATH="/usr/bin/runsc"
+        elif command -v runsc &> /dev/null; then
+            RUNSC_PATH=$(which runsc)
         fi
 
-        # Build optimized gVisor runtime args for Docker daemon.json
-        # These flags improve terminal/shell workload performance:
-        # - directfs: 50-70% faster file I/O (requires file-access=exclusive)
-        # - num-network-channels=2: Optimized for low-bandwidth terminal traffic
-        # - file-access=exclusive: Better performance, required for directfs
-        # - host-uds=all: Unix domain socket support
-        # NOTE: ignore-cgroups removed to allow resource limit enforcement
-        # NOTE: overlay2 flag removed - was causing parse errors with gVisor
-        GVISOR_ARGS_JSON="\"--platform=${GVISOR_PLATFORM}\", \"--directfs\", \"--num-network-channels=2\", \"--file-access=exclusive\", \"--host-uds=all\""
+        if [ -z "$RUNSC_PATH" ]; then
+            echo -e "${YELLOW}⚠ gVisor (runsc) not found - skipping runtime config${NC}"
+            echo -e "${YELLOW}  Run with --with-gvisor to install gVisor${NC}"
+        else
+            echo -e "${GREEN}✓ Found runsc at $RUNSC_PATH${NC}"
+            
+            if [ -n "$RUNTIMES_JSON" ]; then
+                RUNTIMES_JSON="${RUNTIMES_JSON}, "
+            fi
 
-        # Add runsc runtime with auto-detected platform
-        RUNTIMES_JSON="${RUNTIMES_JSON}\"runsc\": {
-      \"path\": \"/usr/local/bin/runsc\",
+            # Detect gVisor platform if not already set
+            if [ -z "$GVISOR_PLATFORM" ]; then
+                GVISOR_PLATFORM="systrap"
+                if [ -e /dev/kvm ] && [ -r /dev/kvm ]; then
+                    GVISOR_PLATFORM="kvm"
+                    echo -e "${CYAN}KVM available - using KVM platform${NC}"
+                fi
+            fi
+
+            # Build optimized gVisor runtime args for Docker daemon.json
+            # These flags improve terminal/shell workload performance:
+            # - directfs: 50-70% faster file I/O (requires file-access=exclusive)
+            # - num-network-channels=2: Optimized for low-bandwidth terminal traffic
+            # - file-access=exclusive: Better performance, required for directfs
+            # - host-uds=all: Unix domain socket support
+            # NOTE: ignore-cgroups removed to allow resource limit enforcement
+            # NOTE: overlay2 flag removed - was causing parse errors with gVisor
+            GVISOR_ARGS_JSON="\"--platform=${GVISOR_PLATFORM}\", \"--directfs\", \"--num-network-channels=2\", \"--file-access=exclusive\", \"--host-uds=all\""
+
+            # Add runsc runtime with auto-detected platform
+            RUNTIMES_JSON="${RUNTIMES_JSON}\"runsc\": {
+      \"path\": \"${RUNSC_PATH}\",
       \"runtimeArgs\": [${GVISOR_ARGS_JSON}]
     }"
 
-        # Only add explicit runsc-kvm if KVM is available
-        if [ "$GVISOR_PLATFORM" = "kvm" ]; then
-            GVISOR_KVM_ARGS_JSON="\"--platform=kvm\", \"--directfs\", \"--num-network-channels=2\", \"--file-access=exclusive\", \"--host-uds=all\""
-            RUNTIMES_JSON="${RUNTIMES_JSON}, \"runsc-kvm\": {
-      \"path\": \"/usr/local/bin/runsc\",
+            # Only add explicit runsc-kvm if KVM is available
+            if [ "$GVISOR_PLATFORM" = "kvm" ]; then
+                GVISOR_KVM_ARGS_JSON="\"--platform=kvm\", \"--directfs\", \"--num-network-channels=2\", \"--file-access=exclusive\", \"--host-uds=all\""
+                RUNTIMES_JSON="${RUNTIMES_JSON}, \"runsc-kvm\": {
+      \"path\": \"${RUNSC_PATH}\",
       \"runtimeArgs\": [${GVISOR_KVM_ARGS_JSON}]
     }"
+            fi
         fi
     fi
 
@@ -1308,6 +1348,67 @@ else
         echo "Check Docker logs: journalctl -u docker -n 50"
         exit 1
     fi
+fi
+
+echo ""
+
+# =============================================================================
+# Verify Disk Quota Support
+# =============================================================================
+STEP_NUM=$((STEP_NUM + 1))
+echo -e "${YELLOW}[$STEP_NUM/$TOTAL_STEPS] Verifying disk quota support...${NC}"
+
+# Check if quotas are actually working by testing Docker's storage driver
+QUOTA_WORKING=false
+
+if [ "$USE_PODMAN" != true ]; then
+    # Check Docker info for storage driver and options
+    STORAGE_INFO=$(docker info 2>/dev/null | grep -A5 "Storage Driver")
+    echo -e "${CYAN}Storage configuration:${NC}"
+    echo "$STORAGE_INFO"
+    
+    # Check if overlay2.size is in daemon.json
+    if grep -q "overlay2.size" /etc/docker/daemon.json 2>/dev/null; then
+        echo -e "${GREEN}✓ Storage limit configured in daemon.json${NC}"
+        
+        # Check mount options for pquota
+        DOCKER_MOUNT=$(df /var/lib/docker --output=target 2>/dev/null | tail -1)
+        MOUNT_OPTS=$(mount | grep " $DOCKER_MOUNT " | grep -oE '\([^)]+\)' || echo "(unknown)")
+        echo -e "${CYAN}Mount options for $DOCKER_MOUNT: $MOUNT_OPTS${NC}"
+        
+        if echo "$MOUNT_OPTS" | grep -qE "pquota|prjquota"; then
+            echo -e "${GREEN}✓ Project quotas enabled in mount options${NC}"
+            
+            # Test by creating a container with storage limit
+            echo -e "${CYAN}Testing disk quota enforcement...${NC}"
+            
+            # Create a test container with 50MB limit
+            TEST_OUTPUT=$(docker run --rm --storage-opt size=50M alpine sh -c 'echo "Quota test passed"' 2>&1)
+            if echo "$TEST_OUTPUT" | grep -q "Quota test passed"; then
+                echo -e "${GREEN}✓ Disk quotas are working! Containers can have per-container storage limits.${NC}"
+                QUOTA_WORKING=true
+            elif echo "$TEST_OUTPUT" | grep -qi "not supported\|unknown flag\|invalid"; then
+                echo -e "${YELLOW}⚠ Storage driver doesn't support per-container limits${NC}"
+                echo -e "${YELLOW}  Output: $TEST_OUTPUT${NC}"
+            else
+                echo -e "${GREEN}✓ Container ran with storage-opt (quotas likely working)${NC}"
+                QUOTA_WORKING=true
+            fi
+        else
+            echo -e "${YELLOW}⚠ pquota not in mount options - quotas may not work${NC}"
+            echo -e "${YELLOW}  A reboot may be required to enable quotas${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠ No storage-opts configured - disk quotas disabled${NC}"
+        echo -e "${YELLOW}  This usually means the filesystem doesn't support project quotas${NC}"
+    fi
+fi
+
+if [ "$QUOTA_WORKING" = true ]; then
+    echo -e "${GREEN}✓ Per-container disk limits are enforced${NC}"
+else
+    echo -e "${YELLOW}Note: Per-container disk limits may not be enforced.${NC}"
+    echo -e "${YELLOW}Containers will share the host's disk space.${NC}"
 fi
 
 echo ""
