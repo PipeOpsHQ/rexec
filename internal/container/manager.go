@@ -925,13 +925,16 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		Image:        imageName,
 		Hostname:     containerHostname, // Custom hostname to hide real host
 		Domainname:   "rexec.local",     // Custom domain
-		Cmd:          []string{shell},
+		// Create /home/user directory on startup since we're not mounting a volume
+		Entrypoint:   []string{"/bin/sh", "-c", "mkdir -p /home/user && chmod 777 /home/user && exec " + shell},
 		Tty:          true,
 		OpenStdin:    true,
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
+		WorkingDir:   "/home/user",
 		Env: []string{
+			"HOME=/home/user",
 			"TERM=xterm-256color",
 			"SHELL=" + shell,
 			fmt.Sprintf("USER_ID=%s", cfg.UserID),
