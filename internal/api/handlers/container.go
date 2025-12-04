@@ -476,8 +476,46 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 		diskMB = record.DiskMB
 	}
 
-	// Mark container as ready IMMEDIATELY - user can connect now
-	// Shell setup runs in background and will be ready when they connect
+	// Run shell setup synchronously before marking ready
+	// This ensures environment is fully configured before user connects
+	if shellCfg.Enhanced {
+		sendProgress("configuring", "Setting up enhanced shell...", 90)
+		log.Printf("[Container] Starting shell setup for %s", info.ID[:12])
+		
+		shellResult, shellErr := container.SetupShellWithConfig(ctx, h.manager.GetClient(), info.ID, shellCfg)
+		if shellErr != nil {
+			log.Printf("[Container] Shell setup error for %s: %v", info.ID[:12], shellErr)
+			sendProgress("configuring", "Shell setup failed: "+shellErr.Error(), 92)
+		} else if !shellResult.Success {
+			log.Printf("[Container] Shell setup incomplete for %s: %s", info.ID[:12], shellResult.Message)
+			sendProgress("configuring", "Shell setup warning: "+shellResult.Message, 92)
+		} else {
+			log.Printf("[Container] Shell setup complete for %s", info.ID[:12])
+			sendProgress("configuring", "Shell configured successfully", 95)
+		}
+	} else {
+		sendProgress("configuring", "Configuring minimal shell...", 90)
+	}
+
+	// Setup role if specified
+	if role != "" && role != "standard" {
+		sendProgress("configuring", fmt.Sprintf("Setting up %s environment...", role), 95)
+		log.Printf("[Container] Starting role setup for %s (%s)", info.ID[:12], role)
+		
+		roleResult, roleErr := container.SetupRole(ctx, h.manager.GetClient(), info.ID, role)
+		if roleErr != nil {
+			log.Printf("[Container] Role setup error for %s (%s): %v", info.ID[:12], role, roleErr)
+			sendProgress("configuring", fmt.Sprintf("Role setup failed: %v", roleErr), 97)
+		} else if !roleResult.Success {
+			log.Printf("[Container] Role setup incomplete for %s (%s): %s", info.ID[:12], role, roleResult.Message)
+			sendProgress("configuring", fmt.Sprintf("Role setup warning: %s", roleResult.Message), 97)
+		} else {
+			log.Printf("[Container] Role setup complete for %s (%s)", info.ID[:12], role)
+			sendProgress("configuring", "Role tools installed", 98)
+		}
+	}
+
+	// Mark container as ready AFTER setup is complete
 	sendProgress("ready", "Terminal ready!", 100)
 
 	// Notify via WebSocket that container is ready
@@ -522,39 +560,6 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 			},
 		})
 	}
-
-	// Run shell and role setup in background AFTER container is ready
-	// This allows user to connect immediately with default shell
-	// Enhanced shell will be available after setup completes
-	go func() {
-		bgCtx := context.Background()
-		
-		// Run shell setup with config (zsh + oh-my-zsh if enhanced)
-		if shellCfg.Enhanced {
-			log.Printf("[Container] Starting background shell setup for %s", info.ID[:12])
-			shellResult, shellErr := container.SetupShellWithConfig(bgCtx, h.manager.GetClient(), info.ID, shellCfg)
-			if shellErr != nil {
-				log.Printf("[Container] Shell setup error for %s: %v", info.ID[:12], shellErr)
-			} else if !shellResult.Success {
-				log.Printf("[Container] Shell setup incomplete for %s: %s", info.ID[:12], shellResult.Message)
-			} else {
-				log.Printf("[Container] Shell setup complete for %s", info.ID[:12])
-			}
-		}
-
-		// Setup role if specified
-		if role != "" && role != "standard" {
-			log.Printf("[Container] Starting background role setup for %s (%s)", info.ID[:12], role)
-			roleResult, roleErr := container.SetupRole(bgCtx, h.manager.GetClient(), info.ID, role)
-			if roleErr != nil {
-				log.Printf("[Container] Role setup error for %s (%s): %v", info.ID[:12], role, roleErr)
-			} else if !roleResult.Success {
-				log.Printf("[Container] Role setup incomplete for %s (%s): %s", info.ID[:12], role, roleResult.Message)
-			} else {
-				log.Printf("[Container] Role setup complete for %s (%s)", info.ID[:12], role)
-			}
-		}
-	}()
 }
 
 // Get returns a specific container

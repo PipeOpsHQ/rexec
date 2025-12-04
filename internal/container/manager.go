@@ -986,6 +986,24 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		},
 	}
 
+	// Special resource handling for macOS (requires more resources)
+	if cfg.ImageType == "macos" {
+		log.Printf("[Container] Enforcing minimum resources for macOS")
+		minMemory := int64(4096 * 1024 * 1024) // 4GB
+		minCPU := int64(2000)                  // 2 vCPU
+		minDisk := int64(20 * 1024 * 1024 * 1024) // 20GB
+
+		if cfg.MemoryLimit < minMemory {
+			cfg.MemoryLimit = minMemory
+		}
+		if cfg.CPULimit < minCPU {
+			cfg.CPULimit = minCPU
+		}
+		if cfg.DiskQuota < minDisk {
+			cfg.DiskQuota = minDisk
+		}
+	}
+
 	// Host configuration with resource limits and security hardening
 	// Use CpuQuota and CpuPeriod for CPU limiting (compatible with all runtimes including gVisor)
 	// Note: Cannot use both NanoCPUs and CpuPeriod/CpuQuota - Docker will error
