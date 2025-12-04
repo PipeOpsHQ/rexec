@@ -152,6 +152,10 @@ bindkey '^[[Z' reverse-menu-complete
 # Load oh-my-zsh (after custom prompt settings)
 source $ZSH/oh-my-zsh.sh
 
+# FORCE prompt at the end to override any themes
+export PROMPT='%%n@%%m %%~ > '
+export PS1='%%n@%%m %%~ > '
+
 # Aliases
 alias ll='ls -alF --color=auto'
 alias la='ls -A --color=auto'
@@ -698,22 +702,30 @@ export TERM=xterm-256color
 
 ZSH_THEME="%s"
 
+# Plugins - STRICT MINIMAL SET (Hardcoded for stability)
 plugins=(
-    %s
+    # git # Disabled
+    # zsh-autosuggestions # Disabled
+    # zsh-syntax-highlighting
+    zsh-completions
+    zsh-history-substring-search
+    command-not-found
+    colored-man-pages
+    extract
+    sudo
 )
 
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#666666"
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
-ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=20
+# ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#666666"
 
 HISTSIZE=10000
 SAVEHIST=10000
 HISTFILE=~/.zsh_history
 setopt HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS HIST_SAVE_NO_DUPS
-setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY PROMPT_SUBST
+setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY
+# setopt PROMPT_SUBST # Disabled for stability
 
 autoload -Uz compinit
-zstyle ':completion:*' menu select
+# zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 
@@ -721,7 +733,7 @@ bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
 bindkey '^[OA' history-substring-search-up
 bindkey '^[OB' history-substring-search-down
-bindkey '^ ' autosuggest-accept
+# bindkey '^ ' autosuggest-accept
 bindkey '^[[Z' reverse-menu-complete
 
 source $ZSH/oh-my-zsh.sh
@@ -737,6 +749,12 @@ alias cls='clear'
 alias h='history'
 alias hg='history | grep'
 alias myip='curl -s ifconfig.me'
+
+# FORCE SIMPLE PROMPT - The "Nuclear Option"
+# Ensure exports are set for subshells and override any theme
+export PROMPT='%%n@%%m:%%1~ %%# '
+export RPROMPT=''
+
 %s
 %s
 ZSHRC

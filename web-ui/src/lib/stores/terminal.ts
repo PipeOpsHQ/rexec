@@ -676,7 +676,7 @@ function createTerminalStore() {
           // Show appropriate message based on reason
           if (isContainerGone) {
             session.terminal.writeln(
-              "\r\n\x1b[31m✖ Terminal session ended. Container may have been stopped or removed.\x1b[0m",
+              "\r\n\x1b[31m✖ Terminal session ended. Terminal may have been stopped or removed.\x1b[0m",
             );
             updateSession(sessionId, (s) => ({ ...s, status: "error" }));
           } else if (maxAttemptsReached) {
@@ -1509,7 +1509,7 @@ function createTerminalStore() {
           // Show appropriate message based on reason
           if (isContainerGone) {
             pane.terminal.writeln(
-              "\r\n\x1b[31m✖ Split session ended. Container may have been stopped or removed.\x1b[0m",
+              "\r\n\x1b[31m✖ Split session ended. Terminal may have been stopped or removed.\x1b[0m",
             );
           } else if (maxAttemptsReached) {
             pane.terminal.writeln(

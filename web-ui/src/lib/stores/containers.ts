@@ -367,7 +367,7 @@ function createContainersStore() {
 
         if (!response.ok) {
           update((state) => ({ ...state, creating: null }));
-          onError?.(data.error || "Failed to create container");
+          onError?.(data.error || "Failed to create terminal");
           return;
         }
 
@@ -551,7 +551,7 @@ function createContainersStore() {
               onError?.(
                 e instanceof Error
                   ? e.message
-                  : "Failed to check container status",
+                  : "Failed to check terminal status",
               );
             } else {
               // Retry on error
@@ -565,7 +565,7 @@ function createContainersStore() {
       } catch (e) {
         update((state) => ({ ...state, creating: null }));
         onError?.(
-          e instanceof Error ? e.message : "Failed to create container",
+          e instanceof Error ? e.message : "Failed to create terminal",
         );
       }
     },
@@ -657,7 +657,7 @@ function createContainersStore() {
       // Use db_id as fallback if id is empty (for error state containers)
       const deleteId = id || dbId;
       if (!deleteId) {
-        return { success: false, error: "No container ID provided" };
+        return { success: false, error: "No terminal ID provided" };
       }
       
       const { error } = await apiCall(`/api/containers/${deleteId}`, {
