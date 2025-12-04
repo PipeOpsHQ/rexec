@@ -477,10 +477,26 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	}
 
 	// Run shell setup synchronously before marking ready
-	// Enhanced shell setup (zsh + oh-my-zsh) is completely disabled per user request
-	// We only install tools based on role
-	log.Printf("[Container] Skipping enhanced shell setup for %s (disabled)", info.ID[:12])
-	sendProgress("configuring", "Skipping enhanced shell setup...", 90)
+	// This ensures environment is fully configured before user connects
+	// Skip enhanced shell for macOS as it's an appliance VM that manages its own environment
+	if shellCfg.Enhanced && imageType != "macos" {
+		sendProgress("configuring", "Setting up enhanced shell...", 90)
+		log.Printf("[Container] Starting shell setup for %s", info.ID[:12])
+		
+		shellResult, shellErr := container.SetupShellWithConfig(ctx, h.manager.GetClient(), info.ID, shellCfg)
+		if shellErr != nil {
+			log.Printf("[Container] Shell setup error for %s: %v", info.ID[:12], shellErr)
+			sendProgress("configuring", "Shell setup failed: "+shellErr.Error(), 92)
+		} else if !shellResult.Success {
+			log.Printf("[Container] Shell setup incomplete for %s: %s", info.ID[:12], shellResult.Message)
+			sendProgress("configuring", "Shell setup warning: "+shellResult.Message, 92)
+		} else {
+			log.Printf("[Container] Shell setup complete for %s", info.ID[:12])
+			sendProgress("configuring", "Shell configured successfully", 95)
+		}
+	} else {
+		sendProgress("configuring", "Configuring minimal shell...", 90)
+	}
 
 	// Setup role if specified
 	if role != "" && role != "standard" {

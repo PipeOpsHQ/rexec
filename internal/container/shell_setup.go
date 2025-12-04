@@ -523,9 +523,9 @@ func DefaultShellSetupConfig() ShellSetupConfig {
 		Enhanced:        true,
 		Theme:           "rexec",
 		Autosuggestions: true,
-		SyntaxHighlight: true,
+		SyntaxHighlight: false,
 		HistorySearch:   true,
-		GitAliases:      true,
+		GitAliases:      false,
 		SystemStats:     true,
 	}
 }
