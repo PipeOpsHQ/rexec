@@ -1,8 +1,10 @@
 <script lang="ts">
     import { onMount, onDestroy, tick, createEventDispatcher } from "svelte";
+    import { get } from "svelte/store";
     import { terminal, type TerminalSession } from "$stores/terminal";
     import { recordings } from "$stores/recordings";
     import { toast } from "$stores/toast";
+    import { token } from "$stores/auth";
     import { formatMemoryBytes } from "$utils/api";
     import SplitTerminalView from "./SplitTerminalView.svelte";
 
@@ -16,6 +18,19 @@
     
     // More actions dropdown state
     let showMoreMenu = false;
+    let moreButtonEl: HTMLButtonElement;
+    let menuPosition = { top: 0, right: 0 };
+    
+    function toggleMoreMenu() {
+        if (!showMoreMenu && moreButtonEl) {
+            const rect = moreButtonEl.getBoundingClientRect();
+            menuPosition = {
+                top: rect.bottom + 4,
+                right: window.innerWidth - rect.right
+            };
+        }
+        showMoreMenu = !showMoreMenu;
+    }
     
     // Show connected indicator briefly when status changes to connected
     $: if (session?.status === 'connected' && previousStatus === 'connecting') {
@@ -177,11 +192,16 @@
         formData.append('file', file);
 
         try {
-            const token = localStorage.getItem('auth_token');
+            const authToken = get(token);
+            if (!authToken) {
+                toast.error('Not authenticated');
+                isUploading = false;
+                return;
+            }
             const response = await fetch(`/api/containers/${session.containerId}/files?path=/home/user/`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${authToken}`
                 },
                 body: formData
             });
@@ -212,10 +232,14 @@
         }
 
         try {
-            const token = localStorage.getItem('auth_token');
+            const authToken = get(token);
+            if (!authToken) {
+                toast.error('Not authenticated');
+                return;
+            }
             const response = await fetch(`/api/containers/${session.containerId}/files?path=${encodeURIComponent(downloadPath)}`, {
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${authToken}`
                 }
             });
 
@@ -505,13 +529,17 @@
             
             <!-- More Actions Dropdown -->
             <div class="more-dropdown">
-                <button class="toolbar-btn icon-btn more-btn" on:click={() => showMoreMenu = !showMoreMenu} title="More actions">
+                <button bind:this={moreButtonEl} class="toolbar-btn icon-btn more-btn" on:click={toggleMoreMenu} title="More actions">
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
                     </svg>
                 </button>
                 {#if showMoreMenu}
-                    <div class="more-menu" on:mouseleave={() => showMoreMenu = false}>
+                    <div 
+                        class="more-menu" 
+                        style="top: {menuPosition.top}px; right: {menuPosition.right}px;"
+                        on:mouseleave={() => showMoreMenu = false}
+                    >
                         <button class="menu-item" on:click={() => { handleCopyLink(); showMoreMenu = false; }}>
                             <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
@@ -1007,7 +1035,7 @@
 
     /* More dropdown */
     .more-dropdown {
-        position: relative;
+        position: static;
     }
 
     .more-btn:hover {
@@ -1015,9 +1043,7 @@
     }
 
     .more-menu {
-        position: absolute;
-        top: calc(100% + 4px);
-        right: 0;
+        position: fixed;
         min-width: 160px;
         background: var(--bg-elevated);
         border: 1px solid var(--border);
