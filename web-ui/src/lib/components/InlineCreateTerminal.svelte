@@ -72,7 +72,7 @@
 
     $: displayProgress = Math.round(progress);
 
-    // Pre-bundled OS images for instant loading
+    // Pre-bundled OS images for instant loading - synced with backend GetImageMetadata()
     let images: Array<{
         name: string;
         display_name: string;
@@ -80,18 +80,58 @@
         category: string;
         popular?: boolean;
     }> = [
-        { name: "ubuntu", display_name: "Ubuntu", description: "Popular Linux distribution", category: "linux", popular: true },
-        { name: "debian", display_name: "Debian", description: "Stable Linux distribution", category: "linux", popular: true },
-        { name: "alpine", display_name: "Alpine", description: "Lightweight Linux", category: "linux", popular: true },
-        { name: "arch", display_name: "Arch Linux", description: "Rolling release Linux", category: "linux" },
-        { name: "fedora", display_name: "Fedora", description: "Cutting-edge Linux", category: "linux" },
-        { name: "centos", display_name: "CentOS", description: "Enterprise Linux", category: "linux" },
-        { name: "rocky", display_name: "Rocky Linux", description: "Enterprise Linux", category: "linux" },
-        { name: "opensuse", display_name: "openSUSE", description: "Enterprise Linux", category: "linux" },
-        { name: "kali", display_name: "Kali Linux", description: "Security distribution", category: "security" },
+        // Debian-based
+        { name: "ubuntu", display_name: "Ubuntu 24.04 LTS", description: "Popular Linux distribution", category: "debian", popular: true },
+        { name: "ubuntu-22", display_name: "Ubuntu 22.04 LTS", description: "Previous LTS release", category: "debian" },
+        { name: "debian", display_name: "Debian 12", description: "Stable Linux distribution", category: "debian", popular: true },
+        { name: "debian-11", display_name: "Debian 11", description: "Previous stable release", category: "debian" },
+        { name: "mint", display_name: "Linux Mint", description: "User-friendly Ubuntu-based", category: "debian" },
+        
+        // RHEL-based
+        { name: "fedora", display_name: "Fedora 41", description: "Cutting-edge Linux", category: "rhel", popular: true },
+        { name: "centos", display_name: "CentOS Stream 9", description: "Enterprise Linux", category: "rhel" },
+        { name: "rocky", display_name: "Rocky Linux 9", description: "Enterprise Linux", category: "rhel", popular: true },
+        { name: "alma", display_name: "AlmaLinux 9", description: "Enterprise Linux", category: "rhel" },
+        { name: "oracle", display_name: "Oracle Linux 9", description: "Enterprise Linux", category: "rhel" },
+        
+        // Arch-based
+        { name: "archlinux", display_name: "Arch Linux", description: "Rolling release Linux", category: "arch", popular: true },
+        { name: "manjaro", display_name: "Manjaro", description: "User-friendly Arch", category: "arch" },
+        
+        // SUSE-based
+        { name: "opensuse", display_name: "openSUSE Leap 15.6", description: "Enterprise Linux", category: "suse" },
+        { name: "tumbleweed", display_name: "openSUSE Tumbleweed", description: "Rolling release", category: "suse" },
+        
+        // Independent
+        { name: "gentoo", display_name: "Gentoo Linux", description: "Source-based distro", category: "independent" },
+        { name: "void", display_name: "Void Linux", description: "Independent with runit", category: "independent" },
+        { name: "nixos", display_name: "NixOS", description: "Declarative configuration", category: "independent" },
+        { name: "slackware", display_name: "Slackware 15.0", description: "Classic Unix-like", category: "independent" },
+        
+        // Minimal / Embedded
+        { name: "alpine", display_name: "Alpine 3.21", description: "Lightweight Linux (6MB)", category: "minimal", popular: true },
+        { name: "alpine-3.20", display_name: "Alpine 3.20", description: "Previous stable", category: "minimal" },
+        { name: "busybox", display_name: "BusyBox 1.37", description: "Ultra-minimal (~2MB)", category: "minimal" },
+        
+        // Cloud Provider
+        { name: "amazonlinux", display_name: "Amazon Linux 2023", description: "Optimized for AWS", category: "cloud", popular: true },
+        { name: "amazonlinux2", display_name: "Amazon Linux 2", description: "Legacy AWS (EOL 2025)", category: "cloud" },
+        
+        // Specialized
+        { name: "clearlinux", display_name: "Clear Linux", description: "Intel-optimized", category: "specialized" },
+        { name: "photon", display_name: "VMware Photon OS 5.0", description: "Container-optimized", category: "specialized" },
+        { name: "rancheros", display_name: "RancherOS (Alpine)", description: "Container-optimized", category: "specialized" },
+        
+        // Security
+        { name: "kali", display_name: "Kali Linux", description: "Penetration testing", category: "security", popular: true },
         { name: "parrot", display_name: "Parrot OS", description: "Security distribution", category: "security" },
         { name: "blackarch", display_name: "BlackArch", description: "Security distribution", category: "security" },
-        { name: "busybox", display_name: "BusyBox", description: "Minimal utilities", category: "minimal" },
+        
+        // Embedded / IoT
+        { name: "raspberrypi", display_name: "Raspberry Pi OS", description: "Debian-based for ARM", category: "embedded" },
+        
+        // macOS
+        { name: "macos", display_name: "macOS Ventura", description: "Apple macOS (VM-based)", category: "macos", popular: true },
     ];
 
     const roleToOS: Record<string, string> = {
@@ -99,7 +139,7 @@
         "gpu-alchemist": "ubuntu",
         "cloud-native": "alpine",
         "remote-access": "alpine",
-        "pair-programming": "arch",
+        "pair-programming": "archlinux",
         "data-science": "ubuntu",
         "minimalist": "alpine",
     };
