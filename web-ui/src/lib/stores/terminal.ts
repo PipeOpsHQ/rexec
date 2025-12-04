@@ -744,7 +744,15 @@ function createTerminalStore() {
 
     // Reconnect a session
     reconnectSession(sessionId: string) {
-      updateSession(sessionId, (s) => ({ ...s, reconnectAttempts: 0 }));
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      
+      // Close existing WebSocket if any
+      if (session?.ws) {
+        session.ws.close();
+      }
+      
+      updateSession(sessionId, (s) => ({ ...s, reconnectAttempts: 0, status: 'connecting' }));
       this.connectWebSocket(sessionId);
     },
 

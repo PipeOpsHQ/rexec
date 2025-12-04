@@ -100,14 +100,13 @@
                 // If container was restarted, trigger reconnect after a short delay
                 if (responseData.restarted && responseData.container) {
                     toast.success("Terminal settings updated - reconnecting...");
-                    // Give the container time to restart, then reconnect with NEW docker ID
-                    const newDockerID = responseData.container.id;
+                    // The terminal session ID is the db_id (terminal ID like 'parrot-mirgp')
+                    // NOT the Docker container ID (which changes on recreate)
+                    const terminalId = (responseData.container as any).db_id || container?.id;
                     setTimeout(() => {
-                        if (newDockerID) {
-                            // First update the session with new container ID
-                            terminal.updateSessionContainerId(container?.id || '', newDockerID);
-                            // Then reconnect
-                            terminal.reconnectSession(newDockerID);
+                        if (terminalId) {
+                            // Just reconnect the existing session - the backend will find the new Docker container
+                            terminal.reconnectSession(terminalId);
                         }
                     }, 2000);
                 } else {
