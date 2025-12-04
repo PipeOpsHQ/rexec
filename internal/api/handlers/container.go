@@ -1021,12 +1021,15 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	
 	// Update running container - need to recreate with new env vars for MOTD
 	if found.DockerID != "" && found.Status == "running" {
-		log.Printf("[UpdateSettings] Container %s is running, will update resources and restart for env var changes", found.DockerID)
+		log.Printf("[UpdateSettings] Container %s is running, will update resources: memory=%dMB, cpu=%d millicores (%.1f vCPU)", 
+			found.DockerID, req.MemoryMB, req.CPUShares, float64(req.CPUShares)/1000.0)
 		
 		// Update resources live first
-		cpuMillicores := (req.CPUShares * 1000) / 1024
-		if err := h.manager.UpdateContainerResources(ctx, found.DockerID, req.MemoryMB, cpuMillicores); err != nil {
+		// CPUShares is already in millicores (500 = 0.5 CPU, 1000 = 1 CPU, 1900 = 1.9 CPU)
+		if err := h.manager.UpdateContainerResources(ctx, found.DockerID, req.MemoryMB, req.CPUShares); err != nil {
 			log.Printf("[UpdateSettings] Warning: failed to update Docker container resources for %s: %v", found.DockerID, err)
+		} else {
+			log.Printf("[UpdateSettings] Successfully updated Docker container resources for %s", found.DockerID)
 		}
 		
 		// Write config file inside container for MOTD to read (disk quota can't be updated via cgroups)
