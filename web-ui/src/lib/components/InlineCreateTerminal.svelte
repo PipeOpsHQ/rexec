@@ -19,6 +19,7 @@
     let progressMessage = "";
     let progressStage = "";
     let errorMessage = "";
+    let customName = "";
     
     // Resource customization
     let showResources = false;
@@ -234,8 +235,10 @@
         progressMessage = "Starting...";
         progressStage = "validating";
 
-        // Generate a unique name for the container
-        const containerName = `${selectedImage}-${Date.now().toString(36)}`;
+        // Use custom name or generate a unique name
+        const containerName = customName.trim() 
+            ? customName.trim() 
+            : `${selectedImage}-${Date.now().toString(36)}`;
 
         function handleProgress(event: ProgressEvent) {
             progress = event.progress;
@@ -340,6 +343,20 @@
         </div>
     {:else}
         <div class="create-content">
+            <!-- Terminal Name -->
+            <div class="create-section">
+                <h4>Terminal Name</h4>
+                <div class="name-input-container">
+                    <input 
+                        type="text" 
+                        bind:value={customName} 
+                        placeholder="my-awesome-terminal (optional)"
+                        class="name-input"
+                        maxlength="64"
+                    />
+                </div>
+            </div>
+
             <!-- Role Selection -->
             <div class="create-section">
                 <h4>Environment</h4>
@@ -1054,6 +1071,34 @@
         margin: 4px 0 0 0;
         text-align: center;
         font-style: italic;
+    }
+
+    /* Name Input */
+    .name-input-container {
+        width: 100%;
+    }
+
+    .name-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: #111;
+        border: 1px solid #333;
+        border-radius: 4px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 13px;
+        transition: all 0.15s ease;
+    }
+
+    .name-input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-dim);
+    }
+
+    .name-input::placeholder {
+        color: var(--text-muted);
+        opacity: 0.7;
     }
 
     /* Compact mode adjustments */
