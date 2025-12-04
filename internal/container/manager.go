@@ -504,7 +504,7 @@ var ImageShells = map[string]string{
 	"clearlinux": "/bin/bash",
 	"photon":     "/bin/bash",
 	// macOS
-	"macos": "/bin/zsh",
+	"macos": "/bin/bash",
 }
 
 // ImageFallbackShells provides fallback shells to try if the primary fails
@@ -953,14 +953,11 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		Image:        imageName,
 		Hostname:     containerHostname, // Custom hostname to hide real host
 		Domainname:   "rexec.local",     // Custom domain
-		// Create /home/user directory on startup since we're not mounting a volume
-		Entrypoint:   []string{"/bin/sh", "-c", "mkdir -p /home/user && chmod 777 /home/user && exec " + shell},
 		Tty:          true,
 		OpenStdin:    true,
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		WorkingDir:   "/home/user",
 		Env: []string{
 			"HOME=/home/user",
 			"TERM=xterm-256color",
@@ -1020,10 +1017,6 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		log.Printf("[Container] Disk quota requested (%s) but quotas not available on host", formatBytes(cfg.DiskQuota))
 	}
 	
-	// No volume mounts - use container's overlay filesystem for everything
-	// This ensures disk quota (StorageOpt size) is enforced on all writes including /home/user
-	// Note: Data is lost when container is deleted
-
 	hostConfig := &container.HostConfig{
 		Runtime: ociRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
 		Resources: container.Resources{
@@ -1040,14 +1033,9 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			"no-new-privileges:true",
 			"seccomp=unconfined", // TODO: Use custom seccomp profile for tighter control
 		},
-		// Run as non-root user inside container
-		// User: "1000:1000", // Uncomment to force non-root (may break some images)
 		// Prevent container from gaining new privileges
 		Privileged: false,
-		// Read-only root filesystem (user data goes to /home/user volume)
-		// ReadonlyRootfs: true, // Uncomment for maximum security (may break some use cases)
 		// Mask sensitive host information from /proc and /sys
-		// This prevents users from seeing real host CPU, memory, etc.
 		MaskedPaths: []string{
 			"/proc/acpi",
 			"/proc/asound",
@@ -1078,8 +1066,6 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			"SETGID",       // Set group ID
 			"SETUID",       // Set user ID (needed for su/sudo)
 			"KILL",         // Send signals
-			// Removed: FSETID, SETPCAP, NET_BIND_SERVICE, NET_RAW, SYS_CHROOT, MKNOD, AUDIT_WRITE, SETFCAP
-			// These are not needed for terminal use and reduce attack surface
 		},
 		// Restart policy
 		RestartPolicy: container.RestartPolicy{
@@ -1087,6 +1073,36 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		},
 		// Port bindings (optional, for future use)
 		PortBindings: nat.PortMap{},
+	}
+
+	// Special handling for macOS (docker-osx)
+	if cfg.ImageType == "macos" {
+		// Do NOT override Entrypoint - let the VM boot script run
+		// Do NOT use /home/user working dir - use default
+		log.Printf("[Container] Configuring macOS container (privileged, kvm, default entrypoint)")
+		
+		hostConfig.Privileged = true
+		hostConfig.SecurityOpt = nil // Clear security opts to allow KVM
+		hostConfig.CapDrop = nil     // Don't drop caps
+		hostConfig.CapAdd = nil      // Allow all caps
+		
+		// Map /dev/kvm if available
+		if _, err := os.Stat("/dev/kvm"); err == nil {
+			hostConfig.Devices = []container.DeviceMapping{
+				{
+					PathOnHost:        "/dev/kvm",
+					PathInContainer:   "/dev/kvm",
+					CgroupPermissions: "rwm",
+				},
+			}
+		} else {
+			log.Printf("[Container] WARNING: /dev/kvm not found. macOS VM will be extremely slow.")
+		}
+	} else {
+		// Standard Linux container setup
+		// Create /home/user directory on startup since we're not mounting a volume
+		containerConfig.Entrypoint = []string{"/bin/sh", "-c", "mkdir -p /home/user && chmod 777 /home/user && exec " + shell}
+		containerConfig.WorkingDir = "/home/user"
 	}
 
 	// Network configuration
