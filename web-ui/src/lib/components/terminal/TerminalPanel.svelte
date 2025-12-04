@@ -351,6 +351,19 @@
                 </svg>
             </button>
             
+            <!-- Collaborate -->
+            <button
+                class="toolbar-btn icon-btn collab-btn"
+                on:click={handleCollab}
+                title="Collaborate"
+            >
+                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                    <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                    <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                </svg>
+            </button>
+            
             <span class="toolbar-divider"></span>
             
             <!-- More Actions Dropdown -->
@@ -403,31 +416,32 @@
         </div>
     </div>
 
-    <!-- Terminal Container with Split Panes -->
-    {#if hasSplitPanes && splitLayout}
+    <!-- Terminal Container - single wrapper, layout changes around the main terminal -->
+    <div 
+        class="terminal-wrapper"
+        class:has-splits={hasSplitPanes && splitLayout}
+        class:horizontal={splitLayout?.direction === 'horizontal'}
+        class:vertical={splitLayout?.direction === 'vertical'}
+        class:resizing={isResizingSplit}
+        bind:this={splitContainerEl}
+    >
+        <!-- Main terminal pane - always present, never recreated -->
         <div 
-            class="split-container" 
-            class:horizontal={splitLayout.direction === 'horizontal'}
-            class:vertical={splitLayout.direction === 'vertical'}
-            class:resizing={isResizingSplit}
-            bind:this={splitContainerEl}
+            class="terminal-pane main-pane"
+            style:flex={hasSplitPanes && splitLayout ? (splitLayout?.sizes[0] || 50) : 1}
         >
-            <!-- Main terminal pane -->
-            <div 
-                class="split-pane-wrapper main-pane"
-                style="flex: {splitLayout.sizes[0] || 50};"
-            >
-                <div
-                    class="terminal-container"
-                    bind:this={containerElement}
-                    on:click={handleContainerClick}
-                    on:keydown={() => {}}
-                    role="textbox"
-                    tabindex="0"
-                ></div>
-            </div>
-            
-            <!-- Additional split panes -->
+            <div
+                class="terminal-container"
+                bind:this={containerElement}
+                on:click={handleContainerClick}
+                on:keydown={() => {}}
+                role="textbox"
+                tabindex="0"
+            ></div>
+        </div>
+        
+        <!-- Additional split panes (only rendered when splits exist) -->
+        {#if hasSplitPanes && splitLayout}
             {#each splitPanes as pane, index (pane.id)}
                 <div 
                     class="split-resizer"
@@ -436,24 +450,14 @@
                     tabindex="-1"
                 ></div>
                 <div 
-                    class="split-pane-wrapper"
+                    class="terminal-pane"
                     style="flex: {splitLayout.sizes[index + 1] || 50};"
                 >
                     <SplitTerminalView {session} {pane} />
                 </div>
             {/each}
-        </div>
-    {:else}
-        <!-- Single terminal view (no splits) -->
-        <div
-            class="terminal-container"
-            bind:this={containerElement}
-            on:click={handleContainerClick}
-            on:keydown={() => {}}
-            role="textbox"
-            tabindex="0"
-        ></div>
-    {/if}
+        {/if}
+    </div>
 
     <!-- Connection status - minimal, non-blocking -->
     {#if isConnecting}
@@ -875,8 +879,8 @@
         margin: 4px 0;
     }
 
-    /* Split Container */
-    .split-container {
+    /* Terminal Wrapper - always present */
+    .terminal-wrapper {
         flex: 1;
         display: flex;
         width: 100%;
@@ -885,15 +889,15 @@
         overflow: hidden;
     }
 
-    .split-container.horizontal {
+    .terminal-wrapper.has-splits.horizontal {
         flex-direction: row;
     }
 
-    .split-container.vertical {
+    .terminal-wrapper.has-splits.vertical {
         flex-direction: column;
     }
 
-    .split-pane-wrapper {
+    .terminal-pane {
         display: flex;
         flex-direction: column;
         min-width: 100px;
@@ -901,16 +905,20 @@
         overflow: hidden;
     }
 
-    .split-pane-wrapper.main-pane {
+    .terminal-pane.main-pane {
+        flex: 1;
+    }
+
+    .terminal-wrapper.has-splits .terminal-pane.main-pane {
         border-right: 1px solid var(--border);
     }
 
-    .split-container.vertical .split-pane-wrapper.main-pane {
+    .terminal-wrapper.has-splits.vertical .terminal-pane.main-pane {
         border-right: none;
         border-bottom: 1px solid var(--border);
     }
 
-    .split-pane-wrapper .terminal-container {
+    .terminal-pane .terminal-container {
         flex: 1;
         height: 100%;
         min-height: 0;
@@ -930,27 +938,27 @@
         inset: -4px;
     }
 
-    .split-container.horizontal .split-resizer {
+    .terminal-wrapper.has-splits.horizontal .split-resizer {
         width: 4px;
         cursor: col-resize;
     }
 
-    .split-container.vertical .split-resizer {
+    .terminal-wrapper.has-splits.vertical .split-resizer {
         height: 4px;
         cursor: row-resize;
     }
 
     .split-resizer:hover,
-    .split-container.resizing .split-resizer {
+    .terminal-wrapper.resizing .split-resizer {
         background: var(--accent);
     }
 
-    .split-container.resizing {
+    .terminal-wrapper.resizing {
         user-select: none;
     }
 
-    .split-container.resizing .terminal-container,
-    .split-container.resizing .split-pane-terminal {
+    .terminal-wrapper.resizing .terminal-container,
+    .terminal-wrapper.resizing .split-pane-terminal {
         pointer-events: none;
     }
 
