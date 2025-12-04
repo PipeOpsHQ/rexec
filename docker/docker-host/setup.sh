@@ -128,6 +128,59 @@ mkdir -p "$DOCKER_DIR"
 DOCKER_MOUNT=$(df "$DOCKER_DIR" --output=target 2>/dev/null | tail -1)
 DOCKER_DEVICE=$(df "$DOCKER_DIR" --output=source 2>/dev/null | tail -1)
 
+# Track if we need a reboot for quota changes
+QUOTA_NEEDS_REBOOT=false
+
+# Function to update fstab with quota options
+update_fstab_quota() {
+    local device="$1"
+    local mount_point="$2"
+    local quota_opt="$3"
+    
+    # Backup fstab
+    cp /etc/fstab /etc/fstab.backup.$(date +%s)
+    
+    # Get the UUID if device is a block device
+    local fstab_entry=""
+    if [[ "$device" == /dev/* ]]; then
+        local uuid=$(blkid -s UUID -o value "$device" 2>/dev/null)
+        if [ -n "$uuid" ]; then
+            fstab_entry="UUID=$uuid"
+        else
+            fstab_entry="$device"
+        fi
+    else
+        fstab_entry="$device"
+    fi
+    
+    # Check if entry exists in fstab
+    if grep -qE "(^$device|^$fstab_entry|UUID=.*$mount_point)" /etc/fstab 2>/dev/null; then
+        # Entry exists - add quota option if not present
+        if ! grep -E "(^$device|^$fstab_entry)" /etc/fstab | grep -q "$quota_opt"; then
+            # Add quota option to existing mount options
+            sed -i -E "/(^${device//\//\\/}|^${fstab_entry//\//\\/})/s/(defaults|rw)/\1,$quota_opt/" /etc/fstab 2>/dev/null || \
+            sed -i -E "/(^${device//\//\\/}|^${fstab_entry//\//\\/})/s/([[:space:]])(ext4|xfs)([[:space:]]+)([^[:space:]]+)/\1\2\3\4,$quota_opt/" /etc/fstab 2>/dev/null
+            echo -e "${GREEN}✓ Updated /etc/fstab with $quota_opt option${NC}"
+            return 0
+        else
+            echo -e "${CYAN}$quota_opt already in fstab${NC}"
+            return 1
+        fi
+    else
+        # No entry exists - check if it's root filesystem
+        if [ "$mount_point" = "/" ]; then
+            # For root filesystem, find and update the root entry
+            if grep -q "^UUID=.* / " /etc/fstab; then
+                sed -i -E "/^UUID=.* \/ /s/(defaults|rw)/\1,$quota_opt/" /etc/fstab 2>/dev/null
+                echo -e "${GREEN}✓ Updated root filesystem entry in /etc/fstab with $quota_opt${NC}"
+                return 0
+            fi
+        fi
+        echo -e "${YELLOW}Could not find fstab entry for $device${NC}"
+        return 1
+    fi
+}
+
 if [ -n "$DOCKER_DEVICE" ] && [ "$DOCKER_DEVICE" != "-" ]; then
     echo -e "${CYAN}Docker storage device: $DOCKER_DEVICE mounted at $DOCKER_MOUNT${NC}"
     
@@ -135,8 +188,8 @@ if [ -n "$DOCKER_DEVICE" ] && [ "$DOCKER_DEVICE" != "-" ]; then
     FS_TYPE=$(df -T "$DOCKER_DIR" --output=fstype 2>/dev/null | tail -1)
     echo -e "${CYAN}Filesystem type: $FS_TYPE${NC}"
     
-    # Check current mount options
-    CURRENT_OPTS=$(mount | grep " $DOCKER_MOUNT " | grep -oP '\(\K[^)]+' || echo "")
+    # Check current mount options from /proc/mounts (more reliable than mount command)
+    CURRENT_OPTS=$(grep " $DOCKER_MOUNT " /proc/mounts 2>/dev/null | awk '{print $4}' || echo "")
     echo -e "${CYAN}Current mount options: $CURRENT_OPTS${NC}"
     
     if echo "$FS_TYPE" | grep -qE "^(xfs|ext4)$"; then
@@ -148,45 +201,74 @@ if [ -n "$DOCKER_DEVICE" ] && [ "$DOCKER_DEVICE" != "-" ]; then
             # For XFS, we need to remount with pquota
             if [ "$FS_TYPE" = "xfs" ]; then
                 # Check if pquota is supported (XFS must be formatted with quota support)
-                if xfs_info "$DOCKER_MOUNT" 2>/dev/null | grep -qE "pquotino|crc=1"; then
-                    echo -e "${CYAN}XFS project quota support detected${NC}"
+                # Modern XFS (crc=1) supports quotas by default
+                XFS_INFO=$(xfs_info "$DOCKER_MOUNT" 2>/dev/null || echo "")
+                if echo "$XFS_INFO" | grep -qE "crc=1|crc=enabled"; then
+                    echo -e "${CYAN}XFS v5 format detected (quota-ready)${NC}"
+                    
+                    # First update fstab to ensure persistence
+                    if update_fstab_quota "$DOCKER_DEVICE" "$DOCKER_MOUNT" "pquota"; then
+                        QUOTA_NEEDS_REBOOT=true
+                    fi
+                    
                     # Try to enable pquota via remount
+                    echo -e "${CYAN}Attempting live remount with pquota...${NC}"
                     if mount -o remount,pquota "$DOCKER_MOUNT" 2>/dev/null; then
                         echo -e "${GREEN}✓ Successfully enabled pquota via remount${NC}"
+                        QUOTA_NEEDS_REBOOT=false
                     else
-                        echo -e "${YELLOW}Remount with pquota failed - updating fstab for next boot...${NC}"
-                        # Update fstab to add pquota option
-                        if ! grep -q "pquota" /etc/fstab 2>/dev/null || ! grep "$DOCKER_DEVICE" /etc/fstab | grep -q "pquota"; then
-                            # Backup fstab
-                            cp /etc/fstab /etc/fstab.backup.$(date +%s)
-                            # Add pquota to existing entry or create new one
-                            if grep -q "$DOCKER_DEVICE" /etc/fstab; then
-                                sed -i "/$DOCKER_DEVICE/s/defaults/defaults,pquota/" /etc/fstab 2>/dev/null || \
-                                sed -i "/$DOCKER_DEVICE/s/\(.*\) \([0-9]\) \([0-9]\)/\1,pquota \2 \3/" /etc/fstab 2>/dev/null
-                            fi
-                            echo -e "${YELLOW}Updated /etc/fstab - pquota will be enabled after reboot${NC}"
-                        fi
+                        echo -e "${YELLOW}Live remount failed - pquota will be enabled after reboot${NC}"
+                        QUOTA_NEEDS_REBOOT=true
                     fi
                 else
-                    echo -e "${YELLOW}XFS not formatted with project quota support.${NC}"
-                    echo -e "${YELLOW}Disk quotas will not be enforced. To enable:${NC}"
-                    echo -e "${YELLOW}  mkfs.xfs -f -m crc=1,finobt=1 $DOCKER_DEVICE${NC}"
+                    echo -e "${YELLOW}XFS v4 format detected. Checking quota inode...${NC}"
+                    # Check if quota inode exists
+                    if echo "$XFS_INFO" | grep -qE "pquotino"; then
+                        echo -e "${CYAN}Quota inode present, attempting remount...${NC}"
+                        if update_fstab_quota "$DOCKER_DEVICE" "$DOCKER_MOUNT" "pquota"; then
+                            QUOTA_NEEDS_REBOOT=true
+                        fi
+                        if mount -o remount,pquota "$DOCKER_MOUNT" 2>/dev/null; then
+                            echo -e "${GREEN}✓ Successfully enabled pquota via remount${NC}"
+                            QUOTA_NEEDS_REBOOT=false
+                        fi
+                    else
+                        echo -e "${YELLOW}XFS not formatted with project quota support.${NC}"
+                        echo -e "${YELLOW}Disk quotas will not be enforced. To enable (DESTRUCTIVE):${NC}"
+                        echo -e "${YELLOW}  mkfs.xfs -f -m crc=1,finobt=1 $DOCKER_DEVICE${NC}"
+                    fi
                 fi
             elif [ "$FS_TYPE" = "ext4" ]; then
                 # For ext4, enable project quota feature
-                if tune2fs -l "$DOCKER_DEVICE" 2>/dev/null | grep -q "project"; then
+                EXT4_FEATURES=$(tune2fs -l "$DOCKER_DEVICE" 2>/dev/null | grep -i "features" || echo "")
+                if echo "$EXT4_FEATURES" | grep -qi "project"; then
                     echo -e "${CYAN}ext4 project quota feature detected${NC}"
+                    if update_fstab_quota "$DOCKER_DEVICE" "$DOCKER_MOUNT" "prjquota"; then
+                        QUOTA_NEEDS_REBOOT=true
+                    fi
                     if mount -o remount,prjquota "$DOCKER_MOUNT" 2>/dev/null; then
                         echo -e "${GREEN}✓ Successfully enabled prjquota via remount${NC}"
+                        QUOTA_NEEDS_REBOOT=false
                     else
-                        echo -e "${YELLOW}Remount with prjquota failed - may need reboot${NC}"
+                        echo -e "${YELLOW}Live remount failed - prjquota will be enabled after reboot${NC}"
+                        QUOTA_NEEDS_REBOOT=true
                     fi
                 else
                     echo -e "${YELLOW}Enabling ext4 project quota feature...${NC}"
-                    # Enable quota feature (requires unmount or may work on mounted fs with newer kernels)
-                    tune2fs -O project,quota "$DOCKER_DEVICE" 2>/dev/null || {
+                    # Enable quota feature (may work on mounted fs with newer kernels 4.5+)
+                    if tune2fs -O project,quota "$DOCKER_DEVICE" 2>/dev/null; then
+                        echo -e "${GREEN}✓ Enabled ext4 project quota feature${NC}"
+                        if update_fstab_quota "$DOCKER_DEVICE" "$DOCKER_MOUNT" "prjquota"; then
+                            QUOTA_NEEDS_REBOOT=true
+                        fi
+                        if mount -o remount,prjquota "$DOCKER_MOUNT" 2>/dev/null; then
+                            echo -e "${GREEN}✓ Successfully enabled prjquota via remount${NC}"
+                            QUOTA_NEEDS_REBOOT=false
+                        fi
+                    else
                         echo -e "${YELLOW}Could not enable quota feature on mounted filesystem.${NC}"
-                    }
+                        echo -e "${YELLOW}You may need to run: tune2fs -O project,quota $DOCKER_DEVICE (while unmounted)${NC}"
+                    fi
                 fi
             fi
         fi
@@ -196,6 +278,12 @@ if [ -n "$DOCKER_DEVICE" ] && [ "$DOCKER_DEVICE" != "-" ]; then
     fi
 else
     echo -e "${YELLOW}Could not detect Docker storage device. Skipping quota setup.${NC}"
+fi
+
+# If quota needs reboot and this is the first run, schedule reboot at end of script
+if [ "$QUOTA_NEEDS_REBOOT" = true ]; then
+    echo -e "${YELLOW}Note: A reboot is required to enable disk quotas.${NC}"
+    echo -e "${YELLOW}Run 'sudo reboot' after setup completes, then re-run this script.${NC}"
 fi
 
 echo ""
@@ -1164,4 +1252,36 @@ if [ "$INSTALL_GVISOR" = true ]; then
 fi
 
 echo ""
+
+# Check if reboot is needed for disk quotas
+if [ "$QUOTA_NEEDS_REBOOT" = true ]; then
+    echo -e "${YELLOW}=============================================${NC}"
+    echo -e "${YELLOW}  REBOOT REQUIRED FOR DISK QUOTAS${NC}"
+    echo -e "${YELLOW}=============================================${NC}"
+    echo ""
+    echo -e "${YELLOW}Disk quota settings have been added to /etc/fstab but require a reboot.${NC}"
+    echo -e "${YELLOW}After rebooting, disk quotas will be enabled automatically.${NC}"
+    echo ""
+    echo -e "${CYAN}To verify disk quotas after reboot:${NC}"
+    echo "  mount | grep pquota"
+    echo "  # or for ext4:"
+    echo "  mount | grep prjquota"
+    echo ""
+    
+    # Check if running interactively
+    if [ -t 0 ]; then
+        read -p "Would you like to reboot now to enable disk quotas? (y/N): " REBOOT_NOW
+        if [[ "$REBOOT_NOW" =~ ^[Yy]$ ]]; then
+            echo -e "${GREEN}Rebooting in 5 seconds...${NC}"
+            sleep 5
+            sudo reboot
+        else
+            echo -e "${YELLOW}Please reboot manually when ready: sudo reboot${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Non-interactive mode - please reboot manually: sudo reboot${NC}"
+    fi
+    echo ""
+fi
+
 echo -e "${GREEN}Setup complete!${NC}"

@@ -450,11 +450,14 @@ type ContainerInfo struct {
 
 // Manager handles Docker container lifecycle
 type Manager struct {
-	client     *client.Client
-	containers map[string]*ContainerInfo // dockerID -> container info
-	userIndex  map[string][]string       // userID -> list of dockerIDs
-	mu         sync.RWMutex
-	volumePath string // base path for user volumes
+	client            *client.Client
+	containers        map[string]*ContainerInfo // dockerID -> container info
+	userIndex         map[string][]string       // userID -> list of dockerIDs
+	mu                sync.RWMutex
+	volumePath        string // base path for user volumes
+	diskQuotaEnabled  bool   // whether disk quota is available
+	diskQuotaChecked  bool   // whether we've checked for disk quota support
+	diskQuotaCheckMu  sync.Once
 }
 
 // NewManager creates a new container manager
@@ -522,12 +525,100 @@ func NewManager(volumePaths ...string) (*Manager, error) {
 		volumePath = volumePaths[0]
 	}
 
-	return &Manager{
-		client:     cli,
-		containers: make(map[string]*ContainerInfo),
-		userIndex:  make(map[string][]string),
-		volumePath: volumePath,
-	}, nil
+	mgr := &Manager{
+		client:           cli,
+		containers:       make(map[string]*ContainerInfo),
+		userIndex:        make(map[string][]string),
+		volumePath:       volumePath,
+		diskQuotaEnabled: false,
+		diskQuotaChecked: false,
+	}
+
+	// Check disk quota availability asynchronously
+	go mgr.checkDiskQuotaSupport()
+
+	return mgr, nil
+}
+
+// checkDiskQuotaSupport checks if disk quotas are available on the Docker host
+func (m *Manager) checkDiskQuotaSupport() {
+	m.diskQuotaCheckMu.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Try to get Docker info to check storage driver
+		info, err := m.client.Info(ctx)
+		if err != nil {
+			log.Printf("[DiskQuota] Failed to get Docker info: %v", err)
+			m.diskQuotaChecked = true
+			return
+		}
+
+		// Check if storage driver is overlay2 (required for disk quotas)
+		if info.Driver != "overlay2" {
+			log.Printf("[DiskQuota] Storage driver is %s (not overlay2) - disk quotas disabled", info.Driver)
+			m.diskQuotaChecked = true
+			return
+		}
+
+		// Check driver status for backing filesystem info
+		for _, status := range info.DriverStatus {
+			if len(status) >= 2 {
+				if status[0] == "Backing Filesystem" {
+					if status[1] != "xfs" && status[1] != "ext4" {
+						log.Printf("[DiskQuota] Backing filesystem is %s (needs xfs or ext4) - disk quotas disabled", status[1])
+						m.diskQuotaChecked = true
+						return
+					}
+				}
+			}
+		}
+
+		// Try creating a test container with storage-opt to verify quota support
+		// This is the most reliable way to check if quotas work
+		testContainerName := "rexec-quota-test-" + fmt.Sprintf("%d", time.Now().UnixNano())
+		testConfig := &container.Config{
+			Image: "alpine:latest",
+			Cmd:   []string{"true"},
+		}
+		testHostConfig := &container.HostConfig{
+			StorageOpt: map[string]string{
+				"size": "100M",
+			},
+			AutoRemove: true,
+		}
+
+		// Try to create a test container
+		resp, err := m.client.ContainerCreate(ctx, testConfig, testHostConfig, nil, nil, testContainerName)
+		if err != nil {
+			if strings.Contains(err.Error(), "storage-opt") || strings.Contains(err.Error(), "pquota") || strings.Contains(err.Error(), "quota") {
+				log.Printf("[DiskQuota] Disk quotas not available: %v", err)
+				m.diskQuotaChecked = true
+				return
+			}
+			// Other error - assume quotas might work
+			log.Printf("[DiskQuota] Test container creation failed (non-quota error): %v", err)
+		} else {
+			// Clean up test container
+			m.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			log.Printf("[DiskQuota] Disk quotas are available and working")
+			m.diskQuotaEnabled = true
+		}
+
+		m.diskQuotaChecked = true
+	})
+}
+
+// IsDiskQuotaEnabled returns whether disk quotas are available
+func (m *Manager) IsDiskQuotaEnabled() bool {
+	// Wait for quota check to complete (with timeout)
+	for i := 0; i < 50; i++ { // 5 seconds max
+		if m.diskQuotaChecked {
+			return m.diskQuotaEnabled
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
 }
 
 // PullImage pulls the specified image if not present
@@ -828,6 +919,15 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	if ociRuntime == "" {
 		ociRuntime = "runc" // Default to runc for maximum compatibility
 	}
+
+	// Build storage options conditionally based on quota support
+	storageOpts := make(map[string]string)
+	if m.IsDiskQuotaEnabled() && cfg.DiskQuota > 0 {
+		storageOpts["size"] = formatBytes(cfg.DiskQuota)
+		log.Printf("[Container] Disk quota enabled: %s", formatBytes(cfg.DiskQuota))
+	} else if cfg.DiskQuota > 0 {
+		log.Printf("[Container] Disk quota requested (%s) but quotas not available on host", formatBytes(cfg.DiskQuota))
+	}
 	
 	hostConfig := &container.HostConfig{
 		Runtime: ociRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
@@ -838,10 +938,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			CPUQuota:   cpuQuota,
 		},
 		// Storage options for disk quota (requires overlay2 on XFS with pquota mount option)
-		// Note: Docker expects size in human-readable format like "10G" or "512M"
-		StorageOpt: map[string]string{
-			"size": formatBytes(cfg.DiskQuota),
-		},
+		StorageOpt: storageOpts,
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
