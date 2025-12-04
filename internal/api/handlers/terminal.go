@@ -449,77 +449,48 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 	// Container output -> WebSocket
 	go func() {
 		defer wg.Done()
-		// Large buffer for handling big output bursts
-		buf := make([]byte, 64*1024)
-		// Accumulator for batching
-		accumulator := make([]byte, 0, 64*1024)
-		
-		flushAccumulator := func() {
-			if len(accumulator) > 0 {
-				outputData := sanitizeUTF8(accumulator)
-				if err := session.SendMessage(TerminalMessage{
-					Type: "output",
-					Data: outputData,
-				}); err != nil {
-					errChan <- err
-					return
-				}
-				if h.recordingHandler != nil {
-					h.recordingHandler.AddEvent(session.ContainerID, "o", outputData, 0, 0)
-				}
-				accumulator = accumulator[:0]
-			}
-		}
-
-		// Adaptive buffering state
-		readTimeout := 100 * time.Millisecond // Start with long-ish wait
+		// 32KB buffer is sufficient for PTY
+		buf := make([]byte, 32*1024)
 
 		for {
 			select {
 			case <-session.Done:
-				flushAccumulator()
 				return
 			case <-ctx.Done():
-				flushAccumulator()
 				return
 			default:
-				// Set dynamic deadline
-				attachResp.Conn.SetReadDeadline(time.Now().Add(readTimeout))
+				// Blocking read - no timeout, wait for PTY to send data
+				// This is most efficient and lowest latency for interactive use
+				attachResp.Conn.SetReadDeadline(time.Time{})
 
 				n, err := attachResp.Reader.Read(buf)
 				if err != nil {
 					if err == io.EOF {
-						flushAccumulator()
 						shellExitChan <- true
 						return
 					}
-					
-					// Timeout handling
-					if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
-						// Timed out. 
-						// If we were in "short timeout" mode, it means we drained the burst. FLUSH NOW.
-						if len(accumulator) > 0 {
-							flushAccumulator()
-						}
-						// Go back to long wait
-						readTimeout = 100 * time.Millisecond
-						continue
+					// Filter out normal closure errors
+					if !strings.Contains(err.Error(), "use of closed network connection") {
+						errChan <- err
 					}
-					
-					flushAccumulator()
-					errChan <- err
 					return
 				}
-				
+
 				if n > 0 {
-					accumulator = append(accumulator, buf[:n]...)
+					// Send immediately to minimize latency
+					// Direct string conversion handles UTF-8 replacement automatically for JSON
+					outputData := string(buf[:n])
 					
-					// We got data! There might be more. Switch to short timeout to drain buffer.
-					readTimeout = 1 * time.Millisecond // Very short check for next byte
-					
-					// Safety valve for huge streams
-					if len(accumulator) > 32*1024 {
-						flushAccumulator()
+					if err := session.SendMessage(TerminalMessage{
+						Type: "output",
+						Data: outputData,
+					}); err != nil {
+						// WebSocket closed
+						return
+					}
+
+					if h.recordingHandler != nil {
+						h.recordingHandler.AddEvent(session.ContainerID, "o", outputData, 0, 0)
 					}
 				}
 			}
