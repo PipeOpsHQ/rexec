@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -20,6 +22,13 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+)
+
+const (
+	// DiskImageDir is the directory where container disk images are stored
+	DiskImageDir = "/var/lib/rexec/disks"
+	// DiskMountDir is the directory where disk images are mounted
+	DiskMountDir = "/var/lib/rexec/mounts"
 )
 
 // ProgressEvent represents a progress update during container creation
@@ -116,6 +125,169 @@ func SanitizeErrorString(errMsg string) string {
 	}
 
 	return result
+}
+
+// =============================================================================
+// Disk Image Management for gVisor containers
+// =============================================================================
+// gVisor doesn't support Docker's overlay2 storage quotas, so we use loop-mounted
+// ext4 disk images to enforce per-container disk limits.
+
+// getDiskImagePath returns the path to a container's disk image file
+func getDiskImagePath(containerID string) string {
+	return filepath.Join(DiskImageDir, containerID+".img")
+}
+
+// getDiskMountPath returns the mount point for a container's disk
+func getDiskMountPath(containerID string) string {
+	return filepath.Join(DiskMountDir, containerID)
+}
+
+// CreateDiskImage creates a fixed-size ext4 disk image for a container
+func CreateDiskImage(containerID string, sizeMB int64) (string, error) {
+	if sizeMB <= 0 {
+		return "", fmt.Errorf("invalid disk size: %d MB", sizeMB)
+	}
+
+	// Create directories if they don't exist
+	if err := os.MkdirAll(DiskImageDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create disk image directory: %w", err)
+	}
+
+	imgPath := getDiskImagePath(containerID)
+
+	// Check if image already exists
+	if _, err := os.Stat(imgPath); err == nil {
+		log.Printf("[DiskImage] Disk image already exists for %s, reusing", containerID)
+		return imgPath, nil
+	}
+
+	log.Printf("[DiskImage] Creating %d MB disk image for container %s", sizeMB, containerID)
+
+	// Create sparse file (faster than dd, doesn't allocate all space upfront)
+	f, err := os.Create(imgPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create disk image file: %w", err)
+	}
+	
+	// Truncate to desired size (creates sparse file)
+	if err := f.Truncate(sizeMB * 1024 * 1024); err != nil {
+		f.Close()
+		os.Remove(imgPath)
+		return "", fmt.Errorf("failed to allocate disk image: %w", err)
+	}
+	f.Close()
+
+	// Format as ext4
+	cmd := exec.Command("mkfs.ext4", "-F", "-q", imgPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		os.Remove(imgPath)
+		return "", fmt.Errorf("failed to format disk image: %w, output: %s", err, string(output))
+	}
+
+	log.Printf("[DiskImage] Created and formatted disk image: %s (%d MB)", imgPath, sizeMB)
+	return imgPath, nil
+}
+
+// MountDiskImage mounts a disk image using a loop device and returns the mount path
+func MountDiskImage(containerID string) (string, error) {
+	imgPath := getDiskImagePath(containerID)
+	mountPath := getDiskMountPath(containerID)
+
+	// Check if image exists
+	if _, err := os.Stat(imgPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("disk image not found: %s", imgPath)
+	}
+
+	// Create mount point
+	if err := os.MkdirAll(mountPath, 0755); err != nil {
+		return "", fmt.Errorf("failed to create mount point: %w", err)
+	}
+
+	// Check if already mounted
+	cmd := exec.Command("mountpoint", "-q", mountPath)
+	if cmd.Run() == nil {
+		log.Printf("[DiskImage] %s is already mounted", mountPath)
+		return mountPath, nil
+	}
+
+	// Mount using loop device (mount handles loop setup automatically with -o loop)
+	cmd = exec.Command("mount", "-o", "loop", imgPath, mountPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("failed to mount disk image: %w, output: %s", err, string(output))
+	}
+
+	// Set permissions so container user can write
+	if err := os.Chmod(mountPath, 0777); err != nil {
+		log.Printf("[DiskImage] Warning: failed to set mount permissions: %v", err)
+	}
+
+	log.Printf("[DiskImage] Mounted %s at %s", imgPath, mountPath)
+	return mountPath, nil
+}
+
+// UnmountDiskImage unmounts a container's disk image
+func UnmountDiskImage(containerID string) error {
+	mountPath := getDiskMountPath(containerID)
+
+	// Check if mounted
+	cmd := exec.Command("mountpoint", "-q", mountPath)
+	if cmd.Run() != nil {
+		// Not mounted, nothing to do
+		return nil
+	}
+
+	// Unmount
+	cmd = exec.Command("umount", mountPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		// Try lazy unmount if regular unmount fails
+		cmd = exec.Command("umount", "-l", mountPath)
+		if output2, err2 := cmd.CombinedOutput(); err2 != nil {
+			return fmt.Errorf("failed to unmount disk image: %w, output: %s / %s", err, string(output), string(output2))
+		}
+	}
+
+	log.Printf("[DiskImage] Unmounted %s", mountPath)
+	return nil
+}
+
+// DeleteDiskImage removes a container's disk image and mount point
+func DeleteDiskImage(containerID string) error {
+	// First unmount if mounted
+	if err := UnmountDiskImage(containerID); err != nil {
+		log.Printf("[DiskImage] Warning: failed to unmount before delete: %v", err)
+	}
+
+	imgPath := getDiskImagePath(containerID)
+	mountPath := getDiskMountPath(containerID)
+
+	// Remove mount point directory
+	if err := os.RemoveAll(mountPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("[DiskImage] Warning: failed to remove mount point: %v", err)
+	}
+
+	// Remove disk image
+	if err := os.Remove(imgPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to remove disk image: %w", err)
+	}
+
+	log.Printf("[DiskImage] Deleted disk image for container %s", containerID)
+	return nil
+}
+
+// IsDiskImageSupported checks if the host supports loop-mounted disk images
+func IsDiskImageSupported() bool {
+	// Check if we can run mount and mkfs.ext4
+	if _, err := exec.LookPath("mount"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("mkfs.ext4"); err != nil {
+		return false
+	}
+	if _, err := exec.LookPath("losetup"); err != nil {
+		return false
+	}
+	return true
 }
 
 // SupportedImages maps user-friendly names to Docker images
@@ -981,14 +1153,67 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	}
 
 	// Build storage options conditionally based on quota support
+	// NOTE: gVisor (runsc) does NOT support overlay2 storage quotas
+	// For gVisor, we use loop-mounted ext4 disk images instead
 	storageOpts := make(map[string]string)
-	if m.IsDiskQuotaEnabled() && cfg.DiskQuota > 0 {
+	var diskMountPath string
+	useLoopDisk := false
+	
+	if strings.HasPrefix(ociRuntime, "runsc") && cfg.DiskQuota > 0 && IsDiskImageSupported() {
+		// For gVisor: use loop-mounted disk image for disk quota enforcement
+		diskSizeMB := cfg.DiskQuota / (1024 * 1024) // Convert bytes to MB
+		if diskSizeMB < 100 {
+			diskSizeMB = 100 // Minimum 100MB
+		}
+		
+		// Create disk image for this container
+		if _, err := CreateDiskImage(containerName, diskSizeMB); err != nil {
+			log.Printf("[Container] Failed to create disk image: %v, falling back to no disk limit", err)
+		} else {
+			// Mount the disk image
+			if mountPath, err := MountDiskImage(containerName); err != nil {
+				log.Printf("[Container] Failed to mount disk image: %v, falling back to no disk limit", err)
+				DeleteDiskImage(containerName)
+			} else {
+				diskMountPath = mountPath
+				useLoopDisk = true
+				log.Printf("[Container] Using loop-mounted disk image for gVisor: %s (%d MB)", mountPath, diskSizeMB)
+			}
+		}
+	} else if m.IsDiskQuotaEnabled() && cfg.DiskQuota > 0 {
+		// For runc: use overlay2 storage quota
 		storageOpts["size"] = formatBytes(cfg.DiskQuota)
 		log.Printf("[Container] Disk quota enabled: %s", formatBytes(cfg.DiskQuota))
 	} else if cfg.DiskQuota > 0 {
 		log.Printf("[Container] Disk quota requested (%s) but quotas not available on host", formatBytes(cfg.DiskQuota))
 	}
 	
+	// Build mounts list
+	// For gVisor with disk quota: use loop-mounted disk image as /home/user
+	// For runc or no quota: use Docker volume as /home/user
+	var mounts []mount.Mount
+	
+	if useLoopDisk && diskMountPath != "" {
+		// Use disk image for /home/user (enforces disk quota for gVisor)
+		mounts = []mount.Mount{
+			{
+				Type:   mount.TypeBind,
+				Source: diskMountPath,
+				Target: "/home/user",
+			},
+		}
+		log.Printf("[Container] Using loop-mounted disk image for /home/user: %s", diskMountPath)
+	} else {
+		// Use Docker volume for /home/user (standard approach)
+		mounts = []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: volumeName,
+				Target: "/home/user",
+			},
+		}
+	}
+
 	hostConfig := &container.HostConfig{
 		Runtime: ociRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
 		Resources: container.Resources{
@@ -999,13 +1224,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		},
 		// Storage options for disk quota (requires overlay2 on XFS with pquota mount option)
 		StorageOpt: storageOpts,
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: volumeName,
-				Target: "/home/user",
-			},
-		},
+		Mounts:     mounts,
 		// Security options - prevent privilege escalation
 		SecurityOpt: []string{
 			"no-new-privileges:true",
@@ -1241,7 +1460,9 @@ func (m *Manager) RestartContainer(ctx context.Context, dockerID string) error {
 func (m *Manager) RemoveContainer(ctx context.Context, dockerID string) error {
 	m.mu.Lock()
 	info, ok := m.containers[dockerID]
+	containerName := ""
 	if ok {
+		containerName = info.ContainerName
 		delete(m.containers, dockerID)
 		// Remove from user index
 		if dockerIDs, exists := m.userIndex[info.UserID]; exists {
@@ -1259,6 +1480,13 @@ func (m *Manager) RemoveContainer(ctx context.Context, dockerID string) error {
 		}
 	}
 	m.mu.Unlock()
+
+	// Clean up disk image if it exists (for gVisor containers)
+	if containerName != "" {
+		if err := DeleteDiskImage(containerName); err != nil {
+			log.Printf("[Container] Warning: failed to delete disk image for %s: %v", containerName, err)
+		}
+	}
 
 	// Remove from Docker
 	return m.client.ContainerRemove(ctx, dockerID, container.RemoveOptions{
