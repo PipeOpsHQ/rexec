@@ -817,6 +817,12 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// CPULimit is in millicores (500 = 0.5 CPU), convert to nanocpus
 	nanoCPUs := cfg.CPULimit * 1000000 // millicores to nanocpus (500 -> 500000000 = 0.5 CPU)
 	
+	// Also set CpuQuota and CpuPeriod for compatibility with gVisor and other runtimes
+	// CpuPeriod is typically 100000 (100ms), CpuQuota limits CPU time within that period
+	// For 0.5 CPU: CpuQuota = 50000 (50ms per 100ms period)
+	cpuPeriod := int64(100000) // 100ms in microseconds
+	cpuQuota := (cfg.CPULimit * cpuPeriod) / 1000 // Convert millicores to quota
+	
 	// Use default Docker runtime (runc)
 	// OCI runtime can be configured via OCI_RUNTIME env var
 	// Valid runtimes: "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
@@ -831,6 +837,12 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			Memory:     cfg.MemoryLimit,
 			MemorySwap: cfg.MemoryLimit, // Set equal to Memory to disable swap and enforce hard limit
 			NanoCPUs:   nanoCPUs,
+			CPUPeriod:  cpuPeriod,
+			CPUQuota:   cpuQuota,
+		},
+		// Storage options for disk quota (requires overlay2 on XFS with pquota mount option)
+		StorageOpt: map[string]string{
+			"size": fmt.Sprintf("%d", cfg.DiskQuota),
 		},
 		Mounts: []mount.Mount{
 			{
@@ -1197,14 +1209,19 @@ func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string,
 	// Convert CPU millicores to nanocpus (500 millicores = 0.5 CPU = 500000000 nanocpus)
 	nanoCPUs := cpuMillicores * 1000000
 	
+	// Also set CpuQuota and CpuPeriod for compatibility with gVisor and other runtimes
+	cpuPeriod := int64(100000) // 100ms in microseconds
+	cpuQuota := (cpuMillicores * cpuPeriod) / 1000 // Convert millicores to quota
+	
 	// Cap CPU to available host CPUs
 	maxCPUMillicores := int64(runtime.NumCPU()) * 1000
 	if cpuMillicores > maxCPUMillicores {
 		log.Printf("[UpdateContainerResources] CPU capped from %d to %d millicores (max host CPUs)", cpuMillicores, maxCPUMillicores)
 		nanoCPUs = maxCPUMillicores * 1000000
+		cpuQuota = (maxCPUMillicores * cpuPeriod) / 1000
 	}
 
-	log.Printf("[UpdateContainerResources] Docker update: memory=%d bytes, nanoCPUs=%d", memoryBytes, nanoCPUs)
+	log.Printf("[UpdateContainerResources] Docker update: memory=%d bytes, nanoCPUs=%d, cpuPeriod=%d, cpuQuota=%d", memoryBytes, nanoCPUs, cpuPeriod, cpuQuota)
 
 	// Update the container's resources using Docker API
 	updateConfig := container.UpdateConfig{
@@ -1212,6 +1229,8 @@ func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string,
 			Memory:     memoryBytes,
 			MemorySwap: memoryBytes, // Set equal to Memory to disable swap and enforce hard limit
 			NanoCPUs:   nanoCPUs,
+			CPUPeriod:  cpuPeriod,
+			CPUQuota:   cpuQuota,
 		},
 	}
 
