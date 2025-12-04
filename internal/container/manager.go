@@ -1120,11 +1120,23 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 }
 
 // GetContainer returns container info by docker ID
-func (m *Manager) GetContainer(dockerID string) (*ContainerInfo, bool) {
+func (m *Manager) GetContainer(idOrName string) (*ContainerInfo, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	info, ok := m.containers[dockerID]
-	return info, ok
+	
+	// First try lookup by Docker ID (the map key)
+	if info, ok := m.containers[idOrName]; ok {
+		return info, ok
+	}
+	
+	// Fallback: search by container name (terminal ID like 'parrot-mirgp')
+	for _, info := range m.containers {
+		if info.ContainerName == idOrName {
+			return info, true
+		}
+	}
+	
+	return nil, false
 }
 
 // GetContainerByUserID returns a single container for backward compatibility

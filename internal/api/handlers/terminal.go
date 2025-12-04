@@ -106,15 +106,15 @@ func (h *TerminalHandler) HasCollabAccess(userID, containerID string) bool {
 
 // HandleWebSocket handles WebSocket connections for terminal access
 func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
-	dockerID := c.Param("containerId")
+	containerIdOrName := c.Param("containerId")
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
-	// Verify user owns this container
-	containerInfo, ok := h.containerManager.GetContainer(dockerID)
+	// Verify user owns this container (lookup by Docker ID or terminal name)
+	containerInfo, ok := h.containerManager.GetContainer(containerIdOrName)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":           "container not found",
@@ -124,6 +124,9 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		})
 		return
 	}
+	
+	// Use the actual Docker ID from container info
+	dockerID := containerInfo.ID
 
 	// Verify ownership
 	// Verify ownership or collab access
