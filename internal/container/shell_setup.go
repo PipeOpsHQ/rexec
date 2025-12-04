@@ -757,9 +757,7 @@ ZSH_THEME_GIT_PROMPT_SUFFIX="%%f "
 ZSH_THEME_GIT_PROMPT_DIRTY="%%F{magenta}) %%F{red}✗"
 ZSH_THEME_GIT_PROMPT_CLEAN="%%F{magenta}) %%F{green}✓"
 
-PROMPT='
-%%F{cyan}%%n%%f@%%F{blue}%%m%%f %%F{yellow}%%~%%f $(git_prompt_info)
-%%(%%?:%%F{green}➜:%%F{red}➜) %%f'
+PROMPT='%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f $(git_prompt_info) %(?:%F{green}➜:%F{red}➜) %f'
 RPROMPT='%%F{240}%%*%%f'
 THEME
 
