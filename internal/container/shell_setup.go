@@ -44,6 +44,13 @@ install_packages() {
         # openSUSE/Tumbleweed: refresh repos first
         zypper --non-interactive refresh >/dev/null 2>&1 || true
         zypper --non-interactive install -y zsh git libpcre2-8-0 curl wget >/dev/null 2>&1
+    elif [ "$(uname -s)" = "Darwin" ]; then
+        # macOS
+        if command -v brew >/dev/null 2>&1; then
+            brew install zsh git pcre2 curl wget
+        elif command -v port >/dev/null 2>&1; then
+            port install zsh git pcre2 curl wget
+        fi
     else
         echo "Unsupported package manager"
         exit 1
