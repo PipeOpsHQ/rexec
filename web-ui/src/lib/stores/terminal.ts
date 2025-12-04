@@ -760,37 +760,50 @@ function createTerminalStore() {
     updateSessionContainerId(oldContainerId: string, newContainerId: string) {
       const state = getState();
       
-      // Find session by old container ID
-      let sessionToUpdate: TerminalSession | null = null;
-      let sessionId: string | null = null;
+      // Find all sessions by old container ID
+      const sessionsToUpdate: string[] = [];
       
       for (const [id, session] of state.sessions) {
         if (session.containerId === oldContainerId) {
-          sessionToUpdate = session;
-          sessionId = id;
-          break;
+          sessionsToUpdate.push(id);
         }
       }
       
-      if (!sessionToUpdate || !sessionId) {
+      if (sessionsToUpdate.length === 0) {
         console.log(`[Terminal] No session found for container ${oldContainerId}`);
         return;
       }
       
-      console.log(`[Terminal] Updating session container ID: ${oldContainerId} -> ${newContainerId}`);
+      console.log(`[Terminal] Updating ${sessionsToUpdate.length} sessions from ${oldContainerId} to ${newContainerId}`);
       
-      // Close old WebSocket
-      if (sessionToUpdate.ws) {
-        sessionToUpdate.ws.close();
-      }
-      
-      // Update the session with new container ID
-      updateSession(sessionId, (s) => ({
-        ...s,
-        containerId: newContainerId,
-        status: "connecting",
-        reconnectAttempts: 0,
-      }));
+      sessionsToUpdate.forEach(sessionId => {
+        const session = state.sessions.get(sessionId);
+        if (!session) return;
+
+        // Close old WebSocket
+        if (session.ws) {
+          session.ws.close();
+        }
+        
+        // Update the session with new container ID
+        updateSession(sessionId, (s) => ({
+          ...s,
+          containerId: newContainerId,
+          status: "connecting",
+          reconnectAttempts: 0,
+        }));
+        
+        // Connect to new container
+        this.connectWebSocket(sessionId);
+
+        // Reconnect split panes
+        session.splitPanes.forEach((pane, paneId) => {
+          if (pane.ws) {
+            pane.ws.close();
+          }
+          this.connectSplitPaneWebSocket(sessionId, paneId);
+        });
+      });
     },
 
     // Close a session
