@@ -297,6 +297,7 @@ function createContainersStore() {
         name,
         image,
         customImage,
+        _role,
         onProgress,
         onComplete,
         onError,
@@ -309,6 +310,7 @@ function createContainersStore() {
       name: string,
       image: string,
       customImage?: string,
+      role?: string,
       onProgress?: (event: ProgressEvent) => void,
       onComplete?: (container: Container) => void,
       onError?: (error: string) => void,
@@ -341,6 +343,10 @@ function createContainersStore() {
       const body: Record<string, string | number> = { name, image };
       if (image === "custom" && customImage) {
         body.custom_image = customImage;
+      }
+      // Add role if specified
+      if (role) {
+        body.role = role;
       }
       // Add resource customization if provided
       if (resources?.memory_mb) {

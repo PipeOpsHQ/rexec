@@ -14,7 +14,7 @@
 
     let selectedImage = "";
     let isCreating = false;
-    let selectedRole = "vibe-coder";
+    let selectedRole = "standard";
     let progress = 0;
     let progressMessage = "";
     let progressStage = "";
@@ -144,13 +144,13 @@
     ];
 
     const roleToOS: Record<string, string> = {
-        "vibe-coder": "ubuntu",
-        "gpu-alchemist": "ubuntu",
-        "cloud-native": "alpine",
-        "remote-access": "alpine",
-        "pair-programming": "archlinux",
-        "data-science": "ubuntu",
-        "minimalist": "alpine",
+        "standard": "alpine",
+        "node": "ubuntu",
+        "python": "ubuntu",
+        "go": "alpine",
+        "neovim": "ubuntu",
+        "devops": "alpine",
+        "overemployed": "ubuntu",
     };
 
     $: if (selectedRole && roleToOS[selectedRole]) {
@@ -162,53 +162,53 @@
 
     const roles = [
         {
-            id: "vibe-coder",
+            id: "standard",
+            name: "The Minimalist",
+            desc: "I use Arch btw. Just give me a shell.",
+            tools: ["zsh", "git", "curl", "vim", "htop"],
+            recommendedOS: "Alpine",
+        },
+        {
+            id: "node",
+            name: "10x JS Ninja",
+            desc: "Ship fast, break things, npm install everything.",
+            tools: ["nodejs", "npm", "yarn", "git"],
+            recommendedOS: "Ubuntu",
+        },
+        {
+            id: "python",
+            name: "Data Wizard",
+            desc: "Import antigravity. I speak in list comprehensions.",
+            tools: ["python3", "pip", "venv", "git"],
+            recommendedOS: "Ubuntu",
+        },
+        {
+            id: "go",
+            name: "The Gopher",
+            desc: "If err != nil { panic(err) }. Simplicity is key.",
+            tools: ["go", "git", "make"],
+            recommendedOS: "Alpine",
+        },
+        {
+            id: "neovim",
+            name: "Neovim God",
+            desc: "My config is longer than your code. Mouse? What mouse?",
+            tools: ["neovim", "ripgrep", "gcc", "make"],
+            recommendedOS: "Ubuntu",
+        },
+        {
+            id: "devops",
+            name: "YAML Herder",
+            desc: "I don't write code, I write config. Prod is my playground.",
+            tools: ["kubectl", "docker", "terraform", "ansible"],
+            recommendedOS: "Alpine",
+        },
+        {
+            id: "overemployed",
             name: "Vibe Coder",
-            desc: "AI-assisted development. Cursor, Copilot, Claude vibes.",
-            tools: ["node", "python3", "git", "curl", "jq"],
+            desc: "Just vibing. I need a terminal that matches my aesthetic.",
+            tools: ["tmux", "screen", "python3", "htop"],
             recommendedOS: "Ubuntu",
-        },
-        {
-            id: "gpu-alchemist",
-            name: "GPU Alchemist",
-            desc: "Training models, running inference. GPU go brrr.",
-            tools: ["python3", "pip", "cuda-toolkit", "pytorch", "jupyter"],
-            recommendedOS: "Ubuntu",
-        },
-        {
-            id: "cloud-native",
-            name: "Cloud Native",
-            desc: "Kubernetes, containers, microservices. Scale to infinity.",
-            tools: ["kubectl", "docker", "helm", "terraform", "aws-cli"],
-            recommendedOS: "Alpine",
-        },
-        {
-            id: "remote-access",
-            name: "Remote Access",
-            desc: "Secure gateway to private resources. Share with team.",
-            tools: ["ssh", "tmux", "rsync", "curl", "htop"],
-            recommendedOS: "Alpine",
-        },
-        {
-            id: "pair-programming",
-            name: "Pair Programming",
-            desc: "Code together in real-time. Mob programming made easy.",
-            tools: ["neovim", "tmux", "git", "fzf", "ripgrep"],
-            recommendedOS: "Arch",
-        },
-        {
-            id: "data-science",
-            name: "Data Science",
-            desc: "Jupyter, pandas, the whole data stack. Insights await.",
-            tools: ["python3", "jupyter", "pandas", "numpy", "matplotlib"],
-            recommendedOS: "Ubuntu",
-        },
-        {
-            id: "minimalist",
-            name: "Minimalist",
-            desc: "Just a shell. Nothing more, nothing less.",
-            tools: ["bash", "git", "curl", "vim"],
-            recommendedOS: "Alpine",
         },
     ];
 
