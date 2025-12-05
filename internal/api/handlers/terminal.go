@@ -363,7 +363,14 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 		}
 	}()
 
+	// macOS containers are VMs - they have their own internal shell management
+	// Don't aggressively restart shells for macOS as it causes instability
+	isMacOS := strings.Contains(strings.ToLower(imageType), "macos") || strings.Contains(strings.ToLower(imageType), "osx")
+
 	maxRestarts := 10 // Prevent infinite restart loops
+	if isMacOS {
+		maxRestarts = 2 // Fewer restarts for macOS VMs
+	}
 	restartCount := 0
 
 	for {
@@ -386,17 +393,31 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 		startTime := time.Now()
 		shellExited := h.runTerminalSession(session, imageType)
 
-		// Reset restart count if session lasted > 1 minute
-		if time.Since(startTime) > 1*time.Minute {
+		// Reset restart count if session lasted > 1 minute (5 min for macOS VMs)
+		minSessionDuration := 1 * time.Minute
+		if isMacOS {
+			minSessionDuration = 5 * time.Minute
+		}
+		if time.Since(startTime) > minSessionDuration {
 			restartCount = 0
 		}
 
 		// If shell exited normally (user typed 'exit'), restart it
+		// For macOS, add a delay to let the VM stabilize
 		if shellExited && restartCount < maxRestarts {
 			restartCount++
+
+			if isMacOS {
+				session.SendMessage(TerminalMessage{
+					Type: "output",
+					Data: "\r\n\x1b[33m[Shell exited. Waiting for VM to stabilize...]\x1b[0m\r\n",
+				})
+				time.Sleep(3 * time.Second) // Give macOS VM time to stabilize
+			}
+
 			session.SendMessage(TerminalMessage{
 				Type: "output",
-				Data: "\r\n\x1b[33m[Shell exited. Starting new session...]\x1b[0m\r\n\r\n",
+				Data: "\r\n\x1b[33m[Starting new session...]\x1b[0m\r\n\r\n",
 			})
 
 			// Check if container stopped (since shell was likely PID 1)
@@ -431,6 +452,12 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 		}
 
 		// Connection closed or too many restarts
+		if isMacOS && restartCount >= maxRestarts {
+			session.SendMessage(TerminalMessage{
+				Type: "output",
+				Data: "\r\n\x1b[31m[macOS VM connection unstable. Try reconnecting or restarting the container.]\x1b[0m\r\n",
+			})
+		}
 		break
 	}
 }
@@ -446,6 +473,9 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 	// Detect available shell
 	shell := h.detectShell(ctx, session.ContainerID, imageType)
 
+	// Check if this is a macOS container
+	isMacOS := strings.Contains(strings.ToLower(imageType), "macos") || strings.Contains(strings.ToLower(imageType), "osx")
+
 	// Create exec instance
 	execConfig := container.ExecOptions{
 		AttachStdin:  true,
@@ -457,6 +487,11 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			"TERM=xterm-256color",
 			"COLORTERM=truecolor",
 		},
+	}
+
+	// For macOS VMs, use login shell for proper environment
+	if isMacOS {
+		execConfig.Cmd = []string{shell, "-l"}
 	}
 
 	execResp, err := client.ContainerExecCreate(ctx, session.ContainerID, execConfig)
@@ -493,6 +528,13 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		// Large buffer for efficient reads
 		buf := make([]byte, ptyBufferSize)
 
+		// Track consecutive EOFs for macOS stability
+		consecutiveEOFs := 0
+		maxConsecutiveEOFs := 1
+		if isMacOS {
+			maxConsecutiveEOFs = 3 // macOS VMs can have transient EOFs
+		}
+
 		for {
 			select {
 			case <-session.Done:
@@ -506,6 +548,16 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				n, err := attachResp.Reader.Read(buf)
 				if err != nil {
 					if err == io.EOF {
+						consecutiveEOFs++
+						if consecutiveEOFs >= maxConsecutiveEOFs {
+							shellExitChan <- true
+							return
+						}
+						// For macOS, wait a bit and retry on first EOF
+						if isMacOS && consecutiveEOFs < maxConsecutiveEOFs {
+							time.Sleep(500 * time.Millisecond)
+							continue
+						}
 						shellExitChan <- true
 						return
 					}
@@ -515,6 +567,9 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 					}
 					return
 				}
+
+				// Reset EOF counter on successful read
+				consecutiveEOFs = 0
 
 				if n > 0 {
 					// Fast path: check if already valid UTF-8 (common case)
@@ -650,19 +705,34 @@ func (h *TerminalHandler) detectShell(ctx context.Context, containerID, imageTyp
 		}
 	}
 
+	// Check if this is a macOS container
+	isMacOS := strings.Contains(strings.ToLower(imageType), "macos") || strings.Contains(strings.ToLower(imageType), "osx")
+
 	// Define shell preference order based on image type
 	var shells []string
-	switch imageType {
-	case "alpine", "alpine-3.18":
+	switch {
+	case isMacOS:
+		// macOS VM - use bash or zsh, don't probe too aggressively as it's a VM
+		shells = []string{"/bin/bash", "/bin/zsh", "/bin/sh"}
+	case imageType == "alpine" || imageType == "alpine-3.18":
 		shells = []string{"/bin/zsh", "/bin/ash", "/bin/sh"}
-	case "ubuntu", "ubuntu-24", "ubuntu-20", "debian", "debian-11", "kali", "parrot":
+	case imageType == "ubuntu" || imageType == "ubuntu-24" || imageType == "ubuntu-20" ||
+		imageType == "debian" || imageType == "debian-11" || imageType == "kali" || imageType == "parrot":
 		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
-	case "fedora", "fedora-39", "centos", "rocky", "alma", "oracle", "amazonlinux":
+	case imageType == "fedora" || imageType == "fedora-39" || imageType == "centos" ||
+		imageType == "rocky" || imageType == "alma" || imageType == "oracle" || imageType == "amazonlinux":
 		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
-	case "archlinux", "opensuse", "gentoo", "void", "nixos":
+	case imageType == "archlinux" || imageType == "opensuse" || imageType == "gentoo" ||
+		imageType == "void" || imageType == "nixos":
 		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
 	default:
 		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
+	}
+
+	// For macOS, skip shell existence checks - just return bash
+	// The VM handles its own shell availability
+	if isMacOS {
+		return "/bin/bash"
 	}
 
 	for _, shell := range shells {
