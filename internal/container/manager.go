@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -1145,6 +1146,20 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 
 	// Network configuration
 	networkConfig := &network.NetworkingConfig{}
+
+	// Clean up any existing container with the same name (from failed previous attempts)
+	// This prevents "container name already in use" errors
+	existingContainers, err := m.client.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("name", "^/"+containerName+"$")),
+	})
+	if err == nil && len(existingContainers) > 0 {
+		for _, existing := range existingContainers {
+			log.Printf("[Container] Removing stale container with same name: %s (%s)", containerName, existing.ID[:12])
+			_ = m.client.ContainerStop(ctx, existing.ID, container.StopOptions{})
+			_ = m.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true})
+		}
+	}
 
 	// Create the container
 	resp, err := m.client.ContainerCreate(
