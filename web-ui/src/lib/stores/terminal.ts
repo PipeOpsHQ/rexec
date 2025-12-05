@@ -52,8 +52,8 @@ export interface TerminalSession {
   setupMessage: string;
   // Collaboration mode
   isCollabSession: boolean;
-  collabMode: 'view' | 'control' | null; // null if not a collab session
-  collabRole: 'owner' | 'editor' | 'viewer' | null;
+  collabMode: "view" | "control" | null; // null if not a collab session
+  collabRole: "owner" | "editor" | "viewer" | null;
   // Stats
   stats: {
     cpu: number;
@@ -88,9 +88,9 @@ export interface TerminalState {
 }
 
 // Constants
-const WS_MAX_RECONNECT = 10;           // More attempts for poor networks
-const WS_RECONNECT_BASE_DELAY = 250;   // Start with 250ms delay for fast reconnect
-const WS_RECONNECT_MAX_DELAY = 10000;  // Max 10s between retries
+const WS_MAX_RECONNECT = 10; // More attempts for poor networks
+const WS_RECONNECT_BASE_DELAY = 250; // Start with 250ms delay for fast reconnect
+const WS_RECONNECT_MAX_DELAY = 10000; // Max 10s between retries
 const WS_PING_INTERVAL = 25000;
 const WS_SILENT_RECONNECT_THRESHOLD = 2; // Show message after 2 silent attempts
 
@@ -104,16 +104,14 @@ const REXEC_BANNER =
   "  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝ ╚═════╝\r\n" +
   "\x1b[0m\x1b[38;5;243m  Terminal as a Service · rexec.dev\x1b[0m\r\n\r\n";
 
-
-
 // Calculate responsive font size based on screen dimensions
 function getResponsiveFontSize(): number {
   if (typeof window === "undefined") return 13;
-  
+
   const width = window.innerWidth;
   const height = window.innerHeight;
   const minDim = Math.min(width, height);
-  
+
   // Scale font size based on screen size
   // Small screens (< 768px): 11px
   // Medium screens (768-1200px): 12px
@@ -155,20 +153,20 @@ const TERMINAL_OPTIONS = {
     brightWhite: "#ffffff",
   },
   allowProposedApi: true,
-  scrollback: 50000,            // Large scrollback for heavy output (e.g., opencode)
-  fastScrollModifier: "alt" as const,    // Alt+scroll for fast scrolling
-  fastScrollSensitivity: 15,    // Faster scroll speed
-  scrollSensitivity: 5,         // Improved normal scroll speed
-  smoothScrollDuration: 0,      // Disable smooth scrolling for performance
-  windowsMode: false,           // Optimize for non-Windows
-  convertEol: false,            // Don't convert line endings
+  scrollback: 50000, // Large scrollback for heavy output (e.g., opencode)
+  fastScrollModifier: "alt" as const, // Alt+scroll for fast scrolling
+  fastScrollSensitivity: 15, // Faster scroll speed
+  scrollSensitivity: 5, // Improved normal scroll speed
+  smoothScrollDuration: 0, // Disable smooth scrolling for performance
+  windowsMode: false, // Optimize for non-Windows
+  convertEol: false, // Don't convert line endings
   rightClickSelectsWord: true,
   drawBoldTextInBrightColors: true,
-  minimumContrastRatio: 1,      // Don't adjust colors (faster)
+  minimumContrastRatio: 1, // Don't adjust colors (faster)
   // Performance optimizations for large data
   rescaleOverlappingGlyphs: true,
-  scrollOnUserInput: true,      // Auto-scroll on new input
-  linkHandler: undefined,       // Disable link detection for performance
+  scrollOnUserInput: true, // Auto-scroll on new input
+  linkHandler: undefined, // Disable link detection for performance
 };
 
 // Initial state
@@ -395,9 +393,15 @@ function createTerminalStore() {
     },
 
     // Create a collab session (joined via share link)
-    createCollabSession(containerId: string, name: string, mode: 'view' | 'control', role: 'owner' | 'editor' | 'viewer') {
+    createCollabSession(
+      containerId: string,
+      name: string,
+      mode: "view" | "control",
+      role: "owner" | "editor" | "viewer",
+    ): string | null {
       const sessionId = this.createSession(containerId, name);
-      
+      if (!sessionId) return null;
+
       // Mark as collab session with mode/role
       updateSession(sessionId, (s) => ({
         ...s,
@@ -405,7 +409,7 @@ function createTerminalStore() {
         collabMode: mode,
         collabRole: role,
       }));
-      
+
       return sessionId;
     },
 
@@ -494,27 +498,19 @@ function createTerminalStore() {
       };
 
       // Output buffer for batching writes (prevents browser freeze on large outputs)
-      let outputBuffer = '';
+      let outputBuffer = "";
       let flushTimeout: ReturnType<typeof setTimeout> | null = null;
       const FLUSH_INTERVAL = 16; // ~60fps
       const MAX_BUFFER_SIZE = 64 * 1024; // 64KB max before force flush
-      
-      // Filter corrupted mouse tracking data from output
-      // Pattern matches various forms of SGR mouse sequences that can leak through:
-      // - Full sequences: \x1b[<0;35;16M or \x1b[<0;35;16m
-      // - Partial/fragmented: 61;16M, 35;165;10M, etc.
-      // - Multiple consecutive: 35;166;10M35;165;10M...
+
+      // Filter mouse tracking sequences from output
+      // Only filter complete SGR mouse sequences to avoid breaking other escape codes
       const sanitizeOutput = (data: string): string => {
-        // Remove mouse tracking sequences (SGR format)
-        // Match both full CSI sequences and orphaned coordinate fragments
-        return data
-          .replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, '')  // Full SGR mouse sequences
-          .replace(/(?:^|[^\x1b\[\d])\d{1,3};\d{1,3}(?:;\d{1,3})?[Mm]/g, (match) => {
-            // Only remove if it looks like orphaned mouse coords (starts with digit)
-            return match[0] >= '0' && match[0] <= '9' ? '' : match[0];
-          });
+        // Only remove complete SGR mouse sequences: \x1b[<button;x;yM or m
+        // Don't be aggressive with partial matches as they may be valid output
+        return data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
       };
-      
+
       const flushBuffer = () => {
         if (outputBuffer && session.terminal) {
           // Sanitize before writing to terminal
@@ -523,7 +519,7 @@ function createTerminalStore() {
             // Write to main terminal only (split panes have their own WebSocket connections)
             session.terminal.write(sanitized);
           }
-          outputBuffer = '';
+          outputBuffer = "";
         }
         flushTimeout = null;
       };
@@ -574,7 +570,7 @@ function createTerminalStore() {
 
             // Buffer output for batched writes (prevents freeze on large outputs)
             outputBuffer += data;
-            
+
             // Force flush if buffer is too large
             if (outputBuffer.length >= MAX_BUFFER_SIZE) {
               if (flushTimeout) {
@@ -653,28 +649,40 @@ function createTerminalStore() {
         const isIntentionalClose = event.code === 1000;
         const isContainerRestartRequired = event.code === 4100;
         const isContainerGone = event.code >= 4000 && event.code !== 4100;
-        const maxAttemptsReached = currentSession.reconnectAttempts >= WS_MAX_RECONNECT;
-        
+        const maxAttemptsReached =
+          currentSession.reconnectAttempts >= WS_MAX_RECONNECT;
+
         // Handle container restart - fetch new container ID and reconnect
         if (isContainerRestartRequired) {
           session.terminal.writeln(
             "\r\n\x1b[33m⟳ Container restarting, reconnecting...\x1b[0m",
           );
-          
+
           // Fetch the container info to get the new ID
-          this.refreshContainerAndReconnect(sessionId, currentSession.containerId);
+          this.refreshContainerAndReconnect(
+            sessionId,
+            currentSession.containerId,
+          );
           return;
         }
-        
-        const shouldReconnect = !isIntentionalClose && !isContainerGone && !maxAttemptsReached;
+
+        const shouldReconnect =
+          !isIntentionalClose && !isContainerGone && !maxAttemptsReached;
 
         if (shouldReconnect) {
           const attemptNum = currentSession.reconnectAttempts + 1;
-          
+
           // First attempt is instant, then exponential backoff
           const baseDelay = WS_RECONNECT_BASE_DELAY;
-          const delay = attemptNum === 1 ? 0 : Math.min(baseDelay * Math.pow(1.5, currentSession.reconnectAttempts - 1), WS_RECONNECT_MAX_DELAY);
-          
+          const delay =
+            attemptNum === 1
+              ? 0
+              : Math.min(
+                  baseDelay *
+                    Math.pow(1.5, currentSession.reconnectAttempts - 1),
+                  WS_RECONNECT_MAX_DELAY,
+                );
+
           // Update status to connecting (not error/disconnected during silent reconnect)
           updateSession(sessionId, (s) => ({
             ...s,
@@ -689,7 +697,9 @@ function createTerminalStore() {
             );
           } else {
             // Silent reconnect - just log to console
-            console.log(`[Terminal] Silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${sessionId} (delay: ${delay}ms)`);
+            console.log(
+              `[Terminal] Silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${sessionId} (delay: ${delay}ms)`,
+            );
           }
 
           const timer = setTimeout(() => {
@@ -700,7 +710,7 @@ function createTerminalStore() {
         } else {
           // Set to disconnected/error state
           updateSession(sessionId, (s) => ({ ...s, status: "disconnected" }));
-          
+
           // Show appropriate message based on reason
           if (isContainerGone) {
             session.terminal.writeln(
@@ -745,19 +755,20 @@ function createTerminalStore() {
 
       session.terminal.onData((data) => {
         if (ws.readyState !== WebSocket.OPEN) return;
-        
+
         // Block input if this is a view-only collab session
         const currentSession = getState().sessions.get(sessionId);
-        if (currentSession?.isCollabSession && currentSession?.collabMode === 'view') {
+        if (
+          currentSession?.isCollabSession &&
+          currentSession?.collabMode === "view"
+        ) {
           return;
         }
 
-        // Filter out mouse tracking sequences to reduce noise
-        // These are sent by xterm.js when mouse tracking is enabled by applications
-        const mouseTrackingRegex = /\x1b\[<[\d;]+[Mm]/g;
-        const mouseSpamRegex = /(?:\d+;\d+;\d+[Mm])+/g;
-        let filteredData = data.replace(mouseTrackingRegex, '');
-        filteredData = filteredData.replace(mouseSpamRegex, '');
+        // Filter out SGR mouse tracking sequences from input
+        // Only filter complete sequences to avoid breaking keyboard input
+        const mouseTrackingRegex = /\x1b\[<\d+;\d+;\d+[Mm]/g;
+        let filteredData = data.replace(mouseTrackingRegex, "");
         if (!filteredData) return; // Skip if only mouse data
 
         // For large pastes, chunk the data
@@ -787,13 +798,13 @@ function createTerminalStore() {
       }
 
       // Send full reset sequence
-      session.terminal.write('\x1bc'); // Full reset
+      session.terminal.write("\x1bc"); // Full reset
       session.terminal.clear(); // Clear buffer
-      
+
       // Re-write banner
       session.terminal.write(REXEC_BANNER);
       session.terminal.writeln("\x1b[32m› Terminal Reset\x1b[0m");
-      
+
       // Resend resize to ensure backend sync
       if (session.ws && session.ws.readyState === WebSocket.OPEN) {
         session.ws.send(
@@ -804,7 +815,7 @@ function createTerminalStore() {
           }),
         );
       }
-      
+
       toast.success("Terminal reset");
     },
 
@@ -812,58 +823,73 @@ function createTerminalStore() {
     reconnectSession(sessionId: string) {
       const state = getState();
       const session = state.sessions.get(sessionId);
-      
+
       // Close existing WebSocket if any
       if (session?.ws) {
         session.ws.close();
       }
-      
-      updateSession(sessionId, (s) => ({ ...s, reconnectAttempts: 0, status: 'connecting' }));
+
+      updateSession(sessionId, (s) => ({
+        ...s,
+        reconnectAttempts: 0,
+        status: "connecting",
+      }));
       this.connectWebSocket(sessionId);
     },
 
     // Refresh container info and reconnect with potentially new container ID
-    async refreshContainerAndReconnect(sessionId: string, oldContainerId: string) {
+    async refreshContainerAndReconnect(
+      sessionId: string,
+      oldContainerId: string,
+    ) {
       const authToken = get(token);
       if (!authToken) return;
 
       try {
         // Start the container via API - this will recreate if needed and return new ID
-        const response = await fetch(`/api/containers/${oldContainerId}/start`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
+        const response = await fetch(
+          `/api/containers/${oldContainerId}/start`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
           },
-        });
+        );
 
         if (response.ok) {
           const data = await response.json();
           const newContainerId = data.id || oldContainerId;
-          
+
           if (newContainerId !== oldContainerId) {
-            console.log(`[Terminal] Container recreated: ${oldContainerId} -> ${newContainerId}`);
+            console.log(
+              `[Terminal] Container recreated: ${oldContainerId} -> ${newContainerId}`,
+            );
             // Update session with new container ID
             updateSession(sessionId, (s) => ({
               ...s,
               containerId: newContainerId,
               reconnectAttempts: 0,
-              status: 'connecting',
+              status: "connecting",
             }));
           } else {
             updateSession(sessionId, (s) => ({
               ...s,
               reconnectAttempts: 0,
-              status: 'connecting',
+              status: "connecting",
             }));
           }
-          
+
           // Small delay to ensure container is ready
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
+          await new Promise((resolve) => setTimeout(resolve, 500));
+
           // Reconnect
           this.connectWebSocket(sessionId);
         } else {
-          console.error('[Terminal] Failed to start container:', await response.text());
+          console.error(
+            "[Terminal] Failed to start container:",
+            await response.text(),
+          );
           const state = getState();
           const session = state.sessions.get(sessionId);
           if (session) {
@@ -871,35 +897,39 @@ function createTerminalStore() {
               "\r\n\x1b[31m✖ Failed to restart container. Please try again.\x1b[0m",
             );
           }
-          updateSession(sessionId, (s) => ({ ...s, status: 'error' }));
+          updateSession(sessionId, (s) => ({ ...s, status: "error" }));
         }
       } catch (e) {
-        console.error('[Terminal] Error refreshing container:', e);
-        updateSession(sessionId, (s) => ({ ...s, status: 'error' }));
+        console.error("[Terminal] Error refreshing container:", e);
+        updateSession(sessionId, (s) => ({ ...s, status: "error" }));
       }
     },
 
     // Update a session's container ID (used when container is recreated with new ID)
     updateSessionContainerId(oldContainerId: string, newContainerId: string) {
       const state = getState();
-      
+
       // Find all sessions by old container ID
       const sessionsToUpdate: string[] = [];
-      
+
       for (const [id, session] of state.sessions) {
         if (session.containerId === oldContainerId) {
           sessionsToUpdate.push(id);
         }
       }
-      
+
       if (sessionsToUpdate.length === 0) {
-        console.log(`[Terminal] No session found for container ${oldContainerId}`);
+        console.log(
+          `[Terminal] No session found for container ${oldContainerId}`,
+        );
         return;
       }
-      
-      console.log(`[Terminal] Updating ${sessionsToUpdate.length} sessions from ${oldContainerId} to ${newContainerId}`);
-      
-      sessionsToUpdate.forEach(sessionId => {
+
+      console.log(
+        `[Terminal] Updating ${sessionsToUpdate.length} sessions from ${oldContainerId} to ${newContainerId}`,
+      );
+
+      sessionsToUpdate.forEach((sessionId) => {
         const session = state.sessions.get(sessionId);
         if (!session) return;
 
@@ -907,7 +937,7 @@ function createTerminalStore() {
         if (session.ws) {
           session.ws.close();
         }
-        
+
         // Update the session with new container ID
         updateSession(sessionId, (s) => ({
           ...s,
@@ -915,7 +945,7 @@ function createTerminalStore() {
           status: "connecting",
           reconnectAttempts: 0,
         }));
-        
+
         // Connect to new container
         this.connectWebSocket(sessionId);
 
@@ -1167,18 +1197,20 @@ function createTerminalStore() {
       // xterm.js textarea sometimes doesn't receive paste events properly
       // Note: We use 'capture: true' and check if the terminal's textarea is focused
       // to avoid interfering with TUI applications that handle their own input
-      element.addEventListener('paste', (e: ClipboardEvent) => {
+      element.addEventListener("paste", (e: ClipboardEvent) => {
         // Only handle paste if it's going to the terminal container, not internal TUI elements
         const target = e.target as HTMLElement;
-        const isTerminalTextarea = target.classList.contains('xterm-helper-textarea');
-        
+        const isTerminalTextarea = target.classList.contains(
+          "xterm-helper-textarea",
+        );
+
         // If it's the xterm textarea, let xterm handle it naturally first
         // We only intervene if the paste didn't work (fallback)
         if (!isTerminalTextarea) {
           return; // Let the event propagate normally
         }
-        
-        const text = e.clipboardData?.getData('text');
+
+        const text = e.clipboardData?.getData("text");
         if (text && session.ws?.readyState === WebSocket.OPEN) {
           // Use the chunking logic for large pastes
           const CHUNK_SIZE = 4096;
@@ -1191,8 +1223,13 @@ function createTerminalStore() {
             }
             let i = 0;
             const sendChunk = () => {
-              if (i < chunks.length && session.ws?.readyState === WebSocket.OPEN) {
-                session.ws.send(JSON.stringify({ type: "input", data: chunks[i] }));
+              if (
+                i < chunks.length &&
+                session.ws?.readyState === WebSocket.OPEN
+              ) {
+                session.ws.send(
+                  JSON.stringify({ type: "input", data: chunks[i] }),
+                );
                 i++;
                 if (i < chunks.length) {
                   setTimeout(sendChunk, 10);
@@ -1263,15 +1300,17 @@ function createTerminalStore() {
 
       // Add paste event handler to the new container
       // Only intercept large pastes, let xterm handle normal ones
-      element.addEventListener('paste', (e: ClipboardEvent) => {
+      element.addEventListener("paste", (e: ClipboardEvent) => {
         const target = e.target as HTMLElement;
-        const isTerminalTextarea = target.classList.contains('xterm-helper-textarea');
-        
+        const isTerminalTextarea = target.classList.contains(
+          "xterm-helper-textarea",
+        );
+
         if (!isTerminalTextarea) {
           return;
         }
-        
-        const text = e.clipboardData?.getData('text');
+
+        const text = e.clipboardData?.getData("text");
         if (text && session.ws?.readyState === WebSocket.OPEN) {
           const CHUNK_SIZE = 4096;
           if (text.length > CHUNK_SIZE) {
@@ -1282,8 +1321,13 @@ function createTerminalStore() {
             }
             let i = 0;
             const sendChunk = () => {
-              if (i < chunks.length && session.ws?.readyState === WebSocket.OPEN) {
-                session.ws.send(JSON.stringify({ type: "input", data: chunks[i] }));
+              if (
+                i < chunks.length &&
+                session.ws?.readyState === WebSocket.OPEN
+              ) {
+                session.ws.send(
+                  JSON.stringify({ type: "input", data: chunks[i] }),
+                );
                 i++;
                 if (i < chunks.length) {
                   setTimeout(sendChunk, 10);
@@ -1454,7 +1498,10 @@ function createTerminalStore() {
     },
 
     // Split the current terminal view (creates a new INDEPENDENT terminal session to the same container)
-    splitPane(sessionId: string, direction: SplitDirection = "horizontal"): string | null {
+    splitPane(
+      sessionId: string,
+      direction: SplitDirection = "horizontal",
+    ): string | null {
       const state = getState();
       const session = state.sessions.get(sessionId);
       if (!session) return null;
@@ -1582,7 +1629,7 @@ function createTerminalStore() {
       };
 
       // Output buffer for batching writes
-      let outputBuffer = '';
+      let outputBuffer = "";
       let flushTimeout: ReturnType<typeof setTimeout> | null = null;
       const FLUSH_INTERVAL = 16;
       const MAX_BUFFER_SIZE = 64 * 1024;
@@ -1590,11 +1637,11 @@ function createTerminalStore() {
       const flushBuffer = () => {
         if (outputBuffer && pane.terminal) {
           // Filter mouse tracking spam
-          const sanitized = outputBuffer.replace(/(?:\d+;\d+;\d+[Mm])+/g, '');
+          const sanitized = outputBuffer.replace(/(?:\d+;\d+;\d+[Mm])+/g, "");
           if (sanitized) {
             pane.terminal.write(sanitized);
           }
-          outputBuffer = '';
+          outputBuffer = "";
         }
         flushTimeout = null;
       };
@@ -1629,23 +1676,31 @@ function createTerminalStore() {
       ws.onclose = (event) => {
         const currentSession = getState().sessions.get(sessionId);
         if (!currentSession) return;
-        
+
         const currentPane = currentSession.splitPanes.get(paneId);
         if (!currentPane) return;
 
         // Determine if we should attempt reconnection
         const isIntentionalClose = event.code === 1000;
         const isContainerGone = event.code >= 4000;
-        const maxAttemptsReached = currentPane.reconnectAttempts >= WS_MAX_RECONNECT;
-        
-        const shouldReconnect = !isIntentionalClose && !isContainerGone && !maxAttemptsReached;
+        const maxAttemptsReached =
+          currentPane.reconnectAttempts >= WS_MAX_RECONNECT;
+
+        const shouldReconnect =
+          !isIntentionalClose && !isContainerGone && !maxAttemptsReached;
 
         if (shouldReconnect) {
           const attemptNum = currentPane.reconnectAttempts + 1;
-          
+
           // First attempt is instant, then exponential backoff
           const baseDelay = WS_RECONNECT_BASE_DELAY;
-          const delay = attemptNum === 1 ? 0 : Math.min(baseDelay * Math.pow(1.5, currentPane.reconnectAttempts - 1), WS_RECONNECT_MAX_DELAY);
+          const delay =
+            attemptNum === 1
+              ? 0
+              : Math.min(
+                  baseDelay * Math.pow(1.5, currentPane.reconnectAttempts - 1),
+                  WS_RECONNECT_MAX_DELAY,
+                );
 
           // Update reconnect attempts
           updateSession(sessionId, (s) => {
@@ -1663,7 +1718,9 @@ function createTerminalStore() {
               `\r\n\x1b[33m⟳ Split session reconnecting (${attemptNum}/${WS_MAX_RECONNECT})...\x1b[0m`,
             );
           } else {
-            console.log(`[Terminal] Split pane silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${paneId} (delay: ${delay}ms)`);
+            console.log(
+              `[Terminal] Split pane silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${paneId} (delay: ${delay}ms)`,
+            );
           }
 
           const timer = setTimeout(() => {
@@ -1690,24 +1747,27 @@ function createTerminalStore() {
               "\r\n\x1b[31m✖ Split session connection lost after multiple attempts.\x1b[0m",
             );
           } else {
-             pane.terminal.writeln("\r\n\x1b[33m› Split session disconnected\x1b[0m");
+            pane.terminal.writeln(
+              "\r\n\x1b[33m› Split session disconnected\x1b[0m",
+            );
           }
         }
       };
 
       ws.onerror = () => {
-        console.log("[Terminal] Split pane WebSocket error - will attempt reconnect");
+        console.log(
+          "[Terminal] Split pane WebSocket error - will attempt reconnect",
+        );
       };
 
       // Handle terminal input for split pane
-      const mouseTrackingRegex = /\x1b\[<[\d;]+[Mm]/g;
-      const mouseSpamRegex = /(?:\d+;\d+;\d+[Mm])+/g;
+      // Only filter complete SGR mouse sequences
+      const mouseTrackingRegex = /\x1b\[<\d+;\d+;\d+[Mm]/g;
 
       pane.terminal.onData((data) => {
         if (ws.readyState !== WebSocket.OPEN) return;
 
-        let filteredData = data.replace(mouseTrackingRegex, '');
-        filteredData = filteredData.replace(mouseSpamRegex, '');
+        let filteredData = data.replace(mouseTrackingRegex, "");
         if (!filteredData) return;
 
         ws.send(JSON.stringify({ type: "input", data: filteredData }));
@@ -1862,7 +1922,10 @@ function createTerminalStore() {
           ...s,
           splitLayout: {
             ...s.splitLayout,
-            direction: s.splitLayout.direction === "horizontal" ? "vertical" : "horizontal",
+            direction:
+              s.splitLayout.direction === "horizontal"
+                ? "vertical"
+                : "horizontal",
           },
         };
       });
@@ -1929,8 +1992,10 @@ export const connectedContainerIds = derived(terminal, ($terminal) => {
 export function isContainerConnected(containerId: string): boolean {
   const state = get(terminal);
   for (const session of state.sessions.values()) {
-    if (session.containerId === containerId && 
-        (session.status === "connected" || session.status === "connecting")) {
+    if (
+      session.containerId === containerId &&
+      (session.status === "connected" || session.status === "connecting")
+    ) {
       return true;
     }
   }

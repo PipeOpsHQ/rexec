@@ -7,10 +7,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
-	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	dockerclient "github.com/docker/docker/client"
@@ -20,13 +20,13 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  64 * 1024,  // 64KB - handles large paste operations
-	WriteBufferSize: 64 * 1024,  // 64KB - handles large output bursts
+	ReadBufferSize:  64 * 1024, // 64KB - handles large paste operations
+	WriteBufferSize: 64 * 1024, // 64KB - handles large output bursts
 	CheckOrigin: func(r *http.Request) bool {
 		// In production, you should validate the origin
 		return true
 	},
-	HandshakeTimeout: 10 * time.Second,
+	HandshakeTimeout:  10 * time.Second,
 	EnableCompression: true, // Enable per-message compression for large data
 }
 
@@ -42,17 +42,17 @@ type TerminalHandler struct {
 
 // SharedTerminalSession represents a terminal session shared by multiple users (for collaboration)
 type SharedTerminalSession struct {
-	ContainerID   string
-	ExecID        string
-	OwnerID       string
-	Connections   map[string]*websocket.Conn // userID -> connection
-	Cols          uint
-	Rows          uint
-	Done          chan struct{}
-	InputChan     chan []byte              // Channel for input from any participant
-	OutputChan    chan []byte              // Channel for output to broadcast
-	mu            sync.RWMutex
-	closed        bool
+	ContainerID string
+	ExecID      string
+	OwnerID     string
+	Connections map[string]*websocket.Conn // userID -> connection
+	Cols        uint
+	Rows        uint
+	Done        chan struct{}
+	InputChan   chan []byte // Channel for input from any participant
+	OutputChan  chan []byte // Channel for output to broadcast
+	mu          sync.RWMutex
+	closed      bool
 }
 
 // TerminalSession represents an active terminal session
@@ -105,10 +105,10 @@ func (h *TerminalHandler) HasCollabAccess(userID, containerID string) bool {
 	if h.collabHandler == nil {
 		return false
 	}
-	
+
 	h.collabHandler.mu.RLock()
 	defer h.collabHandler.mu.RUnlock()
-	
+
 	for _, session := range h.collabHandler.sessions {
 		if session.ContainerID == containerID {
 			session.mu.RLock()
@@ -142,7 +142,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Use the actual Docker ID from container info
 	dockerID := containerInfo.ID
 	isOwner := containerInfo.UserID == userID.(string)
@@ -226,26 +226,26 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 			// No shared session exists. Check if owner is connected in a private session.
 			ownerID := containerInfo.UserID
 			ownerSessionKey := dockerID + ":" + ownerID
-			
+
 			h.mu.Lock()
 			ownerSession, ownerConnected := h.sessions[ownerSessionKey]
 			h.mu.Unlock()
 
 			if ownerConnected {
 				log.Printf("[Terminal] Upgrading owner %s to shared session for container %s", ownerID, dockerID)
-				
+
 				// 1. Force owner to reconnect (which will join the shared session we are about to create)
 				// We send a specific close message or just close it.
 				ownerSession.Conn.WriteJSON(TerminalMessage{
-					Type: "reconnect", 
+					Type: "reconnect",
 					Data: "Upgrading to shared session...",
 				})
 				ownerSession.Close()
-				
+
 				// 2. Create the shared session immediately
 				// The owner isn't in it yet, but will be when they reconnect.
 				sharedSession = h.getOrCreateSharedSession(dockerID, ownerID, containerInfo.ImageType)
-				
+
 				// 3. Join the collab user now
 				h.joinSharedSession(sharedSession, conn, userID.(string), false)
 				return
@@ -397,7 +397,7 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 					Type: "output",
 					Data: "\r\n\x1b[33m[Container stopped. Restarting...]\x1b[0m\r\n",
 				})
-				
+
 				if err := h.containerManager.StartContainer(ctx, session.ContainerID); err != nil {
 					log.Printf("Failed to auto-restart container %s: %v", session.ContainerID, err)
 					// Container might have been recreated with a new ID
@@ -410,7 +410,7 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 					session.CloseWithCode(4100, "container_restart_required")
 					return
 				}
-				
+
 				// Wait a moment for container to fully start
 				time.Sleep(500 * time.Millisecond)
 			}
@@ -508,7 +508,9 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				if n > 0 {
 					// Sanitize UTF-8 to prevent garbled output in TUI applications
 					outputData := sanitizeUTF8(buf[:n])
-					
+					// Filter out mouse tracking sequences that can cause display issues
+					outputData = filterMouseTracking(outputData)
+
 					if err := session.SendMessage(TerminalMessage{
 						Type: "output",
 						Data: outputData,
@@ -881,7 +883,7 @@ func (h *TerminalHandler) hasActiveCollabSession(containerID string) bool {
 	}
 	h.collabHandler.mu.RLock()
 	defer h.collabHandler.mu.RUnlock()
-	
+
 	for _, session := range h.collabHandler.sessions {
 		if session.ContainerID == containerID && len(session.Participants) > 0 {
 			return true
@@ -894,11 +896,11 @@ func (h *TerminalHandler) hasActiveCollabSession(containerID string) bool {
 func (h *TerminalHandler) getOrCreateSharedSession(containerID, ownerID, imageType string) *SharedTerminalSession {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	if existing, ok := h.sharedSessions[containerID]; ok && !existing.closed {
 		return existing
 	}
-	
+
 	sharedSession := &SharedTerminalSession{
 		ContainerID: containerID,
 		OwnerID:     ownerID,
@@ -909,12 +911,12 @@ func (h *TerminalHandler) getOrCreateSharedSession(containerID, ownerID, imageTy
 		InputChan:   make(chan []byte, 4096),
 		OutputChan:  make(chan []byte, 4096),
 	}
-	
+
 	h.sharedSessions[containerID] = sharedSession
-	
+
 	// Start the shared exec session
 	go h.runSharedTerminalSession(sharedSession, imageType)
-	
+
 	return sharedSession
 }
 
@@ -927,13 +929,13 @@ func (h *TerminalHandler) joinSharedSession(session *SharedTerminalSession, conn
 	}
 	session.Connections[userID] = conn
 	session.mu.Unlock()
-	
+
 	// Send connected message
 	conn.WriteJSON(TerminalMessage{
 		Type: "connected",
 		Data: "Joined shared terminal session",
 	})
-	
+
 	// Handle this connection's input
 	defer func() {
 		session.mu.Lock()
@@ -941,18 +943,18 @@ func (h *TerminalHandler) joinSharedSession(session *SharedTerminalSession, conn
 		session.mu.Unlock()
 		conn.Close()
 	}()
-	
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
-		
+
 		var msg TerminalMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			continue
 		}
-		
+
 		switch msg.Type {
 		case "input":
 			// Only owner and editors can send input
@@ -978,7 +980,7 @@ func (h *TerminalHandler) canSendInput(containerID, userID string) bool {
 	}
 	h.collabHandler.mu.RLock()
 	defer h.collabHandler.mu.RUnlock()
-	
+
 	for _, session := range h.collabHandler.sessions {
 		if session.ContainerID == containerID {
 			if p, ok := session.Participants[userID]; ok {
@@ -1006,15 +1008,15 @@ func (h *TerminalHandler) runSharedTerminalSession(session *SharedTerminalSessio
 		}
 		session.Connections = make(map[string]*websocket.Conn)
 		session.mu.Unlock()
-		
+
 		h.mu.Lock()
 		delete(h.sharedSessions, session.ContainerID)
 		h.mu.Unlock()
 	}()
-	
+
 	client := h.containerManager.GetClient()
 	shell := h.detectShell(ctx, session.ContainerID, imageType)
-	
+
 	execConfig := container.ExecOptions{
 		AttachStdin:  true,
 		AttachStdout: true,
@@ -1026,15 +1028,15 @@ func (h *TerminalHandler) runSharedTerminalSession(session *SharedTerminalSessio
 			"COLORTERM=truecolor",
 		},
 	}
-	
+
 	execResp, err := client.ContainerExecCreate(ctx, session.ContainerID, execConfig)
 	if err != nil {
 		session.broadcastError("Failed to create shared terminal: " + err.Error())
 		return
 	}
-	
+
 	session.ExecID = execResp.ID
-	
+
 	attachResp, err := client.ContainerExecAttach(ctx, execResp.ID, container.ExecAttachOptions{
 		Tty: true,
 	})
@@ -1043,10 +1045,10 @@ func (h *TerminalHandler) runSharedTerminalSession(session *SharedTerminalSessio
 		return
 	}
 	defer attachResp.Close()
-	
+
 	var wg sync.WaitGroup
 	wg.Add(2)
-	
+
 	// Read output and broadcast to all connections
 	go func() {
 		defer wg.Done()
@@ -1061,7 +1063,7 @@ func (h *TerminalHandler) runSharedTerminalSession(session *SharedTerminalSessio
 			}
 		}
 	}()
-	
+
 	// Write input from any participant
 	go func() {
 		defer wg.Done()
@@ -1074,7 +1076,7 @@ func (h *TerminalHandler) runSharedTerminalSession(session *SharedTerminalSessio
 			}
 		}
 	}()
-	
+
 	wg.Wait()
 }
 
@@ -1082,12 +1084,12 @@ func (h *TerminalHandler) runSharedTerminalSession(session *SharedTerminalSessio
 func (s *SharedTerminalSession) broadcastOutput(data []byte) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	msg := TerminalMessage{
 		Type: "output",
 		Data: string(data),
 	}
-	
+
 	for _, conn := range s.Connections {
 		conn.WriteJSON(msg)
 	}
@@ -1097,12 +1099,12 @@ func (s *SharedTerminalSession) broadcastOutput(data []byte) {
 func (s *SharedTerminalSession) broadcastError(errMsg string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	msg := TerminalMessage{
 		Type: "error",
 		Data: errMsg,
 	}
-	
+
 	for _, conn := range s.Connections {
 		conn.WriteJSON(msg)
 	}
@@ -1150,6 +1152,42 @@ func (h *TerminalHandler) GetContainerSessionCount(containerID string) int {
 		}
 	}
 	return count
+}
+
+// filterMouseTracking removes SGR mouse tracking sequences from terminal output
+// These sequences can cause display issues when split across WebSocket messages
+// SGR format: \x1b[<button;x;yM or \x1b[<button;x;ym
+func filterMouseTracking(data string) string {
+	// Fast path - no escape sequences
+	if !strings.Contains(data, "\x1b[<") {
+		return data
+	}
+
+	// Remove complete SGR mouse sequences
+	result := strings.Builder{}
+	result.Grow(len(data))
+
+	i := 0
+	for i < len(data) {
+		// Check for SGR mouse sequence start
+		if i+2 < len(data) && data[i] == '\x1b' && data[i+1] == '[' && data[i+2] == '<' {
+			// Find the end of the sequence (M or m)
+			j := i + 3
+			for j < len(data) && ((data[j] >= '0' && data[j] <= '9') || data[j] == ';') {
+				j++
+			}
+			// Check if it ends with M or m
+			if j < len(data) && (data[j] == 'M' || data[j] == 'm') {
+				// Skip this mouse sequence
+				i = j + 1
+				continue
+			}
+		}
+		result.WriteByte(data[i])
+		i++
+	}
+
+	return result.String()
 }
 
 // sanitizeUTF8 ensures the byte slice is valid UTF-8, replacing invalid sequences
