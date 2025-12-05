@@ -500,11 +500,19 @@ function createTerminalStore() {
       const MAX_BUFFER_SIZE = 64 * 1024; // 64KB max before force flush
       
       // Filter corrupted mouse tracking data from output
-      // Pattern matches raw mouse coord spam like "35;166;10M35;165;10M..." and full sequences
+      // Pattern matches various forms of SGR mouse sequences that can leak through:
+      // - Full sequences: \x1b[<0;35;16M or \x1b[<0;35;16m
+      // - Partial/fragmented: 61;16M, 35;165;10M, etc.
+      // - Multiple consecutive: 35;166;10M35;165;10M...
       const sanitizeOutput = (data: string): string => {
-        // Remove mouse tracking spam (fragmented SGR mouse sequences)
-        // Includes handling for the CSI header \x1b[< to avoid leaving dangling escape codes
-        return data.replace(/(?:\x1b\[<)?(?:\d+;\d+;\d+[Mm])+/g, '');
+        // Remove mouse tracking sequences (SGR format)
+        // Match both full CSI sequences and orphaned coordinate fragments
+        return data
+          .replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, '')  // Full SGR mouse sequences
+          .replace(/(?:^|[^\x1b\[\d])\d{1,3};\d{1,3}(?:;\d{1,3})?[Mm]/g, (match) => {
+            // Only remove if it looks like orphaned mouse coords (starts with digit)
+            return match[0] >= '0' && match[0] <= '9' ? '' : match[0];
+          });
       };
       
       const flushBuffer = () => {
@@ -744,15 +752,23 @@ function createTerminalStore() {
           return;
         }
 
+        // Filter out mouse tracking sequences to reduce noise
+        // These are sent by xterm.js when mouse tracking is enabled by applications
+        const mouseTrackingRegex = /\x1b\[<[\d;]+[Mm]/g;
+        const mouseSpamRegex = /(?:\d+;\d+;\d+[Mm])+/g;
+        let filteredData = data.replace(mouseTrackingRegex, '');
+        filteredData = filteredData.replace(mouseSpamRegex, '');
+        if (!filteredData) return; // Skip if only mouse data
+
         // For large pastes, chunk the data
-        if (data.length > CHUNK_SIZE) {
-          for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-            inputQueue.push(data.slice(i, i + CHUNK_SIZE));
+        if (filteredData.length > CHUNK_SIZE) {
+          for (let i = 0; i < filteredData.length; i += CHUNK_SIZE) {
+            inputQueue.push(filteredData.slice(i, i + CHUNK_SIZE));
           }
           processInputQueue();
         } else {
           // Small inputs go directly
-          ws.send(JSON.stringify({ type: "input", data: data }));
+          ws.send(JSON.stringify({ type: "input", data: filteredData }));
         }
       });
     },
