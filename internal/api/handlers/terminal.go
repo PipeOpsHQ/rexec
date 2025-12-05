@@ -506,9 +506,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				}
 
 				if n > 0 {
-					// Send immediately to minimize latency
-					// Direct string conversion handles UTF-8 replacement automatically for JSON
-					outputData := string(buf[:n])
+					// Sanitize UTF-8 to prevent garbled output in TUI applications
+					outputData := sanitizeUTF8(buf[:n])
 					
 					if err := session.SendMessage(TerminalMessage{
 						Type: "output",
