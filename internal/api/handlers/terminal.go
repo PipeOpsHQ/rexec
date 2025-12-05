@@ -194,7 +194,8 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// Check if container is running
-	if containerInfo.Status != "running" {
+	// We allow connections during configuring state so users can connect during long role setups
+	if containerInfo.Status != "running" && containerInfo.Status != "configuring" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":           "container is not running",
 			"code":            "container_stopped",

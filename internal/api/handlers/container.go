@@ -1088,6 +1088,9 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 		if err := h.store.UpdateContainerStatus(ctx, found.ID, "running"); err != nil {
 			log.Printf("[UpdateSettings] Warning: failed to update container status to running: %v", err)
 		}
+
+		// Also update in-memory status so WebSocket connections work immediately
+		h.manager.UpdateContainerStatus(newDockerID, "running")
 	}
 
 	log.Printf("[UpdateSettings] Updating container %s with memory=%d, cpu=%d, disk=%d", found.ID, req.MemoryMB, req.CPUShares, req.DiskMB)
