@@ -1094,7 +1094,10 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	}
 
 	// Special handling for macOS (docker-osx)
-	if cfg.ImageType == "macos" {
+	// Check for "macos" or "osx" in image type (case-insensitive)
+	isMacOS := strings.Contains(strings.ToLower(cfg.ImageType), "macos") || strings.Contains(strings.ToLower(cfg.ImageType), "osx")
+	
+	if isMacOS {
 		// Do NOT override Entrypoint - let the VM boot script run
 		// Do NOT use /home/user working dir - use default
 		log.Printf("[Container] Configuring macOS container (privileged, kvm, headless)")
@@ -1130,7 +1133,8 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	} else {
 		// Standard Linux container setup
 		// Create /home/user directory on startup since we're not mounting a volume
-		containerConfig.Entrypoint = []string{"/bin/sh", "-c", "mkdir -p /home/user && chmod 777 /home/user && exec " + shell}
+		// Add || true to chmod to prevent failure if permissions are restricted (e.g. read-only root)
+		containerConfig.Entrypoint = []string{"/bin/sh", "-c", "mkdir -p /home/user && (chmod 777 /home/user || true) && exec " + shell}
 		containerConfig.WorkingDir = "/home/user"
 	}
 

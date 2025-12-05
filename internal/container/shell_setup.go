@@ -155,8 +155,8 @@ autoload -Uz compinit
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 
-# Main prompt - plain text
-export PROMPT='%%n@%%m %%~ %%# '
+# Main prompt - simple and compatible
+export PROMPT='%n@%m %~ %# '
 export RPROMPT=''
 
 bindkey '^[[A' history-substring-search-up
@@ -394,8 +394,8 @@ ZSH_THEME_GIT_PROMPT_SUFFIX=") "
 ZSH_THEME_GIT_PROMPT_DIRTY="*"
 ZSH_THEME_GIT_PROMPT_CLEAN="ok"
 
-# Main prompt - plain text, no unicode
-PROMPT='%%n@%%m %%~ %%# '
+# Main prompt - simple and compatible
+PROMPT='%n@%m %~ %# '
 RPROMPT=''
 THEME
 }
@@ -779,18 +779,18 @@ create_theme() {
     export HOME="${HOME:-/root}"
     mkdir -p "$HOME/.oh-my-zsh/custom/themes"
     cat > "$HOME/.oh-my-zsh/custom/themes/rexec.zsh-theme" << 'THEME'
-ZSH_THEME_GIT_PROMPT_PREFIX="%%F{magenta}git:(%%F{green}"
-ZSH_THEME_GIT_PROMPT_SUFFIX="%%f "
-ZSH_THEME_GIT_PROMPT_DIRTY="%%F{magenta}) %%F{red}*"
-ZSH_THEME_GIT_PROMPT_CLEAN="%%F{magenta}) %%F{green}ok"
+ZSH_THEME_GIT_PROMPT_PREFIX="%F{magenta}git:(%F{green}"
+ZSH_THEME_GIT_PROMPT_SUFFIX="%f "
+ZSH_THEME_GIT_PROMPT_DIRTY="%F{magenta}) %F{red}*"
+ZSH_THEME_GIT_PROMPT_CLEAN="%F{magenta}) %F{green}ok"
 
-PROMPT='%%F{cyan}%%n%%f@%%F{blue}%%m%%f %%F{yellow}%%~%%f$(git_prompt_info) %%F{green}$%%f '
+PROMPT='%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f$(git_prompt_info) %F{green}$%f '
 RPROMPT=''
 THEME
 
     # Minimal theme (simpler, faster)
     cat > "$HOME/.oh-my-zsh/custom/themes/minimal.zsh-theme" << 'THEME'
-PROMPT='%%F{cyan}%%n%%f:%%F{yellow}%%~%%f %%F{green}$%%f '
+PROMPT='%F{cyan}%n%f:%F{yellow}%~%f %F{green}$%f '
 THEME
 }
 
