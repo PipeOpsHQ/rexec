@@ -1099,11 +1099,15 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		// Do NOT use /home/user working dir - use default
 		log.Printf("[Container] Configuring macOS container (privileged, kvm, default entrypoint)")
 		
-		// Add headless environment variables to prevent GTK/ALSA crashes
+		// Add headless environment variables for VNC-based access
+		// HEADLESS=1 enables VNC mode in docker-osx
+		// EXTRA="-display none -vnc 0.0.0.0:0" disables local display, enables VNC on port 5900
+		// AUDIO_DRIVER=none disables audio to prevent ALSA errors
 		containerConfig.Env = append(containerConfig.Env,
 			"HEADLESS=1",
-			"genargs=-nographic", // Pass -nographic to QEMU via generator script
-			"DISPLAY=",           // Disable X11
+			"DISPLAY=",                                    // Disable X11
+			"AUDIO_DRIVER=none",                           // Disable audio
+			"EXTRA=-display none -vnc 0.0.0.0:0 -audio none", // VNC on 5900, no audio
 		)
 		
 		hostConfig.Privileged = true
