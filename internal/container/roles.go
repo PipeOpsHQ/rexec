@@ -94,15 +94,32 @@ set -e
 
 echo "Installing tools for role: %s..."
 
+# Wait for any existing apt/dpkg locks (max 60 seconds)
+wait_for_apt_lock() {
+    local max_wait=60
+    local waited=0
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [ $waited -ge $max_wait ]; then
+            echo "Timeout waiting for apt lock"
+            return 1
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    return 0
+}
+
 # Function to install packages based on detected manager
 install_role_packages() {
     PACKAGES="%s"
 
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
-        apt-get update -qq
-        # Map generic names to apt names if needed
-        apt-get install -y -qq $PACKAGES >/dev/null 2>&1
+        # Wait for any existing apt locks
+        wait_for_apt_lock || true
+        # Use flock to prevent concurrent apt-get
+        flock -w 120 /var/lib/dpkg/lock-frontend apt-get update -qq 2>/dev/null || apt-get update -qq
+        flock -w 120 /var/lib/dpkg/lock-frontend apt-get install -y -qq $PACKAGES >/dev/null 2>&1 || apt-get install -y -qq $PACKAGES >/dev/null 2>&1
     elif command -v apk >/dev/null 2>&1; then
         # Alpine mapping
         apk add --no-cache $PACKAGES >/dev/null 2>&1

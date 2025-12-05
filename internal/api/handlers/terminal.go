@@ -320,6 +320,10 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		Data: "Terminal session established",
 	})
 
+	// Kill any orphaned package manager processes from previous sessions
+	// This prevents apt-get lock issues after reconnects/deployments
+	go h.cleanupOrphanedPackageProcesses(dockerID)
+
 	// Start terminal session with auto-restart on exit
 	h.runTerminalSessionWithRestart(session, containerInfo.ImageType)
 }
@@ -826,6 +830,55 @@ func (h *TerminalHandler) CloseAllContainerSessions(containerID string) {
 			delete(h.sessions, key)
 		}
 	}
+}
+
+// cleanupOrphanedPackageProcesses kills any orphaned apt/dpkg/yum processes
+// that might be holding locks from previous disconnected sessions
+func (h *TerminalHandler) cleanupOrphanedPackageProcesses(containerID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Script to kill orphaned package manager processes
+	cleanupScript := `#!/bin/sh
+# Kill orphaned apt-get, dpkg, yum, dnf processes that might be holding locks
+for proc in apt-get dpkg apt yum dnf apk pacman; do
+    pkill -9 -f "^$proc " 2>/dev/null || true
+    pkill -9 -x "$proc" 2>/dev/null || true
+done
+
+# Remove stale lock files if no process is using them
+for lockfile in /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock; do
+    if [ -f "$lockfile" ]; then
+        if ! fuser "$lockfile" >/dev/null 2>&1; then
+            rm -f "$lockfile" 2>/dev/null || true
+        fi
+    fi
+done
+
+# Reconfigure dpkg if it was interrupted
+dpkg --configure -a 2>/dev/null || true
+exit 0
+`
+
+	execConfig := container.ExecOptions{
+		Cmd:          []string{"/bin/sh", "-c", cleanupScript},
+		AttachStdout: false,
+		AttachStderr: false,
+		Tty:          false,
+	}
+
+	execResp, err := h.containerManager.GetClient().ContainerExecCreate(ctx, containerID, execConfig)
+	if err != nil {
+		log.Printf("[Terminal] Failed to create cleanup exec for %s: %v", containerID[:12], err)
+		return
+	}
+
+	if err := h.containerManager.GetClient().ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{}); err != nil {
+		log.Printf("[Terminal] Failed to run cleanup for %s: %v", containerID[:12], err)
+		return
+	}
+
+	log.Printf("[Terminal] Ran orphaned process cleanup for %s", containerID[:12])
 }
 
 // hasActiveCollabSession checks if there's an active collab session for a container

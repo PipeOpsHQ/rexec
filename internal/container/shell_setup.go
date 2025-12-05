@@ -17,10 +17,27 @@ const ShellSetupTimeout = 2 * time.Minute
 const ShellSetupScript = `#!/bin/sh
 set -e
 
+# Wait for any existing apt/dpkg locks (max 60 seconds)
+wait_for_apt_lock() {
+    local max_wait=60
+    local waited=0
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [ $waited -ge $max_wait ]; then
+            echo "Timeout waiting for apt lock"
+            return 1
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    return 0
+}
+
 # Detect package manager and install zsh + dependencies
 install_packages() {
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
+        # Wait for any existing apt locks
+        wait_for_apt_lock || true
         apt-get update -qq
         # Reinstall git with proper dependencies to fix libpcre2 version issues
         apt-get install -y -qq --reinstall zsh git libpcre2-8-0 curl wget locales >/dev/null 2>&1
@@ -644,10 +661,26 @@ show_system_stats
 	return fmt.Sprintf(`#!/bin/sh
 set -e
 
+# Wait for any existing apt/dpkg locks (max 60 seconds)
+wait_for_apt_lock() {
+    local max_wait=60
+    local waited=0
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+        if [ $waited -ge $max_wait ]; then
+            echo "Timeout waiting for apt lock"
+            return 1
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    return 0
+}
+
 # Detect package manager and install zsh + dependencies
 install_packages() {
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
+        wait_for_apt_lock || true
         apt-get update -qq
         apt-get install -y -qq --reinstall zsh git libpcre2-8-0 curl wget locales >/dev/null 2>&1
         if [ -f /etc/locale.gen ]; then
