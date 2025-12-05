@@ -458,7 +458,14 @@ function createTerminalStore() {
           reconnectAttempts: 0,
         }));
 
-        // Send initial resize first
+        // Fit terminal first to get accurate dimensions
+        try {
+          session.fitAddon.fit();
+        } catch (e) {
+          // Ignore fit errors on initial connection
+        }
+
+        // Send resize with correct dimensions
         ws.send(
           JSON.stringify({
             type: "resize",
@@ -476,7 +483,6 @@ function createTerminalStore() {
           "\x1b[38;5;243m  Type 'help' for tips & shortcuts\x1b[0m\r\n",
         );
 
-        // Send resize again after fit
         // Setup ping interval
         const pingInterval = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -743,6 +749,13 @@ function createTerminalStore() {
       const session = state.sessions.get(sessionId);
       if (!session || !session.terminal) return;
 
+      // Fit terminal first
+      try {
+        session.fitAddon.fit();
+      } catch (e) {
+        // Ignore fit errors
+      }
+
       // Send full reset sequence
       session.terminal.write('\x1bc'); // Full reset
       session.terminal.clear(); // Clear buffer
@@ -760,8 +773,6 @@ function createTerminalStore() {
             rows: session.terminal.rows,
           }),
         );
-        // Request a redraw by sending a space and backspace (hacky but effective for some shells)
-        // Or just let the user press enter
       }
       
       toast.success("Terminal reset");
