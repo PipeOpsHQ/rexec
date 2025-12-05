@@ -220,7 +220,7 @@ show_system_stats() {
     if [ -z "$container_id" ]; then
         container_id="${HOSTNAME:-unknown}"
     fi
-    
+
     local os_name="Linux"
     # Try to get container OS info instead of kernel
     if [ -f /etc/os-release ]; then
@@ -228,13 +228,13 @@ show_system_stats() {
         [ -z "$os_name" ] && os_name=$(grep -E "^NAME=" /etc/os-release 2>/dev/null | cut -d'"' -f2 | head -1)
     fi
     [ -z "$os_name" ] && os_name="Linux"
-    
+
     local uptime_raw=$(cat /proc/uptime 2>/dev/null | cut -d. -f1)
     [ -z "$uptime_raw" ] && uptime_raw=0
     local uptime_days=$((uptime_raw / 86400))
     local uptime_hours=$(((uptime_raw % 86400) / 3600))
     local uptime_mins=$(((uptime_raw % 3600) / 60))
-    
+
     # Container Memory info from cgroups (shows container limits, not host)
     local mem_limit_bytes=0
     local mem_used_bytes=0
@@ -261,7 +261,7 @@ show_system_stats() {
         mem_used_bytes=$((mem_used_bytes - mem_cache_bytes))
         [ "$mem_used_bytes" -lt 0 ] && mem_used_bytes=0
     fi
-    
+
     # Convert to MB and handle "max" value (unlimited)
     local mem_total_mb=0
     local mem_used_mb=0
@@ -271,7 +271,7 @@ show_system_stats() {
     elif [ -n "$mem_limit_bytes" ] && [ "$mem_limit_bytes" -gt 0 ] 2>/dev/null; then
         mem_total_mb=$((mem_limit_bytes / 1024 / 1024))
     fi
-    
+
     # Fallback to env var if cgroup didn't give valid limit
     if [ "$mem_total_mb" -eq 0 ] && [ -n "$REXEC_MEMORY_LIMIT" ]; then
         # Parse REXEC_MEMORY_LIMIT (e.g., "512M", "1G", "2048M")
@@ -283,16 +283,16 @@ show_system_stats() {
         fi
     fi
     [ "$mem_total_mb" -eq 0 ] && mem_total_mb=512
-    
+
     if [ -n "$mem_used_bytes" ] && [ "$mem_used_bytes" -gt 0 ] 2>/dev/null; then
         mem_used_mb=$((mem_used_bytes / 1024 / 1024))
     fi
-    
+
     local mem_percent=0
     if [ "$mem_total_mb" -gt 0 ] 2>/dev/null; then
         mem_percent=$((mem_used_mb * 100 / mem_total_mb))
     fi
-    
+
     # Container CPU info from cgroups
     local cpu_quota=0
     local cpu_period=100000
@@ -307,7 +307,7 @@ show_system_stats() {
         cpu_quota=$(cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null || echo "-1")
         cpu_period=$(cat /sys/fs/cgroup/cpu/cpu.cfs_period_us 2>/dev/null || echo "100000")
     fi
-    
+
     # Calculate CPU cores allocated to container
     # Read from cgroups (updated in real-time) rather than env var (set at creation)
     local cpu_cores="0.5"
@@ -318,19 +318,19 @@ show_system_stats() {
         # Fallback to env var if cgroup not available
         cpu_cores="$REXEC_CPU_LIMIT"
     fi
-    
+
     # Container Disk info - check config file first (updated by settings), then env var
     local disk_quota="${REXEC_DISK_QUOTA:-2G}"
     if [ -f /etc/rexec/config ]; then
         local file_disk=$(grep '^DISK=' /etc/rexec/config 2>/dev/null | cut -d= -f2)
         [ -n "$file_disk" ] && disk_quota="$file_disk"
     fi
-    
+
     # Memory limit - prefer cgroup value (updated in real-time), clean up format
     local mem_limit="${mem_total_mb}M"
     # Remove decimal from memory limit if present (e.g., 1024.00M -> 1024M)
     mem_limit=$(echo "$mem_limit" | sed 's/\.00//')
-    
+
     # Convert memory limit to GB if >= 1024M
     local mem_limit_display="$mem_limit"
     if echo "$mem_limit" | grep -qE '^[0-9]+M$'; then
@@ -346,7 +346,7 @@ show_system_stats() {
             fi
         fi
     fi
-    
+
     # Get terminal width (default to 80 if unavailable)
     local term_width=80
     if command -v tput >/dev/null 2>&1; then
@@ -354,7 +354,7 @@ show_system_stats() {
     elif [ -n "$COLUMNS" ]; then
         term_width=$COLUMNS
     fi
-    
+
     # Print banner - use compact format for narrow terminals (< 50 cols)
     echo ""
     if [ "$term_width" -ge 50 ]; then
@@ -597,20 +597,20 @@ show_system_stats() {
     fi
     [ -z "$container_id" ] && [ -f /etc/hostname ] && container_id=$(cat /etc/hostname 2>/dev/null)
     [ -z "$container_id" ] && container_id="${HOSTNAME:-unknown}"
-    
+
     local os_name="Linux"
     if [ -f /etc/os-release ]; then
         os_name=$(grep -E "^PRETTY_NAME=" /etc/os-release 2>/dev/null | cut -d'"' -f2 | head -1)
         [ -z "$os_name" ] && os_name=$(grep -E "^NAME=" /etc/os-release 2>/dev/null | cut -d'"' -f2 | head -1)
     fi
     [ -z "$os_name" ] && os_name="Linux"
-    
+
     local uptime_raw=$(cat /proc/uptime 2>/dev/null | cut -d. -f1)
     [ -z "$uptime_raw" ] && uptime_raw=0
     local uptime_days=$((uptime_raw / 86400))
     local uptime_hours=$(((uptime_raw % 86400) / 3600))
     local uptime_mins=$(((uptime_raw % 3600) / 60))
-    
+
     local mem_limit_bytes=0 mem_used_bytes=0
     if [ -f /sys/fs/cgroup/memory.max ]; then
         mem_limit_bytes=$(cat /sys/fs/cgroup/memory.max 2>/dev/null)
@@ -619,13 +619,13 @@ show_system_stats() {
         mem_limit_bytes=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)
         mem_used_bytes=$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null || echo "0")
     fi
-    
+
     local mem_total_mb=512 mem_used_mb=0
     if [ "$mem_limit_bytes" != "max" ] && [ "$mem_limit_bytes" -gt 0 ] 2>/dev/null && [ "$mem_limit_bytes" -lt 17179869184 ]; then
         mem_total_mb=$((mem_limit_bytes / 1024 / 1024))
     fi
     [ "$mem_used_bytes" -gt 0 ] 2>/dev/null && mem_used_mb=$((mem_used_bytes / 1024 / 1024))
-    
+
     local cpu_cores="0.5"
     if [ -f /sys/fs/cgroup/cpu.max ]; then
         local cpu_max=$(cat /sys/fs/cgroup/cpu.max 2>/dev/null)
@@ -633,10 +633,10 @@ show_system_stats() {
         local cpu_period=$(echo "$cpu_max" | awk '{print $2}')
         [ "$cpu_quota" != "max" ] && [ "$cpu_quota" -gt 0 ] 2>/dev/null && cpu_cores=$(awk "BEGIN {printf \"%.1f\", $cpu_quota / $cpu_period}")
     fi
-    
+
     local disk_quota="${REXEC_DISK_QUOTA:-2G}"
     [ -f /etc/rexec/config ] && disk_quota=$(grep '^DISK=' /etc/rexec/config 2>/dev/null | cut -d= -f2 || echo "$disk_quota")
-    
+
     echo ""
     echo "\033[1;35m  Welcome to Rexec Terminal\033[0m"
     echo ""
@@ -779,18 +779,18 @@ create_theme() {
     export HOME="${HOME:-/root}"
     mkdir -p "$HOME/.oh-my-zsh/custom/themes"
     cat > "$HOME/.oh-my-zsh/custom/themes/rexec.zsh-theme" << 'THEME'
-ZSH_THEME_GIT_PROMPT_PREFIX="%F{magenta}git:(%F{green}"
-ZSH_THEME_GIT_PROMPT_SUFFIX="%f "
-ZSH_THEME_GIT_PROMPT_DIRTY="%F{magenta}) %F{red}*"
-ZSH_THEME_GIT_PROMPT_CLEAN="%F{magenta}) %F{green}ok"
+ZSH_THEME_GIT_PROMPT_PREFIX="%%F{magenta}git:(%%F{green}"
+ZSH_THEME_GIT_PROMPT_SUFFIX="%%f "
+ZSH_THEME_GIT_PROMPT_DIRTY="%%F{magenta}) %%F{red}*"
+ZSH_THEME_GIT_PROMPT_CLEAN="%%F{magenta}) %%F{green}ok"
 
-PROMPT='%F{cyan}%n%f@%F{blue}%m%f %F{yellow}%~%f$(git_prompt_info) %F{green}$%f '
+PROMPT='%%F{cyan}%%n%%f@%%F{blue}%%m%%f %%F{yellow}%%~%%f$(git_prompt_info) %%F{green}$%%f '
 RPROMPT=''
 THEME
 
     # Minimal theme (simpler, faster)
     cat > "$HOME/.oh-my-zsh/custom/themes/minimal.zsh-theme" << 'THEME'
-PROMPT='%F{cyan}%n%f:%F{yellow}%~%f %F{green}$%f '
+PROMPT='%%F{cyan}%%n%%f:%%F{yellow}%%~%%f %%F{green}$%%f '
 THEME
 }
 
