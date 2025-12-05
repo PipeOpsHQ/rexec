@@ -369,7 +369,7 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 
 	maxRestarts := 10 // Prevent infinite restart loops
 	if isMacOS {
-		maxRestarts = 2 // Fewer restarts for macOS VMs
+		maxRestarts = 3 // Fewer restarts for macOS VMs, but allow a few for CPU throttle recovery
 	}
 	restartCount := 0
 
@@ -396,7 +396,7 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 		// Reset restart count if session lasted > 1 minute (5 min for macOS VMs)
 		minSessionDuration := 1 * time.Minute
 		if isMacOS {
-			minSessionDuration = 5 * time.Minute
+			minSessionDuration = 2 * time.Minute // Reduced from 5 min - macOS VMs can disconnect due to CPU throttling
 		}
 		if time.Since(startTime) > minSessionDuration {
 			restartCount = 0
@@ -410,9 +410,9 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 			if isMacOS {
 				session.SendMessage(TerminalMessage{
 					Type: "output",
-					Data: "\r\n\x1b[33m[Shell exited. Waiting for VM to stabilize...]\x1b[0m\r\n",
+					Data: "\r\n\x1b[33m[Shell exited. Waiting for VM to stabilize (high CPU can cause disconnections)...]\x1b[0m\r\n",
 				})
-				time.Sleep(3 * time.Second) // Give macOS VM time to stabilize
+				time.Sleep(5 * time.Second) // Give macOS VM more time to stabilize after CPU throttling
 			}
 
 			session.SendMessage(TerminalMessage{
@@ -455,7 +455,7 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 		if isMacOS && restartCount >= maxRestarts {
 			session.SendMessage(TerminalMessage{
 				Type: "output",
-				Data: "\r\n\x1b[31m[macOS VM connection unstable. Try reconnecting or restarting the container.]\x1b[0m\r\n",
+				Data: "\r\n\x1b[31m[macOS VM connection unstable due to high CPU usage. Try reconnecting or restarting the container.]\x1b[0m\r\n",
 			})
 		}
 		break

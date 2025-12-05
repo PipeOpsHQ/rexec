@@ -122,13 +122,13 @@ func SanitizeErrorString(errMsg string) string {
 // NOTE: Only verified working images are included here
 var SupportedImages = map[string]string{
 	// Debian-based (Updated Dec 2025)
-	"ubuntu":     "ubuntu:24.04",    // LTS until 2029, latest security patches
-	"ubuntu-24":  "ubuntu:24.04",    // Noble Numbat LTS
-	"ubuntu-22":  "ubuntu:22.04",    // Jammy Jellyfish LTS
-	"ubuntu-20":  "ubuntu:20.04",    // Focal Fossa LTS (EOL Apr 2025, still supported)
-	"debian":     "debian:12",       // Bookworm (current stable)
-	"debian-12":  "debian:12",       // Bookworm
-	"debian-11":  "debian:11",       // Bullseye (oldstable)
+	"ubuntu":     "ubuntu:24.04", // LTS until 2029, latest security patches
+	"ubuntu-24":  "ubuntu:24.04", // Noble Numbat LTS
+	"ubuntu-22":  "ubuntu:22.04", // Jammy Jellyfish LTS
+	"ubuntu-20":  "ubuntu:20.04", // Focal Fossa LTS (EOL Apr 2025, still supported)
+	"debian":     "debian:12",    // Bookworm (current stable)
+	"debian-12":  "debian:12",    // Bookworm
+	"debian-11":  "debian:11",    // Bullseye (oldstable)
 	"kali":       "kalilinux/kali-rolling:latest",
 	"parrot":     "parrotsec/core:latest",
 	"mint":       "linuxmintd/mint22-amd64:latest", // Linux Mint 22 (latest)
@@ -138,26 +138,26 @@ var SupportedImages = map[string]string{
 	"blackarch":       "blackarchlinux/blackarch:latest",
 	"parrot-security": "parrotsec/security:latest",
 	// Red Hat-based (Updated Dec 2025)
-	"fedora":    "fedora:41",       // Fedora 41 (latest stable)
-	"fedora-40": "fedora:40",       // Previous stable
-	"fedora-39": "fedora:39",       // Older stable
-	"centos":    "quay.io/centos/centos:stream9", // CentOS Stream 9
+	"fedora":        "fedora:41",                     // Fedora 41 (latest stable)
+	"fedora-40":     "fedora:40",                     // Previous stable
+	"fedora-39":     "fedora:39",                     // Older stable
+	"centos":        "quay.io/centos/centos:stream9", // CentOS Stream 9
 	"centos-stream": "quay.io/centos/centos:stream9",
-	"rocky":     "rockylinux:9",    // Rocky Linux 9 (latest)
-	"rocky-8":   "rockylinux:8",    // Rocky Linux 8
-	"alma":      "almalinux:9",     // AlmaLinux 9 (latest)
-	"alma-8":    "almalinux:8",     // AlmaLinux 8
-	"oracle":    "oraclelinux:9",   // Oracle Linux 9
-	"rhel":      "redhat/ubi9:latest", // Red Hat UBI 9
-	"openeuler": "openeuler/openeuler:24.03-lts",
+	"rocky":         "rockylinux:9",       // Rocky Linux 9 (latest)
+	"rocky-8":       "rockylinux:8",       // Rocky Linux 8
+	"alma":          "almalinux:9",        // AlmaLinux 9 (latest)
+	"alma-8":        "almalinux:8",        // AlmaLinux 8
+	"oracle":        "oraclelinux:9",      // Oracle Linux 9
+	"rhel":          "redhat/ubi9:latest", // Red Hat UBI 9
+	"openeuler":     "openeuler/openeuler:24.03-lts",
 	// Arch-based
 	"archlinux": "archlinux:latest", // Rolling release
 	"manjaro":   "manjarolinux/base:latest",
 	"artix":     "artixlinux/artixlinux:latest", // Arch without systemd
 	// SUSE-based (Updated Dec 2025)
-	"opensuse":   "opensuse/leap:15.6",     // openSUSE Leap 15.6
+	"opensuse":   "opensuse/leap:15.6",         // openSUSE Leap 15.6
 	"tumbleweed": "opensuse/tumbleweed:latest", // Rolling release
-	"mageia":     "mageia:9",               // Mandriva fork
+	"mageia":     "mageia:9",                   // Mandriva fork
 	// Independent Distributions
 	"gentoo":    "gentoo/stage3:latest",
 	"void":      "voidlinux/voidlinux:latest",
@@ -166,25 +166,25 @@ var SupportedImages = map[string]string{
 	"crux":      "crux/crux:latest",
 	"guix":      "gnu/guix:latest",
 	// Minimal / Embedded (Updated Dec 2025)
-	"alpine":      "alpine:3.21",   // Alpine 3.21 (latest stable)
-	"alpine-3.20": "alpine:3.20",   // Previous stable
-	"alpine-3.18": "alpine:3.18",   // Older stable
-	"busybox":     "busybox:1.37",  // Latest busybox
+	"alpine":      "alpine:3.21",  // Alpine 3.21 (latest stable)
+	"alpine-3.20": "alpine:3.20",  // Previous stable
+	"alpine-3.18": "alpine:3.18",  // Older stable
+	"busybox":     "busybox:1.37", // Latest busybox
 	"tinycore":    "tatocaster/tinycore:latest",
 	"openwrt":     "openwrt/rootfs:latest",
 	// Container / Cloud Optimized
 	"rancheros": "alpine:3.21", // RancherOS discontinued, using Alpine as lightweight alternative
 	// Cloud Provider Specific (Updated Dec 2025)
-	"amazonlinux":     "amazonlinux:2023", // Amazon Linux 2023 latest
-	"amazonlinux2":    "amazonlinux:2",      // Amazon Linux 2 (EOL 2025)
-	"oracle-slim":     "oraclelinux:9-slim",
-	"azurelinux":      "mcr.microsoft.com/azurelinux/base/core:3.0",
+	"amazonlinux":  "amazonlinux:2023", // Amazon Linux 2023 latest
+	"amazonlinux2": "amazonlinux:2",    // Amazon Linux 2 (EOL 2025)
+	"oracle-slim":  "oraclelinux:9-slim",
+	"azurelinux":   "mcr.microsoft.com/azurelinux/base/core:3.0",
 	// Scientific
 	"scientific":  "scientificlinux/sl:latest",
 	"neurodebian": "neurodebian:bookworm",
 	// Specialized
 	"clearlinux": "clearlinux:latest",
-	"photon":     "photon:5.0",     // VMware Photon OS 5.0
+	"photon":     "photon:5.0", // VMware Photon OS 5.0
 	// Raspberry Pi / ARM
 	"raspberrypi": "balenalib/raspberry-pi-debian:bookworm",
 	// macOS (VM-based)
@@ -537,14 +537,14 @@ type ContainerInfo struct {
 
 // Manager handles Docker container lifecycle
 type Manager struct {
-	client            *client.Client
-	containers        map[string]*ContainerInfo // dockerID -> container info
-	userIndex         map[string][]string       // userID -> list of dockerIDs
-	mu                sync.RWMutex
-	volumePath        string // base path for user volumes
-	diskQuotaEnabled  bool   // whether disk quota is available
-	diskQuotaChecked  bool   // whether we've checked for disk quota support
-	diskQuotaCheckMu  sync.Once
+	client           *client.Client
+	containers       map[string]*ContainerInfo // dockerID -> container info
+	userIndex        map[string][]string       // userID -> list of dockerIDs
+	mu               sync.RWMutex
+	volumePath       string // base path for user volumes
+	diskQuotaEnabled bool   // whether disk quota is available
+	diskQuotaChecked bool   // whether we've checked for disk quota support
+	diskQuotaCheckMu sync.Once
 }
 
 // NewManager creates a new container manager
@@ -926,7 +926,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	if cfg.CPULimit == 0 {
 		cfg.CPULimit = 500 // 0.5 CPU in millicores (1000 = 1 CPU)
 	}
-	
+
 	// Cap CPU to available host CPUs (in millicores)
 	maxCPUMillicores := int64(runtime.NumCPU()) * 1000
 	if cfg.CPULimit > maxCPUMillicores {
@@ -989,8 +989,8 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// Special resource handling for macOS (requires more resources)
 	if cfg.ImageType == "macos" {
 		log.Printf("[Container] Enforcing minimum resources for macOS")
-		minMemory := int64(4096 * 1024 * 1024) // 4GB
-		minCPU := int64(2000)                  // 2 vCPU
+		minMemory := int64(4096 * 1024 * 1024)    // 4GB
+		minCPU := int64(2000)                     // 2 vCPU
 		minDisk := int64(20 * 1024 * 1024 * 1024) // 20GB
 
 		if cfg.MemoryLimit < minMemory {
@@ -1010,9 +1010,9 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// CpuPeriod is typically 100000 (100ms), CpuQuota limits CPU time within that period
 	// CPULimit is in millicores (500 = 0.5 CPU)
 	// For 0.5 CPU: CpuQuota = 50000 (50ms per 100ms period)
-	cpuPeriod := int64(100000) // 100ms in microseconds
+	cpuPeriod := int64(100000)                    // 100ms in microseconds
 	cpuQuota := (cfg.CPULimit * cpuPeriod) / 1000 // Convert millicores to quota
-	
+
 	// Use default Docker runtime (runc)
 	// OCI runtime can be configured via OCI_RUNTIME env var
 	// Valid runtimes: "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
@@ -1034,7 +1034,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	} else if cfg.DiskQuota > 0 {
 		log.Printf("[Container] Disk quota requested (%s) but quotas not available on host", formatBytes(cfg.DiskQuota))
 	}
-	
+
 	hostConfig := &container.HostConfig{
 		Runtime: ociRuntime, // "runc" (default), "kata", "kata-fc", "runsc" (gVisor), "runsc-kvm"
 		Resources: container.Resources{
@@ -1096,28 +1096,33 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	// Special handling for macOS (docker-osx)
 	// Check for "macos" or "osx" in image type (case-insensitive)
 	isMacOS := strings.Contains(strings.ToLower(cfg.ImageType), "macos") || strings.Contains(strings.ToLower(cfg.ImageType), "osx")
-	
+
 	if isMacOS {
 		// Do NOT override Entrypoint - let the VM boot script run
 		// Do NOT use /home/user working dir - use default
 		log.Printf("[Container] Configuring macOS container (privileged, kvm, headless)")
-		
+
 		// docker-osx environment variables for headless VNC mode
 		// GENERATE_UNIQUE=true generates a unique serial/MLB for each container
 		// DEVICE_MODEL and SERIAL are optional customizations
+		// CPU throttling options to reduce idle CPU usage and prevent disconnections:
+		// - cpu-pm=on: Enable CPU power management (sleep states)
+		// - hv-time: Hyper-V timer for better guest idle
+		// - +invtsc: Invariant TSC for stable timing
 		containerConfig.Env = append(containerConfig.Env,
 			"GENERATE_UNIQUE=true",
-			"DISPLAY=:99",                    // Use virtual display (Xvfb)
-			"LIBGL_ALWAYS_SOFTWARE=1",        // Software rendering
-			"NOGRAPHIC=true",                 // Disable SDL/GTK display
-			"EXTRA=-display none -vnc 0.0.0.0:0,websocket=on", // VNC on port 5900 with websocket
+			"DISPLAY=:99",             // Use virtual display (Xvfb)
+			"LIBGL_ALWAYS_SOFTWARE=1", // Software rendering
+			"NOGRAPHIC=true",          // Disable SDL/GTK display
+			"CPU_STRING=host,+invtsc,vmware-cpuid-freq=on,cpu-pm=on",                                                      // CPU with power management
+			"EXTRA=-display none -vnc 0.0.0.0:0,websocket=on -global ICH9-LPC.disable_s3=1 -global ICH9-LPC.disable_s4=1", // VNC + disable deep sleep states that cause issues
 		)
-		
+
 		hostConfig.Privileged = true
 		hostConfig.SecurityOpt = nil // Clear security opts to allow KVM
 		hostConfig.CapDrop = nil     // Don't drop caps
 		hostConfig.CapAdd = nil      // Allow all caps
-		
+
 		// Map /dev/kvm if available
 		if _, err := os.Stat("/dev/kvm"); err == nil {
 			hostConfig.Devices = []container.DeviceMapping{
@@ -1200,19 +1205,19 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 func (m *Manager) GetContainer(idOrName string) (*ContainerInfo, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	// First try lookup by Docker ID (the map key)
 	if info, ok := m.containers[idOrName]; ok {
 		return info, ok
 	}
-	
+
 	// Fallback: search by container name (terminal ID like 'parrot-mirgp')
 	for _, info := range m.containers {
 		if info.ContainerName == idOrName {
 			return info, true
 		}
 	}
-	
+
 	return nil, false
 }
 
@@ -1448,15 +1453,15 @@ func (m *Manager) UpdateContainerStatus(dockerID string, status string) {
 // Note: Disk quota cannot be changed on a running container
 func (m *Manager) UpdateContainerResources(ctx context.Context, dockerID string, memoryMB int64, cpuMillicores int64) error {
 	log.Printf("[UpdateContainerResources] Updating container %s: memory=%dMB, cpu=%d millicores", dockerID, memoryMB, cpuMillicores)
-	
+
 	// Convert memory from MB to bytes
 	memoryBytes := memoryMB * 1024 * 1024
-	
+
 	// Use CpuQuota and CpuPeriod for CPU limiting (compatible with all runtimes including gVisor)
 	// Note: Cannot use both NanoCPUs and CpuPeriod/CpuQuota - Docker will error
-	cpuPeriod := int64(100000) // 100ms in microseconds
+	cpuPeriod := int64(100000)                     // 100ms in microseconds
 	cpuQuota := (cpuMillicores * cpuPeriod) / 1000 // Convert millicores to quota
-	
+
 	// Cap CPU to available host CPUs
 	maxCPUMillicores := int64(runtime.NumCPU()) * 1000
 	if cpuMillicores > maxCPUMillicores {
@@ -1493,19 +1498,19 @@ func (m *Manager) ExecInContainer(ctx context.Context, dockerID string, cmd []st
 		AttachStdout: true,
 		AttachStderr: true,
 	}
-	
+
 	execResp, err := m.client.ContainerExecCreate(ctx, dockerID, execConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create exec: %w", err)
 	}
-	
+
 	// Use ContainerExecAttach for Podman compatibility (attach implicitly starts)
 	attachResp, err := m.client.ContainerExecAttach(ctx, execResp.ID, container.ExecAttachOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to attach/start exec: %w", err)
 	}
 	attachResp.Close()
-	
+
 	return nil
 }
 
@@ -1693,16 +1698,16 @@ func (m *Manager) RecreateContainer(ctx context.Context, cfg RecreateContainerCo
 	} else {
 		switch cfg.Tier {
 		case "pro":
-			containerCfg.MemoryLimit = 2048 * 1024 * 1024 // 2GB
-			containerCfg.CPULimit = 2000                  // 2 CPUs
+			containerCfg.MemoryLimit = 2048 * 1024 * 1024    // 2GB
+			containerCfg.CPULimit = 2000                     // 2 CPUs
 			containerCfg.DiskQuota = 20 * 1024 * 1024 * 1024 // 20GB
 		case "enterprise":
-			containerCfg.MemoryLimit = 4096 * 1024 * 1024 // 4GB
-			containerCfg.CPULimit = 4000                  // 4 CPUs
+			containerCfg.MemoryLimit = 4096 * 1024 * 1024    // 4GB
+			containerCfg.CPULimit = 4000                     // 4 CPUs
 			containerCfg.DiskQuota = 50 * 1024 * 1024 * 1024 // 50GB
 		default: // free/guest
-			containerCfg.MemoryLimit = 512 * 1024 * 1024 // 512MB
-			containerCfg.CPULimit = 500                  // 0.5 CPU
+			containerCfg.MemoryLimit = 512 * 1024 * 1024    // 512MB
+			containerCfg.CPULimit = 500                     // 0.5 CPU
 			containerCfg.DiskQuota = 5 * 1024 * 1024 * 1024 // 5GB
 		}
 	}
@@ -1733,7 +1738,7 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 			configuredMemoryLimit = inspectInfo.HostConfig.Memory
 			log.Printf("[StreamContainerStats] Container %s has configured memory limit: %d bytes", containerID, configuredMemoryLimit)
 		}
-		
+
 		// Get disk limit from StorageOpt
 		if sizeStr, ok := inspectInfo.HostConfig.StorageOpt["size"]; ok {
 			// Parse size like "2G", "500M", etc.
@@ -1743,7 +1748,7 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 			}
 		}
 	}
-	
+
 	// Fallback: try to get memory/disk limits from container labels (stored during creation)
 	if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
 		// Memory limit from label
@@ -1755,7 +1760,7 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 				}
 			}
 		}
-		
+
 		// Disk limit from label
 		if configuredDiskLimit == 0 {
 			if diskLimitStr, ok := inspectInfo.Config.Labels["rexec.disk_quota"]; ok {
@@ -1765,7 +1770,7 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 				}
 			}
 		}
-		
+
 		// If still not set, use tier-based fallback
 		if configuredMemoryLimit == 0 {
 			tier := inspectInfo.Config.Labels["rexec.tier"]
@@ -1887,10 +1892,10 @@ func parseSizeString(s string) int64 {
 	if len(s) == 0 {
 		return 0
 	}
-	
+
 	multiplier := int64(1)
 	numStr := s
-	
+
 	// Check for suffix
 	lastChar := s[len(s)-1]
 	switch lastChar {
@@ -1907,16 +1912,16 @@ func parseSizeString(s string) int64 {
 		multiplier = 1024 * 1024 * 1024 * 1024
 		numStr = s[:len(s)-1]
 	}
-	
+
 	// Also handle "GB", "MB" etc.
 	if len(numStr) > 0 && numStr[len(numStr)-1] == 'B' {
 		numStr = numStr[:len(numStr)-1]
 	}
-	
+
 	val, err := strconv.ParseFloat(numStr, 64)
 	if err != nil {
 		return 0
 	}
-	
+
 	return int64(val * float64(multiplier))
 }
