@@ -277,6 +277,13 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// Regular non-collab session
+	// Support multiple connections via unique client-provided ID
+	connectionID := c.Query("id")
+	if connectionID == "" {
+		// Fallback for old clients or single sessions
+		connectionID = "default"
+	}
+
 	session := &TerminalSession{
 		UserID:      userID.(string),
 		ContainerID: dockerID,
@@ -286,10 +293,10 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		Done:        make(chan struct{}),
 	}
 
-	// Register session
-	sessionKey := dockerID + ":" + userID.(string)
+	// Register session with unique key to allow multiplexing
+	sessionKey := dockerID + ":" + userID.(string) + ":" + connectionID
 	h.mu.Lock()
-	// Close existing session if any
+	// Close existing session ONLY if it shares the exact same ID (reconnection)
 	if existingSession, exists := h.sessions[sessionKey]; exists {
 		existingSession.Close()
 	}
@@ -299,7 +306,10 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	// Cleanup on exit
 	defer func() {
 		h.mu.Lock()
-		delete(h.sessions, sessionKey)
+		// Only delete if it's still OUR session (race condition protection)
+		if currentSession, exists := h.sessions[sessionKey]; exists && currentSession == session {
+			delete(h.sessions, sessionKey)
+		}
 		h.mu.Unlock()
 		session.Close()
 	}()

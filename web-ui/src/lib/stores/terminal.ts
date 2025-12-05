@@ -446,7 +446,7 @@ function createTerminalStore() {
       if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
       if (session.pingInterval) clearInterval(session.pingInterval);
 
-      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}`;
+      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${sessionId}`;
       const ws = new WebSocket(wsUrl);
 
       updateSession(sessionId, (s) => ({ ...s, ws, status: "connecting" }));
@@ -1390,8 +1390,8 @@ function createTerminalStore() {
       // Clear existing timer
       if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
 
-      // Create independent WebSocket connection for this pane
-      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}`;
+      // Create independent WebSocket connection for this pane with unique ID
+      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${paneId}`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {

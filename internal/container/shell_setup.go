@@ -374,10 +374,10 @@ create_theme() {
     cat > "$HOME/.oh-my-zsh/custom/themes/rexec.zsh-theme" << 'THEME'
 ZSH_THEME_GIT_PROMPT_PREFIX="git:("
 ZSH_THEME_GIT_PROMPT_SUFFIX=") "
-ZSH_THEME_GIT_PROMPT_DIRTY="✗"
-ZSH_THEME_GIT_PROMPT_CLEAN="✓"
+ZSH_THEME_GIT_PROMPT_DIRTY="*"
+ZSH_THEME_GIT_PROMPT_CLEAN="ok"
 
-# Main prompt - plain text
+# Main prompt - plain text, no unicode
 PROMPT='%%n@%%m %%~ %%# '
 RPROMPT=''
 THEME
@@ -748,16 +748,16 @@ create_theme() {
     cat > "$HOME/.oh-my-zsh/custom/themes/rexec.zsh-theme" << 'THEME'
 ZSH_THEME_GIT_PROMPT_PREFIX="%%F{magenta}git:(%%F{green}"
 ZSH_THEME_GIT_PROMPT_SUFFIX="%%f "
-ZSH_THEME_GIT_PROMPT_DIRTY="%%F{magenta}) %%F{red}✗"
-ZSH_THEME_GIT_PROMPT_CLEAN="%%F{magenta}) %%F{green}✓"
+ZSH_THEME_GIT_PROMPT_DIRTY="%%F{magenta}) %%F{red}*"
+ZSH_THEME_GIT_PROMPT_CLEAN="%%F{magenta}) %%F{green}ok"
 
-PROMPT='%%F{cyan}%%n%%f@%%F{blue}%%m%%f %%F{yellow}%%~%%f $(git_prompt_info) %%(%%?:%%F{green}➜:%%F{red}➜) %%f'
-RPROMPT='%%F{240}%%*%%f'
+PROMPT='%%F{cyan}%%n%%f@%%F{blue}%%m%%f %%F{yellow}%%~%%f$(git_prompt_info) %%F{green}$%%f '
+RPROMPT=''
 THEME
 
     # Minimal theme (simpler, faster)
     cat > "$HOME/.oh-my-zsh/custom/themes/minimal.zsh-theme" << 'THEME'
-PROMPT='%%F{cyan}%%n%%f:%%F{yellow}%%~%%f%%(?:%%F{green}:%%F{red}) ➜ %%f'
+PROMPT='%%F{cyan}%%n%%f:%%F{yellow}%%~%%f %%F{green}$%%f '
 THEME
 }
 
