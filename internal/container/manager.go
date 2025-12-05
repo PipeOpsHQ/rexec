@@ -1097,15 +1097,17 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 	if cfg.ImageType == "macos" {
 		// Do NOT override Entrypoint - let the VM boot script run
 		// Do NOT use /home/user working dir - use default
-		log.Printf("[Container] Configuring macOS container (privileged, kvm, default entrypoint)")
+		log.Printf("[Container] Configuring macOS container (privileged, kvm, headless)")
 		
-		// docker-osx already handles VNC via its own scripts
-		// We just need to disable audio and display to prevent crashes
-		// The image uses hostfwd for VNC (5900) and SSH (10022) internally
+		// docker-osx environment variables for headless VNC mode
+		// GENERATE_UNIQUE=true generates a unique serial/MLB for each container
+		// DEVICE_MODEL and SERIAL are optional customizations
 		containerConfig.Env = append(containerConfig.Env,
-			"HEADLESS=1",
-			"DISPLAY=",            // Disable X11
-			"AUDIO_DRIVER=none",   // Disable audio to prevent ALSA errors
+			"GENERATE_UNIQUE=true",
+			"DISPLAY=:99",                    // Use virtual display (Xvfb)
+			"LIBGL_ALWAYS_SOFTWARE=1",        // Software rendering
+			"NOGRAPHIC=true",                 // Disable SDL/GTK display
+			"EXTRA=-display none -vnc 0.0.0.0:0,websocket=on", // VNC on port 5900 with websocket
 		)
 		
 		hostConfig.Privileged = true
