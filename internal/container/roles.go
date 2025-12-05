@@ -98,6 +98,22 @@ echo "Installing tools for role: %s..."
 wait_for_apt_lock() {
     local max_wait=60
     local waited=0
+    
+    # Check if fuser is available
+    if ! command -v fuser >/dev/null 2>&1; then
+        echo "fuser not found, using simple file check..."
+        while [ -f /var/lib/dpkg/lock-frontend ] || [ -f /var/lib/dpkg/lock ] || [ -f /var/lib/apt/lists/lock ]; do
+            if [ $waited -ge $max_wait ]; then
+                echo "Timeout waiting for apt lock"
+                return 1
+            fi
+            echo "Waiting for apt lock release..."
+            sleep 2
+            waited=$((waited + 2))
+        done
+        return 0
+    fi
+
     while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
         if [ $waited -ge $max_wait ]; then
             echo "Timeout waiting for apt lock"
