@@ -257,7 +257,13 @@ function createContainersStore() {
 
         update((state) => ({
           ...state,
-          containers: [containerObj, ...state.containers.filter(c => c.id !== containerObj.id && c.db_id !== containerObj.id)],
+          containers: [containerObj, ...state.containers.filter(c => {
+            // Robust deduplication: check all ID combinations
+            if (c.id === containerObj.id) return false;
+            if (c.db_id && c.db_id === containerObj.db_id) return false;
+            if (c.id === containerObj.db_id) return false; // Existing ID matches new DB_ID
+            return true;
+          })],
           creating: null,
         }));
 
@@ -509,7 +515,12 @@ function createContainersStore() {
 
               update((state) => ({
                 ...state,
-                containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
+                containers: [container, ...state.containers.filter(c => {
+                  if (c.id === container.id) return false;
+                  if (c.db_id && c.db_id === container.db_id) return false;
+                  if (c.id === container.db_id) return false;
+                  return true;
+                })],
                 creating: null,
               }));
 
@@ -547,7 +558,12 @@ function createContainersStore() {
 
               update((state) => ({
                 ...state,
-                containers: [container, ...state.containers.filter(c => c.id !== container.id && c.db_id !== container.id)],
+                containers: [container, ...state.containers.filter(c => {
+                  if (c.id === container.id) return false;
+                  if (c.db_id && c.db_id === container.db_id) return false;
+                  if (c.id === container.db_id) return false;
+                  return true;
+                })],
                 creating: null,
               }));
 

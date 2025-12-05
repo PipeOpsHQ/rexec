@@ -39,11 +39,10 @@ func DefaultShellSetupConfig() ShellSetupConfig {
 		Autosuggestions: false,
 		SyntaxHighlight: false,
 		HistorySearch:   true,
-		GitAliases:      false,
-		SystemStats:     true,
-	}
-}
-
+		        GitAliases:      true,  // Re-enable useful aliases
+		        SystemStats:     false, // Disable welcome banner (handled by UI)
+		    }
+		}
 // generateShellSetupScript generates a customized shell setup script based on config
 func generateShellSetupScript(cfg ShellSetupConfig) string {
 	if !cfg.Enhanced {
