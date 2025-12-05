@@ -20,21 +20,21 @@
     let progressStage = "";
     let errorMessage = "";
     let customName = "";
-    
+
     // Resource customization
     let showResources = false;
     let memoryMB = 512;
     let cpuShares = 512;
     let diskMB = 2048;
-    
+
     // Trial limits - generous during 60-day trial period
     const resourceLimits = {
         minMemory: 256,
-        maxMemory: 4096,  // 4GB for trial
+        maxMemory: 4096, // 4GB for trial
         minCPU: 250,
-        maxCPU: 2000,     // 2 vCPU for trial
+        maxCPU: 2000, // 2 vCPU for trial
         minDisk: 1024,
-        maxDisk: 16384    // 16GB for trial
+        maxDisk: 16384, // 16GB for trial
     };
 
     // Slider event handlers
@@ -60,16 +60,19 @@
     ];
 
     // Reactive step statuses - must depend on progressStage to update
-    $: stepStatuses = progressSteps.reduce((acc, step) => {
-        const stepOrder = progressSteps.map((s) => s.id);
-        const currentIndex = stepOrder.indexOf(progressStage);
-        const stepIndex = stepOrder.indexOf(step.id);
-        
-        if (stepIndex < currentIndex) acc[step.id] = "completed";
-        else if (stepIndex === currentIndex) acc[step.id] = "active";
-        else acc[step.id] = "pending";
-        return acc;
-    }, {} as Record<string, "pending" | "active" | "completed">);
+    $: stepStatuses = progressSteps.reduce(
+        (acc, step) => {
+            const stepOrder = progressSteps.map((s) => s.id);
+            const currentIndex = stepOrder.indexOf(progressStage);
+            const stepIndex = stepOrder.indexOf(step.id);
+
+            if (stepIndex < currentIndex) acc[step.id] = "completed";
+            else if (stepIndex === currentIndex) acc[step.id] = "active";
+            else acc[step.id] = "pending";
+            return acc;
+        },
+        {} as Record<string, "pending" | "active" | "completed">,
+    );
 
     $: displayProgress = Math.round(progress);
 
@@ -82,75 +85,279 @@
         popular?: boolean;
     }> = [
         // Debian-based
-        { name: "ubuntu", display_name: "Ubuntu 24.04 LTS", description: "Popular Linux distribution", category: "debian", popular: true },
-        { name: "ubuntu-22", display_name: "Ubuntu 22.04 LTS", description: "Previous LTS release", category: "debian" },
-        { name: "debian", display_name: "Debian 12", description: "Stable Linux distribution", category: "debian", popular: true },
-        { name: "debian-11", display_name: "Debian 11", description: "Previous stable release", category: "debian" },
-        { name: "mint", display_name: "Linux Mint", description: "User-friendly Ubuntu-based", category: "debian" },
-        
+        {
+            name: "ubuntu",
+            display_name: "Ubuntu 24.04 LTS",
+            description: "Popular Linux distribution",
+            category: "debian",
+            popular: true,
+        },
+        {
+            name: "ubuntu-22",
+            display_name: "Ubuntu 22.04 LTS",
+            description: "Previous LTS release",
+            category: "debian",
+        },
+        {
+            name: "debian",
+            display_name: "Debian 12",
+            description: "Stable Linux distribution",
+            category: "debian",
+            popular: true,
+        },
+        {
+            name: "debian-11",
+            display_name: "Debian 11",
+            description: "Previous stable release",
+            category: "debian",
+        },
+        {
+            name: "mint",
+            display_name: "Linux Mint",
+            description: "User-friendly Ubuntu-based",
+            category: "debian",
+        },
+
         // RHEL-based
-        { name: "fedora", display_name: "Fedora 41", description: "Cutting-edge Linux", category: "rhel", popular: true },
-        { name: "centos", display_name: "CentOS Stream 9", description: "Enterprise Linux", category: "rhel" },
-        { name: "rocky", display_name: "Rocky Linux 9", description: "Enterprise Linux", category: "rhel", popular: true },
-        { name: "alma", display_name: "AlmaLinux 9", description: "Enterprise Linux", category: "rhel" },
-        { name: "oracle", display_name: "Oracle Linux 9", description: "Enterprise Linux", category: "rhel" },
-        { name: "mageia", display_name: "Mageia 9", description: "Mandriva fork", category: "rhel" },
-        
+        {
+            name: "fedora",
+            display_name: "Fedora 41",
+            description: "Cutting-edge Linux",
+            category: "rhel",
+            popular: true,
+        },
+        {
+            name: "centos",
+            display_name: "CentOS Stream 9",
+            description: "Enterprise Linux",
+            category: "rhel",
+        },
+        {
+            name: "rocky",
+            display_name: "Rocky Linux 9",
+            description: "Enterprise Linux",
+            category: "rhel",
+            popular: true,
+        },
+        {
+            name: "alma",
+            display_name: "AlmaLinux 9",
+            description: "Enterprise Linux",
+            category: "rhel",
+        },
+        {
+            name: "oracle",
+            display_name: "Oracle Linux 9",
+            description: "Enterprise Linux",
+            category: "rhel",
+        },
+        {
+            name: "mageia",
+            display_name: "Mageia 9",
+            description: "Mandriva fork",
+            category: "rhel",
+        },
+
         // Arch-based
-        { name: "archlinux", display_name: "Arch Linux", description: "Rolling release Linux", category: "arch", popular: true },
-        { name: "manjaro", display_name: "Manjaro", description: "User-friendly Arch", category: "arch" },
-        { name: "artix", display_name: "Artix Linux", description: "Arch without systemd", category: "arch" },
-        
+        {
+            name: "archlinux",
+            display_name: "Arch Linux",
+            description: "Rolling release Linux",
+            category: "arch",
+            popular: true,
+        },
+        {
+            name: "manjaro",
+            display_name: "Manjaro",
+            description: "User-friendly Arch",
+            category: "arch",
+        },
+        {
+            name: "artix",
+            display_name: "Artix Linux",
+            description: "Arch without systemd",
+            category: "arch",
+        },
+
         // SUSE-based
-        { name: "opensuse", display_name: "openSUSE Leap 15.6", description: "Enterprise Linux", category: "suse" },
-        { name: "tumbleweed", display_name: "openSUSE Tumbleweed", description: "Rolling release", category: "suse" },
-        
+        {
+            name: "opensuse",
+            display_name: "openSUSE Leap 15.6",
+            description: "Enterprise Linux",
+            category: "suse",
+        },
+        {
+            name: "tumbleweed",
+            display_name: "openSUSE Tumbleweed",
+            description: "Rolling release",
+            category: "suse",
+        },
+
         // Independent
-        { name: "gentoo", display_name: "Gentoo Linux", description: "Source-based distro", category: "independent" },
-        { name: "void", display_name: "Void Linux", description: "Independent with runit", category: "independent" },
-        { name: "nixos", display_name: "NixOS", description: "Declarative configuration", category: "independent" },
-        { name: "slackware", display_name: "Slackware 15.0", description: "Classic Unix-like", category: "independent" },
-        { name: "crux", display_name: "CRUX", description: "Lightweight, BSD-style", category: "independent" },
-        { name: "guix", display_name: "Guix System", description: "Transactional package manager", category: "independent" },
-        
+        {
+            name: "gentoo",
+            display_name: "Gentoo Linux",
+            description: "Source-based distro",
+            category: "independent",
+        },
+        {
+            name: "void",
+            display_name: "Void Linux",
+            description: "Independent with runit",
+            category: "independent",
+        },
+        {
+            name: "nixos",
+            display_name: "NixOS",
+            description: "Declarative configuration",
+            category: "independent",
+        },
+        {
+            name: "slackware",
+            display_name: "Slackware 15.0",
+            description: "Classic Unix-like",
+            category: "independent",
+        },
+        {
+            name: "crux",
+            display_name: "CRUX",
+            description: "Lightweight, BSD-style",
+            category: "independent",
+        },
+        {
+            name: "guix",
+            display_name: "Guix System",
+            description: "Transactional package manager",
+            category: "independent",
+        },
+
         // Minimal / Embedded
-        { name: "alpine", display_name: "Alpine 3.21", description: "Lightweight Linux (6MB)", category: "minimal", popular: true },
-        { name: "alpine-3.20", display_name: "Alpine 3.20", description: "Previous stable", category: "minimal" },
-        { name: "busybox", display_name: "BusyBox 1.37", description: "Ultra-minimal (~2MB)", category: "minimal" },
-        { name: "tinycore", display_name: "TinyCore", description: "Micro Linux (~16MB)", category: "minimal" },
-        
+        {
+            name: "alpine",
+            display_name: "Alpine 3.21",
+            description: "Lightweight Linux (6MB)",
+            category: "minimal",
+            popular: true,
+        },
+        {
+            name: "alpine-3.20",
+            display_name: "Alpine 3.20",
+            description: "Previous stable",
+            category: "minimal",
+        },
+        {
+            name: "busybox",
+            display_name: "BusyBox 1.37",
+            description: "Ultra-minimal (~2MB)",
+            category: "minimal",
+        },
+        {
+            name: "tinycore",
+            display_name: "TinyCore",
+            description: "Micro Linux (~16MB)",
+            category: "minimal",
+        },
+
         // Cloud Provider
-        { name: "amazonlinux", display_name: "Amazon Linux 2023", description: "Optimized for AWS", category: "cloud", popular: true },
-        { name: "amazonlinux2", display_name: "Amazon Linux 2", description: "Legacy AWS (EOL 2025)", category: "cloud" },
-        { name: "azurelinux", display_name: "Azure Linux", description: "Microsoft Cloud Linux", category: "cloud" },
-        
+        {
+            name: "amazonlinux",
+            display_name: "Amazon Linux 2023",
+            description: "Optimized for AWS",
+            category: "cloud",
+            popular: true,
+        },
+        {
+            name: "amazonlinux2",
+            display_name: "Amazon Linux 2",
+            description: "Legacy AWS (EOL 2025)",
+            category: "cloud",
+        },
+        {
+            name: "azurelinux",
+            display_name: "Azure Linux",
+            description: "Microsoft Cloud Linux",
+            category: "cloud",
+        },
+
         // Specialized
-        { name: "clearlinux", display_name: "Clear Linux", description: "Intel-optimized", category: "specialized" },
-        { name: "photon", display_name: "VMware Photon OS 5.0", description: "Container-optimized", category: "specialized" },
-        { name: "rancheros", display_name: "RancherOS (Alpine)", description: "Container-optimized", category: "specialized" },
-        { name: "neurodebian", display_name: "NeuroDebian", description: "Neuroscience Research", category: "specialized" },
-        
+        {
+            name: "clearlinux",
+            display_name: "Clear Linux",
+            description: "Intel-optimized",
+            category: "specialized",
+        },
+        {
+            name: "photon",
+            display_name: "VMware Photon OS 5.0",
+            description: "Container-optimized",
+            category: "specialized",
+        },
+        {
+            name: "rancheros",
+            display_name: "RancherOS (Alpine)",
+            description: "Container-optimized",
+            category: "specialized",
+        },
+        {
+            name: "neurodebian",
+            display_name: "NeuroDebian",
+            description: "Neuroscience Research",
+            category: "specialized",
+        },
+
         // Security
-        { name: "kali", display_name: "Kali Linux", description: "Penetration testing", category: "security", popular: true },
-        { name: "parrot", display_name: "Parrot OS", description: "Security distribution", category: "security" },
-        { name: "blackarch", display_name: "BlackArch", description: "Security distribution", category: "security" },
-        
+        {
+            name: "kali",
+            display_name: "Kali Linux",
+            description: "Penetration testing",
+            category: "security",
+            popular: true,
+        },
+        {
+            name: "parrot",
+            display_name: "Parrot OS",
+            description: "Security distribution",
+            category: "security",
+        },
+        {
+            name: "blackarch",
+            display_name: "BlackArch",
+            description: "Security distribution",
+            category: "security",
+        },
+
         // Embedded / IoT
-        { name: "raspberrypi", display_name: "Raspberry Pi OS", description: "Debian-based for ARM", category: "embedded" },
-        { name: "openwrt", display_name: "OpenWrt", description: "Router/Embedded OS", category: "embedded" },
-        
+        {
+            name: "raspberrypi",
+            display_name: "Raspberry Pi OS",
+            description: "Debian-based for ARM",
+            category: "embedded",
+        },
+        {
+            name: "openwrt",
+            display_name: "OpenWrt",
+            description: "Router/Embedded OS",
+            category: "embedded",
+        },
+
         // macOS
-        { name: "macos", display_name: "macOS", description: "Apple macOS (VM-based)", category: "macos", popular: true },
+        {
+            name: "macos",
+            display_name: "macOS",
+            description: "Apple macOS (VM-based)",
+            category: "macos",
+            popular: true,
+        },
     ];
 
     const roleToOS: Record<string, string> = {
-        "standard": "alpine",
-        "node": "ubuntu",
-        "python": "ubuntu",
-        "go": "alpine",
-        "neovim": "ubuntu",
-        "devops": "alpine",
-        "overemployed": "ubuntu",
+        standard: "alpine",
+        node: "ubuntu",
+        python: "ubuntu",
+        go: "alpine",
+        neovim: "ubuntu",
+        devops: "alpine",
+        overemployed: "ubuntu",
     };
 
     $: if (selectedRole && roleToOS[selectedRole]) {
@@ -166,6 +373,7 @@
             name: "The Minimalist",
             desc: "I use Arch btw. Just give me a shell.",
             tools: ["zsh", "git", "curl", "vim", "htop"],
+            extraTools: [],
             recommendedOS: "Alpine",
         },
         {
@@ -173,6 +381,7 @@
             name: "10x JS Ninja",
             desc: "Ship fast, break things, npm install everything.",
             tools: ["nodejs", "npm", "yarn", "git"],
+            extraTools: [],
             recommendedOS: "Ubuntu",
         },
         {
@@ -180,6 +389,7 @@
             name: "Data Wizard",
             desc: "Import antigravity. I speak in list comprehensions.",
             tools: ["python3", "pip", "venv", "git"],
+            extraTools: [],
             recommendedOS: "Ubuntu",
         },
         {
@@ -187,6 +397,7 @@
             name: "The Gopher",
             desc: "If err != nil { panic(err) }. Simplicity is key.",
             tools: ["go", "git", "make"],
+            extraTools: [],
             recommendedOS: "Alpine",
         },
         {
@@ -194,6 +405,7 @@
             name: "Neovim God",
             desc: "My config is longer than your code. Mouse? What mouse?",
             tools: ["neovim", "ripgrep", "gcc", "make"],
+            extraTools: [],
             recommendedOS: "Ubuntu",
         },
         {
@@ -201,13 +413,22 @@
             name: "YAML Herder",
             desc: "I don't write code, I write config. Prod is my playground.",
             tools: ["kubectl", "docker", "terraform", "ansible"],
+            extraTools: [],
             recommendedOS: "Alpine",
         },
         {
             id: "overemployed",
             name: "Vibe Coder",
-            desc: "Just vibing. I need a terminal that matches my aesthetic.",
-            tools: ["tmux", "screen", "python3", "htop"],
+            desc: "AI-powered coding with Claude, Aider, OpenCode & more.",
+            tools: ["python3", "nodejs", "neovim", "tmux", "fzf", "ripgrep"],
+            extraTools: [
+                { name: "aider", desc: "AI pair programming" },
+                { name: "opencode", desc: "AI coding assistant" },
+                { name: "claude-cli", desc: "Anthropic Claude" },
+                { name: "llm", desc: "CLI for LLMs" },
+                { name: "interpreter", desc: "Open Interpreter" },
+                { name: "mods", desc: "AI in terminal" },
+            ],
             recommendedOS: "Ubuntu",
         },
     ];
@@ -236,8 +457,8 @@
         progressStage = "validating";
 
         // Use custom name or generate a unique name
-        const containerName = customName.trim() 
-            ? customName.trim() 
+        const containerName = customName.trim()
+            ? customName.trim()
             : `${selectedImage}-${Date.now().toString(36)}`;
 
         function handleProgress(event: ProgressEvent) {
@@ -269,12 +490,12 @@
         containers.createContainerWithProgress(
             containerName,
             selectedImage,
-            undefined,  // customImage
+            undefined, // customImage
             selectedRole,
             handleProgress,
             handleComplete,
             handleError,
-            { memory_mb: memoryMB, cpu_shares: cpuShares, disk_mb: diskMB }
+            { memory_mb: memoryMB, cpu_shares: cpuShares, disk_mb: diskMB },
         );
     }
 </script>
@@ -290,16 +511,26 @@
                 <p class="error-message">{errorMessage}</p>
                 {#if errorMessage.includes("tcp://") || errorMessage.includes("docker") || errorMessage.includes("connect")}
                     <div class="error-hint">
-                        <p>This may indicate an issue with the Docker host. Check that:</p>
+                        <p>
+                            This may indicate an issue with the Docker host.
+                            Check that:
+                        </p>
                         <ul>
-                            <li>The Docker daemon is running on the remote host</li>
+                            <li>
+                                The Docker daemon is running on the remote host
+                            </li>
                             <li>TLS certificates are properly configured</li>
                             <li>Firewall rules allow the connection</li>
                         </ul>
                     </div>
                 {/if}
             </div>
-            <button class="retry-btn" on:click={() => { errorMessage = ""; }}>
+            <button
+                class="retry-btn"
+                on:click={() => {
+                    errorMessage = "";
+                }}
+            >
                 <span>← Try Again</span>
             </button>
         </div>
@@ -310,25 +541,35 @@
                 <span class="progress-percent">{displayProgress}%</span>
             </div>
             <div class="progress-bar">
-                <div class="progress-fill" style="width: {displayProgress}%"></div>
+                <div
+                    class="progress-fill"
+                    style="width: {displayProgress}%"
+                ></div>
             </div>
-            
+
             <!-- Step Indicators -->
             <div class="progress-steps">
                 {#each progressSteps as step (step.id)}
-                    <div class="progress-step {stepStatuses[step.id] || 'pending'}">
-                        <span class="step-icon"><StatusIcon status={step.icon} size={12} /></span>
+                    <div
+                        class="progress-step {stepStatuses[step.id] ||
+                            'pending'}"
+                    >
+                        <span class="step-icon"
+                            ><StatusIcon status={step.icon} size={12} /></span
+                        >
                         <span class="step-label">{step.label}</span>
                     </div>
                 {/each}
             </div>
-            
+
             <p class="progress-message">{progressMessage}</p>
-            
+
             <!-- Role-specific tools being installed -->
             {#if currentRole && progressStage === "configuring"}
                 <div class="installing-tools">
-                    <p class="installing-label">Installing tools for {currentRole.name}:</p>
+                    <p class="installing-label">
+                        Installing tools for {currentRole.name}:
+                    </p>
                     <div class="tools-installing">
                         {#each currentRole.tools as tool}
                             <span class="tool-badge-installing">{tool}</span>
@@ -336,7 +577,7 @@
                     </div>
                 </div>
             {/if}
-            
+
             <div class="progress-spinner">
                 <div class="spinner-large"></div>
             </div>
@@ -347,9 +588,9 @@
             <div class="create-section">
                 <h4>Terminal Name</h4>
                 <div class="name-input-container">
-                    <input 
-                        type="text" 
-                        bind:value={customName} 
+                    <input
+                        type="text"
+                        bind:value={customName}
                         placeholder="my-awesome-terminal (optional)"
                         class="name-input"
                         maxlength="64"
@@ -379,7 +620,10 @@
                             <PlatformIcon platform={currentRole.id} size={18} />
                             <span class="role-name-sm">{currentRole.name}</span>
                             <span class="role-os-badge">
-                                <PlatformIcon platform={currentRole.recommendedOS.toLowerCase()} size={14} />
+                                <PlatformIcon
+                                    platform={currentRole.recommendedOS.toLowerCase()}
+                                    size={14}
+                                />
                                 {currentRole.recommendedOS}
                             </span>
                         </div>
@@ -388,32 +632,53 @@
                                 <span class="tool-badge">{tool}</span>
                             {/each}
                         </div>
+                        {#if currentRole.extraTools && currentRole.extraTools.length > 0}
+                            <div class="extra-tools">
+                                <span class="extra-tools-label"
+                                    >🤖 AI Tools:</span
+                                >
+                                <div class="extra-tools-grid">
+                                    {#each currentRole.extraTools as extra}
+                                        <span
+                                            class="extra-tool-badge"
+                                            title={extra.desc}
+                                        >
+                                            {extra.name}
+                                        </span>
+                                    {/each}
+                                </div>
+                            </div>
+                        {/if}
                     </div>
                 {/if}
             </div>
 
             <!-- Resource Configuration (Trial users can customize) -->
             <div class="create-section">
-                <button 
+                <button
                     class="resource-toggle"
-                    on:click={() => showResources = !showResources}
+                    on:click={() => (showResources = !showResources)}
                 >
-                    <span class="toggle-icon">{showResources ? '▼' : '▶'}</span>
+                    <span class="toggle-icon">{showResources ? "▼" : "▶"}</span>
                     <h4>Resources</h4>
                     <span class="resource-preview">
-                        {formatMemory(memoryMB)} / {formatCPU(cpuShares)} / {formatStorage(diskMB)}
+                        {formatMemory(memoryMB)} / {formatCPU(cpuShares)} / {formatStorage(
+                            diskMB,
+                        )}
                     </span>
                 </button>
-                
+
                 {#if showResources}
                     <div class="resource-config">
                         <div class="resource-row">
                             <label>
                                 <span class="resource-label">Memory</span>
-                                <span class="resource-value">{formatMemory(memoryMB)}</span>
+                                <span class="resource-value"
+                                    >{formatMemory(memoryMB)}</span
+                                >
                             </label>
-                            <input 
-                                type="range" 
+                            <input
+                                type="range"
                                 value={memoryMB}
                                 on:input={handleMemoryChange}
                                 min={resourceLimits.minMemory}
@@ -421,18 +686,28 @@
                                 step="128"
                             />
                             <div class="resource-range">
-                                <span>{formatMemory(resourceLimits.minMemory)}</span>
-                                <span>{formatMemory(resourceLimits.maxMemory)}</span>
+                                <span
+                                    >{formatMemory(
+                                        resourceLimits.minMemory,
+                                    )}</span
+                                >
+                                <span
+                                    >{formatMemory(
+                                        resourceLimits.maxMemory,
+                                    )}</span
+                                >
                             </div>
                         </div>
-                        
+
                         <div class="resource-row">
                             <label>
                                 <span class="resource-label">CPU</span>
-                                <span class="resource-value">{formatCPU(cpuShares)}</span>
+                                <span class="resource-value"
+                                    >{formatCPU(cpuShares)}</span
+                                >
                             </label>
-                            <input 
-                                type="range" 
+                            <input
+                                type="range"
                                 value={cpuShares}
                                 on:input={handleCpuChange}
                                 min={resourceLimits.minCPU}
@@ -444,14 +719,16 @@
                                 <span>{formatCPU(resourceLimits.maxCPU)}</span>
                             </div>
                         </div>
-                        
+
                         <div class="resource-row">
                             <label>
                                 <span class="resource-label">Disk</span>
-                                <span class="resource-value">{formatStorage(diskMB)}</span>
+                                <span class="resource-value"
+                                    >{formatStorage(diskMB)}</span
+                                >
                             </label>
-                            <input 
-                                type="range" 
+                            <input
+                                type="range"
                                 value={diskMB}
                                 on:input={handleDiskChange}
                                 min={resourceLimits.minDisk}
@@ -459,13 +736,22 @@
                                 step="256"
                             />
                             <div class="resource-range">
-                                <span>{formatStorage(resourceLimits.minDisk)}</span>
-                                <span>{formatStorage(resourceLimits.maxDisk)}</span>
+                                <span
+                                    >{formatStorage(
+                                        resourceLimits.minDisk,
+                                    )}</span
+                                >
+                                <span
+                                    >{formatStorage(
+                                        resourceLimits.maxDisk,
+                                    )}</span
+                                >
                             </div>
                         </div>
-                        
+
                         <p class="resource-hint">
-                            Trial users can customize resources within these limits
+                            Trial users can customize resources within these
+                            limits
                         </p>
                     </div>
                 {/if}
@@ -481,7 +767,9 @@
                             on:click={() => selectAndCreate(image.name)}
                         >
                             <PlatformIcon platform={image.name} size={28} />
-                            <span class="os-name">{image.display_name || image.name}</span>
+                            <span class="os-name"
+                                >{image.display_name || image.name}</span
+                            >
                             {#if image.popular}
                                 <span class="popular-badge">Popular</span>
                             {/if}
@@ -745,8 +1033,13 @@
     }
 
     @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.6;
+        }
     }
 
     .progress-spinner {
@@ -763,7 +1056,9 @@
     }
 
     @keyframes spin {
-        to { transform: rotate(360deg); }
+        to {
+            transform: rotate(360deg);
+        }
     }
 
     /* Content */
@@ -862,7 +1157,43 @@
     .role-tools {
         display: flex;
         flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .extra-tools {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #333;
+    }
+
+    .extra-tools-label {
+        font-size: 11px;
+        color: var(--accent);
+        font-weight: 500;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .extra-tools-grid {
+        display: flex;
+        flex-wrap: wrap;
         gap: 4px;
+    }
+
+    .extra-tool-badge {
+        padding: 3px 8px;
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid rgba(0, 255, 65, 0.3);
+        border-radius: 4px;
+        font-size: 10px;
+        color: var(--accent);
+        cursor: help;
+        transition: all 0.15s ease;
+    }
+
+    .extra-tool-badge:hover {
+        background: rgba(0, 255, 65, 0.2);
+        border-color: var(--accent);
     }
 
     .tool-badge {
@@ -1028,7 +1359,9 @@
         cursor: pointer;
         box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
         margin-top: -5px;
-        transition: transform 0.15s, box-shadow 0.15s;
+        transition:
+            transform 0.15s,
+            box-shadow 0.15s;
     }
 
     .resource-row input[type="range"]::-webkit-slider-thumb:hover {
