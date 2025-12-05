@@ -116,15 +116,25 @@ install_role_packages() {
 
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
+        
+        # Enable universe repository for Ubuntu (needed for neovim, ripgrep, etc.)
+        if grep -q "Ubuntu" /etc/issue 2>/dev/null || grep -q "Ubuntu" /etc/os-release 2>/dev/null; then
+            apt-get update -qq
+            apt-get install -y -qq software-properties-common >/dev/null 2>&1 || true
+            add-apt-repository -y universe >/dev/null 2>&1 || true
+        fi
+
         # Wait for any existing apt locks
         wait_for_apt_lock || true
-        # Use flock to prevent concurrent apt-get
-        flock -w 120 /var/lib/dpkg/lock-frontend apt-get update -qq 2>/dev/null || apt-get update -qq
+        
+        # Update package lists
+        flock -w 120 /var/lib/dpkg/lock-frontend apt-get update -qq || true
 
         # Try bulk install first
         if ! flock -w 120 /var/lib/dpkg/lock-frontend apt-get install -y -qq $PACKAGES >/dev/null 2>&1; then
             echo "Bulk install failed, trying individual packages..."
             for pkg in $PACKAGES; do
+                echo "Installing $pkg..."
                 apt-get install -y -qq "$pkg" >/dev/null 2>&1 || echo "Warning: Failed to install $pkg"
             done
         fi
