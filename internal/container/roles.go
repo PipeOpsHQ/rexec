@@ -94,31 +94,44 @@ set -e
 
 echo "Installing tools for role: %s..."
 
-# Wait for any existing apt/dpkg locks (max 60 seconds)
-wait_for_apt_lock() {
+# Wait for any existing package manager locks (max 60 seconds)
+wait_for_locks() {
     local max_wait=60
     local waited=0
     
-    # Check if fuser is available
-    if ! command -v fuser >/dev/null 2>&1; then
-        echo "fuser not found, using simple file check..."
-        while [ -f /var/lib/dpkg/lock-frontend ] || [ -f /var/lib/dpkg/lock ] || [ -f /var/lib/apt/lists/lock ]; do
-            if [ $waited -ge $max_wait ]; then
-                echo "Timeout waiting for apt lock"
-                return 1
+    # List of known lock files
+    local locks="/var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /lib/apk/db/lock /var/run/dnf.pid /var/run/yum.pid /var/lib/pacman/db.lck"
+    
+    # Helper to check if any lock exists
+    check_locks() {
+        for lock in $locks; do
+            if [ -f "$lock" ]; then
+                # If fuser exists, check if process is actually running
+                if command -v fuser >/dev/null 2>&1; then
+                    if fuser "$lock" >/dev/null 2>&1; then
+                        return 0 # Locked
+                    fi
+                else
+                    return 0 # File exists, assume locked (safer fallback)
+                fi
             fi
-            echo "Waiting for apt lock release..."
-            sleep 2
-            waited=$((waited + 2))
         done
-        return 0
-    fi
+        return 1 # Not locked
+    }
 
-    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+    while check_locks; do
         if [ $waited -ge $max_wait ]; then
-            echo "Timeout waiting for apt lock"
-            return 1
+            echo "Timeout waiting for package manager lock"
+            # Try to force remove stale locks if we timed out
+            echo "Attempting to clear stale locks..."
+            for lock in $locks; do
+                if [ -f "$lock" ]; then
+                    rm -f "$lock" 2>/dev/null || true
+                fi
+            done
+            return 0
         fi
+        echo "Waiting for package manager lock release..."
         sleep 2
         waited=$((waited + 2))
     done
@@ -129,6 +142,9 @@ wait_for_apt_lock() {
 install_role_packages() {
     GENERIC_PACKAGES="%s"
     PACKAGES="$GENERIC_PACKAGES"
+    
+    # Wait for locks before starting
+    wait_for_locks || true
 
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
@@ -142,9 +158,6 @@ install_role_packages() {
             apt-get $APT_OPTS install -y -qq software-properties-common >/dev/null 2>&1 || true
             add-apt-repository -y universe >/dev/null 2>&1 || true
         fi
-
-        # Wait for any existing apt locks (fallback if Timeout option isn't supported/enough)
-        wait_for_apt_lock || true
         
         # Update package lists
         flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS update -qq || true
