@@ -15,51 +15,48 @@ type RoleInfo struct {
 
 // AvailableRoles returns the list of supported roles
 func AvailableRoles() []RoleInfo {
-	// Common AI tools installed for all roles (free, no API key required)
-	commonAITools := []string{"tgpt", "aichat", "mods"}
-
 	return []RoleInfo{
 		{
 			ID:          "standard",
 			Name:        "The Minimalist",
 			Description: "I use Arch btw. Just give me a shell + free AI tools.",
 			Icon:        "🧘",
-			Packages:    append([]string{"zsh", "git", "curl", "wget", "vim", "nano", "htop", "jq", "neofetch"}, commonAITools...),
+			Packages:    []string{"zsh", "git", "curl", "wget", "vim", "nano", "htop", "jq", "neofetch", "tgpt", "aichat", "mods"},
 		},
 		{
 			ID:          "node",
 			Name:        "10x JS Ninja",
 			Description: "Ship fast, break things, npm install everything + free AI.",
 			Icon:        "🚀",
-			Packages:    append([]string{"zsh", "git", "nodejs", "npm", "yarn"}, commonAITools...),
+			Packages:    []string{"zsh", "git", "nodejs", "npm", "yarn", "tgpt", "aichat", "mods"},
 		},
 		{
 			ID:          "python",
 			Name:        "Data Wizard",
 			Description: "Import antigravity. I speak in list comprehensions + AI.",
 			Icon:        "🧙‍♂️",
-			Packages:    append([]string{"zsh", "git", "python3", "python3-pip", "python3-venv"}, commonAITools...),
+			Packages:    []string{"zsh", "git", "python3", "python3-pip", "python3-venv", "tgpt", "aichat", "mods"},
 		},
 		{
 			ID:          "go",
 			Name:        "The Gopher",
 			Description: "If err != nil { panic(err) }. Simplicity + AI tools.",
 			Icon:        "🐹",
-			Packages:    append([]string{"zsh", "git", "make", "go"}, commonAITools...),
+			Packages:    []string{"zsh", "git", "make", "go", "tgpt", "aichat", "mods"},
 		},
 		{
 			ID:          "neovim",
 			Name:        "Neovim God",
 			Description: "My config is longer than your code. Mouse? AI helps.",
 			Icon:        "⌨️",
-			Packages:    append([]string{"zsh", "git", "neovim", "ripgrep", "gcc", "make", "curl"}, commonAITools...),
+			Packages:    []string{"zsh", "git", "neovim", "ripgrep", "gcc", "make", "curl", "tgpt", "aichat", "mods"},
 		},
 		{
 			ID:          "devops",
 			Name:        "YAML Herder",
 			Description: "I don't write code, I write config. AI assists.",
 			Icon:        "☸️",
-			Packages:    append([]string{"zsh", "git", "docker-cli", "kubectl", "ansible", "terraform"}, commonAITools...),
+			Packages:    []string{"zsh", "git", "docker-cli", "kubectl", "ansible", "terraform", "tgpt", "aichat", "mods"},
 		},
 		{
 			ID:          "overemployed",
@@ -270,18 +267,374 @@ create_rexec_cli() {
 #!/bin/sh
 
 # Rexec CLI - Terminal helper commands
-VERSION="1.0.0"
+VERSION="2.0.0"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[1;36m'
+NC='\033[0m' # No Color
+
+# Detect package manager
+detect_pkg_manager() {
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "apt"
+    elif command -v apk >/dev/null 2>&1; then
+        echo "apk"
+    elif command -v dnf >/dev/null 2>&1; then
+        echo "dnf"
+    elif command -v yum >/dev/null 2>&1; then
+        echo "yum"
+    elif command -v pacman >/dev/null 2>&1; then
+        echo "pacman"
+    elif command -v zypper >/dev/null 2>&1; then
+        echo "zypper"
+    else
+        echo "unknown"
+    fi
+}
+
+# Package name mappings for different distros
+# Format: generic_name -> apt_name:apk_name:dnf_name:pacman_name
+get_pkg_name() {
+    PKG="$1"
+    PM="$2"
+    
+    # Common package mappings (generic -> apt:apk:dnf:pacman)
+    case "$PKG" in
+        # Development
+        nodejs) 
+            case "$PM" in
+                apt) echo "nodejs" ;;
+                apk) echo "nodejs" ;;
+                dnf|yum) echo "nodejs" ;;
+                pacman) echo "nodejs" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        python)
+            case "$PM" in
+                apt) echo "python3" ;;
+                apk) echo "python3" ;;
+                dnf|yum) echo "python3" ;;
+                pacman) echo "python" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        pip)
+            case "$PM" in
+                apt) echo "python3-pip" ;;
+                apk) echo "py3-pip" ;;
+                dnf|yum) echo "python3-pip" ;;
+                pacman) echo "python-pip" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        # Docker
+        docker)
+            case "$PM" in
+                apt) echo "docker.io" ;;
+                apk) echo "docker" ;;
+                dnf|yum) echo "docker" ;;
+                pacman) echo "docker" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        docker-compose)
+            case "$PM" in
+                apt) echo "docker-compose" ;;
+                apk) echo "docker-compose" ;;
+                dnf|yum) echo "docker-compose" ;;
+                pacman) echo "docker-compose" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        # Editors
+        neovim|nvim)
+            case "$PM" in
+                apt) echo "neovim" ;;
+                apk) echo "neovim" ;;
+                dnf|yum) echo "neovim" ;;
+                pacman) echo "neovim" ;;
+                *) echo "neovim" ;;
+            esac ;;
+        # Tools
+        ripgrep|rg)
+            case "$PM" in
+                apt) echo "ripgrep" ;;
+                apk) echo "ripgrep" ;;
+                dnf|yum) echo "ripgrep" ;;
+                pacman) echo "ripgrep" ;;
+                *) echo "ripgrep" ;;
+            esac ;;
+        fd)
+            case "$PM" in
+                apt) echo "fd-find" ;;
+                apk) echo "fd" ;;
+                dnf|yum) echo "fd-find" ;;
+                pacman) echo "fd" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        bat)
+            case "$PM" in
+                apt) echo "bat" ;;
+                apk) echo "bat" ;;
+                dnf|yum) echo "bat" ;;
+                pacman) echo "bat" ;;
+                *) echo "$PKG" ;;
+            esac ;;
+        # Default: use as-is
+        *) echo "$PKG" ;;
+    esac
+}
+
+# Popular tools database for suggestions
+POPULAR_TOOLS="git curl wget vim nano htop tmux zsh neovim ripgrep fzf jq yq bat fd exa tree ncdu docker docker-compose kubectl terraform ansible python nodejs npm yarn go rust cargo gcc make cmake nginx redis postgresql mysql sqlite mongodb"
+
+# Fuzzy match for suggestions
+find_similar() {
+    QUERY="$1"
+    MATCHES=""
+    
+    for tool in $POPULAR_TOOLS; do
+        case "$tool" in
+            *"$QUERY"*) MATCHES="$MATCHES $tool" ;;
+        esac
+    done
+    
+    # Also check if query is substring
+    if [ -z "$MATCHES" ]; then
+        for tool in $POPULAR_TOOLS; do
+            # Check if first 2+ chars match
+            PREFIX=$(echo "$QUERY" | cut -c1-2)
+            case "$tool" in
+                "$PREFIX"*) MATCHES="$MATCHES $tool" ;;
+            esac
+        done
+    fi
+    
+    echo "$MATCHES" | xargs
+}
+
+# Install a package
+do_install() {
+    if [ -z "$1" ]; then
+        echo "${RED}Error: No package specified${NC}"
+        echo "Usage: rexec install <package>"
+        echo ""
+        echo "Examples:"
+        echo "  rexec install docker"
+        echo "  rexec install nodejs"
+        echo "  rexec install neovim"
+        return 1
+    fi
+    
+    PKG="$1"
+    PM=$(detect_pkg_manager)
+    
+    if [ "$PM" = "unknown" ]; then
+        echo "${RED}Error: No supported package manager found${NC}"
+        return 1
+    fi
+    
+    # Check if already installed
+    if command -v "$PKG" >/dev/null 2>&1; then
+        echo "${GREEN}✓${NC} $PKG is already installed"
+        return 0
+    fi
+    
+    # Get distro-specific package name
+    ACTUAL_PKG=$(get_pkg_name "$PKG" "$PM")
+    
+    echo "${CYAN}Installing $PKG...${NC}"
+    echo "  Package manager: $PM"
+    echo "  Package name: $ACTUAL_PKG"
+    echo ""
+    
+    case "$PM" in
+        apt)
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y "$ACTUAL_PKG"
+            ;;
+        apk)
+            apk add --no-cache "$ACTUAL_PKG"
+            ;;
+        dnf)
+            dnf install -y "$ACTUAL_PKG"
+            ;;
+        yum)
+            yum install -y "$ACTUAL_PKG"
+            ;;
+        pacman)
+            pacman -Sy --noconfirm "$ACTUAL_PKG"
+            ;;
+        zypper)
+            zypper --non-interactive install "$ACTUAL_PKG"
+            ;;
+    esac
+    
+    RESULT=$?
+    if [ $RESULT -eq 0 ]; then
+        echo ""
+        echo "${GREEN}✓ $PKG installed successfully${NC}"
+    else
+        echo ""
+        echo "${RED}✗ Failed to install $PKG${NC}"
+        
+        # Suggest similar packages
+        SIMILAR=$(find_similar "$PKG")
+        if [ -n "$SIMILAR" ]; then
+            echo ""
+            echo "${YELLOW}Did you mean one of these?${NC}"
+            for s in $SIMILAR; do
+                echo "  - $s"
+            done
+        fi
+    fi
+    
+    return $RESULT
+}
+
+# Uninstall a package
+do_uninstall() {
+    if [ -z "$1" ]; then
+        echo "${RED}Error: No package specified${NC}"
+        echo "Usage: rexec uninstall <package>"
+        return 1
+    fi
+    
+    PKG="$1"
+    PM=$(detect_pkg_manager)
+    
+    if [ "$PM" = "unknown" ]; then
+        echo "${RED}Error: No supported package manager found${NC}"
+        return 1
+    fi
+    
+    ACTUAL_PKG=$(get_pkg_name "$PKG" "$PM")
+    
+    echo "${CYAN}Uninstalling $PKG...${NC}"
+    
+    case "$PM" in
+        apt)
+            apt-get remove -y "$ACTUAL_PKG"
+            ;;
+        apk)
+            apk del "$ACTUAL_PKG"
+            ;;
+        dnf)
+            dnf remove -y "$ACTUAL_PKG"
+            ;;
+        yum)
+            yum remove -y "$ACTUAL_PKG"
+            ;;
+        pacman)
+            pacman -R --noconfirm "$ACTUAL_PKG"
+            ;;
+        zypper)
+            zypper --non-interactive remove "$ACTUAL_PKG"
+            ;;
+    esac
+    
+    RESULT=$?
+    if [ $RESULT -eq 0 ]; then
+        echo "${GREEN}✓ $PKG uninstalled${NC}"
+    else
+        echo "${RED}✗ Failed to uninstall $PKG${NC}"
+    fi
+    
+    return $RESULT
+}
+
+# Search for packages
+do_search() {
+    if [ -z "$1" ]; then
+        echo "${RED}Error: No search term specified${NC}"
+        echo "Usage: rexec search <term>"
+        return 1
+    fi
+    
+    TERM="$1"
+    PM=$(detect_pkg_manager)
+    
+    echo "${CYAN}Searching for '$TERM'...${NC}"
+    echo ""
+    
+    case "$PM" in
+        apt)
+            apt-cache search "$TERM" | head -20
+            ;;
+        apk)
+            apk search "$TERM" | head -20
+            ;;
+        dnf)
+            dnf search "$TERM" 2>/dev/null | head -20
+            ;;
+        yum)
+            yum search "$TERM" 2>/dev/null | head -20
+            ;;
+        pacman)
+            pacman -Ss "$TERM" | head -20
+            ;;
+        zypper)
+            zypper search "$TERM" | head -20
+            ;;
+        *)
+            echo "${RED}Package search not supported on this system${NC}"
+            return 1
+            ;;
+    esac
+    
+    echo ""
+    echo "${YELLOW}Tip:${NC} Use 'rexec install <package>' to install"
+}
+
+# List available/popular packages
+do_list() {
+    echo ""
+    echo "${CYAN}=== Popular Packages ===${NC}"
+    echo ""
+    echo "${YELLOW}Development:${NC}"
+    echo "  nodejs npm yarn python pip go rust cargo gcc make cmake"
+    echo ""
+    echo "${YELLOW}Editors:${NC}"
+    echo "  vim neovim nano emacs"
+    echo ""
+    echo "${YELLOW}Tools:${NC}"
+    echo "  git curl wget htop tmux zsh fzf ripgrep bat fd jq yq tree ncdu"
+    echo ""
+    echo "${YELLOW}DevOps:${NC}"
+    echo "  docker docker-compose kubectl terraform ansible helm"
+    echo ""
+    echo "${YELLOW}Databases:${NC}"
+    echo "  redis postgresql mysql sqlite mongodb"
+    echo ""
+    echo "${YELLOW}Web:${NC}"
+    echo "  nginx apache2 caddy"
+    echo ""
+    echo "Use 'rexec install <package>' to install any package"
+    echo "Use 'rexec search <term>' to find packages"
+    echo ""
+}
 
 show_help() {
     echo ""
-    echo "\033[1;36mRexec CLI v${VERSION}\033[0m"
+    echo "${CYAN}Rexec CLI v${VERSION}${NC}"
     echo ""
-    echo "Usage: rexec <command>"
+    echo "Usage: rexec <command> [arguments]"
     echo ""
-    echo "Commands:"
-    echo "  tools     Show installed tools and their status"
-    echo "  info      Show container information"
-    echo "  help      Show this help message"
+    echo "${YELLOW}Commands:${NC}"
+    echo "  tools              Show installed tools and their status"
+    echo "  info               Show container information"
+    echo "  install <pkg>      Install a package (auto-detects OS)"
+    echo "  uninstall <pkg>    Uninstall a package"
+    echo "  search <term>      Search for packages"
+    echo "  list               List popular packages"
+    echo "  help               Show this help message"
+    echo ""
+    echo "${YELLOW}Examples:${NC}"
+    echo "  rexec install docker"
+    echo "  rexec install nodejs"
+    echo "  rexec search redis"
+    echo "  rexec uninstall vim"
     echo ""
 }
 
@@ -430,11 +783,36 @@ case "$1" in
     info)
         show_info
         ;;
+    install)
+        shift
+        do_install "$@"
+        ;;
+    uninstall|remove)
+        shift
+        do_uninstall "$@"
+        ;;
+    search)
+        shift
+        do_search "$@"
+        ;;
+    list)
+        do_list
+        ;;
     help|--help|-h|"")
         show_help
         ;;
     *)
-        echo "Unknown command: $1"
+        echo "${RED}Unknown command: $1${NC}"
+        echo ""
+        # Try to suggest if it looks like a package name
+        SIMILAR=$(find_similar "$1")
+        if [ -n "$SIMILAR" ]; then
+            echo "${YELLOW}Did you mean to install one of these?${NC}"
+            for s in $SIMILAR; do
+                echo "  rexec install $s"
+            done
+            echo ""
+        fi
         show_help
         exit 1
         ;;
