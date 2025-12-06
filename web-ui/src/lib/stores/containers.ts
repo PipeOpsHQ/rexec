@@ -888,7 +888,9 @@ function handleContainerEvent(event: {
   container: any;
   timestamp: string;
 }) {
+  const { type, container: containerData } = event;
 
+  switch (type) {
     case "list":
       // Full container list received
       containers.update((state) => ({
@@ -899,7 +901,8 @@ function handleContainerEvent(event: {
       }));
       break;
 
-
+    case "progress":
+      // Update creating state with progress
       containers.update((state) => {
         // Only update if we're currently creating something
         if (!state.creating) return state;
