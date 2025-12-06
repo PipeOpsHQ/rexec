@@ -327,9 +327,9 @@
 
 <div class="app">
     {#if isLoading}
-        <div class="loading-screen">
-            <div class="spinner-large"></div>
-            <p>Loading...</p>
+        <!-- Uses same classes as index.html skeleton for seamless transition -->
+        <div class="loading-skeleton">
+            <div class="loading-spinner"></div>
         </div>
     {:else}
         <Header
@@ -503,29 +503,19 @@
         }
     }
 
-    .loading-screen {
-        position: fixed;
-        inset: 0;
+    /* Loading skeleton - matches index.html inline styles */
+    .loading-skeleton {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 16px;
+        min-height: 100vh;
         background: var(--bg);
-        background-image: var(--bg-grid);
-        background-size: 20px 20px;
-        z-index: 9999;
     }
 
-    .loading-screen p {
-        color: var(--text-muted);
-        font-size: 14px;
-    }
-
-    .spinner-large {
+    .loading-spinner {
         width: 40px;
         height: 40px;
-        border: 3px solid var(--border);
+        border: 3px solid rgba(0, 255, 65, 0.1);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
