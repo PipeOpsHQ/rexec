@@ -362,6 +362,47 @@
 
     // Global keyboard shortcuts
     function handleGlobalKeydown(event: KeyboardEvent) {
+        // Handle Ghostty-style shortcuts (Cmd+Key on macOS)
+        if (event.metaKey && !event.ctrlKey && !event.altKey) {
+            const key = event.key.toLowerCase();
+            const isShift = event.shiftKey;
+
+            // Cmd+D / Cmd+Shift+D: Split Pane
+            if (key === 'd' && activeId) {
+                event.preventDefault();
+                // Cmd+Shift+D = Horizontal (Top/Bottom), Cmd+D = Vertical (Left/Right)
+                const direction = isShift ? 'horizontal' : 'vertical';
+                terminal.splitPane(activeId, direction);
+                return;
+            }
+
+            // Cmd+T: New Tab (Inline Create)
+            if (key === 't') {
+                event.preventDefault();
+                openCreatePanel();
+                return;
+            }
+
+            // Cmd+W: Close Pane/Tab
+            if (key === 'w' && activeId) {
+                event.preventDefault();
+                const session = $terminal.sessions.get(activeId);
+                if (session && session.activePaneId) {
+                    terminal.closeSplitPane(activeId, session.activePaneId);
+                } else {
+                    closeSession(activeId);
+                }
+                return;
+            }
+            
+            // Cmd+N: New Window (Pop out)
+            if (key === 'n' && activeId) {
+                event.preventDefault();
+                popOutTerminal(activeId, window.innerWidth / 2 - 300, window.innerHeight / 2 - 200);
+                return;
+            }
+        }
+
         // Only handle Alt key combinations to avoid conflict with browser/terminal
         if (!event.altKey) return;
 
