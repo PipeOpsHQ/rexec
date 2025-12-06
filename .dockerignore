@@ -49,6 +49,7 @@ docker/data/
 web-ui/node_modules/
 web/node_modules/
 node_modules/
+web-ui/package-lock.json
 
 # Local data
 /data/
