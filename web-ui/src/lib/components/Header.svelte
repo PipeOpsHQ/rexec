@@ -798,6 +798,10 @@
             display: none;
         }
 
+        .btn-sm.btn-secondary {
+            display: none; /* Hide 'Try as Guest' on mobile */
+        }
+
         .user-menu {
             right: -8px;
             min-width: 200px;
