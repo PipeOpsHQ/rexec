@@ -327,7 +327,10 @@ ZSHRC_TEMPLATE
 
             # Write to /home/user/.zshrc and correct HOME path
             if [ ! -f /home/user/.zshrc ]; then
-                echo "$ZSHRC_CONTENT" | sed "s|export HOME=\"\${HOME:-/root}\"|export HOME=\"/home/user\"|" > /home/user/.zshrc
+                echo "$ZSHRC_CONTENT" | \
+                    sed "s|export HOME=\"\\${HOME:-/root}\"|export HOME=\"/home/user\"|" | \
+                    sed "s|export PATH=\"/root/.local/bin:\\$PATH\"|export PATH=\"/home/user/.local/bin:\\$PATH\"|" \
+                    > /home/user/.zshrc
             else
                 echo "  user .zshrc already exists, skipping overwrite..."
             fi
