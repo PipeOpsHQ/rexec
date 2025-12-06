@@ -225,12 +225,81 @@ install_role_packages() {
         echo "Unsupported package manager"
         # Don't exit, try to continue setup
     fi
-    rm -f /tmp/.rexec_installing_system
-}
-
-
-
-# Create rexec CLI command with subcommands
+        rm -f /tmp/.rexec_installing_system
+    }
+    
+    # Configure Zsh if installed
+    configure_zsh() {
+        if command -v zsh >/dev/null 2>&1; then
+            echo "Configuring zsh..."
+    
+            # Ensure oh-my-zsh custom plugins directory exists
+            export HOME="${HOME:-/root}"
+            ZSH_CUSTOM="${HOME}/.oh-my-zsh/custom"
+            mkdir -p "$ZSH_CUSTOM/plugins"
+    
+            # Install zsh plugins
+            echo "Installing zsh plugins..."
+            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+                git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+            fi
+            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+                git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+            fi
+            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-history-substring-search" ]; then
+                git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search "$ZSH_CUSTOM/plugins/zsh-history-substring-search" 2>/dev/null || true
+            fi
+    
+            # Change default shell
+            if [ -f /etc/passwd ]; then
+                ZSH_PATH=$(which zsh)
+                sed -i "s|root:.*:/bin/.*|root:x:0:0:root:/root:$ZSH_PATH|" /etc/passwd 2>/dev/null || true
+            fi
+    
+            # Create .zshrc
+            cat > /root/.zshrc << 'ZSHRC'
+    export TERM=xterm-256color
+    export LANG=en_US.UTF-8
+    export PATH="$HOME/.local/bin:$PATH"
+    export ZSH="$HOME/.oh-my-zsh"
+    
+    ZSH_THEME="robbyrussell"
+    
+    plugins=(git zsh-completions command-not-found colored-man-pages extract sudo)
+    
+    HISTSIZE=10000
+    SAVEHIST=10000
+    HISTFILE=~/.zsh_history
+    setopt HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS HIST_SAVE_NO_DUPS
+    setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY PROMPT_SUBST
+    unsetopt PROMPT_SP
+    
+    autoload -Uz compinit && compinit
+    
+    unset PS1
+    source $ZSH/oh-my-zsh.sh
+    
+    alias ll='ls -alF --color=auto'
+    alias ls='ls --color=auto'
+    alias gs='git status'
+    
+    if [ -z "$REXEC_WELCOMED" ]; then
+        export REXEC_WELCOMED=1
+        echo ""
+        echo -e "\033[1;36m Welcome to Rexec Terminal \033[0m"
+        echo ""
+        echo -e " \033[1;33mQuick Commands:\033[0m"
+        echo "   rexec tools    - See installed tools"
+        echo "   rexec info     - Container info"
+        echo "   ai-help        - AI tools guide"
+        echo "   tgpt \"question\" - Free AI (no API key)"
+        echo ""
+    fi
+    ZSHRC
+        fi
+    }
+    
+    # Create rexec CLI command with subcommands
 create_rexec_cli() {
     mkdir -p /root/.local/bin /home/user/.local/bin 2>/dev/null || true
     
@@ -695,8 +764,7 @@ install_role_packages
 
 # 3. Configure Zsh (if installed)
 echo "[[REXEC_STATUS]]Configuring shell..."
-# Call the main setup function from shell_setup.go
-main
+configure_zsh
 
 # 4. Install AI tools
 echo "[[REXEC_STATUS]]Installing AI tools..."
