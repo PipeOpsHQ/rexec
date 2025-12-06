@@ -317,9 +317,6 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 			GitAliases:      req.Shell.GitAliases,
 			SystemStats:     req.Shell.SystemStats,
 		}
-	} else if req.Role == "standard" {
-		// "The Minimalist" role - no enhanced shell
-		shellCfg = container.ShellSetupConfig{Enhanced: false}
 	}
 
 	// Send validating complete progress event via WebSocket immediately
@@ -1506,9 +1503,6 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 			GitAliases:      req.Shell.GitAliases,
 			SystemStats:     req.Shell.SystemStats,
 		}
-	} else if req.Role == "standard" {
-		// "The Minimalist" role - no enhanced shell
-		shellCfg = container.ShellSetupConfig{Enhanced: false}
 	}
 
 	// Stage 5: Configuring shell (install oh-my-zsh if enhanced)
