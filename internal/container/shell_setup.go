@@ -37,7 +37,7 @@ func DefaultShellSetupConfig() ShellSetupConfig {
 		Enhanced:        true,
 		Theme:           "robbyrussell",
 		Autosuggestions: true,
-		SyntaxHighlight: false, // Disabled for stability
+		SyntaxHighlight: true,
 		HistorySearch:   true,
 		GitAliases:      true,
 		SystemStats:     false,
