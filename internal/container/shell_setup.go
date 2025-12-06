@@ -213,16 +213,24 @@ install_packages() {
     elif command -v apk >/dev/null 2>&1; then
         apk add --no-cache zsh git pcre2 curl wget shadow >/dev/null 2>&1
     elif command -v dnf >/dev/null 2>&1; then
-        dnf install -y -q zsh git pcre2 curl wget >/dev/null 2>&1
+        dnf install -y -q zsh git pcre2 curl wget glibc-langpack-en >/dev/null 2>&1 || dnf install -y -q zsh git pcre2 curl wget >/dev/null 2>&1
     elif command -v yum >/dev/null 2>&1; then
-        yum install -y -q zsh git pcre2 curl wget >/dev/null 2>&1
+        yum install -y -q zsh git pcre2 curl wget glibc-langpack-en >/dev/null 2>&1 || yum install -y -q zsh git pcre2 curl wget >/dev/null 2>&1
+    elif command -v urpmi >/dev/null 2>&1; then
+        # Mageia
+        urpmi --auto --no-recommends zsh git libpcre2-8-0 curl wget locales-en >/dev/null 2>&1
     elif command -v pacman >/dev/null 2>&1; then
         pacman-key --init 2>/dev/null || true
         pacman-key --populate archlinux 2>/dev/null || true
         pacman -Sy --noconfirm --needed zsh git pcre2 curl wget >/dev/null 2>&1
+        # Generate locale for Arch
+        if [ -f /etc/locale.gen ]; then
+            sed -i 's/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+            locale-gen >/dev/null 2>&1 || true
+        fi
     elif command -v zypper >/dev/null 2>&1; then
         zypper --non-interactive refresh >/dev/null 2>&1 || true
-        zypper --non-interactive install -y zsh git libpcre2-8-0 curl wget >/dev/null 2>&1
+        zypper --non-interactive install -y zsh git libpcre2-8-0 curl wget glibc-locale >/dev/null 2>&1
     else
         echo "Unsupported package manager"
         exit 1
