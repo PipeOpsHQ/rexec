@@ -81,12 +81,26 @@ export default defineConfig({
     outDir: '../web',
     emptyOutDir: true,
     sourcemap: false,
+    target: 'esnext',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
     rollupOptions: {
       output: {
-        // Clean asset naming
+        // Code splitting for better caching
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
+        manualChunks: {
+          // Split xterm into its own chunk (large library)
+          'xterm': ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl', '@xterm/addon-web-links', '@xterm/addon-unicode11'],
+          // Svelte runtime
+          'svelte': ['svelte', 'svelte/internal', 'svelte/store', 'svelte/transition', 'svelte/animate', 'svelte/easing'],
+        },
       },
     },
   },

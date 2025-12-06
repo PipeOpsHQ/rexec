@@ -5,8 +5,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/rexec/rexec/internal/api/handlers"
@@ -122,6 +124,25 @@ func main() {
 
 	// Setup Gin router
 	router := gin.Default()
+
+	// Gzip compression for faster transfers (skip WebSocket)
+	router.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{"/ws/"})))
+
+	// Cache control middleware for static assets
+	router.Use(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		// Long cache for hashed assets (immutable)
+		if strings.HasPrefix(path, "/assets/") {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		} else if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
+			// Cache SW and other static files
+			c.Header("Cache-Control", "public, max-age=86400")
+		} else if path == "/sw.js" {
+			// Service worker should be checked frequently
+			c.Header("Cache-Control", "public, max-age=0, must-revalidate")
+		}
+		c.Next()
+	})
 
 	// CORS middleware
 	router.Use(func(c *gin.Context) {
