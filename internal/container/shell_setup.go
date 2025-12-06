@@ -36,11 +36,11 @@ func DefaultShellSetupConfig() ShellSetupConfig {
 	return ShellSetupConfig{
 		Enhanced:        true,
 		Theme:           "robbyrussell",
-		Autosuggestions: true,
-		SyntaxHighlight: true,
+		Autosuggestions: false, // Disabled for stability
+		SyntaxHighlight: false, // Disabled for stability
 		HistorySearch:   true,
-		GitAliases:      true,  // Re-enable useful aliases
-		SystemStats:     false, // Disable welcome banner (handled by UI)
+		GitAliases:      true,
+		SystemStats:     false,
 	}
 }
 
@@ -321,6 +321,7 @@ SAVEHIST=10000
 HISTFILE=~/.zsh_history
 setopt HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS HIST_SAVE_NO_DUPS
 setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY PROMPT_SUBST
+unsetopt PROMPT_SP # Prevent partial line indicator (%)
 
 autoload -Uz compinit
 zstyle ':completion:*' menu select
