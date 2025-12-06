@@ -15,55 +15,58 @@ type RoleInfo struct {
 
 // AvailableRoles returns the list of supported roles
 func AvailableRoles() []RoleInfo {
+	// Common AI tools installed for all roles (free, no API key required)
+	commonAITools := []string{"tgpt", "aichat", "mods"}
+
 	return []RoleInfo{
 		{
 			ID:          "standard",
 			Name:        "The Minimalist",
-			Description: "I use Arch btw. Just give me a shell.",
+			Description: "I use Arch btw. Just give me a shell + free AI tools.",
 			Icon:        "🧘",
-			Packages:    []string{"zsh", "git", "curl", "wget", "vim", "nano", "htop", "jq", "neofetch", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    append([]string{"zsh", "git", "curl", "wget", "vim", "nano", "htop", "jq", "neofetch"}, commonAITools...),
 		},
 		{
 			ID:          "node",
 			Name:        "10x JS Ninja",
-			Description: "Ship fast, break things, npm install everything.",
+			Description: "Ship fast, break things, npm install everything + free AI.",
 			Icon:        "🚀",
-			Packages:    []string{"zsh", "git", "nodejs", "npm", "yarn", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    append([]string{"zsh", "git", "nodejs", "npm", "yarn"}, commonAITools...),
 		},
 		{
 			ID:          "python",
 			Name:        "Data Wizard",
-			Description: "Import antigravity. I speak in list comprehensions.",
+			Description: "Import antigravity. I speak in list comprehensions + AI.",
 			Icon:        "🧙‍♂️",
-			Packages:    []string{"zsh", "git", "python3", "python3-pip", "python3-venv", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    append([]string{"zsh", "git", "python3", "python3-pip", "python3-venv"}, commonAITools...),
 		},
 		{
 			ID:          "go",
 			Name:        "The Gopher",
-			Description: "If err != nil { panic(err) }. Simplicity is key.",
+			Description: "If err != nil { panic(err) }. Simplicity + AI tools.",
 			Icon:        "🐹",
-			Packages:    []string{"zsh", "git", "make", "go", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    append([]string{"zsh", "git", "make", "go"}, commonAITools...),
 		},
 		{
 			ID:          "neovim",
 			Name:        "Neovim God",
-			Description: "My config is longer than your code. Mouse? What mouse?",
+			Description: "My config is longer than your code. Mouse? AI helps.",
 			Icon:        "⌨️",
-			Packages:    []string{"zsh", "git", "neovim", "ripgrep", "gcc", "make", "curl", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    append([]string{"zsh", "git", "neovim", "ripgrep", "gcc", "make", "curl"}, commonAITools...),
 		},
 		{
 			ID:          "devops",
 			Name:        "YAML Herder",
-			Description: "I don't write code, I write config. Prod is my playground.",
+			Description: "I don't write code, I write config. AI assists.",
 			Icon:        "☸️",
-			Packages:    []string{"zsh", "git", "docker-cli", "kubectl", "ansible", "terraform", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    append([]string{"zsh", "git", "docker-cli", "kubectl", "ansible", "terraform"}, commonAITools...),
 		},
 		{
 			ID:          "overemployed",
 			Name:        "Vibe Coder",
-			Description: "AI-powered coding with Claude, Aider, OpenCode & more CLI tools.",
+			Description: "AI-powered coding: tgpt, aichat, mods, aider, opencode & more.",
 			Icon:        "🤖",
-			Packages:    []string{"zsh", "git", "tmux", "python3", "python3-pip", "python3-venv", "nodejs", "npm", "curl", "wget", "htop", "vim", "neovim", "ripgrep", "fzf", "jq", "zsh-autosuggestions", "zsh-syntax-highlighting", "zsh-completions"},
+			Packages:    []string{"zsh", "git", "tmux", "python3", "python3-pip", "python3-venv", "nodejs", "npm", "curl", "wget", "htop", "vim", "neovim", "ripgrep", "fzf", "jq", "tgpt", "aichat", "mods", "aider", "opencode", "llm", "sgpt"},
 		},
 	}
 }

@@ -502,8 +502,8 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 		sendProgress("configuring", "Configuring minimal shell...", 90)
 	}
 
-	// Setup role if specified
-	if role != "" && role != "standard" {
+	// Setup role if specified (run for ALL roles including standard to get AI tools)
+	if role != "" {
 		sendProgress("configuring", fmt.Sprintf("Setting up %s environment...", role), 95)
 		log.Printf("[Container] Starting role setup for %s (%s)", info.ID[:12], role)
 
@@ -1508,8 +1508,8 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 		}
 	}
 
-	// Stage 6: Setup Role (if specified)
-	if req.Role != "" && req.Role != "standard" {
+	// Stage 6: Setup Role (run for ALL roles including standard to get AI tools)
+	if req.Role != "" {
 		sendEvent(container.ProgressEvent{
 			Stage:    "configuring",
 			Message:  fmt.Sprintf("Setting up %s environment...", req.Role),
