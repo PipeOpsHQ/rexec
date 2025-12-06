@@ -16,14 +16,14 @@
     let panelContainerId: string | null = null;
     
     function handleOpenRecordings(e: CustomEvent<{containerId: string}>) {
-        console.log('[TerminalView] Opening recordings panel', e.detail);
+
         panelContainerId = e.detail.containerId;
         showRecordingsPanel = true;
         showCollabPanel = false;
     }
     
     function handleOpenCollab(e: CustomEvent<{containerId: string}>) {
-        console.log('[TerminalView] Opening collab panel', e.detail);
+
         panelContainerId = e.detail.containerId;
         showCollabPanel = true;
         showRecordingsPanel = false;

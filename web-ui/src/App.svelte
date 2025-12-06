@@ -231,16 +231,11 @@
             const storedToken = localStorage.getItem("rexec_token");
             const storedUser = localStorage.getItem("rexec_user");
 
-            console.log(
-                "[App] Init - stored token:",
-                !!storedToken,
-                "stored user:",
-                !!storedUser,
-            );
+
 
             if (storedToken && storedUser) {
                 const isValid = await auth.validateToken();
-                console.log("[App] Token validation result:", isValid);
+
 
                 if (isValid) {
                     await auth.fetchProfile();
@@ -249,7 +244,7 @@
                     startAutoRefresh(); // Start polling for container updates
                     await handleTerminalUrl();
                 } else {
-                    console.log("[App] Token invalid, logging out");
+
                     auth.logout();
                 }
             }
@@ -269,7 +264,7 @@
     $: if (isInitialized && $isAuthenticated && currentView === "landing") {
         const pendingJoin = localStorage.getItem("pendingJoinCode");
         if (pendingJoin) {
-            console.log("[App] Found pending join code, redirecting to join view");
+
             localStorage.removeItem("pendingJoinCode");
             joinCode = pendingJoin;
             currentView = "join";

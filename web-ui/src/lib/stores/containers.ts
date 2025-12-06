@@ -495,9 +495,7 @@ function createContainersStore() {
 
             // If stuck in configuring for too long (30+ seconds), treat as ready
             // Shell setup continues in background but user can connect
-            if (status === "configuring" && attempts >= 30) {
-              console.log("[Containers] Container stuck in configuring, treating as ready");
-              if (typeof window !== 'undefined') {
+
                 window.removeEventListener('container-progress', wsProgressHandler);
               }
               
@@ -535,12 +533,7 @@ function createContainersStore() {
               return;
             }
 
-            if (status === "running") {
-              // Container is running - complete immediately
-              // Shell setup runs in background, user can connect right away
-              console.log("[Containers] Container running, completing immediately");
-              
-              if (typeof window !== 'undefined') {
+
                 window.removeEventListener('container-progress', wsProgressHandler);
               }
               
@@ -817,9 +810,7 @@ export function startContainerEvents() {
   try {
     eventsSocket = new WebSocket(getWebSocketUrl());
 
-    eventsSocket.onopen = () => {
-      console.log("[ContainerEvents] WebSocket connected");
-      reconnectAttempts = 0;
+
       wsConnected.set(true);
     };
 
@@ -840,21 +831,13 @@ export function startContainerEvents() {
       const isIntentionalClose = event.code === 1000;
       const isAuthError = event.code === 4001 || event.code === 4003;
       
-      if (isIntentionalClose || isAuthError) {
-        console.log("[ContainerEvents] WebSocket closed (intentional or auth):", event.code);
-        reconnectAttempts = 0;
+
         return;
       }
 
       // Attempt silent reconnect with exponential backoff
-      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        reconnectAttempts++;
-        const delay = getReconnectDelay();
-        console.log(`[ContainerEvents] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-        reconnectTimer = setTimeout(startContainerEvents, delay);
-      } else {
-        console.log("[ContainerEvents] Max reconnect attempts reached");
-        // Reset after a longer delay to allow manual refresh or page reload
+
+
         reconnectTimer = setTimeout(() => {
           reconnectAttempts = 0;
           startContainerEvents();
@@ -862,10 +845,7 @@ export function startContainerEvents() {
       }
     };
 
-    eventsSocket.onerror = () => {
-      // Errors are handled by onclose - just log silently
-      console.log("[ContainerEvents] WebSocket error - will attempt reconnect");
-    };
+
   } catch (e) {
     console.error("[ContainerEvents] Failed to create WebSocket:", e);
     // Retry after delay
@@ -908,10 +888,7 @@ function handleContainerEvent(event: {
   container: any;
   timestamp: string;
 }) {
-  const { type, container: containerData } = event;
-  console.log("[ContainerEvents] Received event:", type, containerData);
 
-  switch (type) {
     case "list":
       // Full container list received
       containers.update((state) => ({
@@ -922,11 +899,7 @@ function handleContainerEvent(event: {
       }));
       break;
 
-    case "progress":
-      // Container creation progress update
-      console.log("[ContainerEvents] Progress event:", containerData);
-      
-      // Update creating state with progress
+
       containers.update((state) => {
         // Only update if we're currently creating something
         if (!state.creating) return state;
@@ -1019,9 +992,7 @@ function handleContainerEvent(event: {
       }));
       break;
 
-    default:
-      console.log("[ContainerEvents] Unknown event type:", type);
-  }
+
 }
 
 // Legacy polling functions (kept for fallback)

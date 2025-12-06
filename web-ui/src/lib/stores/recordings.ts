@@ -79,7 +79,7 @@ function createRecordingStore() {
       return null;
     }
 
-    console.log('[Recording] Starting recording for container:', containerId);
+
 
     try {
       const res = await fetch(`${API_BASE}/api/recordings/start`, {
@@ -125,7 +125,7 @@ function createRecordingStore() {
       return null;
     }
 
-    console.log('[Recording] Stopping recording for container:', containerId);
+
 
     try {
       const res = await fetch(`${API_BASE}/api/recordings/stop/${containerId}`, {

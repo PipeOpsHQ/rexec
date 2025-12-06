@@ -52,14 +52,7 @@
         cpuShares = Math.max(250, Math.min(rawCpu, maxCpu));
         diskMB = Math.max(1024, Math.min(rawDisk, maxDisk));
 
-        console.log("[Settings] Initialized:", {
-            name,
-            memoryMB,
-            cpuShares,
-            diskMB,
-            raw: { rawMemory, rawCpu, rawDisk },
-            resources: container.resources,
-        });
+
     }
 
     // React to modal opening
@@ -106,18 +99,14 @@
                     restarted?: boolean;
                 };
 
-                console.log("[TerminalSettings] Response:", responseData);
+
 
                 // If container was restarted, trigger immediate reconnect
                 if (responseData.restarted && responseData.container) {
                     const oldContainerId = container.id;
                     const newContainerId = responseData.container.id;
 
-                    console.log("[TerminalSettings] Container recreated:", {
-                        old: oldContainerId,
-                        new: newContainerId,
-                        sameId: oldContainerId === newContainerId,
-                    });
+
 
                     // Immediate reconnect - container is already running with new ID
                     if (oldContainerId && newContainerId) {

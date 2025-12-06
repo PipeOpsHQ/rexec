@@ -845,9 +845,7 @@ function createTerminalStore() {
             );
           } else {
             // Silent reconnect - just log to console
-            console.log(
-              `[Terminal] Silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${sessionId} (delay: ${delay}ms)`,
-            );
+
           }
 
           const timer = setTimeout(() => {
@@ -877,7 +875,7 @@ function createTerminalStore() {
 
       ws.onerror = () => {
         // WebSocket errors are handled by onclose - just log silently
-        console.log("[Terminal] WebSocket error - will attempt reconnect");
+
       };
 
       // Handle terminal input with chunking for large pastes
@@ -1012,9 +1010,7 @@ function createTerminalStore() {
           const newContainerId = data.id || oldContainerId;
 
           if (newContainerId !== oldContainerId) {
-            console.log(
-              `[Terminal] Container recreated: ${oldContainerId} -> ${newContainerId}`,
-            );
+
             // Update session with new container ID
             updateSession(sessionId, (s) => ({
               ...s,
@@ -1086,15 +1082,11 @@ function createTerminalStore() {
       }
 
       if (sessionsToUpdate.length === 0) {
-        console.log(
-          `[Terminal] No session found for container ${oldContainerId}`,
-        );
+
         return;
       }
 
-      console.log(
-        `[Terminal] Updating ${sessionsToUpdate.length} sessions from ${oldContainerId} to ${newContainerId}`,
-      );
+
 
       // Update all sessions first with new container ID
       sessionsToUpdate.forEach((sessionId) => {
@@ -1982,9 +1974,7 @@ function createTerminalStore() {
               `\r\n\x1b[33m⟳ Split session reconnecting (${attemptNum}/${WS_MAX_RECONNECT})...\x1b[0m`,
             );
           } else {
-            console.log(
-              `[Terminal] Split pane silent reconnect attempt ${attemptNum}/${WS_MAX_RECONNECT} for ${paneId} (delay: ${delay}ms)`,
-            );
+
           }
 
           const timer = setTimeout(() => {
@@ -2019,9 +2009,7 @@ function createTerminalStore() {
       };
 
       ws.onerror = () => {
-        console.log(
-          "[Terminal] Split pane WebSocket error - will attempt reconnect",
-        );
+
       };
 
       // Handle terminal input for split pane

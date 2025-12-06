@@ -279,13 +279,13 @@ function createAuthStore() {
     async validateToken() {
       const token = localStorage.getItem("rexec_token");
       if (!token) {
-        console.log("[Auth] No token found in localStorage");
+
         return false;
       }
 
       // Check if guest session has expired locally first
       if (this.isSessionExpired()) {
-        console.log("[Auth] Session expired locally");
+
         this.logout();
         return false;
       }
@@ -299,13 +299,7 @@ function createAuthStore() {
           if ((user.isGuest || user.tier === "guest") && user.expiresAt) {
             const now = Math.floor(Date.now() / 1000);
             isGuestWithValidLocalSession = now < user.expiresAt;
-            console.log("[Auth] Guest session check:", {
-              isGuest: user.isGuest,
-              tier: user.tier,
-              expiresAt: user.expiresAt,
-              now,
-              isValid: isGuestWithValidLocalSession,
-            });
+
           }
         } catch {
           // Ignore parse errors
@@ -318,30 +312,26 @@ function createAuthStore() {
         });
 
         if (response.ok) {
-          console.log("[Auth] Token validated via API");
+
           return true;
         }
 
-        console.log("[Auth] API returned non-OK status:", response.status);
+
 
         // For guests with valid local session, don't log out on API errors
         // This handles 401 (expired JWT), 502 (backend down), etc.
         if (isGuestWithValidLocalSession) {
-          console.log(
-            "[Auth] Guest has valid local session, keeping logged in despite API error",
-          );
+
           return true;
         }
 
         return false;
       } catch (e) {
-        console.log("[Auth] Network error during validation:", e);
+
 
         // On network error, keep guests logged in if local session is valid
         if (isGuestWithValidLocalSession) {
-          console.log(
-            "[Auth] Guest has valid local session, keeping logged in despite network error",
-          );
+
           return true;
         }
 

@@ -161,7 +161,7 @@ function createCollabStore() {
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log('[Collab] WebSocket connected');
+
       reconnectAttempts = 0;
       update(s => ({ ...s, isConnected: true, isConnecting: false, error: null }));
     };
@@ -184,7 +184,7 @@ function createCollabStore() {
       const isSessionEnded = event.code === 4000 || event.code === 4001;
       
       if (isIntentionalClose || isSessionEnded) {
-        console.log('[Collab] WebSocket closed (intentional):', event.code);
+
         reconnectAttempts = 0;
         currentShareCode = null;
         return;
@@ -194,21 +194,21 @@ function createCollabStore() {
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && currentShareCode) {
         reconnectAttempts++;
         const delay = getReconnectDelay();
-        console.log(`[Collab] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+
         reconnectTimer = setTimeout(() => {
           if (currentShareCode) {
             connectWebSocket(currentShareCode);
           }
         }, delay);
       } else {
-        console.log('[Collab] Max reconnect attempts reached');
+
         update(s => ({ ...s, error: 'Connection lost. Please rejoin the session.' }));
       }
     };
 
     ws.onerror = () => {
       // Errors are handled by onclose - just log silently
-      console.log('[Collab] WebSocket error - will attempt reconnect');
+
       update(s => ({ ...s, isConnecting: false }));
     };
   }
@@ -281,7 +281,7 @@ function createCollabStore() {
     // Check if user can send input (owner or editor only)
     const state = get({ subscribe });
     if (state.activeSession?.role === 'viewer') {
-      console.log('[Collab] Input blocked: view-only mode');
+
       return;
     }
     sendMessage('input', input);
