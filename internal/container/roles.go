@@ -225,38 +225,37 @@ install_role_packages() {
     fi
 }
 
-install_role_packages
-
 # Configure Zsh if installed
-if command -v zsh >/dev/null 2>&1; then
-    echo "Configuring zsh..."
+configure_zsh() {
+    if command -v zsh >/dev/null 2>&1; then
+        echo "Configuring zsh..."
 
-    # Ensure oh-my-zsh custom plugins directory exists
-    export HOME="${HOME:-/root}"
-    ZSH_CUSTOM="${HOME}/.oh-my-zsh/custom"
-    mkdir -p "$ZSH_CUSTOM/plugins"
+        # Ensure oh-my-zsh custom plugins directory exists
+        export HOME="${HOME:-/root}"
+        ZSH_CUSTOM="${HOME}/.oh-my-zsh/custom"
+        mkdir -p "$ZSH_CUSTOM/plugins"
 
-    # Install zsh plugins
-    echo "Installing zsh plugins..."
-    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
-    fi
-    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
-    fi
-    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-history-substring-search" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search "$ZSH_CUSTOM/plugins/zsh-history-substring-search" 2>/dev/null || true
-    fi
+        # Install zsh plugins
+        echo "Installing zsh plugins..."
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+        fi
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+        fi
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-history-substring-search" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search "$ZSH_CUSTOM/plugins/zsh-history-substring-search" 2>/dev/null || true
+        fi
 
-    # Change default shell
-    if [ -f /etc/passwd ]; then
-        ZSH_PATH=$(which zsh)
-        sed -i "s|root:.*:/bin/.*|root:x:0:0:root:/root:$ZSH_PATH|" /etc/passwd 2>/dev/null || true
-    fi
+        # Change default shell
+        if [ -f /etc/passwd ]; then
+            ZSH_PATH=$(which zsh)
+            sed -i "s|root:.*:/bin/.*|root:x:0:0:root:/root:$ZSH_PATH|" /etc/passwd 2>/dev/null || true
+        fi
 
-    # Create minimal .zshrc only if it doesn't exist (preserve oh-my-zsh if installed)
-    if [ ! -f /root/.zshrc ]; then
-        cat > /root/.zshrc << 'ZSHRC'
+        # Create minimal .zshrc only if it doesn't exist (preserve oh-my-zsh if installed)
+        if [ ! -f /root/.zshrc ]; then
+            cat > /root/.zshrc << 'ZSHRC'
 export TERM=xterm-256color
 export LANG=en_US.UTF-8
 export PATH="$HOME/.local/bin:$PATH"
@@ -292,8 +291,9 @@ if [ -z "$REXEC_WELCOMED" ]; then
     echo ""
 fi
 ZSHRC
+        fi
     fi
-fi
+}
 
 # Create rexec CLI command with subcommands
 create_rexec_cli() {
@@ -892,11 +892,6 @@ save_role_info() {
     echo "%s" > /etc/rexec/role
 }
 
-create_rexec_cli
-setup_path
-save_role_info
-echo "Role setup complete!"
-
 # Install free AI tools for ALL roles (no API key required)
 install_free_ai_tools() {
     echo "Installing free AI terminal tools..."
@@ -1035,11 +1030,31 @@ AIHELP
     cp "$HOME/.local/bin/ai-help" /home/user/.local/bin/ai-help 2>/dev/null || true
 }
 
-# Install free AI tools for all roles
+# --- Execution ---
+
+echo "Setting up Rexec environment..."
+
+# 1. Install CLI and setup paths first (critical)
+echo "[[REXEC_STATUS]]Installing Rexec CLI..."
+create_rexec_cli
+setup_path
+save_role_info
+
+# 2. Install packages (might take time or fail, but CLI is ready)
+echo "[[REXEC_STATUS]]Installing system packages..."
+install_role_packages
+
+# 3. Configure Zsh (if installed)
+echo "[[REXEC_STATUS]]Configuring shell..."
+configure_zsh
+
+# 4. Install AI tools
+echo "[[REXEC_STATUS]]Installing AI tools..."
 install_free_ai_tools
 
 # Special handling for Vibe Coder role - install additional AI CLI tools
 if [ "%s" = "Vibe Coder" ]; then
+    echo "[[REXEC_STATUS]]Installing extra tools..."
     echo "Installing additional AI coding tools..."
     
     # Ensure pip is available and upgrade it
@@ -1095,6 +1110,8 @@ if [ "%s" = "Vibe Coder" ]; then
     echo "    ai-help                        # Show all AI tools"
     echo ""
 fi
+
+echo "[[REXEC_STATUS]]Setup complete."
 `, role.Name, packages, role.Name, role.Name)
 
 	return script, nil

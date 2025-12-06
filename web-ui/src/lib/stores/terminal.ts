@@ -628,6 +628,45 @@ function createTerminalStore() {
           if (msg.type === "output") {
             const data = msg.data as string;
 
+            // Check for explicit status updates from backend script
+            const statusMatch = data.match(/\[\[REXEC_STATUS\]\](.*)/);
+            if (statusMatch) {
+              const statusMsg = statusMatch[1].trim();
+              if (statusMsg === "Setup complete.") {
+                 // specific completion message
+                 setTimeout(() => {
+                    updateSession(sessionId, (s) => ({
+                      ...s,
+                      isSettingUp: false,
+                      setupMessage: "",
+                    }));
+                 }, 1000);
+              } else {
+                 updateSession(sessionId, (s) => ({
+                    ...s,
+                    isSettingUp: true,
+                    setupMessage: statusMsg,
+                 }));
+              }
+              // Don't show the internal status tag line in the terminal if possible, 
+              // but since it's mixed with other output, we might leave it or filter it.
+              // Filtering it from the buffer prevents it from showing in the terminal.
+              // Let's filter it out from the display output.
+              const cleanData = data.replace(/\[\[REXEC_STATUS\]\].*\n?/g, "");
+              if (cleanData) {
+                  // Buffer the rest
+                  outputBuffer += cleanData;
+                  if (outputBuffer.length >= OUTPUT_MAX_BUFFER) {
+                    if (flushTimeout) clearTimeout(flushTimeout);
+                    if (rafId) cancelAnimationFrame(rafId);
+                    flushBuffer();
+                  } else {
+                    scheduleFlush();
+                  }
+              }
+              return;
+            }
+
             // Small interactive output (single chars, escape sequences) - write immediately
             // This makes typing feel instant like a native terminal
             if (data.length <= OUTPUT_IMMEDIATE_THRESHOLD) {
@@ -635,7 +674,7 @@ function createTerminalStore() {
               return;
             }
 
-            // Check for setup/installation indicators (only for larger outputs)
+            // Check for setup/installation indicators (fallback)
             const setupPatterns = [
               /installing/i,
               /setting up/i,
