@@ -570,7 +570,7 @@
                         Installing tools for {currentRole.name}:
                     </p>
                     <div class="tools-installing">
-                        {#each currentRole.tools as tool}
+                        {#each currentRole.packages || [] as tool}
                             <span class="tool-badge-installing">{tool}</span>
                         {/each}
                     </div>
@@ -613,7 +613,7 @@
                                 on:click={() => (selectedRole = role.id)}
                                 title={role.description || ''}
                             >
-                                <span class="role-icon">{role.icon || getRoleIcon(role.id)}</span>
+                                <PlatformIcon platform={role.id} size={28} />
                                 <span class="role-name">{role.name}</span>
                             </button>
                         {/each}
@@ -622,7 +622,7 @@
                 {#if currentRole}
                     <div class="role-info">
                         <div class="role-header-row">
-                            <span class="role-icon-sm">{currentRole.icon || getRoleIcon(currentRole.id)}</span>
+                            <PlatformIcon platform={currentRole.id} size={18} />
                             <span class="role-name-sm">{currentRole.name}</span>
                             <span class="role-os-badge">
                                 <PlatformIcon
