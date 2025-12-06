@@ -290,12 +290,6 @@ func main() {
 		router.StaticFile("/sitemap.xml", filepath.Join(webDir, "sitemap.xml"))
 		router.StaticFile("/og-image.svg", filepath.Join(webDir, "og-image.svg"))
 
-		// Serve workbox files for service worker
-		router.GET("/workbox-:hash.js", func(c *gin.Context) {
-			hash := c.Param("hash")
-			c.File(filepath.Join(webDir, "workbox-"+hash+".js"))
-		})
-
 		// Apple touch icons - serve favicon for these requests
 		router.StaticFile("/apple-touch-icon.png", filepath.Join(webDir, "favicon.svg"))
 		router.StaticFile("/apple-touch-icon-precomposed.png", filepath.Join(webDir, "favicon.svg"))
