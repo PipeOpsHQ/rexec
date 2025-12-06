@@ -1,6 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
     import { containers, type ProgressEvent } from "$stores/containers";
+    import { roles } from "$stores/roles";
     import { api, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import PlatformIcon from "./icons/PlatformIcon.svelte";
     import StatusIcon from "./icons/StatusIcon.svelte";
@@ -26,27 +27,6 @@
     let memoryMB = 512;
     let cpuShares = 512;
     let diskMB = 2048;
-
-    // Default fallback roles in case API fails
-    const defaultRoles = [
-        { id: "standard", name: "The Minimalist", description: "Just give me a shell + free AI tools.", icon: "🧘", packages: ["zsh", "git", "curl", "vim", "tgpt", "aichat", "mods"] },
-        { id: "node", name: "10x JS Ninja", description: "Ship fast with Node.js + free AI.", icon: "🚀", packages: ["nodejs", "npm", "yarn", "git", "tgpt", "aichat", "mods"] },
-        { id: "python", name: "Data Wizard", description: "Python environment + AI tools.", icon: "🧙‍♂️", packages: ["python3", "pip", "venv", "git", "tgpt", "aichat", "mods"] },
-        { id: "go", name: "The Gopher", description: "Go development + AI tools.", icon: "🐹", packages: ["go", "git", "make", "tgpt", "aichat", "mods"] },
-        { id: "neovim", name: "Neovim God", description: "Neovim setup + AI tools.", icon: "⌨️", packages: ["neovim", "ripgrep", "git", "tgpt", "aichat", "mods"] },
-        { id: "devops", name: "YAML Herder", description: "DevOps tools + AI.", icon: "☸️", packages: ["kubectl", "docker", "terraform", "tgpt", "aichat", "mods"] },
-        { id: "overemployed", name: "Vibe Coder", description: "AI-powered coding with aider, opencode & more.", icon: "🤖", packages: ["python3", "nodejs", "neovim", "aider", "opencode", "tgpt", "aichat", "mods"] },
-    ];
-
-    // Roles loaded from API
-    let roles: Array<{
-        id: string;
-        name: string;
-        description: string;
-        icon: string;
-        packages: string[];
-    }> = [];
-    let rolesLoading = true;
 
     // Trial limits - generous during 60-day trial period
     const resourceLimits = {
@@ -415,26 +395,12 @@
         return osMap[roleId] || "Ubuntu";
     }
 
-    $: currentRole = roles.find((r) => r.id === selectedRole);
+    $: currentRole = $roles.roles.find((r) => r.id === selectedRole);
 
     // Fetch roles from API on mount
     onMount(async () => {
-        // Load roles from API
-        try {
-            const response = await api.get<{ roles: typeof roles }>("/roles");
-            if (response.data?.roles && Array.isArray(response.data.roles) && response.data.roles.length > 0) {
-                roles = response.data.roles;
-            } else {
-                // Use fallback if API returns empty
-                roles = defaultRoles;
-            }
-        } catch (e) {
-            console.error("Failed to load roles:", e);
-            // Fallback to default roles
-            roles = defaultRoles;
-        } finally {
-            rolesLoading = false;
-        }
+        // Load roles from API (cached)
+        roles.load();
 
         // Select default image based on role
         if (selectedRole && roleToOS[selectedRole]) {

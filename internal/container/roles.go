@@ -826,13 +826,22 @@ REXECCLI
 
 # Setup PATH for all roles - ensures installed tools are found
 setup_path() {
+    # Ensure config files exist
+    touch /root/.zshrc /root/.bashrc /root/.profile 2>/dev/null || true
+    mkdir -p /home/user 2>/dev/null || true
+    touch /home/user/.zshrc /home/user/.bashrc /home/user/.profile 2>/dev/null || true
+    chown -R user:user /home/user 2>/dev/null || true
+
     for rcfile in /root/.zshrc /root/.bashrc /root/.profile /home/user/.zshrc /home/user/.bashrc /home/user/.profile; do
         if [ -f "$rcfile" ]; then
             if ! grep -q '.local/bin' "$rcfile" 2>/dev/null; then
+                echo '' >> "$rcfile"
+                echo '# Add rexec tools to PATH' >> "$rcfile"
                 echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rcfile"
             fi
         fi
     done
+    
     # Also set for current session
     export PATH="$HOME/.local/bin:/root/.local/bin:$PATH"
 }
