@@ -108,7 +108,8 @@ func GenerateRoleScript(roleID string) (string, error) {
 	}
 
 	script := fmt.Sprintf(`#!/bin/sh
-# set -e removed to allow partial failures
+# Explicitly disable exit-on-error to allow partial failures
+set +e
 
 echo "Installing tools for role: %s..."
 
@@ -173,7 +174,7 @@ install_role_packages() {
         
         # Enable universe repository for Ubuntu (needed for neovim, ripgrep, etc.)
         if grep -q "Ubuntu" /etc/issue 2>/dev/null || grep -q "Ubuntu" /etc/os-release 2>/dev/null; then
-            apt-get $APT_OPTS update -qq
+            apt-get $APT_OPTS update -qq || true
             apt-get $APT_OPTS install -y -qq software-properties-common >/dev/null 2>&1 || true
             add-apt-repository -y universe >/dev/null 2>&1 || true
         fi
