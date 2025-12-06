@@ -158,6 +158,7 @@ wait_for_locks() {
 
 # Function to install packages based on detected manager
 install_role_packages() {
+    touch /tmp/.rexec_installing_system
     GENERIC_PACKAGES="%s"
     PACKAGES="$GENERIC_PACKAGES"
     
@@ -224,6 +225,7 @@ install_role_packages() {
         echo "Unsupported package manager"
         # Don't exit, try to continue setup
     fi
+    rm -f /tmp/.rexec_installing_system
 }
 
 # Configure Zsh if installed
@@ -462,6 +464,13 @@ show_tools() {
     # System
     echo ""
     echo "${YELLOW}System:${NC}"
+    if [ -f /tmp/.rexec_installing_system ]; then
+        if [ "$HAS_GUM" -eq 1 ]; then
+            gum style --foreground 243 "  (Installing system packages...)"
+        else
+            echo "  (Installing system packages...)"
+        fi
+    fi
     for cmd in zsh git curl wget vim nano htop jq tmux fzf ripgrep neofetch; do
         if command -v $cmd >/dev/null 2>&1; then echo "  ${GREEN}✓${NC} $cmd"; fi
     done
@@ -469,6 +478,13 @@ show_tools() {
     # AI
     echo ""
     echo "${YELLOW}AI & Dev:${NC}"
+    if [ -f /tmp/.rexec_installing_ai ]; then
+        if [ "$HAS_GUM" -eq 1 ]; then
+            gum style --foreground 243 "  (Installing AI tools...)"
+        else
+            echo "  (Installing AI tools...)"
+        fi
+    fi
     for cmd in python3 node go rustc docker kubectl tgpt aichat mods gum aider opencode llm; do
         if command -v $cmd >/dev/null 2>&1; then echo "  ${GREEN}✓${NC} $cmd"; fi
     done
@@ -582,6 +598,7 @@ save_role_info() {
 
 # Install free AI tools for ALL roles (no API key required)
 install_free_ai_tools() {
+    touch /tmp/.rexec_installing_ai
     echo "Installing free AI terminal tools..."
     export HOME="${HOME:-/root}"
     mkdir -p "$HOME/.local/bin"
@@ -727,6 +744,7 @@ echo ""
 AIHELP
     chmod +x "$HOME/.local/bin/ai-help"
     cp "$HOME/.local/bin/ai-help" /home/user/.local/bin/ai-help 2>/dev/null || true
+    rm -f /tmp/.rexec_installing_ai
 }
 
 # --- Execution ---
