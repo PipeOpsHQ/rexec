@@ -1164,7 +1164,7 @@
 
     .container-image {
         font-size: 11px;
-        color: var(--text-muted);
+        color: #999999;
     }
 
     .container-status {
@@ -1320,7 +1320,7 @@
 
     .meta-label {
         font-size: 10px;
-        color: var(--text-muted);
+        color: #999999;
         text-transform: uppercase;
     }
 

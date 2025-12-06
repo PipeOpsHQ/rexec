@@ -531,7 +531,8 @@
                             <button
                                 class="tab-close"
                                 on:click|stopPropagation={() => closeSession(id)}
-                                title="Close"
+                                title="Close terminal"
+                                aria-label="Close {session.name}"
                             >
                                 ×
                             </button>
@@ -663,7 +664,8 @@
                                     class="tab-close"
                                     on:click|stopPropagation={() =>
                                         closeSession(id)}
-                                    title="Close"
+                                    title="Close terminal"
+                                    aria-label="Close {session.name}"
                                 >
                                     ×
                                 </button>
@@ -816,6 +818,10 @@
                     on:touchend={handleDockedTouchEnd}
                     role="separator"
                     aria-orientation="horizontal"
+                    aria-valuenow={dockedHeight}
+                    aria-valuemin={20}
+                    aria-valuemax={90}
+                    aria-label="Resize terminal panel"
                     tabindex="-1"
                     title="Drag to resize"
                 >
@@ -848,7 +854,8 @@
                                     class="tab-close"
                                     on:click|stopPropagation={() =>
                                         closeSession(id)}
-                                    title="Close"
+                                    title="Close terminal"
+                                    aria-label="Close {session.name}"
                                 >
                                     ×
                                 </button>
@@ -1568,13 +1575,20 @@
         border: none;
         color: var(--text-muted);
         cursor: pointer;
-        padding: 0 4px;
+        padding: 4px 6px;
         font-size: 14px;
         line-height: 1;
+        min-width: 24px;
+        min-height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
     }
 
     .tab-close:hover {
         color: var(--red);
+        background: rgba(255, 85, 85, 0.1);
     }
 
     /* Minimized Bar */

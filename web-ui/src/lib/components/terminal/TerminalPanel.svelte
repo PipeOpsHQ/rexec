@@ -655,6 +655,7 @@
                 on:click={handleContainerClick}
                 on:keydown={() => {}}
                 role="textbox"
+                aria-label="Terminal input area"
                 tabindex="0"
             ></div>
         </div>
@@ -877,8 +878,7 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: var(--text-muted);
-        opacity: 0.7;
+        color: #999999;
         background: rgba(255, 255, 255, 0.05);
         padding: 1px 4px;
         border-radius: 2px;
@@ -887,12 +887,14 @@
     .stat-value {
         font-weight: 600;
         font-size: 11px;
+        color: #999999;
     }
 
     .stat-limit {
-        opacity: 0.5;
+        opacity: 0.7;
         font-size: 10px;
         font-weight: 400;
+        color: #888888;
     }
 
     .view-only-badge {
