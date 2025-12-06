@@ -832,32 +832,30 @@
                         <span class="desc">Minimize</span>
                     </div>
                 </div>
-                                    <div class="shortcut-group">
-                                        <h4>Ghostty / Modern</h4>
-                                        <div class="shortcut-item">
-                                            <div class="keys"><span class="key">Cmd</span> + <span class="key">D</span></div>
-                                            <span class="desc">Split Vertical</span>
-                                        </div>
-                                        <div class="shortcut-item">
-                                            <div class="keys"><span class="key">Cmd</span> + <span class="key">Shift</span> + <span class="key">D</span></div>
-                                            <span class="desc">Split Horizontal</span>
-                                        </div>
-                                        <div class="shortcut-item">
-                                            <div class="keys"><span class="key">Cmd</span> + <span class="key">T</span></div>
-                                            <span class="desc">New Tab</span>
-                                        </div>
-                                        <div class="shortcut-item">
-                                            <div class="keys"><span class="key">Cmd</span> + <span class="key">W</span></div>
-                                            <span class="desc">Close Pane</span>
-                                        </div>
-                                        <div class="shortcut-item">
-                                            <div class="keys"><span class="key">Cmd</span> + <span class="key">Arrows</span></div>
-                                            <span class="desc">Navigate Panes</span>
-                                        </div>
-                                    </div>
-                                    <div class="shortcut-group">
-                                        <h4>macOS</h4>
-                                        <div class="shortcut-item">                        <div class="keys"><span class="key">Cmd</span> + <span class="key">C/V</span></div>
+                <div class="shortcut-group">
+                    <h4>macOS Specific</h4>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">D</span></div>
+                        <span class="desc">Split Vertical</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">Shift</span> + <span class="key">D</span></div>
+                        <span class="desc">Split Horizontal</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">T</span></div>
+                        <span class="desc">New Tab</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">W</span></div>
+                        <span class="desc">Close Pane</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">Arrows</span></div>
+                        <span class="desc">Navigate Panes</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">C</span> / <span class="key">V</span></div>
                         <span class="desc">Native Copy/Paste</span>
                     </div>
                     <div class="shortcut-item">

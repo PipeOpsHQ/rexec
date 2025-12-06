@@ -1656,6 +1656,68 @@ function createTerminalStore() {
       }));
     },
 
+    // Send Ctrl+C to the active terminal
+    sendCtrlC(sessionId: string) {
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      if (!session || !session.ws || session.ws.readyState !== WebSocket.OPEN) return;
+
+      // Ctrl+C is ASCII 0x03
+      session.ws.send(JSON.stringify({ type: "input", data: "\x03" }));
+    },
+
+    // Navigate between split panes
+    navigateSplitPanes(sessionId: string, direction: 'left' | 'right' | 'up' | 'down') {
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      if (!session || !session.splitLayout || session.splitPanes.size === 0) return;
+
+      const currentActivePaneId = session.activePaneId || "main";
+      const currentLayout = session.splitLayout;
+      const panes = currentLayout.panes; // Cache for easier access
+      const currentIndex = panes.indexOf(currentActivePaneId);
+
+      if (currentIndex === -1) {
+        console.warn(`[Terminal] Active pane ${currentActivePaneId} not found in layout.`);
+        return;
+      }
+
+      let nextIndex = currentIndex;
+
+      // Determine next index based on direction and layout
+      // For horizontal splits, left/right navigate along the row
+      // For vertical splits, up/down navigate along the column
+      if (currentLayout.direction === 'horizontal') {
+        if (direction === 'left') {
+          nextIndex = (currentIndex - 1 + panes.length) % panes.length;
+        } else if (direction === 'right') {
+          nextIndex = (currentIndex + 1) % panes.length;
+        }
+      } else { // Default to vertical if not explicitly horizontal
+        if (direction === 'up') {
+          nextIndex = (currentIndex - 1 + panes.length) % panes.length;
+        } else if (direction === 'down
+') {
+          nextIndex = (currentIndex + 1) % panes.length;
+        }
+      }
+
+      const nextActivePaneId = panes[nextIndex];
+
+      if (nextActivePaneId && nextActivePaneId !== currentActivePaneId) {
+        updateSession(sessionId, (s) => ({ ...s, activePaneId: nextActivePaneId }));
+        // Focus the new active terminal
+        requestAnimationFrame(() => {
+          if (nextActivePaneId === "main") {
+            session.terminal.focus();
+          } else {
+            const nextPane = session.splitPanes.get(nextActivePaneId);
+            nextPane?.terminal.focus();
+          }
+        });
+      }
+    },
+
     // ============ SPLIT PANE METHODS ============
 
     // Generate a unique pane ID

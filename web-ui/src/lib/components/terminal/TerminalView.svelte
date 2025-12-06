@@ -387,7 +387,7 @@
             if (key === 'w' && activeId) {
                 event.preventDefault();
                 const session = $terminal.sessions.get(activeId);
-                if (session && session.activePaneId) {
+                if (session && session.activePaneId && session.activePaneId !== 'main') {
                     terminal.closeSplitPane(activeId, session.activePaneId);
                 } else {
                     closeSession(activeId);
@@ -400,6 +400,37 @@
                 event.preventDefault();
                 popOutTerminal(activeId, window.innerWidth / 2 - 300, window.innerHeight / 2 - 200);
                 return;
+            }
+
+            // Cmd+. : Send Ctrl+C
+            if (key === '.' && activeId) {
+                event.preventDefault();
+                terminal.sendCtrlC(activeId);
+                return;
+            }
+
+            // Cmd+Arrows: Navigate Panes
+            if (activeId && $terminal.sessions.get(activeId)?.splitPanes?.size > 0 && !isShift) { // Only handle non-shifted arrow keys for navigation
+                let direction: 'left' | 'right' | 'up' | 'down' | null = null;
+                switch (event.key) {
+                    case 'ArrowLeft':
+                        direction = 'left';
+                        break;
+                    case 'ArrowRight':
+                        direction = 'right';
+                        break;
+                    case 'ArrowUp':
+                        direction = 'up';
+                        break;
+                    case 'ArrowDown':
+                        direction = 'down';
+                        break;
+                }
+                if (direction) {
+                    event.preventDefault();
+                    terminal.navigateSplitPanes(activeId, direction);
+                    return;
+                }
             }
         }
 
