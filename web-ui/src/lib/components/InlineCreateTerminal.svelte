@@ -27,6 +27,16 @@
     let cpuShares = 512;
     let diskMB = 2048;
 
+    // Roles loaded from API
+    let roles: Array<{
+        id: string;
+        name: string;
+        description: string;
+        icon: string;
+        packages: string[];
+    }> = [];
+    let rolesLoading = true;
+
     // Trial limits - generous during 60-day trial period
     const resourceLimits = {
         minMemory: 256,
@@ -367,82 +377,50 @@
         }
     }
 
-    const roles = [
-        {
-            id: "standard",
-            name: "The Minimalist",
-            desc: "I use Arch btw. Just give me a shell.",
-            tools: ["zsh", "git", "curl", "vim", "htop"],
-            extraTools: [],
-            recommendedOS: "Alpine",
-        },
-        {
-            id: "node",
-            name: "10x JS Ninja",
-            desc: "Ship fast, break things, npm install everything.",
-            tools: ["nodejs", "npm", "yarn", "git"],
-            extraTools: [],
-            recommendedOS: "Ubuntu",
-        },
-        {
-            id: "python",
-            name: "Data Wizard",
-            desc: "Import antigravity. I speak in list comprehensions.",
-            tools: ["python3", "pip", "venv", "git"],
-            extraTools: [],
-            recommendedOS: "Ubuntu",
-        },
-        {
-            id: "go",
-            name: "The Gopher",
-            desc: "If err != nil { panic(err) }. Simplicity is key.",
-            tools: ["go", "git", "make"],
-            extraTools: [],
-            recommendedOS: "Alpine",
-        },
-        {
-            id: "neovim",
-            name: "Neovim God",
-            desc: "My config is longer than your code. Mouse? What mouse?",
-            tools: ["neovim", "ripgrep", "gcc", "make"],
-            extraTools: [],
-            recommendedOS: "Ubuntu",
-        },
-        {
-            id: "devops",
-            name: "YAML Herder",
-            desc: "I don't write code, I write config. Prod is my playground.",
-            tools: ["kubectl", "docker", "terraform", "ansible"],
-            extraTools: [],
-            recommendedOS: "Alpine",
-        },
-        {
-            id: "overemployed",
-            name: "Vibe Coder",
-            desc: "AI-powered coding with Claude, Aider, OpenCode & more.",
-            tools: [
-                "python3",
-                "nodejs",
-                "neovim",
-                "tmux",
-                "fzf",
-                "ripgrep",
-                "aider",
-                "opencode",
-                "claude-cli",
-                "llm",
-                "interpreter",
-                "mods",
-            ],
-            extraTools: [],
-            recommendedOS: "Ubuntu",
-        },
-    ];
+    // Helper to get role display info
+    function getRoleIcon(roleId: string): string {
+        const icons: Record<string, string> = {
+            standard: "🧘",
+            node: "🚀",
+            python: "🧙‍♂️",
+            go: "🐹",
+            neovim: "⌨️",
+            devops: "☸️",
+            overemployed: "🤖",
+        };
+        return icons[roleId] || "💻";
+    }
+
+    function getRoleRecommendedOS(roleId: string): string {
+        const osMap: Record<string, string> = {
+            standard: "Alpine",
+            node: "Ubuntu",
+            python: "Ubuntu",
+            go: "Alpine",
+            neovim: "Ubuntu",
+            devops: "Alpine",
+            overemployed: "Ubuntu",
+        };
+        return osMap[roleId] || "Ubuntu";
+    }
 
     $: currentRole = roles.find((r) => r.id === selectedRole);
 
-    // Images are pre-bundled, no need to load from API
-    onMount(() => {
+    // Fetch roles from API on mount
+    onMount(async () => {
+        // Load roles from API
+        try {
+            const response = await api.get("/roles");
+            if (response.roles && Array.isArray(response.roles)) {
+                roles = response.roles;
+            }
+        } catch (e) {
+            console.error("Failed to load roles:", e);
+            // Fallback to empty - UI should handle gracefully
+        } finally {
+            rolesLoading = false;
+        }
+
         // Select default image based on role
         if (selectedRole && roleToOS[selectedRole]) {
             selectedImage = roleToOS[selectedRole];
@@ -607,54 +585,41 @@
             <!-- Role Selection -->
             <div class="create-section">
                 <h4>Environment</h4>
-                <div class="role-grid">
-                    {#each roles as role}
-                        <button
-                            class="role-card"
-                            class:selected={selectedRole === role.id}
-                            on:click={() => (selectedRole = role.id)}
-                            title={role.desc}
-                        >
-                            <PlatformIcon platform={role.id} size={28} />
-                            <span class="role-name">{role.name}</span>
-                        </button>
-                    {/each}
-                </div>
+                {#if rolesLoading}
+                    <div class="role-loading">Loading environments...</div>
+                {:else}
+                    <div class="role-grid">
+                        {#each roles as role}
+                            <button
+                                class="role-card"
+                                class:selected={selectedRole === role.id}
+                                on:click={() => (selectedRole = role.id)}
+                                title={role.description}
+                            >
+                                <span class="role-icon">{role.icon || getRoleIcon(role.id)}</span>
+                                <span class="role-name">{role.name}</span>
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
                 {#if currentRole}
                     <div class="role-info">
                         <div class="role-header-row">
-                            <PlatformIcon platform={currentRole.id} size={18} />
+                            <span class="role-icon-sm">{currentRole.icon || getRoleIcon(currentRole.id)}</span>
                             <span class="role-name-sm">{currentRole.name}</span>
                             <span class="role-os-badge">
                                 <PlatformIcon
-                                    platform={currentRole.recommendedOS.toLowerCase()}
+                                    platform={getRoleRecommendedOS(currentRole.id).toLowerCase()}
                                     size={14}
                                 />
-                                {currentRole.recommendedOS}
+                                {getRoleRecommendedOS(currentRole.id)}
                             </span>
                         </div>
                         <div class="role-tools">
-                            {#each currentRole.tools as tool}
+                            {#each currentRole.packages as tool}
                                 <span class="tool-badge">{tool}</span>
                             {/each}
                         </div>
-                        {#if currentRole.extraTools && currentRole.extraTools.length > 0}
-                            <div class="extra-tools">
-                                <span class="extra-tools-label"
-                                    >🤖 AI Tools:</span
-                                >
-                                <div class="extra-tools-grid">
-                                    {#each currentRole.extraTools as extra}
-                                        <span
-                                            class="extra-tool-badge"
-                                            title={extra.desc}
-                                        >
-                                            {extra.name}
-                                        </span>
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
                     </div>
                 {/if}
             </div>
@@ -1090,6 +1055,13 @@
         gap: 8px;
     }
 
+    .role-loading {
+        padding: 20px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
     .role-card {
         display: flex;
         flex-direction: column;
@@ -1112,6 +1084,15 @@
         border-color: var(--accent);
         background: rgba(0, 255, 65, 0.05);
         box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+    }
+
+    .role-icon {
+        font-size: 24px;
+        filter: drop-shadow(0 0 4px rgba(0, 255, 65, 0.3));
+    }
+
+    .role-icon-sm {
+        font-size: 16px;
     }
 
     .role-card :global(.platform-icon) {

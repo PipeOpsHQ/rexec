@@ -1722,6 +1722,14 @@ func (h *ContainerHandler) ListImages(c *gin.Context) {
 	})
 }
 
+// ListRoles returns available roles/environments with their tools
+func (h *ContainerHandler) ListRoles(c *gin.Context) {
+	roles := container.AvailableRoles()
+	c.JSON(http.StatusOK, gin.H{
+		"roles": roles,
+	})
+}
+
 // Stats returns container statistics (admin endpoint)
 func (h *ContainerHandler) Stats(c *gin.Context) {
 	stats := h.manager.GetContainerStats()

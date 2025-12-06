@@ -193,6 +193,9 @@ func main() {
 		// Available images
 		api.GET("/images", containerHandler.ListImages)
 
+		// Available roles/environments
+		api.GET("/roles", containerHandler.ListRoles)
+
 		// Stats endpoint
 		api.GET("/stats", containerHandler.Stats)
 
