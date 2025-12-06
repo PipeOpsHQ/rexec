@@ -566,13 +566,13 @@
             <!-- Role Selection -->
             <div class="create-section">
                 <h4>Environment</h4>
-                {#if rolesLoading}
+                {#if $roles.loading}
                     <div class="role-loading">Loading environments...</div>
-                {:else if roles.length === 0}
+                {:else if $roles.roles.length === 0}
                     <div class="role-loading">No environments available</div>
                 {:else}
                     <div class="role-grid">
-                        {#each roles as role}
+                        {#each $roles.roles as role}
                             <button
                                 class="role-card"
                                 class:selected={selectedRole === role.id}
