@@ -35,14 +35,15 @@ type ShellSetupConfig struct {
 func DefaultShellSetupConfig() ShellSetupConfig {
 	return ShellSetupConfig{
 		Enhanced:        true,
-		Theme:           "rexec",
-		Autosuggestions: false,
-		SyntaxHighlight: false,
+		Theme:           "robbyrussell",
+		Autosuggestions: true,
+		SyntaxHighlight: true,
 		HistorySearch:   true,
-		        GitAliases:      true,  // Re-enable useful aliases
-		        SystemStats:     false, // Disable welcome banner (handled by UI)
-		    }
-		}
+		GitAliases:      true,  // Re-enable useful aliases
+		SystemStats:     false, // Disable welcome banner (handled by UI)
+	}
+}
+
 // generateShellSetupScript generates a customized shell setup script based on config
 func generateShellSetupScript(cfg ShellSetupConfig) string {
 	if !cfg.Enhanced {
@@ -232,12 +233,12 @@ install_opencode() {
     # Install opencode AI coding assistant
     # https://github.com/sst/opencode
     export HOME="${HOME:-/root}"
-    
+
     # Check if already installed
     if command -v opencode >/dev/null 2>&1; then
         return 0
     fi
-    
+
     # Detect architecture
     ARCH=$(uname -m)
     case "$ARCH" in
@@ -260,23 +261,23 @@ install_opencode() {
             return 1
             ;;
     esac
-    
+
     # Get latest version
     OPENCODE_VERSION=$(curl -s https://api.github.com/repos/sst/opencode/releases/latest 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
     if [ -z "$OPENCODE_VERSION" ]; then
         OPENCODE_VERSION="v1.0.133"  # Fallback version
     fi
-    
+
     # Download and install
     OPENCODE_URL="https://github.com/sst/opencode/releases/download/${OPENCODE_VERSION}/opencode-${OPENCODE_ARCH}.tar.gz"
-    
+
     mkdir -p "$HOME/.local/bin"
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "$OPENCODE_URL" 2>/dev/null | tar -xzf - -C "$HOME/.local/bin" 2>/dev/null || true
     elif command -v wget >/dev/null 2>&1; then
         wget -qO- "$OPENCODE_URL" 2>/dev/null | tar -xzf - -C "$HOME/.local/bin" 2>/dev/null || true
     fi
-    
+
     # Make executable
     chmod +x "$HOME/.local/bin/opencode" 2>/dev/null || true
 }
