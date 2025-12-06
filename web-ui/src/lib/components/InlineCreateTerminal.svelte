@@ -1,5 +1,6 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
+    import { slide } from "svelte/transition";
     import { containers, type ProgressEvent } from "$stores/containers";
     import { roles } from "$stores/roles";
     import { api, formatMemory, formatStorage, formatCPU } from "$utils/api";
@@ -21,6 +22,7 @@
     let progressStage = "";
     let errorMessage = "";
     let customName = "";
+    let customImage = "";
 
     // Resource customization
     let showResources = false;
@@ -410,7 +412,9 @@
 
     function selectAndCreate(imageName: string) {
         selectedImage = imageName;
-        createContainer();
+        if (imageName !== "custom") {
+            createContainer();
+        }
     }
 
     async function createContainer() {
@@ -455,7 +459,7 @@
         containers.createContainerWithProgress(
             containerName,
             selectedImage,
-            undefined, // customImage
+            selectedImage === "custom" ? customImage : undefined,
             selectedRole,
             handleProgress,
             handleComplete,
@@ -733,12 +737,37 @@
                     {/each}
                     <button
                         class="os-card"
+                        class:selected={selectedImage === "custom"}
                         on:click={() => selectAndCreate("custom")}
                     >
                         <PlatformIcon platform="custom" size={28} />
                         <span class="os-name">Custom</span>
                     </button>
                 </div>
+
+                {#if selectedImage === "custom"}
+                    <div class="custom-image-input" transition:slide>
+                        <label>Docker Image</label>
+                        <div class="input-row">
+                            <input
+                                type="text"
+                                bind:value={customImage}
+                                placeholder="e.g. ubuntu:20.04"
+                                on:keydown={(e) =>
+                                    e.key === "Enter" &&
+                                    customImage &&
+                                    createContainer()}
+                            />
+                            <button
+                                class="btn-create"
+                                on:click={createContainer}
+                                disabled={!customImage}
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </div>
+                {/if}
             </div>
         </div>
     {/if}
@@ -1418,5 +1447,76 @@
     .compact .role-card,
     .compact .os-card {
         padding: 10px 6px;
+    }
+
+    /* Custom Image Input */
+    .custom-image-input {
+        margin-top: 12px;
+        padding: 12px;
+        background: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 6px;
+    }
+
+    .custom-image-input label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--accent);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .input-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .input-row input {
+        flex: 1;
+        padding: 8px 12px;
+        background: #111;
+        border: 1px solid #333;
+        border-radius: 4px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 13px;
+    }
+
+    .input-row input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .btn-create {
+        padding: 0 16px;
+        background: var(--accent);
+        color: #000;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-create:hover:not(:disabled) {
+        filter: brightness(1.1);
+        transform: translateY(-1px);
+    }
+
+    .btn-create:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #333;
+        color: #666;
+    }
+
+    .os-card.selected {
+        border-color: var(--accent);
+        background: rgba(0, 255, 65, 0.05);
+        box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
     }
 </style>
