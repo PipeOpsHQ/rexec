@@ -495,7 +495,8 @@ function createContainersStore() {
 
             // If stuck in configuring for too long (30+ seconds), treat as ready
             // Shell setup continues in background but user can connect
-
+            if (status === "configuring" && attempts >= 30) {
+              if (typeof window !== 'undefined') {
                 window.removeEventListener('container-progress', wsProgressHandler);
               }
               
@@ -533,7 +534,11 @@ function createContainersStore() {
               return;
             }
 
-
+            if (status === "running") {
+              // Container is running - complete immediately
+              // Shell setup runs in background, user can connect right away
+              
+              if (typeof window !== 'undefined') {
                 window.removeEventListener('container-progress', wsProgressHandler);
               }
               

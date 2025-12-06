@@ -73,8 +73,8 @@
 </script>
 
 {#if isOpen}
-  <div class="pricing-overlay" on:click={close} on:keydown={(e) => e.key === 'Escape' && close()}>
-    <div class="pricing-modal" on:click|stopPropagation>
+  <div class="pricing-overlay" on:click={(e) => e.target === e.currentTarget && close()} on:keydown={(e) => e.key === 'Escape' && close()} role="presentation">
+    <div class="pricing-modal" role="dialog">
       <button class="close-btn" on:click={close}>×</button>
       
       <div class="pricing-header">
