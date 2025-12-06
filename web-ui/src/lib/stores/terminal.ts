@@ -587,8 +587,10 @@ function createTerminalStore() {
       let rafId: number | null = null;
       let lastFlushTime = 0;
 
-      // Pass output directly (removed aggressive filtering that broke TUI mouse support)
-      const sanitizeOutput = (data: string): string => data;
+      // Filter mouse tracking sequences from output to prevent echo artifacts
+      const sanitizeOutput = (data: string): string => {
+        return data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+      };
 
       // Immediate write for small, interactive output (like keystrokes)
       const writeImmediate = (data: string) => {
@@ -1860,7 +1862,9 @@ function createTerminalStore() {
       let rafId: number | null = null;
       let lastFlushTime = 0;
 
-      const sanitizeOutput = (data: string): string => data;
+      const sanitizeOutput = (data: string): string => {
+        return data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+      };
 
       const writeImmediate = (data: string) => {
         if (pane.terminal) {
