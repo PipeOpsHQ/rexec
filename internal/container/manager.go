@@ -1539,6 +1539,7 @@ func (m *Manager) ExecInContainer(ctx context.Context, dockerID string, cmd []st
 }
 
 // GetIdleContainers returns containers that have been idle for longer than the threshold
+// Only returns guest containers - authenticated users don't have idle timeout
 func (m *Manager) GetIdleContainers(threshold time.Duration) []*ContainerInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1547,7 +1548,26 @@ func (m *Manager) GetIdleContainers(threshold time.Duration) []*ContainerInfo {
 	result := make([]*ContainerInfo, 0)
 
 	for _, info := range m.containers {
-		if info.Status == "running" && now.Sub(info.LastUsedAt) > threshold {
+		if info.Status != "running" {
+			continue
+		}
+		if now.Sub(info.LastUsedAt) <= threshold {
+			continue
+		}
+
+		// Only apply idle timeout to guest containers
+		// Authenticated users don't have idle timeout - their containers run until they stop them
+		isGuest := false
+		if info.Labels != nil {
+			if tier, ok := info.Labels["rexec.tier"]; ok && tier == "guest" {
+				isGuest = true
+			}
+			if _, ok := info.Labels["rexec.guest"]; ok {
+				isGuest = true
+			}
+		}
+
+		if isGuest {
 			result = append(result, info)
 		}
 	}

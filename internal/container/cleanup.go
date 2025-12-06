@@ -56,19 +56,20 @@ func (s *CleanupService) run() {
 	}
 }
 
-// cleanupIdleContainers stops containers that have been idle for too long
+// cleanupIdleContainers stops guest containers that have been idle for too long
+// Note: Only guest containers have idle timeout - authenticated users' containers run indefinitely
 func (s *CleanupService) cleanupIdleContainers() {
-	// First, cleanup expired guest containers (hard 1-hour limit)
+	// First, cleanup expired guest containers (hard 50-hour session limit)
 	s.cleanupExpiredGuestContainers()
 
-	// Then cleanup idle containers
+	// Then cleanup idle guest containers (idle timeout only applies to guests)
 	idleContainers := s.manager.GetIdleContainers(s.idleTimeout)
 
 	if len(idleContainers) == 0 {
 		return
 	}
 
-	log.Printf("🧹 Found %d idle containers to stop", len(idleContainers))
+	log.Printf("🧹 Found %d idle guest containers to stop", len(idleContainers))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -88,7 +89,7 @@ func (s *CleanupService) cleanupIdleContainers() {
 	}
 }
 
-// cleanupExpiredGuestContainers stops and removes guest containers that have exceeded 1 hour
+// cleanupExpiredGuestContainers stops and removes guest containers that have exceeded 50 hours
 func (s *CleanupService) cleanupExpiredGuestContainers() {
 	expiredGuests := s.manager.GetExpiredGuestContainers()
 
@@ -125,10 +126,11 @@ func (s *CleanupService) cleanupExpiredGuestContainers() {
 
 // CleanupConfig holds configuration for the cleanup service
 type CleanupConfig struct {
-	// IdleTimeout is how long a container can be idle before being stopped
+	// IdleTimeout is how long a guest container can be idle before being stopped
+	// Note: This only applies to guest containers - authenticated users have no idle timeout
 	IdleTimeout time.Duration
 
-	// CheckInterval is how often to check for idle containers
+	// CheckInterval is how often to check for idle/expired containers
 	CheckInterval time.Duration
 
 	// Enabled controls whether the cleanup service is active
@@ -138,7 +140,7 @@ type CleanupConfig struct {
 // DefaultCleanupConfig returns sensible defaults for cleanup
 func DefaultCleanupConfig() CleanupConfig {
 	return CleanupConfig{
-		IdleTimeout:   1 * time.Hour,   // Stop containers idle for 1 hour
+		IdleTimeout:   1 * time.Hour,   // Stop guest containers idle for 1 hour
 		CheckInterval: 5 * time.Minute, // Check every 5 minutes
 		Enabled:       true,
 	}
