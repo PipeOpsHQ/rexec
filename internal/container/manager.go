@@ -165,6 +165,7 @@ var SupportedImages = map[string]string{
 	"void":      "voidlinux/voidlinux:latest",
 	"nixos":     "nixos/nix:latest",
 	"slackware": "aclemons/slackware:15.0",
+	"crux":      "dopsi/crux:latest", // Alternative for missing official image
 	"guix":      "gnu/guix:latest",
 	// Minimal / Embedded (Updated Dec 2025)
 	"alpine":      "alpine:3.21",  // Alpine 3.21 (latest stable)
@@ -261,6 +262,7 @@ func GetImageMetadata() []ImageMetadata {
 		{Name: "tumbleweed", DisplayName: "openSUSE Tumbleweed", Description: "Rolling release with tested updates", Category: "suse", Tags: []string{"rolling", "tested"}, Popular: false},
 
 		// Independent Distributions
+		{Name: "crux", DisplayName: "CRUX 3.7", Description: "Lightweight, BSD-style init scripts", Category: "independent", Tags: []string{"lightweight", "bsd-style", "simple"}, Popular: false},
 		{Name: "gentoo", DisplayName: "Gentoo Linux", Description: "Source-based with extreme customization", Category: "independent", Tags: []string{"source-based", "advanced", "performance"}, Popular: false},
 		{Name: "guix", DisplayName: "Guix System", Description: "Advanced transactional package manager", Category: "independent", Tags: []string{"functional", "gnu", "scheme"}, Popular: false},
 		{Name: "nixos", DisplayName: "NixOS", Description: "Declarative configuration and reproducible builds", Category: "independent", Tags: []string{"declarative", "nix", "reproducible"}, Popular: false},
@@ -456,6 +458,7 @@ var ImageShells = map[string]string{
 	"slackware": "/bin/bash",
 	"solus":     "/bin/bash",
 	"pclinuxos": "/bin/bash",
+	"crux":      "/bin/bash",
 	"guix":      "/bin/bash",
 	// Minimal (use sh)
 	"alpine":      "/bin/sh",
