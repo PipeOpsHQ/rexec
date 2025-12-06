@@ -1005,7 +1005,9 @@ function handleContainerEvent(event: {
       }));
       break;
 
-
+    default:
+      break;
+  }
 }
 
 // Legacy polling functions (kept for fallback)
