@@ -121,8 +121,11 @@ function createMacKeyHandler(term: Terminal) {
     // Only handle keydown events
     if (event.type !== 'keydown') return true;
     
-    // Check if running on macOS
-    const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    // Check if running on macOS - robust check
+    const platform = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const isMac = /Mac|iPod|iPhone|iPad/.test(platform) || /Macintosh/.test(userAgent);
+    
     if (!isMac) return true;
 
     // If Command (Meta) is pressed without other modifiers
@@ -140,6 +143,7 @@ function createMacKeyHandler(term: Terminal) {
              
              // Prevent default browser actions (e.g., Cmd+S, Cmd+F, Cmd+P)
              event.preventDefault();
+             event.stopPropagation();
              
              // Send control character to terminal
              term.input(String.fromCharCode(charCode));

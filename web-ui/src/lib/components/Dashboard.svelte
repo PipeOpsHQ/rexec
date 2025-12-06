@@ -44,6 +44,13 @@
     // Settings modal state
     let showSettingsModal = false;
     let settingsContainer: Container | null = null;
+    
+    // Shortcuts modal state
+    let showShortcutsModal = false;
+
+    function toggleShortcuts() {
+        showShortcutsModal = !showShortcutsModal;
+    }
 
     function openSettings(container: Container) {
         settingsContainer = container;
@@ -339,6 +346,25 @@
                     Live
                 </span>
             {/if}
+            <button
+                class="btn btn-secondary btn-sm"
+                on:click={toggleShortcuts}
+                title="Keyboard Shortcuts"
+            >
+                <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <line x1="7" y1="15" x2="17" y2="15" />
+                    <line x1="7" y1="9" x2="7" y2="9.01" />
+                    <line x1="11" y1="9" x2="11" y2="9.01" />
+                    <line x1="15" y1="9" x2="15" y2="9.01" />
+                </svg>
+            </button>
             <button
                 class="btn btn-secondary btn-sm"
                 on:click={() => containers.fetchContainers()}
@@ -778,6 +804,53 @@
         </div>
     {/if}
 </div>
+
+{#if showShortcutsModal}
+    <div class="modal-backdrop" on:click={toggleShortcuts}>
+        <div class="modal-content shortcuts-modal" on:click|stopPropagation>
+            <div class="modal-header">
+                <h3>Keyboard Shortcuts</h3>
+                <button class="close-btn" on:click={toggleShortcuts}>×</button>
+            </div>
+            <div class="shortcuts-list">
+                <div class="shortcut-group">
+                    <h4>General</h4>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Alt</span> + <span class="key">1-9</span></div>
+                        <span class="desc">Switch tabs</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Alt</span> + <span class="key">D</span></div>
+                        <span class="desc">Toggle Dock/Float</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Alt</span> + <span class="key">F</span></div>
+                        <span class="desc">Fullscreen</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Alt</span> + <span class="key">M</span></div>
+                        <span class="desc">Minimize</span>
+                    </div>
+                </div>
+                <div class="shortcut-group">
+                    <h4>macOS</h4>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">C/V</span></div>
+                        <span class="desc">Native Copy/Paste</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">K</span></div>
+                        <span class="desc">Clear Screen (Ctrl+L)</span>
+                    </div>
+                    <div class="shortcut-item">
+                        <div class="keys"><span class="key">Cmd</span> + <span class="key">.</span></div>
+                        <span class="desc">Send Ctrl+C</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{/if}
 
 <style>
     .dashboard {
@@ -1330,6 +1403,123 @@
 
         .containers-grid {
             grid-template-columns: 1fr;
+        }
+    }
+
+    /* Modal Styles */
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .modal-content {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        animation: slideUp 0.3s ease;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .close-btn:hover {
+        color: var(--text);
+    }
+
+    .shortcuts-modal {
+        max-width: 600px;
+    }
+
+    .shortcuts-list {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+    }
+
+    .shortcut-group h4 {
+        margin: 0 0 12px 0;
+        font-size: 12px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+    }
+
+    .shortcut-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+
+    .keys {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    .key {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-family: var(--font-mono);
+        color: var(--text);
+        min-width: 24px;
+        text-align: center;
+    }
+
+    .desc {
+        color: var(--text-secondary);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
         }
     }
 </style>
