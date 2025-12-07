@@ -19,6 +19,8 @@
         snippets: void;
         guest: void;
         pricing: void;
+        guides: void;
+        usecases: void;
     }>();
 
     let showUserMenu = false;
@@ -143,6 +145,12 @@
     </button>
 
     <nav class="nav-links">
+        <button class="nav-link" on:click={() => dispatch("usecases")}>
+            Future of Work
+        </button>
+        <button class="nav-link" on:click={() => dispatch("guides")}>
+            Architecture
+        </button>
     </nav>
 
     <nav class="nav-actions">
@@ -336,6 +344,22 @@
                 </button>
             </div>
             <div class="mobile-nav-links">
+                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("home"); }}>
+                    <StatusIcon status="chart" size={16} /> Dashboard
+                </button>
+                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("usecases"); }}>
+                    <StatusIcon status="bolt" size={16} /> Future of Work
+                </button>
+                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("guides"); }}>
+                    <StatusIcon status="book" size={16} /> Architecture
+                </button>
+                <div class="user-menu-divider"></div>
+                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("create"); }}>
+                    <StatusIcon status="plus" size={16} /> New Terminal
+                </button>
+                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("pricing"); }}>
+                    <StatusIcon status="diamond" size={16} /> Pricing
+                </button>
             </div>
         </div>
     </div>
@@ -406,6 +430,12 @@
         text-decoration: none;
         border-radius: 6px;
         transition: background 0.15s;
+        background: none;
+        border: none;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        font-size: 14px;
     }
 
     .mobile-nav-link:hover {
@@ -505,6 +535,8 @@
         text-decoration: none;
         border: 1px solid transparent;
         transition: all 0.15s ease;
+        background: none;
+        cursor: pointer;
     }
 
     .nav-link:hover {
