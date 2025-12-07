@@ -76,6 +76,39 @@
                 "No dependency conflicts with local setup",
                 "Dispose immediately after review"
             ]
+        },
+        {
+            title: "AI Model Training & Fine-tuning",
+            icon: "gpu",
+            description: "Access powerful GPU-enabled environments for rapid AI/ML model development, training, and fine-tuning.",
+            points: [
+                "On-demand GPU resources",
+                "Pre-configured with ML frameworks (TensorFlow, PyTorch)",
+                "Isolated for reproducible experiments",
+                "Scale resources as needed"
+            ]
+        },
+        {
+            title: "Edge Device Development",
+            icon: "wifi",
+            description: "Develop and test applications for IoT and edge devices in a simulated or emulated environment.",
+            points: [
+                "Cross-compilation toolchains ready",
+                "Test on various architectures (ARM, RISC-V)",
+                "Secure remote access to virtual devices",
+                "Rapid prototyping for embedded systems"
+            ]
+        },
+        {
+            title: "Real-time Data Processing",
+            icon: "data",
+            description: "Build, test, and deploy streaming ETL pipelines and real-time analytics applications.",
+            points: [
+                "High-performance data ingress/egress",
+                "Integrated with Kafka, Flink, Spark (coming soon)",
+                "Monitor data flows in isolation",
+                "Secure access to data sources"
+            ]
         }
     ];
 </script>
