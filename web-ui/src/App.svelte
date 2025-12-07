@@ -484,7 +484,7 @@
                         </div>
 
                         <p class="modal-hint">
-                            <StatusIcon status="validating" size={14} /> Guest access lasts 30 minutes. Sign in with
+                            <StatusIcon status="validating" size={14} /> Guest access lasts 1 hour. Sign in with
                             PipeOps for unlimited access.
                         </p>
                     </div>

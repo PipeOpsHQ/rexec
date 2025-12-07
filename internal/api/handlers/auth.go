@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	// GuestSessionDuration is the maximum session time for guest users (50 hours)
-	GuestSessionDuration = 50 * time.Hour
+	// GuestSessionDuration is the maximum session time for guest users (1 hour)
+	GuestSessionDuration = 1 * time.Hour
 )
 
 // AuthHandler handles authentication endpoints

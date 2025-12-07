@@ -8,7 +8,7 @@ import (
 
 const (
 	// GuestMaxSessionDuration is the maximum time a guest container can run
-	GuestMaxSessionDuration = 50 * time.Hour
+	GuestMaxSessionDuration = 2 * time.Hour
 )
 
 // CleanupService handles automatic cleanup of idle containers
