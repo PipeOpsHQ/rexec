@@ -22,6 +22,18 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// RemoteHost represents a saved remote SSH connection (Jump Host target)
+type RemoteHost struct {
+	ID           string    `json:"id"`
+	UserID       string    `json:"user_id"`
+	Name         string    `json:"name"`
+	Hostname     string    `json:"hostname"`
+	Port         int       `json:"port"`
+	Username     string    `json:"username"`
+	IdentityFile string    `json:"identity_file,omitempty"` // Path to private key in container
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 // Container represents a user's terminal container
 type Container struct {
 	ID         string            `json:"id"`

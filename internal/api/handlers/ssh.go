@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rexec/rexec/internal/container"
+	"github.com/rexec/rexec/internal/models"
 	"github.com/rexec/rexec/internal/storage"
 )
 
@@ -46,6 +47,27 @@ type SSHKeyResponse struct {
 	Fingerprint string     `json:"fingerprint"`
 	CreatedAt   time.Time  `json:"created_at"`
 	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
+}
+
+// AddRemoteHostRequest represents the request to add a remote host
+type AddRemoteHostRequest struct {
+	Name         string `json:"name" binding:"required,min=1,max=255"`
+	Hostname     string `json:"hostname" binding:"required"`
+	Port         int    `json:"port"`
+	Username     string `json:"username" binding:"required"`
+	IdentityFile string `json:"identity_file"`
+}
+
+// RemoteHostResponse represents a remote host in API responses
+type RemoteHostResponse struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Hostname     string    `json:"hostname"`
+	Port         int       `json:"port"`
+	Username     string    `json:"username"`
+	IdentityFile string    `json:"identity_file,omitempty"`
+	SSHCommand   string    `json:"ssh_command"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ListSSHKeys returns all SSH keys for the authenticated user
@@ -787,4 +809,129 @@ func (h *SSHHandler) CheckSSHStatus(c *gin.Context) {
 		"container_id":     containerID,
 		"container_status": containerInfo.Status,
 	})
+}
+
+// ListRemoteHosts returns all remote hosts for the authenticated user
+// GET /api/ssh/hosts
+func (h *SSHHandler) ListRemoteHosts(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	hosts, err := h.store.GetRemoteHostsByUserID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch remote hosts"})
+		return
+	}
+
+	response := make([]RemoteHostResponse, 0, len(hosts))
+	for _, host := range hosts {
+		port := host.Port
+		if port == 0 {
+			port = 22
+		}
+		sshCmd := fmt.Sprintf("ssh %s@%s", host.Username, host.Hostname)
+		if port != 22 {
+			sshCmd += fmt.Sprintf(" -p %d", port)
+		}
+		if host.IdentityFile != "" {
+			sshCmd += fmt.Sprintf(" -i %s", host.IdentityFile)
+		}
+
+		response = append(response, RemoteHostResponse{
+			ID:           host.ID,
+			Name:         host.Name,
+			Hostname:     host.Hostname,
+			Port:         port,
+			Username:     host.Username,
+			IdentityFile: host.IdentityFile,
+			SSHCommand:   sshCmd,
+			CreatedAt:    host.CreatedAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"hosts": response,
+		"count": len(response),
+	})
+}
+
+// AddRemoteHost adds a new remote host
+// POST /api/ssh/hosts
+func (h *SSHHandler) AddRemoteHost(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req AddRemoteHostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+
+	port := req.Port
+	if port == 0 {
+		port = 22
+	}
+
+	host := &models.RemoteHost{
+		ID:           uuid.New().String(),
+		UserID:       userID,
+		Name:         req.Name,
+		Hostname:     req.Hostname,
+		Port:         port,
+		Username:     req.Username,
+		IdentityFile: req.IdentityFile,
+		CreatedAt:    time.Now(),
+	}
+
+	if err := h.store.CreateRemoteHost(c.Request.Context(), host); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save remote host"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id":      host.ID,
+		"message": "Remote host added successfully",
+	})
+}
+
+// DeleteRemoteHost removes a remote host
+// DELETE /api/ssh/hosts/:id
+func (h *SSHHandler) DeleteRemoteHost(c *gin.Context) {
+	userID := c.GetString("userID")
+	hostID := c.Param("id")
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// Verify ownership
+	host, err := h.store.GetRemoteHostByID(ctx, hostID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch host"})
+		return
+	}
+	if host == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "host not found"})
+		return
+	}
+	if host.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
+	}
+
+	if err := h.store.DeleteRemoteHost(ctx, hostID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete host"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Remote host deleted"})
 }

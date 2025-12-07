@@ -234,6 +234,11 @@ func main() {
 			ssh.POST("/sync/:containerId", sshHandler.SyncSSHKeys)
 			ssh.GET("/status/:containerId", sshHandler.CheckSSHStatus)
 			ssh.POST("/install/:containerId", sshHandler.InstallSSH)
+			
+			// Remote Hosts (Jump Hosts)
+			ssh.GET("/hosts", sshHandler.ListRemoteHosts)
+			ssh.POST("/hosts", sshHandler.AddRemoteHost)
+			ssh.DELETE("/hosts/:id", sshHandler.DeleteRemoteHost)
 		}
 
 		// WebSocket for real-time container events

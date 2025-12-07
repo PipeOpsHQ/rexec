@@ -88,6 +88,19 @@ func (s *PostgresStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_ssh_keys_user_id ON ssh_keys(user_id);
 	CREATE INDEX IF NOT EXISTS idx_ssh_keys_fingerprint ON ssh_keys(fingerprint);
+	
+	CREATE TABLE IF NOT EXISTS remote_hosts (
+		id VARCHAR(36) PRIMARY KEY,
+		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name VARCHAR(255) NOT NULL,
+		hostname VARCHAR(255) NOT NULL,
+		port INTEGER DEFAULT 22,
+		username VARCHAR(255) NOT NULL,
+		identity_file VARCHAR(255),
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	CREATE INDEX IF NOT EXISTS idx_remote_hosts_user_id ON remote_hosts(user_id);
 	`
 
 	if _, err := s.db.Exec(createTables); err != nil {
@@ -1140,4 +1153,95 @@ func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, session
 	query := `SELECT COUNT(*) FROM collab_participants WHERE session_id = $1 AND left_at IS NULL`
 	err := s.db.QueryRowContext(ctx, query, sessionID).Scan(&count)
 	return count, err
+}
+
+// ============================================================================
+// Remote Host operations (SSH Jump Hosts)
+// ============================================================================
+
+// CreateRemoteHost creates a new remote host record
+func (s *PostgresStore) CreateRemoteHost(ctx context.Context, host *models.RemoteHost) error {
+	query := `
+		INSERT INTO remote_hosts (id, user_id, name, hostname, port, username, identity_file, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		host.ID,
+		host.UserID,
+		host.Name,
+		host.Hostname,
+		host.Port,
+		host.Username,
+		host.IdentityFile,
+		host.CreatedAt,
+	)
+	return err
+}
+
+// GetRemoteHostsByUserID retrieves all remote hosts for a user
+func (s *PostgresStore) GetRemoteHostsByUserID(ctx context.Context, userID string) ([]*models.RemoteHost, error) {
+	query := `
+		SELECT id, user_id, name, hostname, port, username, COALESCE(identity_file, ''), created_at
+		FROM remote_hosts WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hosts []*models.RemoteHost
+	for rows.Next() {
+		var h models.RemoteHost
+		err := rows.Scan(
+			&h.ID,
+			&h.UserID,
+			&h.Name,
+			&h.Hostname,
+			&h.Port,
+			&h.Username,
+			&h.IdentityFile,
+			&h.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		hosts = append(hosts, &h)
+	}
+	return hosts, nil
+}
+
+// DeleteRemoteHost deletes a remote host by ID
+func (s *PostgresStore) DeleteRemoteHost(ctx context.Context, id string) error {
+	query := `DELETE FROM remote_hosts WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// GetRemoteHostByID retrieves a remote host by ID
+func (s *PostgresStore) GetRemoteHostByID(ctx context.Context, id string) (*models.RemoteHost, error) {
+	var h models.RemoteHost
+	query := `
+		SELECT id, user_id, name, hostname, port, username, COALESCE(identity_file, ''), created_at
+		FROM remote_hosts WHERE id = $1
+	`
+	row := s.db.QueryRowContext(ctx, query, id)
+	err := row.Scan(
+		&h.ID,
+		&h.UserID,
+		&h.Name,
+		&h.Hostname,
+		&h.Port,
+		&h.Username,
+		&h.IdentityFile,
+		&h.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &h, nil
 }
