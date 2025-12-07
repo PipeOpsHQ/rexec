@@ -381,7 +381,7 @@
         />
 
         <main class="main" class:has-terminal={$hasSessions}>
-            {:else if currentView === "landing"}
+            {#if currentView === "landing"}
                 <Landing 
                     on:guest={openGuestModal} 
                     on:navigate={(e) => {
