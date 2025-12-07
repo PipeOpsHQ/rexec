@@ -68,9 +68,10 @@ func NewPKCEOAuthService() *PKCEOAuthService {
 
 	apiBaseURL := os.Getenv("PIPEOPS_API_URL")
 	if apiBaseURL == "" {
-		// Default to api.staging.pipeops.sh if base is staging.pipeops.sh
+		// Default to api.pipeops.sh if base is staging.pipeops.sh
+		// The user suggested api.pipeops.sh might be the correct host
 		if strings.Contains(baseURL, "staging.pipeops.sh") {
-			apiBaseURL = "https://api.staging.pipeops.sh"
+			apiBaseURL = "https://api.pipeops.sh"
 		} else {
 			// Fallback to same as base URL if not staging
 			apiBaseURL = baseURL
