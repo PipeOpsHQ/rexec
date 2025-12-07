@@ -216,15 +216,34 @@ func (h *AuthHandler) GetOAuthURL(c *gin.Context) {
 		return
 	}
 
-	// Store state and code verifier (expires in 10 minutes)
-	oauthStates[state] = &OAuthState{
-		State:        state,
-		CodeVerifier: pkceChallenge.CodeVerifier,
-		CreatedAt:    time.Now(),
+	// Create a state token (JWT) to store state and code verifier statelessly in a cookie
+	// This prevents issues with server restarts or multiple instances
+	stateToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"state":         state,
+		"code_verifier": pkceChallenge.CodeVerifier,
+		"exp":           time.Now().Add(15 * time.Minute).Unix(),
+	})
+	
+	stateString, err := stateToken.SignedString(h.jwtSecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIError{
+			Code:    http.StatusInternalServerError,
+			Message: "Failed to sign state token",
+		})
+		return
 	}
 
-	// Clean up old states
-	go cleanupOldStates()
+	// Set secure, HTTP-only cookie with the state token
+	// Path must match the callback URL path
+	isSecure := c.Request.TLS != nil || c.Request.Header.Get("X-Forwarded-Proto") == "https"
+	// Allow insecure cookies in dev mode if needed, but prefer secure
+	if os.Getenv("GIN_MODE") != "release" {
+		isSecure = false
+	}
+	
+	// Note: SameSite=Lax is needed for the cookie to be sent on the return redirect
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("oauth_state", stateString, 900, "/api/auth", "", isSecure, true)
 
 	// Get authorization URL
 	authURL := h.oauthService.GetAuthorizationURL(state, pkceChallenge.CodeChallenge)
@@ -253,29 +272,52 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 		return
 	}
 
-	// Verify state and get code verifier
-	storedState, exists := oauthStates[state]
-	if !exists {
-		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("invalid_state", "Invalid or expired state parameter")))
+	// Retrieve state token from cookie
+	cookieParam, err := c.Cookie("oauth_state")
+	if err != nil {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("invalid_cookie", "Authentication session expired or invalid cookies. Please try again.")))
 		return
 	}
 
-	// Check if state is expired (10 minutes)
-	if time.Since(storedState.CreatedAt) > 10*time.Minute {
-		delete(oauthStates, state)
-		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("expired_state", "Authentication session expired. Please try again.")))
+	// Parse and validate the state token
+	token, err := jwt.Parse(cookieParam, func(token *jwt.Token) (interface{}, error) {
+		return h.jwtSecret, nil
+	})
+
+	if err != nil || !token.Valid {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("invalid_token", "Invalid authentication session")))
 		return
 	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("token_claims", "Invalid token claims")))
+		return
+	}
+
+	// Verify state matches
+	storedState, ok := claims["state"].(string)
+	if !ok || storedState != state {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("state_mismatch", "Invalid state parameter")))
+		return
+	}
+
+	// Get code verifier
+	codeVerifier, ok := claims["code_verifier"].(string)
+	if !ok || codeVerifier == "" {
+		c.Data(http.StatusBadRequest, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("invalid_verifier", "Invalid code verifier")))
+		return
+	}
+
+	// Clear the state cookie
+	c.SetCookie("oauth_state", "", -1, "/api/auth", "", false, true)
 
 	// Exchange code for token
-	tokenResp, err := h.oauthService.ExchangeCodeForToken(code, storedState.CodeVerifier)
+	tokenResp, err := h.oauthService.ExchangeCodeForToken(code, codeVerifier)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("token_exchange", "Failed to exchange code for token: "+err.Error())))
 		return
 	}
-
-	// Clean up used state
-	delete(oauthStates, state)
 
 	// Get user info from PipeOps
 	userInfo, err := h.oauthService.GetUserInfo(tokenResp.AccessToken)
@@ -331,131 +373,23 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := h.generateToken(user)
+	authToken, err := h.generateToken(user)
 	if err != nil {
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("token", "Failed to generate token")))
 		return
 	}
 
 	// Render success page that posts token to parent window
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(renderOAuthSuccessPage(token, user)))
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(renderOAuthSuccessPage(authToken, user)))
 }
 
 // OAuthExchange handles token exchange for frontend (alternative to callback)
 func (h *AuthHandler) OAuthExchange(c *gin.Context) {
-	var req struct {
-		Code  string `json:"code" binding:"required"`
-		State string `json:"state" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.APIError{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid request: " + err.Error(),
-		})
-		return
-	}
-
-	// Verify state and get code verifier
-	storedState, exists := oauthStates[req.State]
-	if !exists {
-		c.JSON(http.StatusBadRequest, models.APIError{
-			Code:    http.StatusBadRequest,
-			Message: "Invalid or expired state",
-		})
-		return
-	}
-
-	// Check if state is expired
-	if time.Since(storedState.CreatedAt) > 10*time.Minute {
-		delete(oauthStates, req.State)
-		c.JSON(http.StatusBadRequest, models.APIError{
-			Code:    http.StatusBadRequest,
-			Message: "Authentication session expired",
-		})
-		return
-	}
-
-	// Exchange code for token
-	tokenResp, err := h.oauthService.ExchangeCodeForToken(req.Code, storedState.CodeVerifier)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.APIError{
-			Code:    http.StatusInternalServerError,
-			Message: "Failed to exchange code: " + err.Error(),
-		})
-		return
-	}
-
-	// Clean up used state
-	delete(oauthStates, req.State)
-
-	// Get user info
-	userInfo, err := h.oauthService.GetUserInfo(tokenResp.AccessToken)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.APIError{
-			Code:    http.StatusInternalServerError,
-			Message: "Failed to get user info: " + err.Error(),
-		})
-		return
-	}
-
-	ctx := context.Background()
-
-	// Normalize email to lowercase to avoid duplicate users
-	normalizedEmail := strings.ToLower(strings.TrimSpace(userInfo.Email))
-
-	// Check if user exists or create new
-	user, _, err := h.store.GetUserByEmail(ctx, normalizedEmail)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.APIError{
-			Code:    http.StatusInternalServerError,
-			Message: "Database error",
-		})
-		return
-	}
-
-	if user == nil {
-		username := userInfo.Username
-		if username == "" {
-			username = userInfo.Name
-		}
-		if username == "" {
-			username = normalizedEmail
-		}
-
-		user = &models.User{
-			ID:        uuid.New().String(),
-			Email:     normalizedEmail,
-			Username:  username,
-			Tier:      "free",
-			PipeOpsID: userInfo.ID,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-
-		if err := h.store.CreateUser(ctx, user, ""); err != nil {
-			c.JSON(http.StatusInternalServerError, models.APIError{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to create user",
-			})
-			return
-		}
-	}
-
-	// Generate JWT token
-	token, err := h.generateToken(user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.APIError{
-			Code:    http.StatusInternalServerError,
-			Message: "Failed to generate token",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.AuthResponse{
-		Token: token,
-		User:  *user,
-	})
+	// Not used in standard flow, but keeping for compatibility if frontend uses direct exchange
+	// For cookie-based flow, this endpoint is less relevant unless we pass the cookie manually,
+	// but standard OAuth usually uses the Callback endpoint above.
+	// Leaving as is or deprecating.
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "Use callback endpoint"})
 }
 
 // generateToken creates a JWT token for a user
