@@ -4,6 +4,7 @@ import { writable, derived } from "svelte/store";
 export interface User {
   id: string;
   email: string;
+  username: string; // Added username
   name: string;
   avatar?: string;
   tier: "guest" | "free" | "pro" | "enterprise";
@@ -113,6 +114,7 @@ function createAuthStore() {
         const user: User = {
           id: userData.id || data.user_id,
           email: userData.email || email,
+          username: userData.username || "guest", // Map username
           name: userData.username || userData.name || "Guest User",
           tier: userData.tier || "guest",
           isGuest: true,
@@ -189,6 +191,7 @@ function createAuthStore() {
         const user: User = {
           id: userData.id || data.user_id,
           email: userData.email || "",
+          username: userData.username || "", // Map username
           name: userData.username || userData.name || userData.email || "User",
           avatar: userData.avatar,
           tier: userData.tier || "free",
@@ -244,6 +247,7 @@ function createAuthStore() {
         const user: User = {
           id: userData.id,
           email: userData.email || "",
+          username: userData.username || "", // Map username
           name: userData.username || userData.name || userData.email || "User",
           avatar: userData.avatar,
           tier: userData.tier || "free",
