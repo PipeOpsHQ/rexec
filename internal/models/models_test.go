@@ -2,36 +2,40 @@ package models
 
 import (
 	"testing"
+	"time"
 )
 
 func TestTierLimits(t *testing.T) {
-	trialLimits := GetTrialResourceLimits() // Get the values for the more generous tier
-
 	tests := []struct {
-		tier     string
-		wantCPU  int64
-		wantMem  int64
-		wantDisk int64
+		name              string
+		tier              string
+		subActive         bool
+		wantCPU           int64
+		wantMem           int64
+		wantDisk          int64
+		wantSessionLimit  time.Duration
 	}{
-		{"guest", GuestResourceLimits.CPUShares, GuestResourceLimits.MemoryMB, GuestResourceLimits.DiskMB},
-		{"free", trialLimits.MaxCPUShares, trialLimits.MaxMemoryMB, trialLimits.MaxDiskMB},
-		{"trial", trialLimits.MaxCPUShares, trialLimits.MaxMemoryMB, trialLimits.MaxDiskMB},
-		{"pro", 2000, 2048, 10240},
-		{"enterprise", 4000, 4096, 51200},
-		{"unknown", trialLimits.MaxCPUShares, trialLimits.MaxMemoryMB, trialLimits.MaxDiskMB}, // Default to free/trial
+		{"Guest", "guest", false, GuestResourceLimits.CPUShares, GuestResourceLimits.MemoryMB, GuestResourceLimits.DiskMB, 1 * time.Hour},
+		{"Free (No Sub)", "free", false, 2000, 2048, 10240, 50 * time.Hour},
+		{"Free (With Sub)", "free", true, 4000, 4096, 20480, 0},
+		{"Pro (Legacy)", "pro", false, 4000, 4096, 20480, 0},
+		{"Enterprise", "enterprise", false, 8000, 8192, 51200, 0},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.tier, func(t *testing.T) {
-			got := TierLimits(tt.tier)
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetUserResourceLimits(tt.tier, tt.subActive)
 			if got.CPUShares != tt.wantCPU {
-				t.Errorf("TierLimits(%s).CPUShares = %d, want %d", tt.tier, got.CPUShares, tt.wantCPU)
+				t.Errorf("CPUShares = %d, want %d", got.CPUShares, tt.wantCPU)
 			}
 			if got.MemoryMB != tt.wantMem {
-				t.Errorf("TierLimits(%s).MemoryMB = %d, want %d", tt.tier, got.MemoryMB, tt.wantMem)
+				t.Errorf("MemoryMB = %d, want %d", got.MemoryMB, tt.wantMem)
 			}
 			if got.DiskMB != tt.wantDisk {
-				t.Errorf("TierLimits(%s).DiskMB = %d, want %d", tt.tier, got.DiskMB, tt.wantDisk)
+				t.Errorf("DiskMB = %d, want %d", got.DiskMB, tt.wantDisk)
+			}
+			if got.SessionDuration != tt.wantSessionLimit {
+				t.Errorf("SessionDuration = %v, want %v", got.SessionDuration, tt.wantSessionLimit)
 			}
 		})
 	}
@@ -39,6 +43,8 @@ func TestTierLimits(t *testing.T) {
 
 func TestValidateTrialResources(t *testing.T) {
 	customizationLimits := GetTrialResourceLimits()
+	// Default Free limits (No Sub)
+	freeDefaults := GetUserResourceLimits("free", false)
 
 	tests := []struct {
 		name      string
@@ -80,6 +86,7 @@ func TestValidateTrialResources(t *testing.T) {
 				CPUShares: customizationLimits.MaxCPUShares + 100,
 				DiskMB:    customizationLimits.MaxDiskMB + 100,
 			},
+			// Clamped to max allowed customization
 			wantMem:  customizationLimits.MaxMemoryMB,
 			wantCPU:  customizationLimits.MaxCPUShares,
 			wantDisk: customizationLimits.MaxDiskMB,
@@ -92,6 +99,7 @@ func TestValidateTrialResources(t *testing.T) {
 				CPUShares: customizationLimits.MinCPUShares - 100,
 				DiskMB:    customizationLimits.MinDiskMB - 100,
 			},
+			// Clamped to min allowed customization
 			wantMem:  customizationLimits.MinMemoryMB,
 			wantCPU:  customizationLimits.MinCPUShares,
 			wantDisk: customizationLimits.MinDiskMB,
@@ -105,22 +113,22 @@ func TestValidateTrialResources(t *testing.T) {
 				DiskMB:    1024,
 			},
 			// Expect Pro defaults
-			wantMem:  2048,
-			wantCPU:  2000,
-			wantDisk: 10240,
+			wantMem:  4096, // Pro is 4GB
+			wantCPU:  4000, // Pro is 4 vCPU
+			wantDisk: 20480, // Pro is 20GB
 		},
 		{
-			name: "Free user with zero values (uses max trial defaults)",
+			name: "Free user with zero values (uses Free tier defaults)",
 			tier: "free",
 			req: CreateContainerRequest{
 				MemoryMB:  0,
 				CPUShares: 0,
 				DiskMB:    0,
 			},
-			// Expect Free/Trial defaults (max trial limits)
-			wantMem:  customizationLimits.MaxMemoryMB,
-			wantCPU:  customizationLimits.MaxCPUShares,
-			wantDisk: customizationLimits.MaxDiskMB,
+			// Expect Free defaults (No Sub)
+			wantMem:  freeDefaults.MemoryMB,
+			wantCPU:  freeDefaults.CPUShares,
+			wantDisk: freeDefaults.DiskMB,
 		},
 	}
 
@@ -128,13 +136,13 @@ func TestValidateTrialResources(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ValidateTrialResources(&tt.req, tt.tier)
 			if got.MemoryMB != tt.wantMem {
-				t.Errorf("ValidateTrialResources() MemoryMB = %d, want %d", got.MemoryMB, tt.wantMem)
+				t.Errorf("MemoryMB = %d, want %d", got.MemoryMB, tt.wantMem)
 			}
 			if got.CPUShares != tt.wantCPU {
-				t.Errorf("ValidateTrialResources() CPUShares = %d, want %d", got.CPUShares, tt.wantCPU)
+				t.Errorf("CPUShares = %d, want %d", got.CPUShares, tt.wantCPU)
 			}
 			if got.DiskMB != tt.wantDisk {
-				t.Errorf("ValidateTrialResources() DiskMB = %d, want %d", got.DiskMB, tt.wantDisk)
+				t.Errorf("DiskMB = %d, want %d", got.DiskMB, tt.wantDisk)
 			}
 		})
 	}

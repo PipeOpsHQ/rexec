@@ -23,10 +23,10 @@
       description: 'For trying out Rexec',
       features: [
         '5 terminals',
-        '4GB memory',
-        '4 vCPU',
-        '16GB storage',
-        'Unlimited sessions',
+        '2GB memory',
+        '2 vCPU',
+        '10GB storage',
+        '50 hour session limit',
         'Community support'
       ],
       cta: currentTier === 'free' ? 'Current Plan' : 'Sign in to Start',
@@ -41,10 +41,10 @@
       description: 'For individual developers',
       features: [
         '10 terminals',
-        'Up to 8GB memory',
-        'Up to 4 vCPU',
-        '50GB storage',
-        'Always-on terminals',
+        '4GB memory',
+        '4 vCPU',
+        '20GB storage',
+        'Unlimited sessions',
         'Recording & playback',
         'Share with 5 collaborators',
         'Priority support'

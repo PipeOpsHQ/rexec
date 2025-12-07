@@ -88,18 +88,20 @@ const (
 
 // ResourceLimits defines resource constraints for a container
 type ResourceLimits struct {
-	CPUShares int64 `json:"cpu_shares"` // CPU shares (relative weight)
-	MemoryMB  int64 `json:"memory_mb"`  // Memory limit in MB
-	DiskMB    int64 `json:"disk_mb"`    // Disk quota in MB
-	NetworkMB int64 `json:"network_mb"` // Network bandwidth limit in MB/s
+	CPUShares int64         `json:"cpu_shares"` // CPU shares (relative weight)
+	MemoryMB  int64         `json:"memory_mb"`  // Memory limit in MB
+	DiskMB    int64         `json:"disk_mb"`    // Disk quota in MB
+	NetworkMB int64         `json:"network_mb"` // Network bandwidth limit in MB/s
+	SessionDuration time.Duration `json:"session_duration"` // 0 = unlimited
 }
 
 // GuestResourceLimits defines the very restricted limits for anonymous guest users
 var GuestResourceLimits = ResourceLimits{
-	CPUShares: 250, // 0.25 CPU
-	MemoryMB:  256,
-	DiskMB:    1024,
-	NetworkMB: 5,
+	CPUShares:       250, // 0.25 CPU
+	MemoryMB:        256,
+	DiskMB:          1024,
+	NetworkMB:       5,
+	SessionDuration: 1 * time.Hour,
 }
 
 // Session represents an active terminal session
@@ -114,41 +116,63 @@ type Session struct {
 	LastPingAt  time.Time `json:"last_ping_at"`
 }
 
-// TierLimits returns resource limits based on user tier
-// CPUShares represents CPU count in millicores (500 = 0.5 CPU, 1000 = 1 CPU)
+// AuthenticatedSessionDuration is the limit for free users without active subscription
+const AuthenticatedSessionDuration = 50 * time.Hour
+
+// TierLimits is deprecated, use GetUserResourceLimits instead
 func TierLimits(tier string) ResourceLimits {
-	trialLimits := GetTrialResourceLimits() // More generous free/trial limits
+	return GetUserResourceLimits(tier, false)
+}
+
+// GetUserResourceLimits returns resource limits based on user tier and subscription status
+func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits {
+	// Active subscription gets "Pro" limits regardless of tier label
+	if subscriptionActive {
+		return ResourceLimits{
+			CPUShares:       4000,  // 4 CPUs
+			MemoryMB:        4096,  // 4GB RAM
+			DiskMB:          20480, // 20GB Storage
+			NetworkMB:       100,
+			SessionDuration: 0, // Unlimited
+		}
+	}
 
 	switch tier {
 	case "guest":
 		return GuestResourceLimits
-	case "free", "trial":
+	case "free":
+		// Authenticated but no subscription: Half resources, 50h limit
 		return ResourceLimits{
-			CPUShares: trialLimits.MaxCPUShares, // Free users get max trial CPU
-			MemoryMB:  trialLimits.MaxMemoryMB,  // Free users get max trial Memory
-			DiskMB:    trialLimits.MaxDiskMB,    // Free users get max trial Disk
-			NetworkMB: 10,                       // Default network for free
+			CPUShares:       2000,  // 2 CPUs
+			MemoryMB:        2048,  // 2GB RAM
+			DiskMB:          10240, // 10GB Storage
+			NetworkMB:       10,
+			SessionDuration: AuthenticatedSessionDuration,
 		}
 	case "pro":
+		// Legacy pro tier (if not covered by subscriptionActive check)
 		return ResourceLimits{
-			CPUShares: 2000, // 2 CPUs
-			MemoryMB:  2048,
-			DiskMB:    10240,
-			NetworkMB: 100,
+			CPUShares:       4000,
+			MemoryMB:        4096,
+			DiskMB:          20480,
+			NetworkMB:       100,
+			SessionDuration: 0,
 		}
 	case "enterprise":
 		return ResourceLimits{
-			CPUShares: 4000, // 4 CPUs
-			MemoryMB:  4096,
-			DiskMB:    51200,
-			NetworkMB: 500,
+			CPUShares:       8000, // 8 CPUs
+			MemoryMB:        8192,
+			DiskMB:          51200,
+			NetworkMB:       500,
+			SessionDuration: 0,
 		}
-	default: // Default to free tier if tier is unrecognized or empty
+	default: // Default to free limits
 		return ResourceLimits{
-			CPUShares: trialLimits.MaxCPUShares,
-			MemoryMB:  trialLimits.MaxMemoryMB,
-			DiskMB:    trialLimits.MaxDiskMB,
-			NetworkMB: 10,
+			CPUShares:       2000,
+			MemoryMB:        2048,
+			DiskMB:          10240,
+			NetworkMB:       10,
+			SessionDuration: AuthenticatedSessionDuration,
 		}
 	}
 }

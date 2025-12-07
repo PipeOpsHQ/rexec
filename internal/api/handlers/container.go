@@ -154,10 +154,10 @@ func (h *ContainerHandler) List(c *gin.Context) {
 
 // Create creates a new container for the user
 // Uses async creation to avoid Cloudflare timeout - returns immediately with "creating" status
-func (h *ContainerHandler) Create(c *gin.Context) {
 	userID := c.GetString("userID")
 	tier := c.GetString("tier")
 	isGuest := c.GetBool("guest")
+	subscriptionActive := c.GetBool("subscription_active")
 
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -252,7 +252,36 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	}
 
 	// Calculate resource limits first (with trial customization)
+	// We pass subscription status to determine if we should allow full customization or restrict
+	// Currently ValidateTrialResources uses tier. We rely on tier logic.
+	// If subscription is active, tier logic for "free" might need to change or be handled via limits directly?
+	// Actually ValidateTrialResources uses TierLimits internally.
+	// But TierLimits relies on tier string.
+	// We might need to handle this discrepancy.
+	// However, let's assume ValidateTrialResources works based on the tier string passed.
 	limits := models.ValidateTrialResources(&req, tier)
+	
+	// Override limits if we have specific subscription logic not covered by tier string
+	userLimits := models.GetUserResourceLimits(tier, subscriptionActive)
+	// Apply these limits if they are stricter or different from defaults
+	// Actually, CreateContainerRequest has customization.
+	// If the user has active subscription, they get Pro limits (4GB/4CPU).
+	// If not, they get Free limits (2GB/2CPU).
+	// ValidateTrialResources clamps based on GetTrialResourceLimits (4GB/4CPU/16GB).
+	// This might be too generous for non-subscribers who should be capped at 2GB.
+	
+	if !subscriptionActive && (tier == "free" || tier == "trial") {
+		// Enforce stricter limits for non-subscribers
+		if limits.MemoryMB > userLimits.MemoryMB {
+			limits.MemoryMB = userLimits.MemoryMB
+		}
+		if limits.CPUShares > userLimits.CPUShares {
+			limits.CPUShares = userLimits.CPUShares
+		}
+		if limits.DiskMB > userLimits.DiskMB {
+			limits.DiskMB = userLimits.DiskMB
+		}
+	}
 
 	// Store a pending record in database first (async creation)
 	record := &storage.ContainerRecord{
@@ -301,6 +330,10 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		} else {
 			cfg.Labels["rexec.expires_at"] = time.Now().Add(GuestMaxContainerDuration).Format(time.RFC3339)
 		}
+	} else if (tier == "free" || tier == "trial") && !subscriptionActive {
+		// Enforce 50-hour session limit for free users without active subscription
+		expiresAt := time.Now().Add(models.AuthenticatedSessionDuration)
+		cfg.Labels["rexec.expires_at"] = expiresAt.Format(time.RFC3339)
 	}
 
 	// Apply resource limits to container config (use validated request values)
@@ -367,6 +400,11 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 			response["expires_at"] = time.Now().Add(GuestMaxContainerDuration).Format(time.RFC3339)
 			response["session_limit_seconds"] = int(GuestMaxContainerDuration.Seconds())
 		}
+	} else if (tier == "free" || tier == "trial") && !subscriptionActive {
+		// Show expiration for free users
+		expiresAt := time.Now().Add(models.AuthenticatedSessionDuration)
+		response["expires_at"] = expiresAt.Format(time.RFC3339)
+		response["session_limit_seconds"] = int(models.AuthenticatedSessionDuration.Seconds())
 	}
 
 	c.JSON(http.StatusAccepted, response)

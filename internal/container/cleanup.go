@@ -166,7 +166,8 @@ func (m *Manager) GetIdleTime(dockerID string) time.Duration {
 	return 0
 }
 
-// GetExpiredGuestContainers returns guest containers that have exceeded their session limit
+// GetExpiredGuestContainers returns containers that have exceeded their session limit
+// Checks both guest containers (hard limit) and any container with an explicit expiration label
 func (m *Manager) GetExpiredGuestContainers() []*ContainerInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -186,7 +187,7 @@ func (m *Manager) GetExpiredGuestContainers() []*ContainerInfo {
 			if _, ok := info.Labels["rexec.guest"]; ok {
 				isGuest = true
 			}
-			// Check for explicit expiration time (set from guest session token)
+			// Check for explicit expiration time (set from guest session token or auth user limit)
 			if expStr, ok := info.Labels["rexec.expires_at"]; ok {
 				if t, err := time.Parse(time.RFC3339, expStr); err == nil {
 					expiresAt = t
@@ -194,15 +195,17 @@ func (m *Manager) GetExpiredGuestContainers() []*ContainerInfo {
 			}
 		}
 
-		if !isGuest {
+		// If not guest and no expiration time set, it's a persistent container - skip
+		if !isGuest && expiresAt.IsZero() {
 			continue
 		}
 
-		// Use explicit expiration time if set, otherwise fall back to creation time + max duration
+		// Use explicit expiration time if set, otherwise fall back to creation time + max duration (for guests)
 		isExpired := false
 		if !expiresAt.IsZero() {
 			isExpired = now.After(expiresAt)
-		} else {
+		} else if isGuest {
+			// Fallback for guests without explicit label (shouldn't happen often)
 			isExpired = time.Since(info.CreatedAt) > GuestMaxSessionDuration
 		}
 

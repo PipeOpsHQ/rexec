@@ -413,13 +413,14 @@ func (h *AuthHandler) generateToken(user *models.User) (string, error) {
 	}
 
 	claims := jwt.MapClaims{
-		"user_id":  user.ID,
-		"email":    user.Email,
-		"username": user.Username,
-		"tier":     user.Tier,
-		"guest":    isGuest,
-		"exp":      time.Now().Add(expiry).Unix(),
-		"iat":      time.Now().Unix(),
+		"user_id":             user.ID,
+		"email":               user.Email,
+		"username":            user.Username,
+		"tier":                user.Tier,
+		"subscription_active": user.SubscriptionActive,
+		"guest":               isGuest,
+		"exp":                 time.Now().Add(expiry).Unix(),
+		"iat":                 time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -510,9 +511,9 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		},
 		"limits": gin.H{
 			"containers": containerLimit,
-			"memory_mb":  models.TierLimits(user.Tier).MemoryMB,
-			"cpu_shares": models.TierLimits(user.Tier).CPUShares,
-			"disk_mb":    models.TierLimits(user.Tier).DiskMB,
+			"memory_mb":  models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).MemoryMB,
+			"cpu_shares": models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).CPUShares,
+			"disk_mb":    models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).DiskMB,
 		},
 	})
 }
