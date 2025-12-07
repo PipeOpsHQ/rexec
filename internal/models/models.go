@@ -34,6 +34,19 @@ type RemoteHost struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// PortForward represents a user-defined port forwarding rule for a container
+type PortForward struct {
+	ID          string    `json:"id"`
+	UserID      string    `json:"user_id"`
+	ContainerID string    `json:"container_id"`
+	Name        string    `json:"name"`          // Optional user-friendly name
+	ContainerPort int       `json:"container_port"` // Port inside the container
+	LocalPort   int       `json:"local_port"`   // Port on the user's local machine (browser client)
+	Protocol    string    `json:"protocol"`     // e.g., "tcp"
+	IsActive    bool      `json:"is_active"`    // Whether the forward is currently active
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 // Container represents a user's terminal container
 type Container struct {
 	ID         string            `json:"id"`
