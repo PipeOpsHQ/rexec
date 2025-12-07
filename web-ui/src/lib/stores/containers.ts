@@ -9,6 +9,18 @@ export interface ContainerResources {
   disk_mb: number;
 }
 
+export interface PortForward {
+  id: string;
+  name: string;
+  container_id: string;
+  container_port: number;
+  local_port: number;
+  protocol: string;
+  is_active: boolean;
+  created_at: string;
+  websocket_url: string;
+}
+
 export interface Container {
   id: string;
   db_id?: string;
@@ -27,6 +39,7 @@ export interface Container {
   idle_seconds?: number;
   ip_address?: string;
   resources?: ContainerResources;
+  portForwards?: PortForward[]; // New field for port forwards
 }
 
 export interface CreatingContainer {
