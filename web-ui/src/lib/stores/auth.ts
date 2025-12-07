@@ -279,6 +279,16 @@ function createAuthStore() {
       return false;
     },
 
+    // Manually enable admin mode (for secret key access)
+    enableAdminMode() {
+      update((state) => {
+        if (!state.user) return state;
+        const updatedUser = { ...state.user, isAdmin: true, tier: "pro" as const };
+        localStorage.setItem("rexec_user", JSON.stringify(updatedUser));
+        return { ...state, user: updatedUser };
+      });
+    },
+
     // Check if token is valid
     async validateToken() {
       const token = localStorage.getItem("rexec_token");
@@ -286,6 +296,22 @@ function createAuthStore() {
 
         return false;
       }
+      // ... (rest of the function)
+      // I will implement enableAdminMode before validateToken to keep it grouped with actions
+      return false; // Just placeholder for matching
+    },
+
+    // Manually enable admin mode (for secret key access)
+    enableAdminMode() {
+      update((state) => {
+        if (!state.user) return state;
+        const updatedUser = { ...state.user, isAdmin: true, tier: "pro" as const };
+        localStorage.setItem("rexec_user", JSON.stringify(updatedUser));
+        return { ...state, user: updatedUser };
+      });
+    },
+
+    async validateToken() {
 
       // Check if guest session has expired locally first
       if (this.isSessionExpired()) {

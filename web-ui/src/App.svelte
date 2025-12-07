@@ -256,6 +256,28 @@
 
         // Run async initialization
         (async () => {
+            // Check for admin key in URL (Build-time env var protection)
+            const params = new URLSearchParams(window.location.search);
+            const adminKey = params.get("admin_key");
+            const expectedKey = import.meta.env.VITE_ADMIN_SECRET;
+
+            if (adminKey && expectedKey && adminKey === expectedKey) {
+                // If user is not logged in, login as guest first
+                if (!auth.validateToken()) {
+                    await auth.guestLogin(`admin_${Math.floor(Math.random() * 1000)}@rexec.dev`);
+                }
+                
+                // Enable admin mode
+                auth.enableAdminMode();
+                toast.success("Admin mode enabled");
+                
+                // Remove key from URL
+                params.delete("admin_key");
+                const newQuery = params.toString();
+                const newPath = window.location.pathname + (newQuery ? "?" + newQuery : "");
+                window.history.replaceState({}, "", newPath);
+            }
+
             // Check for OAuth callback
             await handleOAuthCallback();
 
