@@ -581,6 +581,14 @@ func runServer() {
 			c.File(indexFile)
 		})
 
+		// Explicitly serve index.html for known SPA routes to avoid /:id catch-all 404
+		router.GET("/pricing", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+		router.GET("/admin", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
 		// Also support direct container ID in URL path
 		router.GET("/:id", func(c *gin.Context) {
 			id := c.Param("id")

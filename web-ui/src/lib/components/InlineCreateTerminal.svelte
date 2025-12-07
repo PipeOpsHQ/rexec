@@ -1115,6 +1115,7 @@
         border-color: var(--accent);
         background: rgba(0, 255, 65, 0.05);
         box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+        color: var(--accent);
     }
 
     .role-icon {
@@ -1535,5 +1536,6 @@
         border-color: var(--accent);
         background: rgba(0, 255, 65, 0.05);
         box-shadow: 0 0 8px rgba(0, 255, 65, 0.2);
+        color: var(--accent);
     }
 </style>
