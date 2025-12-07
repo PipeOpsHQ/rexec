@@ -131,8 +131,14 @@
         if (event.origin !== window.location.origin) return;
 
         if (event.data?.type === "oauth_success" && event.data?.data) {
-            const { token, user: rawUser } = event.data.data;
-            if (token && rawUser) {
+            let { token, user: rawUser } = event.data.data;
+            
+            // Fix for nested token object issue [object Object]
+            if (typeof token === 'object' && token !== null) {
+                token = token.token || token.access_token || '';
+            }
+
+            if (token && typeof token === 'string' && rawUser) {
                 // Ensure user object has all required fields
                 const user = {
                     ...rawUser,
@@ -145,6 +151,9 @@
                 currentView = "dashboard";
                 containers.fetchContainers();
                 toast.success(`Welcome, ${user.name}!`);
+            } else {
+                console.error("Invalid token format received", event.data.data);
+                toast.error("Authentication failed: Invalid token format");
             }
         } else if (event.data?.type === "oauth_error") {
             toast.error(event.data.message || "Authentication failed");
