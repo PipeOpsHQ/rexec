@@ -17,7 +17,7 @@
             icon: "bolt",
             description: "We believe you shouldn't wait for a progress bar. Your terminal is ready to accept commands immediately upon creation.",
             details: [
-                "**Zero Waiting**: The container starts in milliseconds.",
+                "**Zero Waiting**: The terminal starts in milliseconds.",
                 "**Immediate Input**: You can start typing standard Linux commands right away.",
                 "**Basic Tools**: Core utilities (ls, cd, grep) are available instantly."
             ]
@@ -100,14 +100,14 @@
 
 <style>
     .guides-page {
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 40px 20px;
+        padding: 60px 20px;
     }
 
     .page-header {
         text-align: center;
-        margin-bottom: 60px;
+        margin-bottom: 80px;
     }
 
     .header-badge {
@@ -160,8 +160,8 @@
 
     .step-card {
         display: flex;
-        gap: 30px;
-        padding-bottom: 40px;
+        gap: 50px;
+        padding-bottom: 60px;
     }
 
     .step-icon {
@@ -187,7 +187,7 @@
         flex: 1;
         background: var(--bg-card);
         border: 1px solid var(--border);
-        padding: 30px;
+        padding: 40px;
         border-radius: 8px;
         margin-top: -10px; /* Align with icon */
     }
@@ -199,25 +199,25 @@
     }
 
     .description {
-        font-size: 15px;
+        font-size: 16px;
         color: var(--text-secondary);
         line-height: 1.6;
-        margin-bottom: 24px;
+        margin-bottom: 30px;
     }
 
     .details-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
     }
 
     .detail-item {
         display: flex;
         align-items: flex-start;
         gap: 10px;
-        font-size: 13px;
+        font-size: 14px;
         color: var(--text-muted);
-        line-height: 1.4;
+        line-height: 1.5;
     }
 
     .check {
@@ -233,21 +233,21 @@
 
     .cta-section {
         text-align: center;
-        padding: 60px;
+        padding: 80px;
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 12px;
     }
 
     .cta-section h2 {
-        font-size: 28px;
+        font-size: 32px;
         margin-bottom: 12px;
     }
 
     .cta-section p {
         color: var(--text-muted);
-        margin-bottom: 24px;
-        font-size: 16px;
+        margin-bottom: 32px;
+        font-size: 18px;
     }
 
     @keyframes blink {
@@ -258,7 +258,7 @@
     @media (max-width: 768px) {
         .step-card {
             flex-direction: column;
-            gap: 16px;
+            gap: 20px;
         }
         
         .step-icon {
@@ -274,6 +274,7 @@
 
         .step-content {
             margin-top: 0;
+            padding: 24px;
         }
     }
 </style>

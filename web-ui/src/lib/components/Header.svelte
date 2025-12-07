@@ -4,6 +4,7 @@
         auth,
         isAuthenticated,
         isGuest,
+        isAdmin,
         sessionExpiresAt,
     } from "$stores/auth";
     import { terminal, sessionCount } from "$stores/terminal";
@@ -21,6 +22,7 @@
         pricing: void;
         guides: void;
         usecases: void;
+        admin: void;
     }>();
 
     let showUserMenu = false;
@@ -226,6 +228,20 @@
                                 Dashboard
                             </button>
                         {/if}
+
+                        {#if $isAdmin}
+                            <button
+                                class="user-menu-item"
+                                on:click={() => {
+                                    showUserMenu = false;
+                                    dispatch("admin");
+                                }}
+                            >
+                                <StatusIcon status="shield" size={14} />
+                                Admin
+                            </button>
+                        {/if}
+
                         <button
                             class="user-menu-item"
                             class:disabled={$isGuest}

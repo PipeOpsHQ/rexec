@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { auth, isAuthenticated } from "$stores/auth";
+    import { auth, isAuthenticated, isAdmin } from "$stores/auth";
     import { containers, startAutoRefresh, stopAutoRefresh } from "$stores/containers";
     import { terminal, hasSessions } from "$stores/terminal";
     import { toast } from "$stores/toast";
@@ -9,6 +9,7 @@
     import Header from "$components/Header.svelte";
     import Landing from "$components/Landing.svelte";
     import Dashboard from "$components/Dashboard.svelte";
+    import AdminDashboard from "$components/AdminDashboard.svelte";
     import CreateTerminal from "$components/CreateTerminal.svelte";
     import Settings from "$components/Settings.svelte";
     import SSHKeys from "$components/SSHKeys.svelte";
@@ -25,6 +26,7 @@
     let currentView:
         | "landing"
         | "dashboard"
+        | "admin"
         | "create"
         | "settings"
         | "sshkeys"
@@ -272,12 +274,14 @@
                     currentView = "dashboard";
                     await containers.fetchContainers();
                     startAutoRefresh(); // Start polling for container updates
-                    await handleTerminalUrl();
                 } else {
 
                     auth.logout();
                 }
             }
+
+            // Check URL for public routes (guides, use-cases) or terminal deep links
+            await handleTerminalUrl();
 
             isLoading = false;
             isInitialized = true; // Mark as initialized after token validation
@@ -338,6 +342,15 @@
         currentView = "snippets";
     }
 
+    function goToAdmin() {
+        if ($isAdmin) {
+            currentView = "admin";
+        } else {
+            toast.error("Access denied");
+            currentView = "dashboard";
+        }
+    }
+
     function onContainerCreated(
         event: CustomEvent<{ id: string; name: string }>,
     ) {
@@ -382,6 +395,7 @@
             on:snippets={goToSnippets}
             on:guest={openGuestModal}
             on:pricing={() => showPricing = true}
+            on:admin={goToAdmin}
         />
 
         <main class="main" class:has-terminal={$hasSessions}>
@@ -402,6 +416,8 @@
                         terminal.createSession(e.detail.id, e.detail.name);
                     }}
                 />
+            {:else if currentView === "admin"}
+                <AdminDashboard />
             {:else if currentView === "create"}
                 <CreateTerminal
                     on:cancel={goToDashboard}

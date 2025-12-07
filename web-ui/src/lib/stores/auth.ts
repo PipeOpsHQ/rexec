@@ -8,6 +8,7 @@ export interface User {
   avatar?: string;
   tier: "guest" | "free" | "pro" | "enterprise";
   isGuest: boolean;
+  isAdmin?: boolean;
   expiresAt?: number; // Unix timestamp for guest session expiration
 }
 
@@ -105,6 +106,7 @@ function createAuthStore() {
           name: userData.username || userData.name || "Guest User",
           tier: userData.tier || "guest",
           isGuest: true,
+          isAdmin: false,
           expiresAt,
         };
 
@@ -171,6 +173,7 @@ function createAuthStore() {
           avatar: userData.avatar,
           tier: userData.tier || "free",
           isGuest: false,
+          isAdmin: userData.is_admin || userData.role === 'admin' || false,
         };
 
         this.login(data.token, user);
@@ -225,6 +228,7 @@ function createAuthStore() {
           avatar: userData.avatar,
           tier: userData.tier || "free",
           isGuest: userData.tier === "guest",
+          isAdmin: userData.is_admin || userData.role === 'admin' || false,
           // For guests, prefer localStorage expiresAt (from login) over profile response
           // because profile calculates from user.CreatedAt which may be stale for returning guests
           expiresAt:
@@ -350,6 +354,7 @@ export const isGuest = derived(
   auth,
   ($auth) => $auth.user?.isGuest || $auth.user?.tier === "guest" || false,
 );
+export const isAdmin = derived(auth, ($auth) => !!$auth.user?.isAdmin);
 export const userTier = derived(auth, ($auth) => $auth.user?.tier ?? "guest");
 export const token = derived(auth, ($auth) => $auth.token);
 export const sessionExpiresAt = derived(
