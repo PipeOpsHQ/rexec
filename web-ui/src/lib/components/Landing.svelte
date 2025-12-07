@@ -145,7 +145,7 @@
         border: 1px solid var(--border);
         background: rgba(10, 10, 10, 0.5);
         position: relative;
-        /* Slightly reduce padding to give more room to content */
+        /* Reduce overall vertical padding to provide more content space */
         padding: 20px;
         box-sizing: border-box;
         /* Allow internal scrolling as a fallback if content still overflows on very small screens */
@@ -303,7 +303,7 @@
         background: #000;
         border: 1px solid var(--border);
         text-align: left;
-        flex-shrink: 1; /* Allow the preview to shrink if vertical space is very limited */
+        flex-shrink: 1; /* Allow to shrink if needed */
     }
 
     .terminal-preview-header {
@@ -376,8 +376,8 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 16px;
-        flex-shrink: 1; /* Allow features grid to shrink if vertical space is very limited */
-        margin-top: auto; /* Pushes features to the bottom if there's extra space */
+        flex-shrink: 1; /* Allow features to shrink if needed */
+        margin-top: auto; /* Pushes features to the bottom if space allows */
     }
 
     .feature {
