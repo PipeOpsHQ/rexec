@@ -255,7 +255,13 @@
     };
 
     $: useCase = useCasesData[slug];
-    $: relatedCases = useCase?.relatedUseCases?.map(s => ({ slug: s, ...useCasesData[s] })).filter(c => c.title) || [];
+    $: relatedCases = (useCase?.relatedUseCases || [])
+        .map(s => {
+            const data = useCasesData[s];
+            if (!data) return null;
+            return { slug: s, title: data.title, icon: data.icon, tagline: data.tagline };
+        })
+        .filter((c): c is { slug: string; title: string; icon: string; tagline: string } => c !== null);
 
     function handleBack() {
         dispatch("back");

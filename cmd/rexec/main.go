@@ -565,6 +565,12 @@ func runServer() {
 		router.GET("/use-cases", func(c *gin.Context) {
 			c.File(indexFile)
 		})
+		router.GET("/use-cases/:slug", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+		router.GET("/snippets", func(c *gin.Context) {
+			c.File(indexFile)
+		})
 		// Legacy routes - redirect or serve index
 		router.GET("/ai-tools", func(c *gin.Context) {
 			c.File(indexFile)
