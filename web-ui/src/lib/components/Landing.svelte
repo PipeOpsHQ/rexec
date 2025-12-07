@@ -78,11 +78,11 @@
 
         <div class="landing-links">
             <button class="link-btn" on:click={() => navigateTo('use-cases')}>
-                <StatusIcon status="bolt" size={14} /> Future of Work
+                <StatusIcon status="bolt" size={14} /> Use Cases
             </button>
             <span class="divider"></span>
             <button class="link-btn" on:click={() => navigateTo('guides')}>
-                <StatusIcon status="book" size={14} /> Architecture Guide
+                <StatusIcon status="book" size={14} /> Product Guide
             </button>
         </div>
 

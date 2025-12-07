@@ -145,12 +145,6 @@
     </button>
 
     <nav class="nav-links">
-        <button class="nav-link" on:click={() => dispatch("usecases")}>
-            Future of Work
-        </button>
-        <button class="nav-link" on:click={() => dispatch("guides")}>
-            Architecture
-        </button>
     </nav>
 
     <nav class="nav-actions">
@@ -346,12 +340,6 @@
             <div class="mobile-nav-links">
                 <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("home"); }}>
                     <StatusIcon status="chart" size={16} /> Dashboard
-                </button>
-                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("usecases"); }}>
-                    <StatusIcon status="bolt" size={16} /> Future of Work
-                </button>
-                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("guides"); }}>
-                    <StatusIcon status="book" size={16} /> Architecture
                 </button>
                 <div class="user-menu-divider"></div>
                 <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("create"); }}>

@@ -13,36 +13,33 @@
 
     const steps = [
         {
-            title: "1. Essential Tooling Pre-installed",
-            icon: "box",
-            description: "We focus on getting you straight to code. Instead of spending hours configuring a new VPS, Rexec provides specialized 'Roles' that come pre-loaded with the perfect toolchain.",
+            title: "1. Instant Terminal Access",
+            icon: "bolt",
+            description: "We believe you shouldn't wait for a progress bar. Your terminal is ready to accept commands immediately upon creation.",
             details: [
-                "**Standard**: Docker, Zsh, Git, Curl, Wget",
-                "**Node.js**: Node 20/22, Npm, Pnpm, Bun",
-                "**Python**: Python 3.11, Pip, Venv, Poetry",
-                "**Vibe Coder**: Aider, LLM CLI, specialized AI tools"
+                "**Zero Waiting**: The container starts in milliseconds.",
+                "**Immediate Input**: You can start typing standard Linux commands right away.",
+                "**Basic Tools**: Core utilities (ls, cd, grep) are available instantly."
             ]
         },
         {
-            title: "2. Instant Browser Access",
-            icon: "terminal",
-            description: "Getting access to the UI is instantaneous. No SSH keys to generate, no IP addresses to copy-paste. We use secure WebSockets to tunnel a full TTY directly to your browser.",
-            details: [
-                "Zero-latency typing feel",
-                "Copy/Paste support via browser clipboard",
-                "Mobile-friendly interface with virtual keyboard",
-                "Works on iPad, Chromebook, and restricted corporate networks"
-            ]
-        },
-        {
-            title: "3. Background Orchestration",
+            title: "2. Silent Background Setup",
             icon: "settings",
-            description: "What happens in the background? We spin up isolated containers that act like full virtual machines. Your data is persisted, but the environment is ephemeral and clean.",
+            description: "While you start working, Rexec silently provisions your environment in the background without blocking you.",
             details: [
-                "**Isolation**: Each terminal is a separate Docker/Podman container",
-                "**Persistence**: Your `/home/user` directory is saved to a persistent volume",
-                "**Networking**: Each container gets its own IP and port space",
-                "**Security**: Root access within the container, but isolated from the host"
+                "**Non-Blocking**: Heavy tools install while you work.",
+                "**Smart Prioritization**: Essential shell configuration happens first.",
+                "**Visual Feedback**: A subtle indicator shows progress without locking the UI."
+            ]
+        },
+        {
+            title: "3. Seamless Transition",
+            icon: "check",
+            description: "Once the background setup is complete, your terminal automatically upgrades to the full experience.",
+            details: [
+                "**Auto-Upgrade**: Your shell upgrades to Zsh with Oh-My-Zsh automatically.",
+                "**Tool Availability**: Compilers, SDKs, and CLIs become available instantly.",
+                "**No Restart Needed**: The transition happens live in your current session."
             ]
         }
     ];
@@ -52,11 +49,11 @@
     <div class="page-header">
         <div class="header-badge">
             <span class="dot"></span>
-            <span>How Rexec Works</span>
+            <span>Product Philosophy</span>
         </div>
-        <h1>The <span class="accent">Rexec</span> Architecture</h1>
+        <h1>Instant Access, <span class="accent">Zero Wait</span></h1>
         <p class="subtitle">
-            From zero to a full Linux environment in seconds. Here is how we handle the complexity so you can focus on building.
+            How Rexec delivers a fully configured environment without making you stare at a loading screen.
         </p>
     </div>
 
@@ -85,11 +82,11 @@
     </div>
 
     <section class="cta-section">
-        <h2>Experience the Magic</h2>
-        <p>See the orchestration in action. Launch a terminal now.</p>
+        <h2>Ready to feel the speed?</h2>
+        <p>Start a terminal and type `ls` before the setup finishes.</p>
         <button class="btn btn-primary btn-lg" on:click={handleTryNow}>
             <StatusIcon status="rocket" size={16} />
-            <span>Start Terminal</span>
+            <span>Launch Terminal</span>
         </button>
     </section>
 </div>
