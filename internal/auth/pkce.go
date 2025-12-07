@@ -30,6 +30,7 @@ type PKCEChallenge struct {
 type OAuthConfig struct {
 	ClientID    string
 	BaseURL     string
+	APIBaseURL  string
 	RedirectURI string
 	Scopes      []string
 }
@@ -65,6 +66,17 @@ func NewPKCEOAuthService() *PKCEOAuthService {
 		baseURL = DefaultPipeOpsBaseURL
 	}
 
+	apiBaseURL := os.Getenv("PIPEOPS_API_URL")
+	if apiBaseURL == "" {
+		// Default to api.staging.pipeops.sh if base is staging.pipeops.sh
+		if strings.Contains(baseURL, "staging.pipeops.sh") {
+			apiBaseURL = "https://api.staging.pipeops.sh"
+		} else {
+			// Fallback to same as base URL if not staging
+			apiBaseURL = baseURL
+		}
+	}
+
 	clientID := os.Getenv("PIPEOPS_CLIENT_ID")
 	if clientID == "" {
 		clientID = DefaultClientID
@@ -80,6 +92,7 @@ func NewPKCEOAuthService() *PKCEOAuthService {
 		config: &OAuthConfig{
 			ClientID:    clientID,
 			BaseURL:     baseURL,
+			APIBaseURL:  apiBaseURL,
 			RedirectURI: redirectURI,
 			Scopes:      []string{"user:read"},
 		},
@@ -153,7 +166,7 @@ func (s *PKCEOAuthService) ExchangeCodeForToken(code, codeVerifier string) (*Tok
 		return nil, fmt.Errorf("failed to marshal token request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", s.config.BaseURL+"/oauth/token", strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", s.config.APIBaseURL+"/oauth/token", strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token request: %w", err)
 	}
@@ -197,7 +210,7 @@ func (s *PKCEOAuthService) RefreshToken(refreshToken string) (*TokenResponse, er
 		return nil, fmt.Errorf("failed to marshal refresh request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", s.config.BaseURL+"/oauth/token", strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", s.config.APIBaseURL+"/oauth/token", strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create refresh request: %w", err)
 	}
@@ -230,7 +243,7 @@ func (s *PKCEOAuthService) RefreshToken(refreshToken string) (*TokenResponse, er
 
 // GetUserInfo fetches user information using the access token
 func (s *PKCEOAuthService) GetUserInfo(accessToken string) (*UserInfo, error) {
-	req, err := http.NewRequest("GET", s.config.BaseURL+"/oauth/userinfo", nil)
+	req, err := http.NewRequest("GET", s.config.APIBaseURL+"/oauth/userinfo", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create userinfo request: %w", err)
 	}
