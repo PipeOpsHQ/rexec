@@ -6,21 +6,21 @@ import (
 
 // User represents a registered user
 type User struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email"`
-	Username  string    `json:"username"`
-	Name      string    `json:"name,omitempty"` // Display name (first + last, or username)
-	FirstName string    `json:"first_name,omitempty"`
-	LastName  string    `json:"last_name,omitempty"`
-	Avatar    string    `json:"avatar,omitempty"`
-	Verified  bool      `json:"verified,omitempty"`
-	SubscriptionActive bool `json:"subscription_active,omitempty"`
-        IsAdmin            bool      `json:"is_admin,omitempty"`
-	Password  string    `json:"-"`                    // Never serialize password
-	Tier      string    `json:"tier"`                 // free, pro, enterprise
-	PipeOpsID string    `json:"pipeops_id,omitempty"` // PipeOps OAuth user ID
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Email              string    `json:"email"`
+	Username           string    `json:"username"`
+	Name               string    `json:"name,omitempty"` // Display name (first + last, or username)
+	FirstName          string    `json:"first_name,omitempty"`
+	LastName           string    `json:"last_name,omitempty"`
+	Avatar             string    `json:"avatar,omitempty"`
+	Verified           bool      `json:"verified,omitempty"`
+	SubscriptionActive bool      `json:"subscription_active,omitempty"`
+	IsAdmin            bool      `json:"is_admin,omitempty"`
+	Password           string    `json:"-"`                    // Never serialize password
+	Tier               string    `json:"tier"`                 // free, pro, enterprise
+	PipeOpsID          string    `json:"pipeops_id,omitempty"` // PipeOps OAuth user ID
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // RemoteHost represents a saved remote SSH connection (Jump Host target)
@@ -37,15 +37,15 @@ type RemoteHost struct {
 
 // PortForward represents a user-defined port forwarding rule for a container
 type PortForward struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"user_id"`
-	ContainerID string    `json:"container_id"`
-	Name        string    `json:"name"`          // Optional user-friendly name
+	ID            string    `json:"id"`
+	UserID        string    `json:"user_id"`
+	ContainerID   string    `json:"container_id"`
+	Name          string    `json:"name"`           // Optional user-friendly name
 	ContainerPort int       `json:"container_port"` // Port inside the container
-	LocalPort   int       `json:"local_port"`   // Port on the user's local machine (browser client)
-	Protocol    string    `json:"protocol"`     // e.g., "tcp"
-	IsActive    bool      `json:"is_active"`    // Whether the forward is currently active
-	CreatedAt   time.Time `json:"created_at"`
+	LocalPort     int       `json:"local_port"`     // Port on the user's local machine (browser client)
+	Protocol      string    `json:"protocol"`       // e.g., "tcp"
+	IsActive      bool      `json:"is_active"`      // Whether the forward is currently active
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // Snippet represents a saved script or macro
@@ -89,10 +89,10 @@ const (
 
 // ResourceLimits defines resource constraints for a container
 type ResourceLimits struct {
-	CPUShares int64         `json:"cpu_shares"` // CPU shares (relative weight)
-	MemoryMB  int64         `json:"memory_mb"`  // Memory limit in MB
-	DiskMB    int64         `json:"disk_mb"`    // Disk quota in MB
-	NetworkMB int64         `json:"network_mb"` // Network bandwidth limit in MB/s
+	CPUShares       int64         `json:"cpu_shares"`       // CPU shares (relative weight)
+	MemoryMB        int64         `json:"memory_mb"`        // Memory limit in MB
+	DiskMB          int64         `json:"disk_mb"`          // Disk quota in MB
+	NetworkMB       int64         `json:"network_mb"`       // Network bandwidth limit in MB/s
 	SessionDuration time.Duration `json:"session_duration"` // 0 = unlimited
 }
 
@@ -180,13 +180,13 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 
 // ShellConfig defines shell customization options
 type ShellConfig struct {
-	Enhanced        bool `json:"enhanced"`          // Install oh-my-zsh + plugins (default: true)
-	Theme           string `json:"theme,omitempty"` // zsh theme: "rexec" (default), "minimal", "powerlevel10k"
-	Autosuggestions bool `json:"autosuggestions"`   // Enable zsh-autosuggestions (default: true)
-	SyntaxHighlight bool `json:"syntax_highlight"`  // Enable zsh-syntax-highlighting (default: true)
-	HistorySearch   bool `json:"history_search"`    // Enable history-substring-search (default: true)
-	GitAliases      bool `json:"git_aliases"`       // Enable git shortcuts (default: true)
-	SystemStats     bool `json:"system_stats"`      // Show system stats on login (default: true)
+	Enhanced        bool   `json:"enhanced"`         // Install oh-my-zsh + plugins (default: true)
+	Theme           string `json:"theme,omitempty"`  // zsh theme: "rexec" (default), "minimal", "powerlevel10k"
+	Autosuggestions bool   `json:"autosuggestions"`  // Enable zsh-autosuggestions (default: true)
+	SyntaxHighlight bool   `json:"syntax_highlight"` // Enable zsh-syntax-highlighting (default: true)
+	HistorySearch   bool   `json:"history_search"`   // Enable history-substring-search (default: true)
+	GitAliases      bool   `json:"git_aliases"`      // Enable git shortcuts (default: true)
+	SystemStats     bool   `json:"system_stats"`     // Show system stats on login (default: true)
 }
 
 // DefaultShellConfig returns the default shell configuration
@@ -257,17 +257,17 @@ func GetTrialResourceLimits() TrialResourceLimits {
 func ValidateTrialResources(req *CreateContainerRequest, tier string) ResourceLimits {
 	// Determine the base limits for the tier
 	baseLimits := TierLimits(tier)
-	
+
 	// Get the overall allowed customization range for free/trial users
 	customizationLimits := GetTrialResourceLimits()
-	
+
 	result := baseLimits // Start with the base limits for the tier
-	
+
 	// Only "free", "guest", "trial" tiers are allowed to customize within the defined range.
 	// For "pro" and "enterprise", we just return their predefined baseLimits, ignoring req.
 	// For "guest", it gets its fixed restricted limits and no customization.
 	// So, actual customization is for "free" and "trial" tiers only, clamped by customizationLimits.
-	
+
 	if tier == "free" || tier == "trial" {
 		// Validate and clamp memory
 		if req.MemoryMB > 0 {
@@ -279,7 +279,7 @@ func ValidateTrialResources(req *CreateContainerRequest, tier string) ResourceLi
 				result.MemoryMB = req.MemoryMB
 			}
 		}
-		
+
 		// Validate and clamp CPU shares
 		if req.CPUShares > 0 {
 			if req.CPUShares < customizationLimits.MinCPUShares {
@@ -290,7 +290,7 @@ func ValidateTrialResources(req *CreateContainerRequest, tier string) ResourceLi
 				result.CPUShares = req.CPUShares
 			}
 		}
-		
+
 		// Validate and clamp disk
 		if req.DiskMB > 0 {
 			if req.DiskMB < customizationLimits.MinDiskMB {
@@ -302,7 +302,7 @@ func ValidateTrialResources(req *CreateContainerRequest, tier string) ResourceLi
 			}
 		}
 	}
-	
+
 	return result
 }
 
