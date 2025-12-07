@@ -6,6 +6,7 @@
     import { containers, type Container, type PortForward } from "$stores/containers";
     import { terminal } from "$stores/terminal";
     import ConfirmModal from "./ConfirmModal.svelte";
+    import StatusIcon from "./icons/StatusIcon.svelte";
 
     export let show: boolean = false;
     export let container: Container | null = null;
@@ -444,7 +445,7 @@
                         </div>
                     {:else if portForwards.length === 0}
                         <div class="empty-state">
-                            <div class="empty-icon">🔌</div>
+                            <div class="empty-icon"><StatusIcon status="plug" size={24} /></div>
                             <p>No active port forwards.</p>
                         </div>
                     {:else}

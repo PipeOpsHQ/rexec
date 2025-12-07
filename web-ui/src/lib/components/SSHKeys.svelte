@@ -4,6 +4,7 @@
     import { api } from "$utils/api";
     import { isGuest, auth } from "$stores/auth";
     import ConfirmModal from "./ConfirmModal.svelte";
+    import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
         back: void;
