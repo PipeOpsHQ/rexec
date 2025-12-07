@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -37,6 +37,18 @@ registerRoute(
   })
 );
 
+// Fallback for other assets (scripts, styles, images) not in precache
+registerRoute(
+  ({ request }) => request.destination === 'script' || request.destination === 'style' || request.destination === 'image',
+  new StaleWhileRevalidate({
+    cacheName: 'assets-runtime-cache',
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 30 }), // 30 days
+    ],
+  })
+);
+
 // Network-first for API calls (don't cache WebSocket or real-time data)
 registerRoute(
   ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.includes('/ws'),
@@ -65,15 +77,13 @@ registerRoute(
   })
 );
 
-// Skip waiting and claim clients immediately
-self.skipWaiting();
-self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
-});
-
-// Handle messages from the main thread
+// Skip waiting only when explicitly requested (e.g. by user clicking 'Update')
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
 });
