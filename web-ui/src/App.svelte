@@ -381,8 +381,15 @@
         />
 
         <main class="main" class:has-terminal={$hasSessions}>
-            {#if currentView === "landing"}
-                <Landing on:guest={openGuestModal} />
+            {:else if currentView === "landing"}
+                <Landing 
+                    on:guest={openGuestModal} 
+                    on:navigate={(e) => {
+                        // @ts-ignore - view is checked elsewhere or we trust it matches types
+                        currentView = e.detail.view;
+                        window.history.pushState({}, "", "/" + e.detail.view);
+                    }}
+                />
             {:else if currentView === "dashboard"}
                 <Dashboard
                     on:create={goToCreate}

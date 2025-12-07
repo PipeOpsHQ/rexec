@@ -12,47 +12,47 @@
 
     const useCases = [
         {
-            title: "Education & Workshops",
-            icon: "book",
-            description: "Teach Linux, Python, or Docker without the setup hell.",
+            title: "Ephemeral Dev Environments",
+            icon: "bolt",
+            description: "The future is disposable. Spin up a fresh, clean environment for every task, PR, or experiment. No drift, no cleanup.",
             points: [
-                "No 'it works on my machine' issues",
-                "Instant environments for every student",
-                "Share code/session links for pair debugging",
-                "Reset broken environments in seconds"
+                "Zero setup time - milliseconds to code",
+                "Immutable infrastructure patterns applied to dev",
+                "Always clean state - avoid 'works on my machine'",
+                "Perfect for testing dangerous scripts"
             ]
         },
         {
-            title: "AI Agents & Execution",
+            title: "Collaborative Intelligence",
             icon: "ai",
-            description: "The perfect sandbox for LLMs to run code safely.",
+            description: "A shared workspace for humans and AI agents. Let LLMs execute code in a real, safe environment while you supervise.",
             points: [
-                "Give your AI agent a real terminal",
-                "Safe, isolated execution environment",
-                "Pre-installed tools (git, curl, python)",
-                "Persistent workspace for long-running tasks"
+                "Sandboxed execution for autonomous agents",
+                "Human-in-the-loop oversight",
+                "Persistent context for long-running agent tasks",
+                "Standardized toolchain for consistent AI output"
             ]
         },
         {
-            title: "Cloud Development",
-            icon: "cloud",
-            description: "Code from any device with a browser.",
-            points: [
-                "Develop on iPad or Chromebook",
-                "Access powerful cloud resources",
-                "Consistent environment across devices",
-                "SSH jump host for private networks"
-            ]
-        },
-        {
-            title: "Debugging & Sandboxing",
+            title: "Universal Jump Host",
             icon: "shield",
-            description: "Test dangerous commands or untrusted scripts.",
+            description: "Access your private infrastructure securely from any browser. No VPNs, no complex SSH config management.",
             points: [
-                "Execute `rm -rf /` without fear",
-                "Analyze malware or suspicious files",
-                "Test installation scripts in a clean room",
-                "Disposable environments that leave no trace"
+                "Browser-based SSH client",
+                "Access private VPCs/subnets securely",
+                "Manage keys centrally",
+                "Audit logs for all session activity"
+            ]
+        },
+        {
+            title: "Instant Education & Onboarding",
+            icon: "book",
+            description: "Onboard new engineers in seconds, not days. Provide pre-configured environments for workshops and tutorials.",
+            points: [
+                "Standardized team environments",
+                "Interactive documentation that runs",
+                "Zero friction for workshop attendees",
+                "Focus on learning, not configuring"
             ]
         }
     ];
