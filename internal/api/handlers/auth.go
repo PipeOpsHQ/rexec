@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"regexp"
@@ -213,7 +214,7 @@ func (h *AuthHandler) GetOAuthURL(c *gin.Context) {
 		"code_verifier": pkceChallenge.CodeVerifier,
 		"exp":           time.Now().Add(15 * time.Minute).Unix(),
 	})
-	
+
 	stateString, err := stateToken.SignedString(h.jwtSecret)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIError{
@@ -230,7 +231,7 @@ func (h *AuthHandler) GetOAuthURL(c *gin.Context) {
 	if os.Getenv("GIN_MODE") != "release" {
 		isSecure = false
 	}
-	
+
 	// Note: SameSite=Lax is needed for the cookie to be sent on the return redirect
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("oauth_state", stateString, 900, "/api/auth", "", isSecure, true)
