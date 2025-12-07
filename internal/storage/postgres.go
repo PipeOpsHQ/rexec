@@ -101,6 +101,23 @@ func (s *PostgresStore) migrate() error {
 	);
 	
 	CREATE INDEX IF NOT EXISTS idx_remote_hosts_user_id ON remote_hosts(user_id);
+
+	CREATE TABLE IF NOT EXISTS port_forwards (
+		id VARCHAR(36) PRIMARY KEY,
+		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		container_id VARCHAR(64) NOT NULL REFERENCES containers(id) ON DELETE CASCADE,
+		name VARCHAR(255) NOT NULL,
+		container_port INTEGER NOT NULL,
+		local_port INTEGER NOT NULL,
+		protocol VARCHAR(10) DEFAULT 'tcp',
+		is_active BOOLEAN DEFAULT true,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE (user_id, container_id, container_port, local_port)
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_port_forwards_user_id ON port_forwards(user_id);
+	CREATE INDEX IF NOT EXISTS idx_port_forwards_container_id ON port_forwards(container_id);
+	CREATE INDEX IF NOT EXISTS idx_port_forwards_unique ON port_forwards(user_id, container_id, container_port, local_port);
 	`
 
 	if _, err := s.db.Exec(createTables); err != nil {
@@ -1244,4 +1261,99 @@ func (s *PostgresStore) GetRemoteHostByID(ctx context.Context, id string) (*mode
 		return nil, err
 	}
 	return &h, nil
+}
+
+// ============================================================================
+// Port Forward operations
+// ============================================================================
+
+// CreatePortForward creates a new port forward record
+func (s *PostgresStore) CreatePortForward(ctx context.Context, pf *models.PortForward) error {
+	query := `
+		INSERT INTO port_forwards (id, user_id, container_id, name, container_port, local_port, protocol, is_active, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		pf.ID,
+		pf.UserID,
+		pf.ContainerID,
+		pf.Name,
+		pf.ContainerPort,
+		pf.LocalPort,
+		pf.Protocol,
+		pf.IsActive,
+		pf.CreatedAt,
+	)
+	return err
+}
+
+// GetPortForwardsByUserIDAndContainerID retrieves active port forwards for a user and container
+func (s *PostgresStore) GetPortForwardsByUserIDAndContainerID(ctx context.Context, userID, containerID string) ([]*models.PortForward, error) {
+	query := `
+		SELECT id, user_id, container_id, name, container_port, local_port, protocol, is_active, created_at
+		FROM port_forwards WHERE user_id = $1 AND container_id = $2 AND is_active = true
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID, containerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var forwards []*models.PortForward
+	for rows.Next() {
+		var pf models.PortForward
+		err := rows.Scan(
+			&pf.ID,
+			&pf.UserID,
+			&pf.ContainerID,
+			&pf.Name,
+			&pf.ContainerPort,
+			&pf.LocalPort,
+			&pf.Protocol,
+			&pf.IsActive,
+			&pf.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		forwards = append(forwards, &pf)
+	}
+	return forwards, nil
+}
+
+// GetPortForwardByID retrieves a port forward by ID
+func (s *PostgresStore) GetPortForwardByID(ctx context.Context, id string) (*models.PortForward, error) {
+	var pf models.PortForward
+	query := `
+		SELECT id, user_id, container_id, name, container_port, local_port, protocol, is_active, created_at
+		FROM port_forwards WHERE id = $1
+	`
+	row := s.db.QueryRowContext(ctx, query, id)
+	err := row.Scan(
+		&pf.ID,
+		&pf.UserID,
+		&pf.ContainerID,
+		&pf.Name,
+		&pf.ContainerPort,
+		&pf.LocalPort,
+		&pf.Protocol,
+		&pf.IsActive,
+		&pf.CreatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &pf, nil
+}
+
+// DeletePortForward marks a port forward as inactive (soft delete)
+func (s *PostgresStore) DeletePortForward(ctx context.Context, id string) error {
+	// We might want to just mark as inactive instead of truly deleting
+	query := `UPDATE port_forwards SET is_active = false WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id)
+	return err
 }
