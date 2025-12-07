@@ -70,6 +70,25 @@
     $: cpuColor = getUsageColor(session.stats.cpu);
     $: memColor = getUsageColor(memoryPercent);
 
+    // Track network changes for visual feedback
+    let prevNetRx = 0;
+    let prevNetTx = 0;
+    let netRxChanged = false;
+    let netTxChanged = false;
+
+    $: {
+        if (session.stats.netRx !== prevNetRx) {
+            netRxChanged = true;
+            prevNetRx = session.stats.netRx;
+            setTimeout(() => netRxChanged = false, 500);
+        }
+        if (session.stats.netTx !== prevNetTx) {
+            netTxChanged = true;
+            prevNetTx = session.stats.netTx;
+            setTimeout(() => netTxChanged = false, 500);
+        }
+    }
+
     let containerElement: HTMLDivElement;
     let attachedToContainer: HTMLDivElement | null = null;
 
@@ -452,8 +471,8 @@
                     <span class="stat-item stat-net" title="Network: RX {formatMemoryBytes(session.stats.netRx)} / TX {formatMemoryBytes(session.stats.netTx)}">
                         <span class="stat-label">NET</span>
                         <span class="stat-io">
-                            <span class="stat-io-item stat-rx">RX:{formatMemoryBytes(session.stats.netRx)}</span>
-                            <span class="stat-io-item stat-tx">TX:{formatMemoryBytes(session.stats.netTx)}</span>
+                            <span class="stat-io-item stat-rx" class:pulse={netRxChanged}>RX:{formatMemoryBytes(session.stats.netRx)}</span>
+                            <span class="stat-io-item stat-tx" class:pulse={netTxChanged}>TX:{formatMemoryBytes(session.stats.netTx)}</span>
                         </span>
                     </span>
                 </span>
@@ -934,10 +953,22 @@
 
     .stat-read, .stat-rx {
         color: #88ccff;
+        transition: color 0.2s, text-shadow 0.2s;
     }
 
     .stat-write, .stat-tx {
         color: #ffaa88;
+        transition: color 0.2s, text-shadow 0.2s;
+    }
+
+    .stat-rx.pulse {
+        color: #00ffff;
+        text-shadow: 0 0 6px rgba(0, 255, 255, 0.8);
+    }
+
+    .stat-tx.pulse {
+        color: #ff8844;
+        text-shadow: 0 0 6px rgba(255, 136, 68, 0.8);
     }
 
     .stat-icon {

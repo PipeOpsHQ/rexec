@@ -79,6 +79,18 @@ RUN echo 'export PS1="\[\033[01;32m\]\u@rexec\[\033[00m\]:\[\033[01;34m\]\w\[\03
 
 # Create entrypoint script that starts SSH and keeps container running
 RUN echo '#!/bin/bash\n\
+    # Auto-fix dpkg/apt issues\n\
+    fix_dpkg() {\n\
+        if [ -d /var/lib/dpkg/updates ] && [ "$(ls -A /var/lib/dpkg/updates 2>/dev/null)" ]; then\n\
+            if ! dpkg --configure -a >/dev/null 2>&1; then\n\
+                rm -f /var/lib/dpkg/updates/* 2>/dev/null || true\n\
+                dpkg --configure -a 2>/dev/null || true\n\
+            fi\n\
+        fi\n\
+        rm -f /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true\n\
+    }\n\
+    fix_dpkg &\n\
+    \n\
     # Start SSH server\n\
     sudo /usr/sbin/sshd\n\
     \n\

@@ -107,7 +107,12 @@
                   on:click={() => mode = 'view'}
                 >
                   <div class="card-header">
-                    <span class="card-icon view">👁</span>
+                    <span class="card-icon view">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </span>
                     <span class="card-title">View Only</span>
                   </div>
                   <p class="card-desc">Collaborators can watch but cannot interact.</p>
@@ -119,7 +124,11 @@
                   on:click={() => mode = 'control'}
                 >
                   <div class="card-header">
-                    <span class="card-icon control">⚡</span>
+                    <span class="card-icon control">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                      </svg>
+                    </span>
                     <span class="card-title">Full Control</span>
                   </div>
                   <p class="card-desc">Collaborators can type and execute commands.</p>

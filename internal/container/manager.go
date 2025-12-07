@@ -1092,13 +1092,26 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		},
 		// Storage options for disk quota (requires overlay2 on XFS with pquota mount option)
 		StorageOpt: storageOpts,
-		// Security options - prevent privilege escalation and add seccomp
+		// Security options - prevent privilege escalation
 		SecurityOpt: []string{
 			"no-new-privileges:true",
-			"seccomp=unconfined", // TODO: Use custom seccomp profile for tighter control
+			// Use default Docker seccomp profile (more secure than unconfined)
+			// This blocks dangerous syscalls like reboot, mount, ptrace, etc.
 		},
 		// Prevent container from gaining new privileges
 		Privileged: false,
+		// Read-only root filesystem for additional security
+		// Writable paths are mounted as tmpfs
+		ReadonlyRootfs: true,
+		// Tmpfs mounts for writable directories
+		Tmpfs: map[string]string{
+			"/tmp":          "rw,noexec,nosuid,size=100m",
+			"/var/tmp":      "rw,noexec,nosuid,size=50m",
+			"/run":          "rw,noexec,nosuid,size=50m",
+			"/var/run":      "rw,noexec,nosuid,size=50m",
+			"/home/user":    "rw,nosuid,size=500m",
+			"/root":         "rw,nosuid,size=50m",
+		},
 		// Mask sensitive host information from /proc and /sys
 		MaskedPaths: []string{
 			"/proc/acpi",
@@ -1112,6 +1125,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			"/proc/scsi",
 			"/sys/firmware",
 			"/sys/devices/virtual/powercap",
+			"/sys/kernel",
 		},
 		// Make certain paths read-only to prevent tampering
 		ReadonlyPaths: []string{
@@ -1130,6 +1144,11 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			"SETGID",       // Set group ID
 			"SETUID",       // Set user ID (needed for su/sudo)
 			"KILL",         // Send signals
+			"NET_BIND_SERVICE", // Bind to ports < 1024 (useful for web dev)
+		},
+		// Sysctls - restrict kernel parameters the container can modify
+		Sysctls: map[string]string{
+			"net.ipv4.ip_unprivileged_port_start": "0", // Allow binding to low ports
 		},
 		// Restart policy
 		RestartPolicy: container.RestartPolicy{
@@ -1165,9 +1184,11 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		)
 
 		hostConfig.Privileged = true
-		hostConfig.SecurityOpt = nil // Clear security opts to allow KVM
-		hostConfig.CapDrop = nil     // Don't drop caps
-		hostConfig.CapAdd = nil      // Allow all caps
+		hostConfig.SecurityOpt = nil    // Clear security opts to allow KVM
+		hostConfig.CapDrop = nil        // Don't drop caps
+		hostConfig.CapAdd = nil         // Allow all caps
+		hostConfig.ReadonlyRootfs = false // macOS needs writable root
+		hostConfig.Tmpfs = nil          // Clear tmpfs for macOS
 
 		// Map /dev/kvm if available
 		if _, err := os.Stat("/dev/kvm"); err == nil {
@@ -1191,6 +1212,9 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 				Target: "/home/user",
 			},
 		}
+		
+		// Remove /home/user from tmpfs since we use a volume mount
+		delete(hostConfig.Tmpfs, "/home/user")
 
 		// Ensure permissions on volume mount
 		containerConfig.Entrypoint = []string{"/bin/sh", "-c", "mkdir -p /home/user && (chmod 777 /home/user || true) && exec " + shell}

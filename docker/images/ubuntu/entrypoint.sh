@@ -1,6 +1,33 @@
 #!/bin/bash
 set -e
 
+# Auto-fix common dpkg/apt issues
+fix_dpkg() {
+    # Check for corrupted dpkg updates
+    if [ -d /var/lib/dpkg/updates ] && [ "$(ls -A /var/lib/dpkg/updates 2>/dev/null)" ]; then
+        # Test if dpkg is broken
+        if ! dpkg --configure -a >/dev/null 2>&1; then
+            # Remove corrupted update files
+            rm -f /var/lib/dpkg/updates/* 2>/dev/null || true
+            dpkg --configure -a 2>/dev/null || true
+        fi
+    fi
+    
+    # Fix interrupted apt operations
+    if [ -f /var/lib/dpkg/lock-frontend ]; then
+        rm -f /var/lib/dpkg/lock-frontend 2>/dev/null || true
+    fi
+    if [ -f /var/lib/apt/lists/lock ]; then
+        rm -f /var/lib/apt/lists/lock 2>/dev/null || true
+    fi
+    if [ -f /var/cache/apt/archives/lock ]; then
+        rm -f /var/cache/apt/archives/lock 2>/dev/null || true
+    fi
+}
+
+# Run dpkg fix silently in background
+fix_dpkg &
+
 # Start SSH server if not running (use sudo since we run as non-root user)
 if [ ! -f /var/run/sshd.pid ] || ! sudo kill -0 $(cat /var/run/sshd.pid 2>/dev/null) 2>/dev/null; then
     # Ensure SSH host keys exist

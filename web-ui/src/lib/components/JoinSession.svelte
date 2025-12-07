@@ -203,7 +203,7 @@
           <div class="info-item">
             <span class="label">Access</span>
             <span class="value mode-badge" class:control={sessionInfo.mode === 'control'}>
-              {sessionInfo.mode === 'control' ? '✏️ Full Control' : '👁 View Only'}
+              {sessionInfo.mode === 'control' ? 'Full Control' : 'View Only'}
             </span>
           </div>
           <div class="info-item">
