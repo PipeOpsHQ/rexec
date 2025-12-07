@@ -100,16 +100,6 @@ function createAuthStore() {
           ? Math.floor(Date.now() / 1000) + data.expires_in
           : undefined;
 
-        const user: User = {
-          id: userData.id || data.user_id,
-          email: userData.email || email,
-          name: userData.username || userData.name || "Guest User",
-          tier: userData.tier || "guest",
-          isGuest: true,
-          isAdmin: false,
-          expiresAt,
-        };
-
         // Extract token, handling potential nested object formats
         let receivedToken = data.token;
         if (typeof receivedToken === 'object' && receivedToken !== null) {
@@ -119,6 +109,16 @@ function createAuthStore() {
         if (!receivedToken || typeof receivedToken !== 'string') {
           throw new Error("Invalid token format received from guest login");
         }
+
+        const user: User = {
+          id: userData.id || data.user_id,
+          email: userData.email || email,
+          name: userData.username || userData.name || "Guest User",
+          tier: userData.tier || "guest",
+          isGuest: true,
+          isAdmin: false,
+          expiresAt,
+        };
         
         this.login(receivedToken, user);
         return {
@@ -176,16 +176,6 @@ function createAuthStore() {
         const data = await response.json();
         // API returns nested response: { token: "...", user: {...} }
         const userData = data.user || data;
-        const user: User = {
-          id: userData.id || data.user_id,
-          email: userData.email || "",
-          name: userData.username || userData.name || userData.email || "User",
-          avatar: userData.avatar,
-          tier: userData.tier || "free",
-          isGuest: false,
-          isAdmin: userData.is_admin || userData.role === 'admin' || false,
-        };
-
         // Extract token, handling potential nested object formats
         let receivedToken = data.token;
         if (typeof receivedToken === 'object' && receivedToken !== null) {
@@ -195,6 +185,16 @@ function createAuthStore() {
         if (!receivedToken || typeof receivedToken !== 'string') {
           throw new Error("Invalid token format received from OAuth exchange");
         }
+
+        const user: User = {
+          id: userData.id || data.user_id,
+          email: userData.email || "",
+          name: userData.username || userData.name || userData.email || "User",
+          avatar: userData.avatar,
+          tier: userData.tier || "free",
+          isGuest: false,
+          isAdmin: userData.is_admin || userData.role === 'admin' || false,
+        };
         
         this.login(receivedToken, user);
         return { success: true };
@@ -299,108 +299,9 @@ function createAuthStore() {
       return false;
     },
 
-    // Manually enable admin mode (for secret key access)
-    enableAdminMode() {
-      update((state) => {
-        if (!state.user) return state;
-        const updatedUser = { ...state.user, isAdmin: true, tier: "pro" as const };
-        localStorage.setItem("rexec_user", JSON.stringify(updatedUser));
-        return { ...state, user: updatedUser };
-      });
-    },
-
-    // Check if token is valid
-    async validateToken() {
-      const token = localStorage.getItem("rexec_token");
-      if (!token) {
-
-        return false;
-      }
-      // ... (rest of the function)
-      // I will implement enableAdminMode before validateToken to keep it grouped with actions
-      return false; // Just placeholder for matching
-    },
-
-    // Manually enable admin mode (for secret key access)
-    enableAdminMode() {
-      update((state) => {
-        if (!state.user) return state;
-        const updatedUser = { ...state.user, isAdmin: true, tier: "pro" as const };
-        localStorage.setItem("rexec_user", JSON.stringify(updatedUser));
-        return { ...state, user: updatedUser };
-      });
-    },
-
-    async validateToken() {
-
-      // Check if guest session has expired locally first
-      if (this.isSessionExpired()) {
-
-        this.logout();
-        return false;
-      }
-
-      // Check local session validity for guests first
-      const userJson = localStorage.getItem("rexec_user");
-      let isGuestWithValidLocalSession = false;
-      if (userJson) {
-        try {
-          const user = JSON.parse(userJson) as User;
-          if ((user.isGuest || user.tier === "guest") && user.expiresAt) {
-            const now = Math.floor(Date.now() / 1000);
-            isGuestWithValidLocalSession = now < user.expiresAt;
-
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      }
-
-      try {
-        const response = await fetch("/api/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-
-          return true;
-        }
-
-        // On 401 Unauthorized, the token is definitely invalid
-        if (response.status === 401) {
-          this.logout();
-          return false;
-        }
-
-        // For other errors (500, etc) or missing schema fields, 
-        // we should arguably keep the user logged in to avoid disruption
-        // unless it's a guest whose session is expired.
-        
-        // If it's a guest with valid local session, definitely keep them.
-        if (isGuestWithValidLocalSession) {
-
-          return true;
-        }
-
-        // For non-guests (or unknown status), if we have a token, assume it's valid
-        // but the backend might be having issues.
-        // Returning true here prevents the immediate logout loop on refresh.
-        // The UI might show an error later if specific calls fail.
-        return true;
-      } catch (e) {
 
 
-        // On network error, keep guests logged in if local session is valid
-        if (isGuestWithValidLocalSession) {
 
-          return true;
-        }
-
-        // For non-guests, if we have a token but network failed, assume it's valid for now
-        // to prevent immediate logout on flaky connections or server restarts.
-        return true;
-      }
-    },
   };
 }
 
