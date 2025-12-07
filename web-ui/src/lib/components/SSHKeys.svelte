@@ -248,7 +248,7 @@
                 disabled={$isGuest}
                 title={$isGuest ? "Sign in with PipeOps to manage SSH" : ""}
             >
-                {#if $isGuest}🔒{/if} Add Connection
+                {#if $isGuest}<StatusIcon status="lock" size={14} />{/if} Add Connection
             </button>
         </div>
 
@@ -259,7 +259,7 @@
             </div>
         {:else if $isGuest}
             <div class="guest-state">
-                <div class="guest-icon">🔒</div>
+                <div class="guest-icon"><StatusIcon status="lock" size={48} /></div>
                 <h2>SSH Features Locked</h2>
                 <p>
                     Sign in with PipeOps to manage your SSH configuration and enable
@@ -280,7 +280,7 @@
             </div>
         {:else if hosts.length === 0}
             <div class="empty-state">
-                <div class="empty-icon">🌐</div>
+                <div class="empty-icon"><StatusIcon status="globe" size={48} /></div>
                 <h2>No Remote Connections</h2>
                 <p>
                     Add a remote server to quickly SSH into it from your Rexec terminal.
@@ -293,7 +293,7 @@
             <div class="keys-list">
                 {#each hosts as host (host.id)}
                     <div class="key-card">
-                        <div class="key-icon">🌐</div>
+                        <div class="key-icon"><StatusIcon status="globe" size={24} /></div>
                         <div class="key-info">
                             <div class="key-name">{host.name}</div>
                             <div class="key-fingerprint">{host.username}@{host.hostname}:{host.port}</div>
