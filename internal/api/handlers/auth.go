@@ -669,13 +669,13 @@ func renderOAuthSuccessPage(token string, user *models.User) string {
         .logo-icon {
             width: 44px;
             height: 44px;
-            background: linear-gradient(135deg, #7c7bff 0%, #6366f1 100%);
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 22px;
-            box-shadow: 0 4px 16px rgba(124, 123, 255, 0.3);
+            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
         }
         .logo-text {
             font-size: 26px;
@@ -911,13 +911,13 @@ func renderOAuthErrorPage(errorCode, errorDesc string) string {
         .logo-icon {
             width: 44px;
             height: 44px;
-            background: linear-gradient(135deg, #7c7bff 0%, #6366f1 100%);
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 22px;
-            box-shadow: 0 4px 16px rgba(124, 123, 255, 0.3);
+            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
         }
         .logo-text {
             font-size: 26px;
