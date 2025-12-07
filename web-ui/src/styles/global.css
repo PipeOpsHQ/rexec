@@ -48,6 +48,7 @@ body {
     min-height: 100vh;
     line-height: 1.4;
     overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 /* CRT Scanline Effect */

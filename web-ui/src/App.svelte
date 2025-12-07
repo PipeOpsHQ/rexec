@@ -679,8 +679,10 @@
 <style>
     .app {
         min-height: 100vh;
+        max-height: 100vh;
         display: flex;
         flex-direction: column;
+        overflow-y: auto;
     }
 
     .main {
@@ -689,6 +691,7 @@
         margin: 0 auto;
         padding: 20px;
         width: 100%;
+        overflow-y: auto;
     }
 
     .main.has-terminal {
