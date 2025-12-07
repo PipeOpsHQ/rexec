@@ -15,6 +15,7 @@ type User struct {
 	Avatar    string    `json:"avatar,omitempty"`
 	Verified  bool      `json:"verified,omitempty"`
 	SubscriptionActive bool `json:"subscription_active,omitempty"`
+        IsAdmin            bool      `json:"is_admin,omitempty"`
 	Password  string    `json:"-"`                    // Never serialize password
 	Tier      string    `json:"tier"`                 // free, pro, enterprise
 	PipeOpsID string    `json:"pipeops_id,omitempty"` // PipeOps OAuth user ID

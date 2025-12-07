@@ -486,6 +486,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"tier":       user.Tier,
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
+                "is_admin":   user.IsAdmin,
 	}
 
 	// For guest users, include expiration time from token
@@ -573,6 +574,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 			"tier":       user.Tier,
 			"created_at": user.CreatedAt,
 			"updated_at": user.UpdatedAt,
+                "is_admin":   user.IsAdmin,
 		},
 		"token": token,
 	})
