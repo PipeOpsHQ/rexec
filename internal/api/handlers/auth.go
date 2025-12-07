@@ -669,13 +669,14 @@ func renderOAuthSuccessPage(token string, user *models.User) string {
         .logo-icon {
             width: 44px;
             height: 44px;
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
-            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+        }
+        .logo-icon svg {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
         }
         .logo-text {
             font-size: 26px;
@@ -796,7 +797,18 @@ func renderOAuthSuccessPage(token string, user *models.User) string {
     <div class="bg-glow"></div>
     <div class="container">
         <div class="logo">
-            <div class="logo-icon">⌘</div>
+            <div class="logo-icon">
+                <svg width="44" height="44" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="256" height="256" rx="64" fill="#0A0A0A"/>
+                    <g transform="translate(128, 128)">
+                        <path d="M0 -80 L70 -40 L70 40 L0 80 L-70 40 L-70 -40 Z" fill="#0A0A0A" stroke="#00FF41" stroke-width="12"/>
+                        <g transform="translate(-40, -40) scale(2.2)">
+                            <path d="M5 10L15 20L5 30" stroke="#00FF41" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="18" y1="30" x2="32" y2="30" stroke="#00FF41" stroke-width="5" stroke-linecap="round"/>
+                        </g>
+                    </g>
+                </svg>
+            </div>
             <span class="logo-text">Rexec</span>
         </div>
         <div class="icon-container">
@@ -911,13 +923,14 @@ func renderOAuthErrorPage(errorCode, errorDesc string) string {
         .logo-icon {
             width: 44px;
             height: 44px;
-            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
-            box-shadow: 0 4px 16px rgba(34, 197, 94, 0.3);
+        }
+        .logo-icon svg {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
         }
         .logo-text {
             font-size: 26px;
@@ -1025,7 +1038,18 @@ func renderOAuthErrorPage(errorCode, errorDesc string) string {
     <div class="bg-glow"></div>
     <div class="container">
         <div class="logo">
-            <div class="logo-icon">⌘</div>
+            <div class="logo-icon">
+                <svg width="44" height="44" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="256" height="256" rx="64" fill="#0A0A0A"/>
+                    <g transform="translate(128, 128)">
+                        <path d="M0 -80 L70 -40 L70 40 L0 80 L-70 40 L-70 -40 Z" fill="#0A0A0A" stroke="#00FF41" stroke-width="12"/>
+                        <g transform="translate(-40, -40) scale(2.2)">
+                            <path d="M5 10L15 20L5 30" stroke="#00FF41" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="18" y1="30" x2="32" y2="30" stroke="#00FF41" stroke-width="5" stroke-linecap="round"/>
+                        </g>
+                    </g>
+                </svg>
+            </div>
             <span class="logo-text">Rexec</span>
         </div>
         <div class="icon-container">
