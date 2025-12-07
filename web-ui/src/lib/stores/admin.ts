@@ -153,30 +153,46 @@ function createAdminStore() {
 
     async fetchUsers() {
       update((state) => ({ ...state, isLoading: true, error: null }));
-      // TODO: Replace with real API call
-      // const { data, error } = await api.get<AdminUser[]>("/api/admin/users");
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate delay
-      this._generateMockData(); // Populate with mock data for now
+      const { data, error } = await api.get<AdminUser[]>("/api/admin/users");
+      
+      if (error) {
+        update((state) => ({ ...state, isLoading: false, error }));
+        // Fallback to mock data if API fails (for dev/demo purposes if backend not ready)
+        // this._generateMockData(); 
+        return;
+      }
+
+      update((state) => ({ ...state, users: data || [], isLoading: false }));
     },
 
     async fetchContainers() {
       update((state) => ({ ...state, isLoading: true, error: null }));
-      // TODO: Replace with real API call
-      // const { data, error } = await api.get<AdminContainer[]>("/api/admin/containers");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      this._generateMockData();
+      const { data, error } = await api.get<AdminContainer[]>("/api/admin/containers");
+
+      if (error) {
+        update((state) => ({ ...state, isLoading: false, error }));
+        return;
+      }
+
+      update((state) => ({ ...state, containers: data || [], isLoading: false }));
     },
 
     async fetchTerminals() {
       update((state) => ({ ...state, isLoading: true, error: null }));
-      // TODO: Replace with real API call
-      // const { data, error } = await api.get<AdminTerminal[]>("/api/admin/terminals");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      this._generateMockData();
+      const { data, error } = await api.get<AdminTerminal[]>("/api/admin/terminals");
+
+      if (error) {
+        update((state) => ({ ...state, isLoading: false, error }));
+        return;
+      }
+
+      update((state) => ({ ...state, terminals: data || [], isLoading: false }));
     },
 
     async deleteUser(userId: string) {
-       // TODO: API Call
+       const { error } = await api.delete(`/api/admin/users/${userId}`);
+       if (error) return { success: false, error };
+
        update(state => ({
            ...state,
            users: state.users.filter(u => u.id !== userId)
@@ -185,7 +201,9 @@ function createAdminStore() {
     },
     
     async deleteContainer(containerId: string) {
-        // TODO: API Call
+        const { error } = await api.delete(`/api/admin/containers/${containerId}`);
+        if (error) return { success: false, error };
+
         update(state => ({
             ...state,
             containers: state.containers.filter(c => c.id !== containerId)
