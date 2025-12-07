@@ -19,6 +19,7 @@
     import StatusIcon from "$components/icons/StatusIcon.svelte";
     import Guides from "$components/Guides.svelte";
     import UseCases from "$components/UseCases.svelte";
+    import SnippetsPage from "$components/SnippetsPage.svelte";
 
     // App state
     let currentView:
@@ -27,6 +28,7 @@
         | "create"
         | "settings"
         | "sshkeys"
+        | "snippets"
         | "join"
         | "guides"
         | "use-cases" = "landing";
@@ -154,11 +156,6 @@
 
         // Check for /guides route (formerly ai-tools)
         if (path === "/guides" || path === "/ai-tools") {
-            if ($isAuthenticated) {
-                currentView = "dashboard";
-                window.history.replaceState({}, "", "/dashboard"); // Redirect to dashboard
-                return;
-            }
             currentView = "guides";
             if (path === "/ai-tools") {
                 window.history.replaceState({}, "", "/guides");
@@ -168,11 +165,6 @@
 
         // Check for /use-cases route (formerly agentic)
         if (path === "/use-cases" || path === "/agentic") {
-            if ($isAuthenticated) {
-                currentView = "dashboard";
-                window.history.replaceState({}, "", "/dashboard"); // Redirect to dashboard
-                return;
-            }
             currentView = "use-cases";
             if (path === "/agentic") {
                 window.history.replaceState({}, "", "/use-cases");
@@ -197,6 +189,16 @@
             }
             
             currentView = "join";
+            return;
+        }
+
+        // Check for /snippets route
+        if (path === "/snippets") {
+            if (!$isAuthenticated) {
+                currentView = "landing";
+                return;
+            }
+            currentView = "snippets";
             return;
         }
         
@@ -328,6 +330,10 @@
         currentView = "sshkeys";
     }
 
+    function goToSnippets() {
+        currentView = "snippets";
+    }
+
     function onContainerCreated(
         event: CustomEvent<{ id: string; name: string }>,
     ) {
@@ -344,19 +350,13 @@
         if (path === "/" || path === "") {
             currentView = $isAuthenticated ? "dashboard" : "landing";
         } else if (path === "/guides" || path === "/ai-tools") {
-            if ($isAuthenticated) {
-                currentView = "dashboard";
-                window.history.replaceState({}, "", "/dashboard"); // Redirect to dashboard
-            } else {
-                currentView = "guides";
-            }
+            currentView = "guides";
         } else if (path === "/use-cases" || path === "/agentic") {
-            if ($isAuthenticated) {
-                currentView = "dashboard";
-                window.history.replaceState({}, "", "/dashboard"); // Redirect to dashboard
-            } else {
-                currentView = "use-cases";
-            }
+            currentView = "use-cases";
+        } else if (path === "/guides") {
+            currentView = "guides";
+        } else if (path === "/snippets") {
+            currentView = $isAuthenticated ? "snippets" : "landing";
         }
     }
 </script>
@@ -375,6 +375,7 @@
             on:create={goToCreate}
             on:settings={goToSettings}
             on:sshkeys={goToSSHKeys}
+            on:snippets={goToSnippets}
             on:guest={openGuestModal}
             on:pricing={() => showPricing = true}
         />
@@ -399,6 +400,8 @@
                 <Settings on:back={goToDashboard} />
             {:else if currentView === "sshkeys"}
                 <SSHKeys on:back={goToDashboard} />
+            {:else if currentView === "snippets"}
+                <SnippetsPage on:back={goToDashboard} />
             {:else if currentView === "join"}
                 <JoinSession code={joinCode} on:joined={(e) => {
                     // Use createCollabSession for shared terminals to track mode/role

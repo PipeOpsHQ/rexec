@@ -28,7 +28,7 @@
         created_at: string;
     }
 
-    let activeTab: "keys" | "hosts" = "keys";
+    let activeTab: "keys" | "hosts" = "hosts";
     let keys: SSHKey[] = [];
     let hosts: RemoteHost[] = [];
     let isLoading = true;
@@ -236,30 +236,11 @@
     </div>
 
     <div class="ssh-keys-content">
-        <div class="tabs">
-            <button 
-                class="tab-btn" 
-                class:active={activeTab === "keys"} 
-                on:click={() => activeTab = "keys"}
-            >
-                Authorized Keys
-            </button>
-            <button 
-                class="tab-btn" 
-                class:active={activeTab === "hosts"} 
-                on:click={() => activeTab = "hosts"}
-            >
-                Remote Connections
-            </button>
-        </div>
+        <!-- Tabs removed as inbound SSH is temporarily disabled -->
 
         <div class="section-header">
             <p class="section-description">
-                {#if activeTab === "keys"}
-                    Add SSH keys to allow secure passwordless access TO your Rexec terminals.
-                {:else}
-                    Save remote server details to quickly connect FROM your Rexec terminals.
-                {/if}
+                Save remote server details to quickly connect FROM your Rexec terminals.
             </p>
             <button
                 class="btn btn-primary"
@@ -267,7 +248,7 @@
                 disabled={$isGuest}
                 title={$isGuest ? "Sign in with PipeOps to manage SSH" : ""}
             >
-                {#if $isGuest}🔒{/if} Add {activeTab === "keys" ? "Key" : "Connection"}
+                {#if $isGuest}🔒{/if} Add Connection
             </button>
         </div>
 
@@ -297,96 +278,49 @@
                     {/if}
                 </button>
             </div>
-        {:else if (activeTab === "keys" && keys.length === 0) || (activeTab === "hosts" && hosts.length === 0)}
+        {:else if hosts.length === 0}
             <div class="empty-state">
-                <div class="empty-icon">{activeTab === "keys" ? "🔑" : "🌐"}</div>
-                <h2>No {activeTab === "keys" ? "SSH Keys" : "Remote Connections"}</h2>
+                <div class="empty-icon">🌐</div>
+                <h2>No Remote Connections</h2>
                 <p>
-                    {activeTab === "keys" 
-                        ? "Add an SSH key to enable secure passwordless access to your terminals."
-                        : "Add a remote server to quickly SSH into it from your Rexec terminal."}
+                    Add a remote server to quickly SSH into it from your Rexec terminal.
                 </p>
                 <button class="btn btn-primary" on:click={openModal}>
-                    + Add Your First {activeTab === "keys" ? "Key" : "Connection"}
+                    + Add Your First Connection
                 </button>
             </div>
         {:else}
             <div class="keys-list">
-                {#if activeTab === "keys"}
-                    {#each keys as key (key.id)}
-                        <div class="key-card">
-                            <div class="key-icon">🔑</div>
-                            <div class="key-info">
-                                <div class="key-name">{key.name}</div>
-                                <div class="key-fingerprint">{key.fingerprint}</div>
-                                <div class="key-meta">
-                                    <span>Added {formatDate(key.created_at)}</span>
-                                </div>
+                {#each hosts as host (host.id)}
+                    <div class="key-card">
+                        <div class="key-icon">🌐</div>
+                        <div class="key-info">
+                            <div class="key-name">{host.name}</div>
+                            <div class="key-fingerprint">{host.username}@{host.hostname}:{host.port}</div>
+                            <div class="key-meta">
+                                {#if host.identity_file}
+                                    <span>Identity: {host.identity_file} • </span>
+                                {/if}
+                                <span>Added {formatDate(host.created_at)}</span>
                             </div>
+                        </div>
+                        <div class="actions">
+                            <button
+                                class="btn btn-secondary btn-sm"
+                                on:click={() => copyToClipboard(host.ssh_command)}
+                                title="Copy SSH Command"
+                            >
+                                Copy
+                            </button>
                             <button
                                 class="btn btn-danger btn-sm"
-                                on:click={() => deleteKey(key.id, key.name, "key")}
+                                on:click={() => deleteKey(host.id, host.name, "host")}
                             >
                                 Delete
                             </button>
                         </div>
-                    {/each}
-                {:else}
-                    {#each hosts as host (host.id)}
-                        <div class="key-card">
-                            <div class="key-icon">🌐</div>
-                            <div class="key-info">
-                                <div class="key-name">{host.name}</div>
-                                <div class="key-fingerprint">{host.username}@{host.hostname}:{host.port}</div>
-                                <div class="key-meta">
-                                    {#if host.identity_file}
-                                        <span>Identity: {host.identity_file} • </span>
-                                    {/if}
-                                    <span>Added {formatDate(host.created_at)}</span>
-                                </div>
-                            </div>
-                            <div class="actions">
-                                <button
-                                    class="btn btn-secondary btn-sm"
-                                    on:click={() => copyToClipboard(host.ssh_command)}
-                                    title="Copy SSH Command"
-                                >
-                                    Copy
-                                </button>
-                                <button
-                                    class="btn btn-danger btn-sm"
-                                    on:click={() => deleteKey(host.id, host.name, "host")}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    {/each}
-                {/if}
-            </div>
-        {/if}
-
-        {#if activeTab === "keys"}
-            <!-- Instructions for Keys -->
-            <div class="instructions">
-                <h3>How to generate an SSH key</h3>
-                <div class="instruction-steps">
-                    <!-- ... steps content ... -->
-                    <div class="step">
-                        <span class="step-number">1</span>
-                        <div class="step-content">
-                            <p>Open your terminal and run:</p>
-                            <code>ssh-keygen -t ed25519 -C "your_email@example.com"</code>
-                        </div>
                     </div>
-                    <div class="step">
-                        <span class="step-number">2</span>
-                        <div class="step-content">
-                            <p>Copy your public key:</p>
-                            <code>cat ~/.ssh/id_ed25519.pub</code>
-                        </div>
-                    </div>
-                </div>
+                {/each}
             </div>
         {/if}
     </div>
@@ -402,83 +336,60 @@
             aria-modal="true"
         >
             <div class="modal-header">
-                <h2>Add {activeTab === "keys" ? "SSH Key" : "Remote Connection"}</h2>
+                <h2>Add Remote Connection</h2>
                 <button class="modal-close" on:click={closeModal}>×</button>
             </div>
 
             <div class="modal-body">
-                {#if activeTab === "keys"}
-                    <div class="form-group">
-                        <label for="key-name">Name</label>
+                <div class="form-group">
+                    <label for="host-name">Name</label>
+                    <input
+                        type="text"
+                        id="host-name"
+                        bind:value={newHostName}
+                        placeholder="e.g., Production DB"
+                        maxlength="64"
+                    />
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2">
+                        <label for="host-address">Hostname / IP</label>
                         <input
                             type="text"
-                            id="key-name"
-                            bind:value={newKeyName}
-                            placeholder="e.g., MacBook Pro"
-                            maxlength="64"
+                            id="host-address"
+                            bind:value={newHostAddress}
+                            placeholder="e.g., 192.168.1.10"
                         />
                     </div>
-
-                    <div class="form-group">
-                        <label for="key-content">Public Key</label>
-                        <textarea
-                            id="key-content"
-                            bind:value={newKeyContent}
-                            placeholder="ssh-ed25519 AAAA..."
-                            rows="4"
-                        ></textarea>
-                    </div>
-                {:else}
-                    <div class="form-group">
-                        <label for="host-name">Name</label>
+                    <div class="form-group" style="flex: 1">
+                        <label for="host-port">Port</label>
                         <input
-                            type="text"
-                            id="host-name"
-                            bind:value={newHostName}
-                            placeholder="e.g., Production DB"
-                            maxlength="64"
+                            type="number"
+                            id="host-port"
+                            bind:value={newHostPort}
+                            placeholder="22"
                         />
                     </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex: 2">
-                            <label for="host-address">Hostname / IP</label>
-                            <input
-                                type="text"
-                                id="host-address"
-                                bind:value={newHostAddress}
-                                placeholder="e.g., 192.168.1.10"
-                            />
-                        </div>
-                        <div class="form-group" style="flex: 1">
-                            <label for="host-port">Port</label>
-                            <input
-                                type="number"
-                                id="host-port"
-                                bind:value={newHostPort}
-                                placeholder="22"
-                            />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="host-user">Username</label>
-                        <input
-                            type="text"
-                            id="host-user"
-                            bind:value={newHostUser}
-                            placeholder="root"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="host-key">Identity File (Optional)</label>
-                        <input
-                            type="text"
-                            id="host-key"
-                            bind:value={newHostKeyPath}
-                            placeholder="e.g., ~/.ssh/id_rsa"
-                        />
-                        <span class="form-hint">Path to private key inside the container</span>
-                    </div>
-                {/if}
+                </div>
+                <div class="form-group">
+                    <label for="host-user">Username</label>
+                    <input
+                        type="text"
+                        id="host-user"
+                        bind:value={newHostUser}
+                        placeholder="root"
+                    />
+                </div>
+                <div class="form-group">
+                    <label for="host-key">Identity File (Optional)</label>
+                    <input
+                        type="text"
+                        id="host-key"
+                        bind:value={newHostKeyPath}
+                        placeholder="e.g., ~/.ssh/id_rsa"
+                    />
+                    <span class="form-hint">Path to private key inside the terminal</span>
+                </div>
             </div>
 
             <div class="modal-footer">
@@ -491,7 +402,7 @@
                 </button>
                 <button
                     class="btn btn-primary"
-                    on:click={activeTab === "keys" ? addKey : addHost}
+                    on:click={addHost}
                     disabled={isAdding}
                 >
                     {isAdding ? "Adding..." : "Add"}

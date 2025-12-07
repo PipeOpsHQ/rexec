@@ -16,6 +16,7 @@
         create: void;
         settings: void;
         sshkeys: void;
+        snippets: void;
         guest: void;
         pricing: void;
     }>();
@@ -258,6 +259,20 @@
                             <StatusIcon status="key" size={14} />
                             SSH Keys
                             {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
+                        </button>
+                        <button
+                            class="user-menu-item"
+                            class:disabled={$isGuest}
+                            disabled={$isGuest}
+                            on:click={() => {
+                                if (!$isGuest) {
+                                    showUserMenu = false;
+                                    dispatch("snippets");
+                                }
+                            }}
+                        >
+                            <StatusIcon status="script" size={14} />
+                            Snippets
                         </button>
                         {#if $isGuest}
                             <div class="user-menu-divider"></div>
