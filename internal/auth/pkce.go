@@ -147,7 +147,7 @@ func (s *PKCEOAuthService) ExchangeCodeForToken(code, codeVerifier string) (*Tok
 		"code_verifier": {codeVerifier},
 	}
 
-	req, err := http.NewRequest("POST", s.config.BaseURL+"/oauth/token", strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", s.config.BaseURL+"/auth/token", strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token request: %w", err)
 	}
@@ -186,7 +186,7 @@ func (s *PKCEOAuthService) RefreshToken(refreshToken string) (*TokenResponse, er
 		"client_id":     {s.config.ClientID},
 	}
 
-	req, err := http.NewRequest("POST", s.config.BaseURL+"/oauth/token", strings.NewReader(data.Encode()))
+	req, err := http.NewRequest("POST", s.config.BaseURL+"/auth/token", strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create refresh request: %w", err)
 	}
@@ -219,7 +219,7 @@ func (s *PKCEOAuthService) RefreshToken(refreshToken string) (*TokenResponse, er
 
 // GetUserInfo fetches user information using the access token
 func (s *PKCEOAuthService) GetUserInfo(accessToken string) (*UserInfo, error) {
-	req, err := http.NewRequest("GET", s.config.BaseURL+"/oauth/userinfo", nil)
+	req, err := http.NewRequest("GET", s.config.BaseURL+"/auth/userinfo", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create userinfo request: %w", err)
 	}
