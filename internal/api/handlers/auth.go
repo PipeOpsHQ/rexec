@@ -464,11 +464,22 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		sshKeyCount = len(sshKeys)
 	}
 
+	// Determine display name
+	name := user.Username
+	if user.FirstName != "" || user.LastName != "" {
+		name = strings.TrimSpace(user.FirstName + " " + user.LastName)
+	}
+
 	// Build user response
 	userResponse := gin.H{
 		"id":         user.ID,
 		"email":      user.Email,
 		"username":   user.Username,
+		"name":       name,
+		"first_name": user.FirstName,
+		"last_name":  user.LastName,
+		"avatar":     user.Avatar,
+		"verified":   user.Verified,
 		"tier":       user.Tier,
 		"created_at": user.CreatedAt,
 		"updated_at": user.UpdatedAt,
