@@ -2,6 +2,8 @@ import { writable, derived, get } from "svelte/store";
 import { api, type ApiResponse } from "../utils/api";
 import type { User } from "./auth";
 import type { Container } from "./containers";
+import { PUBLIC_API_URL } from "$env/static/public";
+import { browser } from "$app/environment";
 
 // Types
 export interface AdminUser extends User {
@@ -25,12 +27,33 @@ export interface AdminTerminal {
   connectedAt: string;
 }
 
+// Backend AdminEvent interface
+export interface AdminEvent<T = any> {
+  type:
+    | "user_created"
+    | "user_updated"
+    | "user_deleted"
+    | "container_created"
+    | "container_updated"
+    | "container_deleted"
+    | "session_created"
+    | "session_updated"
+    | "session_deleted";
+  payload: T;
+  timestamp: string; // ISO 8601 string
+}
+
 export interface AdminState {
   users: AdminUser[];
   containers: AdminContainer[];
   terminals: AdminTerminal[];
   isLoading: boolean;
   error: string | null;
+  ws: WebSocket | null;
+  wsConnected: boolean;
+  wsReconnectAttempts: number;
+  wsMaxReconnectAttempts: number;
+  wsReconnectInterval: number; // in milliseconds
 }
 
 const initialState: AdminState = {
@@ -39,177 +62,251 @@ const initialState: AdminState = {
   terminals: [],
   isLoading: false,
   error: null,
+  ws: null,
+  wsConnected: false,
+  wsReconnectAttempts: 0,
+  wsMaxReconnectAttempts: 10,
+  wsReconnectInterval: 1000, // 1 second
 };
 
 function createAdminStore() {
   const { subscribe, set, update } = writable<AdminState>(initialState);
 
-  return {
-    subscribe,
+  let ws: WebSocket | null = null;
+  let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    // Mock data generator for development
-    _generateMockData() {
-      const mockUsers: AdminUser[] = [
-        {
-          id: "u1",
-          name: "Alice Admin",
-          email: "alice@rexec.dev",
-          tier: "pro",
-          isGuest: false,
-          isAdmin: true,
-          createdAt: "2023-01-15T10:00:00Z",
-          lastLogin: "2023-10-27T14:30:00Z",
-          containerCount: 2,
-        },
-        {
-          id: "u2",
-          name: "Bob Builder",
-          email: "bob@example.com",
-          tier: "free",
-          isGuest: false,
-          isAdmin: false,
-          createdAt: "2023-03-20T09:15:00Z",
-          lastLogin: "2023-10-26T11:20:00Z",
-          containerCount: 1,
-        },
-        {
-          id: "u3",
-          name: "Charlie Guest",
-          email: "guest_123@rexec.dev",
-          tier: "guest",
-          isGuest: true,
-          isAdmin: false,
-          createdAt: "2023-10-27T15:00:00Z",
-          lastLogin: "2023-10-27T15:00:00Z",
-          containerCount: 0,
-        },
-      ];
+  async function connectWebSocket() {
+    update((state) => ({
+      ...state,
+      wsConnected: false,
+      error: null,
+    }));
 
-      const mockContainers: AdminContainer[] = [
-        {
-          id: "c1",
-          user_id: "u1",
-          name: "alice-dev",
-          image: "ubuntu:latest",
-          status: "running",
-          created_at: "2023-10-27T10:00:00Z",
-          username: "Alice Admin",
-          userEmail: "alice@rexec.dev",
-          resources: { memory_mb: 512, cpu_shares: 1024, disk_mb: 10240 },
-        },
-        {
-          id: "c2",
-          user_id: "u1",
-          name: "alice-prod",
-          image: "node:18",
-          status: "stopped",
-          created_at: "2023-10-25T14:00:00Z",
-          username: "Alice Admin",
-          userEmail: "alice@rexec.dev",
-          resources: { memory_mb: 1024, cpu_shares: 2048, disk_mb: 20480 },
-        },
-        {
-          id: "c3",
-          user_id: "u2",
-          name: "bob-sandbox",
-          image: "python:3.9",
-          status: "running",
-          created_at: "2023-10-26T11:30:00Z",
-          username: "Bob Builder",
-          userEmail: "bob@example.com",
-          resources: { memory_mb: 512, cpu_shares: 1024, disk_mb: 5120 },
-        },
-      ];
+    if (!browser) return;
 
-      const mockTerminals: AdminTerminal[] = [
-        {
-          id: "t1",
-          containerId: "c1",
-          name: "alice-dev (Main)",
-          status: "connected",
-          userId: "u1",
-          username: "Alice Admin",
-          connectedAt: "2023-10-27T14:35:00Z",
-        },
-        {
-          id: "t2",
-          containerId: "c3",
-          name: "bob-sandbox",
-          status: "connected",
-          userId: "u2",
-          username: "Bob Builder",
-          connectedAt: "2023-10-27T15:10:00Z",
-        },
-      ];
+    const token = localStorage.getItem("rexec_token"); // Assuming token is stored here
+    if (!token) {
+      console.warn("Admin WebSocket: No authentication token found.");
+      update((state) => ({ ...state, error: "Authentication token missing." }));
+      return;
+    }
 
+    const wsProtocol = PUBLIC_API_URL.startsWith("https") ? "wss" : "ws";
+    const wsUrl = `${wsProtocol}://${
+      new URL(PUBLIC_API_URL).host
+    }/ws/admin/events?token=${token}`;
+
+    ws = new WebSocket(wsUrl);
+    update((state) => ({ ...state, ws }));
+
+    ws.onopen = () => {
+      console.log("Admin WebSocket: Connected");
       update((state) => ({
         ...state,
-        users: mockUsers,
-        containers: mockContainers,
-        terminals: mockTerminals,
+        wsConnected: true,
+        wsReconnectAttempts: 0,
+        wsReconnectInterval: initialState.wsReconnectInterval,
+      }));
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+    };
+
+    ws.onmessage = (event) => {
+      const adminEvent: AdminEvent = JSON.parse(event.data);
+      update((state) => {
+        let newUsers = [...state.users];
+        let newContainers = [...state.containers];
+        let newTerminals = [...state.terminals];
+
+        switch (adminEvent.type) {
+          case "user_created":
+            newUsers = [...newUsers, adminEvent.payload as AdminUser];
+            break;
+          case "user_updated":
+            newUsers = newUsers.map((u) =>
+              u.id === (adminEvent.payload as AdminUser).id
+                ? (adminEvent.payload as AdminUser)
+                : u
+            );
+            break;
+          case "user_deleted":
+            newUsers = newUsers.filter(
+              (u) => u.id !== (adminEvent.payload as AdminUser).id
+            );
+            break;
+          case "container_created":
+            newContainers = [
+              ...newContainers,
+              adminEvent.payload as AdminContainer,
+            ];
+            break;
+          case "container_updated":
+            newContainers = newContainers.map((c) =>
+              c.id === (adminEvent.payload as AdminContainer).id
+                ? (adminEvent.payload as AdminContainer)
+                : c
+            );
+            break;
+          case "container_deleted":
+            newContainers = newContainers.filter(
+              (c) => c.id !== (adminEvent.payload as AdminContainer).id
+            );
+            break;
+          case "session_created":
+            newTerminals = [
+              ...newTerminals,
+              adminEvent.payload as AdminTerminal,
+            ];
+            break;
+          case "session_updated":
+            newTerminals = newTerminals.map((t) =>
+              t.id === (adminEvent.payload as AdminTerminal).id
+                ? (adminEvent.payload as AdminTerminal)
+                : t
+            );
+            break;
+          case "session_deleted":
+            newTerminals = newTerminals.filter(
+              (t) => t.id !== (adminEvent.payload as AdminTerminal).id
+            );
+            break;
+          default:
+            console.warn("Admin WebSocket: Unknown event type", adminEvent.type);
+        }
+
+        return { ...state, users: newUsers, containers: newContainers, terminals: newTerminals };
+      });
+    };
+
+    ws.onclose = (event) => {
+      console.log(
+        `Admin WebSocket: Disconnected (Code: ${event.code}, Reason: ${event.reason})`
+      );
+      update((state) => ({ ...state, wsConnected: false }));
+
+      if (event.code !== 1000 && event.code !== 1001) {
+        // Don't try to reconnect on normal closures (1000: Normal, 1001: Going Away)
+        reconnect();
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("Admin WebSocket: Error", error);
+      update((state) => ({ ...state, error: "WebSocket error" }));
+      ws?.close(); // Close to trigger onclose and reconnect logic
+    };
+  }
+
+  function reconnect() {
+    update((state) => {
+      if (state.wsReconnectAttempts < state.wsMaxReconnectAttempts) {
+        const newReconnectAttempts = state.wsReconnectAttempts + 1;
+        const newReconnectInterval = state.wsReconnectInterval * 2; // Exponential backoff
+        reconnectTimeout = setTimeout(
+          connectWebSocket,
+          newReconnectInterval
+        ) as ReturnType<typeof setTimeout>;
+        console.log(
+          `Admin WebSocket: Reconnecting in ${
+            newReconnectInterval / 1000
+          }s (Attempt ${newReconnectAttempts})`
+        );
+        return {
+          ...state,
+          wsReconnectAttempts: newReconnectAttempts,
+          wsReconnectInterval: newReconnectInterval,
+        };
+      } else {
+        console.error(
+          "Admin WebSocket: Max reconnect attempts reached. Please refresh."
+        );
+        return { ...state, error: "Max reconnect attempts reached." };
+      }
+    });
+  }
+
+  function disconnectWebSocket() {
+    if (ws) {
+      ws.close(1000, "Component unmounted"); // Normal closure
+      ws = null;
+    }
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+    update((state) => ({ ...state, wsConnected: false, ws: null }));
+  }
+
+  return {
+    subscribe,
+    fetchUsers: async () => {
+      update((state) => ({ ...state, isLoading: true, error: null }));
+      const { data, error } = await api.get<AdminUser[]>("/api/admin/users");
+
+      if (error) {
+        update((state) => ({ ...state, isLoading: false, error }));
+        return;
+      }
+      update((state) => ({ ...state, users: data || [], isLoading: false }));
+    },
+
+    fetchContainers: async () => {
+      update((state) => ({ ...state, isLoading: true, error: null }));
+      const { data, error } = await api.get<AdminContainer[]>(
+        "/api/admin/containers"
+      );
+
+      if (error) {
+        update((state) => ({ ...state, isLoading: false, error }));
+        return;
+      }
+      update((state) => ({
+        ...state,
+        containers: data || [],
         isLoading: false,
       }));
     },
 
-    async fetchUsers() {
+    fetchTerminals: async () => {
       update((state) => ({ ...state, isLoading: true, error: null }));
-      const { data, error } = await api.get<AdminUser[]>("/api/admin/users");
-      
-      if (error) {
-        update((state) => ({ ...state, isLoading: false, error }));
-        // Fallback to mock data if API fails (for dev/demo purposes if backend not ready)
-        // this._generateMockData(); 
-        return;
-      }
-
-      update((state) => ({ ...state, users: data || [], isLoading: false }));
-    },
-
-    async fetchContainers() {
-      update((state) => ({ ...state, isLoading: true, error: null }));
-      const { data, error } = await api.get<AdminContainer[]>("/api/admin/containers");
+      const { data, error } = await api.get<AdminTerminal[]>(
+        "/api/admin/terminals"
+      );
 
       if (error) {
         update((state) => ({ ...state, isLoading: false, error }));
         return;
       }
-
-      update((state) => ({ ...state, containers: data || [], isLoading: false }));
+      update((state) => ({
+        ...state,
+        terminals: data || [],
+        isLoading: false,
+      }));
     },
 
-    async fetchTerminals() {
-      update((state) => ({ ...state, isLoading: true, error: null }));
-      const { data, error } = await api.get<AdminTerminal[]>("/api/admin/terminals");
-
-      if (error) {
-        update((state) => ({ ...state, isLoading: false, error }));
-        return;
-      }
-
-      update((state) => ({ ...state, terminals: data || [], isLoading: false }));
+    deleteUser: async (userId: string) => {
+      const { error } = await api.delete(`/api/admin/users/${userId}`);
+      if (error) return { success: false, error };
+      // WS event will handle updating the store
+      return { success: true };
     },
 
-    async deleteUser(userId: string) {
-       const { error } = await api.delete(`/api/admin/users/${userId}`);
-       if (error) return { success: false, error };
-
-       update(state => ({
-           ...state,
-           users: state.users.filter(u => u.id !== userId)
-       }));
-       return { success: true };
+    deleteContainer: async (containerId: string) => {
+      const { error } = await api.delete(`/api/admin/containers/${containerId}`);
+      if (error) return { success: false, error };
+      // WS event will handle updating the store
+      return { success: true };
     },
-    
-    async deleteContainer(containerId: string) {
-        const { error } = await api.delete(`/api/admin/containers/${containerId}`);
-        if (error) return { success: false, error };
 
-        update(state => ({
-            ...state,
-            containers: state.containers.filter(c => c.id !== containerId)
-        }));
-        return { success: true };
-    }
+    startAdminEvents: () => {
+      connectWebSocket();
+    },
+
+    stopAdminEvents: () => {
+      disconnectWebSocket();
+    },
   };
 }
 
