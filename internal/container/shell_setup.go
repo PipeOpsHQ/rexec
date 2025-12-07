@@ -204,15 +204,18 @@ install_packages() {
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
         wait_for_apt_lock || true
-        apt-get update -qq || true
-        # Install zsh and locale support. language-pack-en is needed for Ubuntu.
-        apt-get install -y -qq zsh git curl wget locales language-pack-en >/dev/null 2>&1 || apt-get install -y -qq zsh git curl wget locales >/dev/null 2>&1
+        apt-get update -qq
+        apt-get install -y -qq --reinstall zsh git libpcre2-8-0 curl wget locales >/dev/null 2>&1
+        # Try to install language-pack-en for Ubuntu (fixes locale issues), but don't fail on Debian
+        apt-get install -y -qq language-pack-en >/dev/null 2>&1 || true
         
-        # Ensure locale is generated
         if [ -f /etc/locale.gen ]; then
             sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+            locale-gen >/dev/null 2>&1 || true
         fi
-        locale-gen en_US.UTF-8 >/dev/null 2>&1 || update-locale LANG=en_US.UTF-8 >/dev/null 2>&1 || true
+        # Ensure locale is generated (crucial for zsh plugins)
+        locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
+        update-locale LANG=en_US.UTF-8 >/dev/null 2>&1 || true
     elif command -v apk >/dev/null 2>&1; then
         apk add --no-cache zsh git pcre2 curl wget shadow >/dev/null 2>&1
     elif command -v dnf >/dev/null 2>&1; then
