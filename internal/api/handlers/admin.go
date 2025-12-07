@@ -60,18 +60,13 @@ func (h *AdminHandler) ListContainers(c *gin.Context) {
 }
 
 // ListTerminals returns all active terminal sessions.
-// NOTE: This currently returns an empty array as the GetAllSessions() method
-// needs to be implemented in the storage layer if you track global sessions.
 func (h *AdminHandler) ListTerminals(c *gin.Context) {
-	// Example: If you had a method like h.store.GetAllActiveTerminals(c.Request.Context())
-	// terminals, err := h.store.GetAllActiveTerminals(c.Request.Context())
-	// if err != nil {
-	//     c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch terminals"})
-	//     return
-	// }
-	// c.JSON(http.StatusOK, []models.AdminTerminal{}) // Placeholder: return empty array
-
-	c.JSON(http.StatusOK, []models.AdminTerminal{}) // Placeholder: return empty array
+	terminals, err := h.store.GetAllSessionsAdmin(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch terminals"})
+		return
+	}
+	c.JSON(http.StatusOK, terminals)
 }
 
 // DeleteUser deletes a user by ID.

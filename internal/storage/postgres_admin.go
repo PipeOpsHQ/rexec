@@ -92,6 +92,48 @@ func (s *PostgresStore) GetAllContainersAdmin(ctx context.Context) ([]*models.Ad
 	return containers, nil
 }
 
+// GetAllSessionsAdmin retrieves active terminal sessions for the admin dashboard
+func (s *PostgresStore) GetAllSessionsAdmin(ctx context.Context) ([]*models.AdminTerminal, error) {
+	// Join sessions with users and containers to provide meaningful info
+	// Filter by last_ping_at to only show recently active sessions (e.g., last 5 minutes)
+	// Although for now, we'll just return all sessions in the table as "active" implies
+	// they haven't been deleted yet.
+	query := `
+		SELECT 
+			s.id, s.container_id, s.user_id, s.created_at,
+			u.username,
+			c.name as container_name, c.status
+		FROM sessions s
+		JOIN users u ON s.user_id = u.id
+		JOIN containers c ON s.container_id = c.id
+		ORDER BY s.created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var terminals []*models.AdminTerminal
+	for rows.Next() {
+		var t models.AdminTerminal
+		err := rows.Scan(
+			&t.ID,
+			&t.ContainerID,
+			&t.UserID,
+			&t.ConnectedAt,
+			&t.Username,
+			&t.Name,   // Container name
+			&t.Status, // Container status
+		)
+		if err != nil {
+			return nil, err
+		}
+		terminals = append(terminals, &t)
+	}
+	return terminals, nil
+}
+
 // DeleteUser permanently deletes a user and their cascading resources
 func (s *PostgresStore) DeleteUser(ctx context.Context, id string) error {
 	// You might want to implement CASCADE DELETES in your SQL schema
