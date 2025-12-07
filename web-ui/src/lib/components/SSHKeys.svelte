@@ -48,6 +48,14 @@
     let isAdding = false;
     let isOAuthLoading = false;
 
+    // Delete state
+    let showDeleteConfirm = false;
+    let itemToDelete: { id: string; name: string; type: "key" | "host" } | null = null;
+
+    // Delete state
+    let showDeleteConfirm = false;
+    let itemToDelete: { id: string; name: string; type: "key" | "host" } | null = null;
+
     async function handleOAuthLogin() {
         // ... (keep existing)
     }
@@ -101,8 +109,14 @@
         isAdding = false;
     }
 
-    // Delete handlers ...
-    
+    // Delete SSH key or Remote Host
+    function deleteKey(id: string, name: string, type: "key" | "host") {
+        itemToDelete = { id, name, type };
+        showDeleteConfirm = true;
+    }
+
+    async function confirmDeleteKey() {
+
     // Modal helpers
     function openModal() {
         // Reset all form fields
@@ -124,9 +138,9 @@
 
 <ConfirmModal
     bind:show={showDeleteConfirm}
-    title="Delete SSH Key"
-    message={keyToDelete
-        ? `Are you sure you want to delete "${keyToDelete.name}"? This action cannot be undone.`
+    title="Delete {itemToDelete?.type === \"key\" ? \"SSH Key\" : \"Remote Connection\"}"
+    message={itemToDelete
+        ? `Are you sure you want to delete "${itemToDelete.name}"? This action cannot be undone.`
         : ""}
     confirmText="Delete"
     cancelText="Cancel"
@@ -233,7 +247,7 @@
                             </div>
                             <button
                                 class="btn btn-danger btn-sm"
-                                on:click={() => deleteKey(key.id, key.name)}
+                                on:click={() => deleteKey(key.id, key.name, "key")}
                             >
                                 Delete
                             </button>
@@ -263,7 +277,7 @@
                                 </button>
                                 <button
                                     class="btn btn-danger btn-sm"
-                                    on:click={() => deleteKey(host.id, host.name)}
+                                    on:click={() => deleteKey(host.id, host.name, "host")}
                                 >
                                     Delete
                                 </button>
