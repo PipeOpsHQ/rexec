@@ -97,9 +97,9 @@ type ResourceLimits struct {
 
 // GuestResourceLimits defines the very restricted limits for anonymous guest users
 var GuestResourceLimits = ResourceLimits{
-	CPUShares:       250, // 0.25 CPU
-	MemoryMB:        256,
-	DiskMB:          1024,
+	CPUShares:       500, // 0.5 CPU
+	MemoryMB:        512,
+	DiskMB:          2048,
 	NetworkMB:       5,
 	SessionDuration: 1 * time.Hour,
 }

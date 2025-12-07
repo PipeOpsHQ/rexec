@@ -15,7 +15,7 @@ func TestTierLimits(t *testing.T) {
 		wantDisk          int64
 		wantSessionLimit  time.Duration
 	}{
-		{"Guest", "guest", false, GuestResourceLimits.CPUShares, GuestResourceLimits.MemoryMB, GuestResourceLimits.DiskMB, 1 * time.Hour},
+		{"Guest", "guest", false, 500, 512, 2048, 1 * time.Hour},
 		{"Free (No Sub)", "free", false, 2000, 2048, 10240, 50 * time.Hour},
 		{"Free (With Sub)", "free", true, 4000, 4096, 20480, 0},
 		{"Pro (Legacy)", "pro", false, 4000, 4096, 20480, 0},
@@ -62,9 +62,9 @@ func TestValidateTrialResources(t *testing.T) {
 				CPUShares: 1000,
 				DiskMB:    2048,
 			},
-			wantMem:  GuestResourceLimits.MemoryMB,
-			wantCPU:  GuestResourceLimits.CPUShares,
-			wantDisk: GuestResourceLimits.DiskMB,
+			wantMem:  512,
+			wantCPU:  500,
+			wantDisk: 2048,
 		},
 		{
 			name: "Free user within customization limits",
