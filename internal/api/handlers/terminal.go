@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	mgr "github.com/rexec/rexec/internal/container"
+	"github.com/rexec/rexec/internal/storage"
 )
 
 var upgrader = websocket.Upgrader{
@@ -45,6 +46,7 @@ const (
 // TerminalHandler handles WebSocket terminal connections
 type TerminalHandler struct {
 	containerManager *mgr.Manager
+	store            *storage.PostgresStore
 	sessions         map[string]*TerminalSession
 	sharedSessions   map[string]*SharedTerminalSession // containerID -> shared session for collab
 	mu               sync.RWMutex
@@ -89,9 +91,10 @@ type TerminalMessage struct {
 }
 
 // NewTerminalHandler creates a new terminal handler
-func NewTerminalHandler(cm *mgr.Manager) *TerminalHandler {
+func NewTerminalHandler(cm *mgr.Manager, store *storage.PostgresStore) *TerminalHandler {
 	h := &TerminalHandler{
 		containerManager: cm,
+		store:            store,
 		sessions:         make(map[string]*TerminalSession),
 		sharedSessions:   make(map[string]*SharedTerminalSession),
 	}
@@ -316,6 +319,30 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	h.sessions[sessionKey] = session
 	h.mu.Unlock()
 
+	// Persist session to database for admin visibility
+	go func() {
+		// Use the unique session key as ID or generate a UUID if preferred. 
+		// Using connectionID might collide if multiple users use "default".
+		// Let's use a composite ID or just the random connection ID if unique enough.
+		// Ideally, the session struct should have a unique ID.
+		// The struct *TerminalSession* doesn't strictly have a unique ID field exposed here easily 
+		// except that we can use the map key or pass one.
+		// Wait, the map key is `dockerID + ":" + userID.(string) + ":" + connectionID`.
+		// Let's use that as the DB ID (it's a string).
+		// OR generate a UUID.
+		// For simplicity and uniqueness, let's just use the sessionKey.
+		dbSession := &storage.SessionRecord{
+			ID:          sessionKey,
+			UserID:      userID.(string),
+			ContainerID: dockerID,
+			CreatedAt:   time.Now(),
+			LastPingAt:  time.Now(),
+		}
+		if err := h.store.CreateSession(context.Background(), dbSession); err != nil {
+			log.Printf("Failed to create db session: %v", err)
+		}
+	}()
+
 	// Cleanup on exit
 	defer func() {
 		h.mu.Lock()
@@ -324,6 +351,14 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 			delete(h.sessions, sessionKey)
 		}
 		h.mu.Unlock()
+		
+		// Remove from database
+		go func() {
+			if err := h.store.DeleteSession(context.Background(), sessionKey); err != nil {
+				log.Printf("Failed to delete db session: %v", err)
+			}
+		}()
+
 		session.Close()
 	}()
 
@@ -1201,8 +1236,18 @@ func (h *TerminalHandler) keepAliveLoop() {
 	for range ticker.C {
 		h.mu.RLock()
 		// Ping regular sessions
-		for _, session := range h.sessions {
+		for key, session := range h.sessions {
 			session.SendMessage(TerminalMessage{Type: "ping"})
+			
+			// Update database timestamp for admin visibility
+			// Capture variables for goroutine
+			sessionID := key
+			go func() {
+				if err := h.store.UpdateSessionLastPing(context.Background(), sessionID); err != nil {
+					// Log verbose only on error to avoid spam
+					// log.Printf("Failed to update session ping: %v", err)
+				}
+			}()
 		}
 		// Ping shared session connections
 		for _, sharedSession := range h.sharedSessions {

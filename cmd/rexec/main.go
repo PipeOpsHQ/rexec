@@ -263,7 +263,7 @@ func runServer() {
 	containerHandler := handlers.NewContainerHandler(containerManager, store)
 	containerEventsHub := handlers.NewContainerEventsHub(containerManager, store)
 	containerHandler.SetEventsHub(containerEventsHub)
-	terminalHandler := handlers.NewTerminalHandler(containerManager)
+	terminalHandler := handlers.NewTerminalHandler(containerManager, store)
 	fileHandler := handlers.NewFileHandler(containerManager, store)
 	sshHandler := handlers.NewSSHHandler(store, containerManager)
 	collabHandler := handlers.NewCollabHandler(store, containerManager, terminalHandler)
