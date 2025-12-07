@@ -551,6 +551,8 @@ func runServer() {
 		router.StaticFile("/robots.txt", filepath.Join(webDir, "robots.txt"))
 		router.StaticFile("/sitemap.xml", filepath.Join(webDir, "sitemap.xml"))
 		router.StaticFile("/og-image.svg", filepath.Join(webDir, "og-image.svg"))
+		// Fallback for legacy png requests
+		router.StaticFile("/og-image.png", filepath.Join(webDir, "og-image.svg"))
 
 		// Apple touch icons - serve favicon for these requests
 		router.StaticFile("/apple-touch-icon.png", filepath.Join(webDir, "favicon.svg"))
