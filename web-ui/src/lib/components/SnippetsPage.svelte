@@ -1,9 +1,11 @@
 <script lang="ts">
-    import { createEventDispatcher, onMount } from "svelte";
+    import { createEventDispatcher, onMount, onDestroy } from "svelte";
     import { toast } from "$stores/toast";
     import { api } from "$utils/api";
     import StatusIcon from "./icons/StatusIcon.svelte";
     import ConfirmModal from "./ConfirmModal.svelte";
+
+    declare const ace: any; // Declare ace to avoid TypeScript errors
 
     const dispatch = createEventDispatcher<{
         back: void;
@@ -26,6 +28,10 @@
     let newContent = "";
     let isCreating = false;
 
+    // Ace Editor instance
+    let editor: any;
+    let editorElement: HTMLDivElement; // Bind to this div
+
     // Delete state
     let showDeleteConfirm = false;
     let snippetToDelete: { id: string; name: string } | null = null;
@@ -43,7 +49,43 @@
         isLoading = false;
     }
 
-    onMount(loadSnippets);
+    onMount(() => {
+        loadSnippets();
+
+        // Initialize Ace Editor once the component is mounted
+        // This needs to be done dynamically if 'showCreate' is false initially
+        // or ensure editorElement is rendered. We can use a reactive statement
+        // for when showCreate becomes true.
+    });
+
+    // Reactive statement to initialize editor when the form is shown
+    $: if (showCreate && editorElement && typeof ace !== 'undefined' && !editor) {
+        editor = ace.edit(editorElement);
+        editor.setTheme("ace/theme/dracula");
+        editor.session.setMode("ace/mode/sh"); // Bash syntax highlighting
+        editor.session.setUseWrapMode(true);
+        editor.setShowPrintMargin(false);
+        editor.setFontSize("13px");
+
+        // Update newContent when editor content changes
+        editor.session.on("change", () => {
+            newContent = editor.getValue();
+        });
+        // Set initial content
+        editor.setValue(newContent, -1); // -1 to move cursor to start
+    }
+
+    // Update editor content when newContent changes programmatically (e.g. after save/clear)
+    $: if (editor && newContent !== editor.getValue()) {
+        editor.setValue(newContent, -1);
+    }
+
+    onDestroy(() => {
+        if (editor) {
+            editor.destroy();
+            editor.container.remove();
+        }
+    });
 
     async function createSnippet() {
         if (!newName.trim() || !newContent.trim()) {
@@ -63,7 +105,7 @@
             toast.success("Snippet saved");
             showCreate = false;
             newName = "";
-            newContent = "";
+            newContent = ""; // Clear newContent, which also clears the editor
         } else {
             toast.error(error || "Failed to save snippet");
         }
@@ -139,16 +181,14 @@
                 </div>
                 <div class="form-group">
                     <label for="snip-content">Command / Script</label>
-                    <textarea 
-                        id="snip-content" 
-                        bind:value={newContent} 
-                        placeholder="npm install -g ..."
-                        class="input textarea"
-                        rows="8"
-                    ></textarea>
+                    <div class="ace-editor-container" bind:this={editorElement}></div>
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn-secondary" on:click={() => showCreate = false}>Cancel</button>
+                    <button class="btn btn-secondary" on:click={() => {
+                        showCreate = false;
+                        newContent = ""; // Clear content when closing form
+                        newName = "";
+                    }}>Cancel</button>
                     <button 
                         class="btn btn-primary" 
                         on:click={createSnippet}
@@ -310,24 +350,13 @@
         letter-spacing: 0.5px;
     }
 
-    .input {
+    /* Ace Editor specific styles */
+    .ace-editor-container {
+        height: 200px; /* Adjust height as needed */
         width: 100%;
-        padding: 12px;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        color: var(--text);
         font-family: var(--font-mono);
         font-size: 13px;
-    }
-
-    .input:focus {
-        outline: none;
-        border-color: var(--accent);
-    }
-
-    .textarea {
-        resize: vertical;
-        min-height: 120px;
+        border: 1px solid var(--border);
     }
 
     .form-actions {

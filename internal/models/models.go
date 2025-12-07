@@ -94,6 +94,14 @@ type ResourceLimits struct {
 	NetworkMB int64 `json:"network_mb"` // Network bandwidth limit in MB/s
 }
 
+// GuestResourceLimits defines the very restricted limits for anonymous guest users
+var GuestResourceLimits = ResourceLimits{
+	CPUShares: 250, // 0.25 CPU
+	MemoryMB:  256,
+	DiskMB:    1024,
+	NetworkMB: 5,
+}
+
 // Session represents an active terminal session
 type Session struct {
 	ID          string    `json:"id"`
@@ -109,13 +117,17 @@ type Session struct {
 // TierLimits returns resource limits based on user tier
 // CPUShares represents CPU count in millicores (500 = 0.5 CPU, 1000 = 1 CPU)
 func TierLimits(tier string) ResourceLimits {
+	trialLimits := GetTrialResourceLimits() // More generous free/trial limits
+
 	switch tier {
-	case "trial", "guest", "free": // Unified 60-day trial
+	case "guest":
+		return GuestResourceLimits
+	case "free", "trial":
 		return ResourceLimits{
-			CPUShares: 500, // 0.5 CPU
-			MemoryMB:  512,
-			DiskMB:    2048, // Increased from 512-1024 for better trial experience
-			NetworkMB: 10,
+			CPUShares: trialLimits.MaxCPUShares, // Free users get max trial CPU
+			MemoryMB:  trialLimits.MaxMemoryMB,  // Free users get max trial Memory
+			DiskMB:    trialLimits.MaxDiskMB,    // Free users get max trial Disk
+			NetworkMB: 10,                       // Default network for free
 		}
 	case "pro":
 		return ResourceLimits{
@@ -131,11 +143,11 @@ func TierLimits(tier string) ResourceLimits {
 			DiskMB:    51200,
 			NetworkMB: 500,
 		}
-	default: // Default to trial tier
+	default: // Default to free tier if tier is unrecognized or empty
 		return ResourceLimits{
-			CPUShares: 500, // 0.5 CPU
-			MemoryMB:  512,
-			DiskMB:    2048,
+			CPUShares: trialLimits.MaxCPUShares,
+			MemoryMB:  trialLimits.MaxMemoryMB,
+			DiskMB:    trialLimits.MaxDiskMB,
 			NetworkMB: 10,
 		}
 	}
@@ -216,49 +228,53 @@ func GetTrialResourceLimits() TrialResourceLimits {
 	}
 }
 
-// ValidateTrialResources validates and clamps resource requests for trial users
+// ValidateTrialResources validates and clamps resource requests for various tiers
 func ValidateTrialResources(req *CreateContainerRequest, tier string) ResourceLimits {
-	defaults := TierLimits(tier)
-	limits := GetTrialResourceLimits()
+	// Determine the base limits for the tier
+	baseLimits := TierLimits(tier)
 	
-	// Only trial/guest/free can customize within limits
-	if tier != "trial" && tier != "guest" && tier != "free" {
-		// Pro/Enterprise get their defaults (or could be expanded later)
-		return defaults
-	}
+	// Get the overall allowed customization range for free/trial users
+	customizationLimits := GetTrialResourceLimits()
 	
-	result := defaults
+	result := baseLimits // Start with the base limits for the tier
 	
-	// Validate and clamp memory
-	if req.MemoryMB > 0 {
-		if req.MemoryMB < limits.MinMemoryMB {
-			result.MemoryMB = limits.MinMemoryMB
-		} else if req.MemoryMB > limits.MaxMemoryMB {
-			result.MemoryMB = limits.MaxMemoryMB
-		} else {
-			result.MemoryMB = req.MemoryMB
+	// Only "free", "guest", "trial" tiers are allowed to customize within the defined range.
+	// For "pro" and "enterprise", we just return their predefined baseLimits, ignoring req.
+	// For "guest", it gets its fixed restricted limits and no customization.
+	// So, actual customization is for "free" and "trial" tiers only, clamped by customizationLimits.
+	
+	if tier == "free" || tier == "trial" {
+		// Validate and clamp memory
+		if req.MemoryMB > 0 {
+			if req.MemoryMB < customizationLimits.MinMemoryMB {
+				result.MemoryMB = customizationLimits.MinMemoryMB
+			} else if req.MemoryMB > customizationLimits.MaxMemoryMB {
+				result.MemoryMB = customizationLimits.MaxMemoryMB
+			} else {
+				result.MemoryMB = req.MemoryMB
+			}
 		}
-	}
-	
-	// Validate and clamp CPU shares
-	if req.CPUShares > 0 {
-		if req.CPUShares < limits.MinCPUShares {
-			result.CPUShares = limits.MinCPUShares
-		} else if req.CPUShares > limits.MaxCPUShares {
-			result.CPUShares = limits.MaxCPUShares
-		} else {
-			result.CPUShares = req.CPUShares
+		
+		// Validate and clamp CPU shares
+		if req.CPUShares > 0 {
+			if req.CPUShares < customizationLimits.MinCPUShares {
+				result.CPUShares = customizationLimits.MinCPUShares
+			} else if req.CPUShares > customizationLimits.MaxCPUShares {
+				result.CPUShares = customizationLimits.MaxCPUShares
+			} else {
+				result.CPUShares = req.CPUShares
+			}
 		}
-	}
-	
-	// Validate and clamp disk
-	if req.DiskMB > 0 {
-		if req.DiskMB < limits.MinDiskMB {
-			result.DiskMB = limits.MinDiskMB
-		} else if req.DiskMB > limits.MaxDiskMB {
-			result.DiskMB = limits.MaxDiskMB
-		} else {
-			result.DiskMB = req.DiskMB
+		
+		// Validate and clamp disk
+		if req.DiskMB > 0 {
+			if req.DiskMB < customizationLimits.MinDiskMB {
+				result.DiskMB = customizationLimits.MinDiskMB
+			} else if req.DiskMB > customizationLimits.MaxDiskMB {
+				result.DiskMB = customizationLimits.MaxDiskMB
+			} else {
+				result.DiskMB = req.DiskMB
+			}
 		}
 	}
 	
