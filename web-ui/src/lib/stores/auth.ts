@@ -107,10 +107,17 @@ function createAuthStore() {
           tier: userData.tier || "guest",
           isGuest: true,
           isAdmin: false,
-          expiresAt,
-        };
+        // Extract token, handling potential nested object formats
+        let receivedToken = data.token;
+        if (typeof receivedToken === 'object' && receivedToken !== null) {
+          receivedToken = receivedToken.token || receivedToken.access_token || '';
+        }
 
-        this.login(data.token, user);
+        if (!receivedToken || typeof receivedToken !== 'string') {
+          throw new Error("Invalid token format received from guest login");
+        }
+        
+        this.login(receivedToken, user);
         return {
           success: true,
           expiresAt,
@@ -176,7 +183,17 @@ function createAuthStore() {
           isAdmin: userData.is_admin || userData.role === 'admin' || false,
         };
 
-        this.login(data.token, user);
+        // Extract token, handling potential nested object formats
+        let receivedToken = data.token;
+        if (typeof receivedToken === 'object' && receivedToken !== null) {
+          receivedToken = receivedToken.token || receivedToken.access_token || '';
+        }
+
+        if (!receivedToken || typeof receivedToken !== 'string') {
+          throw new Error("Invalid token format received from OAuth exchange");
+        }
+        
+        this.login(receivedToken, user);
         return { success: true };
       } catch (e) {
         const error = e instanceof Error ? e.message : "OAuth login failed";
