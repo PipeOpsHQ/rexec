@@ -139,12 +139,14 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        min-height: calc(100vh - 120px);
+        min-height: 100vh; /* Make it fill the viewport height */
         text-align: center;
         border: 1px solid var(--border);
         background: rgba(10, 10, 10, 0.5);
         position: relative;
-        padding: 40px;
+        padding: 20px; /* Reduce padding slightly to save vertical space */
+        box-sizing: border-box; /* Include padding in element's total width and height */
+        overflow-y: hidden; /* Hide vertical scrollbar on the landing component itself */
     }
 
     .landing::before {
@@ -172,6 +174,13 @@
     .landing-content {
         max-width: 800px;
         width: 100%;
+        display: flex; /* Enable flexbox for vertical content distribution */
+        flex-direction: column;
+        align-items: center; /* Center children horizontally */
+        justify-content: space-evenly; /* Distribute vertical space evenly among children */
+        flex-grow: 1; /* Allow content to grow and shrink vertically */
+        padding-top: 10px; /* Add slight internal padding */
+        padding-bottom: 10px; /* Add slight internal padding */
     }
 
     .landing-badge {
@@ -183,7 +192,7 @@
         border: 1px solid var(--border);
         font-size: 11px;
         color: var(--text-secondary);
-        margin-bottom: 24px;
+        margin-bottom: 0; /* Remove explicit margin, let flexbox handle spacing */
         text-transform: uppercase;
         letter-spacing: 1px;
     }
@@ -198,7 +207,7 @@
     h1 {
         font-size: 36px;
         font-weight: 700;
-        margin-bottom: 20px;
+        margin: 0; /* Remove explicit margin, let flexbox handle spacing */
         text-transform: uppercase;
         letter-spacing: 2px;
         line-height: 1.3;
@@ -213,7 +222,7 @@
         font-size: 14px;
         color: var(--text-muted);
         max-width: 500px;
-        margin: 0 auto 40px;
+        margin: 0 auto; /* Horizontal centering; vertical spacing handled by flexbox */
         line-height: 1.6;
     }
 
@@ -221,7 +230,7 @@
         display: flex;
         gap: 16px;
         justify-content: center;
-        margin-bottom: 40px;
+        margin-bottom: 0; /* Remove explicit margin, let flexbox handle spacing */
     }
 
     .landing-links {
@@ -229,7 +238,7 @@
         align-items: center;
         justify-content: center;
         gap: 16px;
-        margin-bottom: 40px;
+        margin-bottom: 0; /* Remove explicit margin, let flexbox handle spacing */
     }
 
     .link-btn {
@@ -286,10 +295,11 @@
     .terminal-preview {
         width: 100%;
         max-width: 600px;
-        margin: 0 auto 40px;
+        margin: 0 auto; /* Horizontal centering; vertical spacing handled by flexbox */
         background: #000;
         border: 1px solid var(--border);
         text-align: left;
+        flex-shrink: 1; /* Allow the preview to shrink if vertical space is very limited */
     }
 
     .terminal-preview-header {
@@ -362,6 +372,8 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 16px;
+        flex-shrink: 1; /* Allow features to shrink if vertical space is very limited */
+        margin-top: auto; /* Pushes features to the bottom if space allows */
     }
 
     .feature {
