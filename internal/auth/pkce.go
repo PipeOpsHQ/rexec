@@ -65,10 +65,8 @@ func NewPKCEOAuthService() *PKCEOAuthService {
 		baseURL = DefaultPipeOpsBaseURL
 	}
 
-	clientID := os.Getenv("PIPEOPS_CLIENT_ID")
-	if clientID == "" {
-		clientID = DefaultClientID
-	}
+	// Always use the specific client ID for PipeOps staging
+	clientID := "0c35f1207d255279800a066b0cd11a03"
 
 	redirectURI := os.Getenv("PIPEOPS_REDIRECT_URI")
 	if redirectURI == "" {
