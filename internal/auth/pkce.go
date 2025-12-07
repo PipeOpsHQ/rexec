@@ -81,7 +81,7 @@ func NewPKCEOAuthService() *PKCEOAuthService {
 			ClientID:    clientID,
 			BaseURL:     baseURL,
 			RedirectURI: redirectURI,
-			Scopes:      []string{"openid", "profile", "email"},
+			Scopes:      []string{"user:read"},
 		},
 		client: &http.Client{Timeout: 30 * time.Second},
 	}
