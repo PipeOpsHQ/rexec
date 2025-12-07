@@ -139,14 +139,12 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        min-height: 100vh; /* Fill viewport height */
+        min-height: calc(100vh - 120px);
         text-align: center;
         border: 1px solid var(--border);
         background: rgba(10, 10, 10, 0.5);
         position: relative;
-        padding: 20px; /* Slightly reduced padding */
-        box-sizing: border-box;
-        overflow-y: auto; /* Fallback scrollbar */
+        padding: 40px;
     }
 
     .landing::before {
@@ -174,13 +172,6 @@
     .landing-content {
         max-width: 800px;
         width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: space-evenly; /* Dynamic vertical spacing */
-        flex-grow: 1;
-        padding-top: 10px;
-        padding-bottom: 10px;
     }
 
     .landing-badge {
@@ -192,7 +183,7 @@
         border: 1px solid var(--border);
         font-size: 11px;
         color: var(--text-secondary);
-        margin-bottom: 0; /* Dynamic spacing */
+        margin-bottom: 24px;
         text-transform: uppercase;
         letter-spacing: 1px;
     }
@@ -207,7 +198,7 @@
     h1 {
         font-size: 36px;
         font-weight: 700;
-        margin: 0; /* Dynamic spacing */
+        margin-bottom: 20px;
         text-transform: uppercase;
         letter-spacing: 2px;
         line-height: 1.3;
@@ -222,7 +213,7 @@
         font-size: 14px;
         color: var(--text-muted);
         max-width: 500px;
-        margin: 0 auto; /* Horizontal center only */
+        margin: 0 auto 40px;
         line-height: 1.6;
     }
 
@@ -230,7 +221,7 @@
         display: flex;
         gap: 16px;
         justify-content: center;
-        margin-bottom: 0; /* Dynamic spacing */
+        margin-bottom: 40px;
     }
 
     .landing-links {
@@ -238,7 +229,7 @@
         align-items: center;
         justify-content: center;
         gap: 16px;
-        margin-bottom: 0; /* Dynamic spacing */
+        margin-bottom: 40px;
     }
 
     .link-btn {
@@ -295,11 +286,10 @@
     .terminal-preview {
         width: 100%;
         max-width: 600px;
-        margin: 0 auto; /* Horizontal center only */
+        margin: 0 auto 40px;
         background: #000;
         border: 1px solid var(--border);
         text-align: left;
-        flex-shrink: 1; /* Allow minor compression */
     }
 
     .terminal-preview-header {
@@ -372,8 +362,6 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 16px;
-        flex-shrink: 1; /* Allow minor compression */
-        margin-top: auto; /* Push to bottom */
     }
 
     .feature {
