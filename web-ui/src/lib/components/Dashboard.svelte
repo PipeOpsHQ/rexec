@@ -8,6 +8,7 @@
         wsConnected,
         type Container,
     } from "$stores/containers";
+    import { auth } from "$stores/auth";
     import { terminal, connectedContainerIds } from "$stores/terminal";
     import { toast } from "$stores/toast";
     import { formatRelativeTime, formatMemory, formatStorage, formatCPU } from "$utils/api";
@@ -309,6 +310,9 @@
     $: creatingInfo = $creatingContainer;
     // Count creating as part of limit
     $: effectiveCount = containerList.length + (currentlyCreating ? 1 : 0);
+    
+    // Check subscription status
+    $: isPaidUser = $auth.user?.tier === 'pro' || $auth.user?.tier === 'enterprise' || $auth.user?.subscription_active;
 </script>
 
 <ConfirmModal
@@ -327,7 +331,7 @@
 <TerminalSettingsModal
     bind:show={showSettingsModal}
     container={settingsContainer}
-    isPaidUser={false}
+    isPaidUser={isPaidUser}
     on:close={closeSettings}
 />
 

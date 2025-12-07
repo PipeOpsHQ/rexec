@@ -1002,6 +1002,7 @@ func (h *ContainerHandler) Stop(c *gin.Context) {
 func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 	userID := c.GetString("userID")
 	tier := c.GetString("tier")
+	subscriptionActive := c.GetBool("subscription_active")
 	containerID := c.Param("id")
 
 	if userID == "" {
@@ -1029,35 +1030,18 @@ func (h *ContainerHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	// Get tier limits
-	limits := models.TierLimits(tier)
+	// Get user resource limits based on tier and subscription
+	limits := models.GetUserResourceLimits(tier, subscriptionActive)
 
-	// For trial/free users, enforce limits
-	isPaidUser := tier == "pro" || tier == "enterprise"
-	if !isPaidUser {
-		// Trial limits - generous for 60-day trial period
-		trialLimits := models.GetTrialResourceLimits()
-
-		if req.MemoryMB > trialLimits.MaxMemoryMB {
-			req.MemoryMB = trialLimits.MaxMemoryMB
-		}
-		if req.CPUShares > trialLimits.MaxCPUShares {
-			req.CPUShares = trialLimits.MaxCPUShares
-		}
-		if req.DiskMB > trialLimits.MaxDiskMB {
-			req.DiskMB = trialLimits.MaxDiskMB
-		}
-	} else {
-		// Paid users can use their tier limits
-		if req.MemoryMB > limits.MemoryMB {
-			req.MemoryMB = limits.MemoryMB
-		}
-		if req.CPUShares > limits.CPUShares {
-			req.CPUShares = limits.CPUShares
-		}
-		if req.DiskMB > limits.DiskMB {
-			req.DiskMB = limits.DiskMB
-		}
+	// Enforce max limits
+	if req.MemoryMB > limits.MemoryMB {
+		req.MemoryMB = limits.MemoryMB
+	}
+	if req.CPUShares > limits.CPUShares {
+		req.CPUShares = limits.CPUShares
+	}
+	if req.DiskMB > limits.DiskMB {
+		req.DiskMB = limits.DiskMB
 	}
 
 	// Enforce minimum values
