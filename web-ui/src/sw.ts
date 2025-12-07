@@ -36,7 +36,7 @@ registerRoute(
 
 // Handle navigation requests - serve index.html for SPA routing
 // This uses the precached index.html for all navigation requests (App Shell model)
-const handler = createHandlerBoundToURL('/index.html');
+const handler = createHandlerBoundToURL('index.html');
 registerRoute(
   new NavigationRoute(handler, {
     denylist: [/^\/api/, /^\/ws/, /^\/r\//],
