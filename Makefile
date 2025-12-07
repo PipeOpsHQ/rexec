@@ -37,12 +37,12 @@ build-all: ui build
 # Run the application
 run: build
 	@echo "Starting $(BINARY_NAME)..."
-	./bin/$(BINARY_NAME)
+	./bin/$(BINARY_NAME) server
 
 # Run the application with fresh UI build
 run-all: build-all
 	@echo "Starting $(BINARY_NAME)..."
-	./bin/$(BINARY_NAME)
+	./bin/$(BINARY_NAME) server
 
 # Run in development mode with hot reload (requires air)
 dev:

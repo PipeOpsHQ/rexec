@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -26,6 +28,49 @@ var (
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "server":
+			runServer()
+		default:
+			fmt.Printf("Unknown command: %s\n", os.Args[1])
+			fmt.Println("Usage: rexec [server]")
+			os.Exit(1)
+		}
+		return
+	}
+
+	showMenu()
+}
+
+func showMenu() {
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Println("\n🚀 Rexec CLI")
+		fmt.Println("-----------------------------")
+		fmt.Println("1. Start Server")
+		fmt.Println("2. Exit")
+		fmt.Println("-----------------------------")
+		fmt.Print("Select an option: ")
+
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+
+		switch input {
+		case "1":
+			runServer()
+			return
+		case "2":
+			fmt.Println("Goodbye!")
+			os.Exit(0)
+		default:
+			fmt.Println("Invalid option, please try again.")
+		}
+	}
+}
+
+func runServer() {
 	// Load .env file if it exists
 	godotenv.Load()
 
