@@ -124,6 +124,9 @@ func main() {
 
 	// Initialize port forward handler
 	portForwardHandler := handlers.NewPortForwardHandler(store, containerManager)
+	
+	// Initialize snippet handler
+	snippetHandler := handlers.NewSnippetHandler(store)
 
 	// Setup Gin router
 	router := gin.Default()
@@ -250,6 +253,14 @@ func main() {
 			portforward.POST("", portForwardHandler.CreatePortForward)
 			portforward.GET("", portForwardHandler.ListPortForwards)
 			portforward.DELETE("/:forwardId", portForwardHandler.DeletePortForward)
+		}
+
+		// Snippets & Macros
+		snippets := api.Group("/snippets")
+		{
+			snippets.GET("", snippetHandler.ListSnippets)
+			snippets.POST("", snippetHandler.CreateSnippet)
+			snippets.DELETE("/:id", snippetHandler.DeleteSnippet)
 		}
 
 		// WebSocket for real-time container events
