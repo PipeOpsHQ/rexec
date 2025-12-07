@@ -112,46 +112,57 @@ set +e
 
 echo "Installing tools for role: %s..."
 
+# Fix any corrupted dpkg state first (common issue in containers)
+fix_dpkg() {
+    if [ -d /var/lib/dpkg/updates ] && [ "$(ls -A /var/lib/dpkg/updates 2>/dev/null)" ]; then
+        echo "Fixing dpkg state..."
+        rm -f /var/lib/dpkg/updates/* 2>/dev/null || true
+        dpkg --configure -a 2>/dev/null || true
+    fi
+    # Clear stale lock files
+    rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true
+}
+
 # Wait for any existing package manager locks (max 60 seconds)
 wait_for_locks() {
-    local max_wait=60
-    local waited=0
+    max_wait=60
+    waited=0
     
     # List of known lock files
-    local locks="/var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /lib/apk/db/lock /var/run/dnf.pid /var/run/yum.pid /var/lib/pacman/db.lck"
+    locks="/var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /lib/apk/db/lock /var/run/dnf.pid /var/run/yum.pid /var/lib/pacman/db.lck"
     
-    # Helper to check if any lock exists
-    check_locks() {
+    while [ $waited -lt $max_wait ]; do
+        locked=0
         for lock in $locks; do
             if [ -f "$lock" ]; then
-                # If fuser exists, check if process is actually running
+                # Check if process is holding the lock
                 if command -v fuser >/dev/null 2>&1; then
                     if fuser "$lock" >/dev/null 2>&1; then
-                        return 0 # Locked
+                        locked=1
+                        break
                     fi
                 else
-                    return 0 # File exists, assume locked (safer fallback)
+                    # No fuser, check if lock file is recent (less than 5 min old)
+                    if [ "$(find "$lock" -mmin -5 2>/dev/null)" ]; then
+                        locked=1
+                        break
+                    fi
                 fi
             fi
         done
-        return 1 # Not locked
-    }
-
-    while check_locks; do
-        if [ $waited -ge $max_wait ]; then
-            echo "Timeout waiting for package manager lock"
-            # Try to force remove stale locks if we timed out
-            echo "Attempting to clear stale locks..."
-            for lock in $locks; do
-                if [ -f "$lock" ]; then
-                    rm -f "$lock" 2>/dev/null || true
-                fi
-            done
+        
+        if [ $locked -eq 0 ]; then
             return 0
         fi
+        
         echo "Waiting for package manager lock release..."
         sleep 2
         waited=$((waited + 2))
+    done
+    
+    echo "Timeout waiting for lock, attempting to clear stale locks..."
+    for lock in $locks; do
+        rm -f "$lock" 2>/dev/null || true
     done
     return 0
 }
@@ -162,7 +173,8 @@ install_role_packages() {
     GENERIC_PACKAGES="%s"
     PACKAGES="$GENERIC_PACKAGES"
     
-    # Wait for locks before starting
+    # Fix dpkg and wait for locks before starting
+    fix_dpkg
     wait_for_locks || true
 
     if command -v apt-get >/dev/null 2>&1; then
@@ -173,9 +185,10 @@ install_role_packages() {
         
         # Enable universe repository for Ubuntu (needed for neovim, ripgrep, etc.)
         if grep -q "Ubuntu" /etc/issue 2>/dev/null || grep -q "Ubuntu" /etc/os-release 2>/dev/null; then
-            apt-get $APT_OPTS update -qq || true
-            apt-get $APT_OPTS install -y -qq software-properties-common >/dev/null 2>&1 || true
-            add-apt-repository -y universe >/dev/null 2>&1 || true
+            echo "Enabling universe repository..."
+            apt-get $APT_OPTS update -qq 2>&1 || true
+            apt-get $APT_OPTS install -y -qq software-properties-common 2>&1 || true
+            add-apt-repository -y universe 2>&1 || true
         fi
 
         # Map generic package names to apt names
@@ -188,16 +201,31 @@ install_role_packages() {
         done
         PACKAGES="$APT_PACKAGES"
         
-        # Update package lists
-        flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS update -qq || true
+        # Update package lists - handle flock not being available
+        if command -v flock >/dev/null 2>&1; then
+            flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS update -qq 2>&1 || apt-get $APT_OPTS update -qq 2>&1 || true
+        else
+            apt-get $APT_OPTS update -qq 2>&1 || true
+        fi
 
         # Try bulk install first
-        if ! flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS install -y -qq $PACKAGES >/dev/null 2>&1; then
-            echo "Bulk install failed, trying individual packages..."
-            for pkg in $PACKAGES; do
-                echo "Installing $pkg..."
-                apt-get $APT_OPTS install -y -qq "$pkg" >/dev/null 2>&1 || echo "Warning: Failed to install $pkg"
-            done
+        echo "Installing packages: $PACKAGES"
+        if command -v flock >/dev/null 2>&1; then
+            if ! flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS install -y -qq $PACKAGES 2>&1; then
+                echo "Bulk install failed, trying individual packages..."
+                for pkg in $PACKAGES; do
+                    echo "Installing $pkg..."
+                    apt-get $APT_OPTS install -y -qq "$pkg" 2>&1 || echo "Warning: Failed to install $pkg"
+                done
+            fi
+        else
+            if ! apt-get $APT_OPTS install -y -qq $PACKAGES 2>&1; then
+                echo "Bulk install failed, trying individual packages..."
+                for pkg in $PACKAGES; do
+                    echo "Installing $pkg..."
+                    apt-get $APT_OPTS install -y -qq "$pkg" 2>&1 || echo "Warning: Failed to install $pkg"
+                done
+            fi
         fi
     elif command -v apk >/dev/null 2>&1; then
         # Alpine mapping
