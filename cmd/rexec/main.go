@@ -122,6 +122,9 @@ func main() {
 		billingHandler = handlers.NewBillingHandler(billingService, store)
 	}
 
+	// Initialize port forward handler
+	portForwardHandler := handlers.NewPortForwardHandler(store, containerManager)
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -241,6 +244,14 @@ func main() {
 			ssh.DELETE("/hosts/:id", sshHandler.DeleteRemoteHost)
 		}
 
+		// Port Forwarding
+		portforward := api.Group("/containers/:id/port-forwards")
+		{
+			portforward.POST("", portForwardHandler.CreatePortForward)
+			portforward.GET("", portForwardHandler.ListPortForwards)
+			portforward.DELETE("/:forwardId", portForwardHandler.DeletePortForward)
+		}
+
 		// WebSocket for real-time container events
 		api.GET("/containers/events", containerEventsHub.HandleWebSocket)
 
@@ -289,6 +300,9 @@ func main() {
 
 	// WebSocket collaboration endpoint
 	router.GET("/ws/collab/:code", wsLimiter.Middleware(), middleware.AuthMiddleware(), collabHandler.HandleCollabWebSocket)
+
+	// WebSocket for Port Forwarding
+	router.GET("/ws/port-forward/:forwardId", wsLimiter.Middleware(), middleware.AuthMiddleware(), portForwardHandler.HandlePortForwardWebSocket)
 
 	// Public recording access (no auth required for shared recordings)
 	router.GET("/r/:token", recordingHandler.GetRecordingByToken)
