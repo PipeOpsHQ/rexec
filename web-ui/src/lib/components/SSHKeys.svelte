@@ -52,12 +52,24 @@
     let showDeleteConfirm = false;
     let itemToDelete: { id: string; name: string; type: "key" | "host" } | null = null;
 
-    // Delete state
-    let showDeleteConfirm = false;
-    let itemToDelete: { id: string; name: string; type: "key" | "host" } | null = null;
-
     async function handleOAuthLogin() {
-        // ... (keep existing)
+        if (isOAuthLoading) return;
+
+        isOAuthLoading = true;
+        try {
+            const url = await auth.getOAuthUrl();
+            if (url) {
+                window.location.href = url;
+            } else {
+                toast.error(
+                    "Unable to connect to PipeOps. Please try again later.",
+                );
+                isOAuthLoading = false;
+            }
+        } catch (e) {
+            toast.error("Failed to connect to PipeOps. Please try again.");
+            isOAuthLoading = false;
+        }
     }
 
     // Load data based on tab
@@ -80,7 +92,25 @@
 
     // Add new SSH key
     async function addKey() {
-        // ... (keep existing logic but use closeModal)
+        if (!newKeyName.trim() || !newKeyContent.trim()) {
+            toast.error("Please provide a name and key");
+            return;
+        }
+
+        isAdding = true;
+        const { data, error } = await api.post<SSHKey>("/api/ssh-keys", {
+            name: newKeyName.trim(),
+            public_key: newKeyContent.trim(),
+        });
+
+        if (data) {
+            keys = [...keys, data];
+            toast.success("SSH key added");
+            closeModal();
+        } else {
+            toast.error(error || "Failed to add SSH key");
+        }
+        isAdding = false;
     }
     
     // Add new Remote Host
@@ -116,6 +146,36 @@
     }
 
     async function confirmDeleteKey() {
+        if (!itemToDelete) return;
+
+        const { id, type } = itemToDelete;
+        itemToDelete = null;
+
+        let error: string | null = null;
+        if (type === "key") {
+            const res = await api.delete(`/api/ssh/keys/${id}`);
+            error = res.error;
+        } else {
+            const res = await api.delete(`/api/ssh/hosts/${id}`);
+            error = res.error;
+        }
+
+        if (!error) {
+            if (type === "key") {
+                keys = keys.filter((k) => k.id !== id);
+                toast.success("SSH key deleted");
+            } else {
+                hosts = hosts.filter((h) => h.id !== id);
+                toast.success("Remote connection deleted");
+            }
+        } else {
+            toast.error(error || `Failed to delete ${type === "key" ? "SSH key" : "host"}`);
+        }
+    }
+
+    function cancelDeleteKey() {
+        itemToDelete = null;
+    }
 
     // Modal helpers
     function openModal() {
@@ -129,11 +189,29 @@
         newHostKeyPath = "";
         showAddModal = true;
     }
+
+    function closeModal() {
+        showAddModal = false;
+        newKeyName = "";
+        newKeyContent = "";
+    }
     
     function copyToClipboard(text: string) {
         navigator.clipboard.writeText(text);
         toast.success("Command copied to clipboard");
     }
+
+    // Format date
+    function formatDate(dateStr: string): string {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+        });
+    }
+
+    onMount(loadData);
 </script>
 
 <ConfirmModal
