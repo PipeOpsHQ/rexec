@@ -5,8 +5,8 @@ import type { Container } from "./containers";
 
 // Types
 export interface AdminUser extends User {
-  createdAt: string;
-  lastLogin?: string;
+  created_at: string;
+  updated_at?: string;
   containerCount: number;
 }
 
@@ -22,7 +22,7 @@ export interface AdminTerminal {
   status: "connected" | "disconnected" | "error";
   userId: string;
   username: string;
-  connectedAt: string;
+  connected_at: string;
 }
 
 // Backend AdminEvent interface

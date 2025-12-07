@@ -166,8 +166,8 @@
                                     </td>
                                     <td><span class="badge tier-{user.tier}">{user.tier}</span></td>
                                     <td>{user.containerCount}</td>
-                                    <td>{new Date(user.createdAt).toLocaleDateString()}</td>
-                                    <td>{user.lastLogin ? formatRelativeTime(user.lastLogin) : '-'}</td>
+                                    <td>{new Date(user.created_at).toLocaleDateString()}</td>
+                                    <td>{user.updated_at ? formatRelativeTime(user.updated_at) : '-'}</td>
                                     <td>
                                         <button class="btn-icon danger" on:click={() => handleDeleteUser(user.id)} title="Delete User">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -262,7 +262,7 @@
                                             {term.status}
                                         </span>
                                     </td>
-                                    <td>{formatRelativeTime(term.connectedAt)}</td>
+                                    <td>{formatRelativeTime(term.connected_at)}</td>
                                 </tr>
                             {/each}
                         </tbody>
