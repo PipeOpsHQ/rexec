@@ -22,7 +22,6 @@
     "workbox-strategies": "^7.4.0"
   },
   "devDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.53.3",
     "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "@tsconfig/svelte": "^5.0.4",
     "rollup": "^4.53.3",
