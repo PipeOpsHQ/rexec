@@ -46,7 +46,7 @@ type TokenResponse struct {
 
 // UserInfo represents user information from PipeOps
 type UserInfo struct {
-	ID       string `json:"id"`
+	ID       int    `json:"id"`
 	Email    string `json:"email"`
 	Username string `json:"username,omitempty"`
 	Name     string `json:"name,omitempty"`
