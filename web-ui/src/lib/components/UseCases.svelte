@@ -78,16 +78,16 @@
             ]
         },
         {
-            title: "AI Model Training & Fine-tuning",
+            title: "GPU Terminals for AI/ML (Coming Soon)",
             icon: "gpu",
-            description: "Manage and securely share access to powerful GPU-enabled environments across your team for rapid AI/ML model development, training, and fine-tuning, eliminating the complexities of sharing SSH keys.",
+            description: "Rexec will provide instant-on, powerful GPU-enabled terminals for your team's AI/ML model development, training, and fine-tuning. Manage and share these dedicated GPU resources securely, eliminating the complexities of direct infrastructure access and SSH key sharing.",
             points: [
-                "On-demand GPU resources for your team",
-                "Centralized team access controls for GPU environments",
+                "On-demand access to GPU-accelerated terminals",
+                "Centralized team management of GPU resources",
                 "Pre-configured with ML frameworks (TensorFlow, PyTorch)",
-                "Isolated for reproducible experiments",
-                "Share running GPU sessions without sharing SSH keys",
-                "Collaborative resource allocation for projects"
+                "Isolated for reproducible experiments and data security",
+                "Securely share running GPU sessions with collaborators",
+                "Flexible scaling and collaborative resource allocation"
             ]
         },
         {
