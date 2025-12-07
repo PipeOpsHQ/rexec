@@ -308,6 +308,8 @@ func main() {
 		router.StaticFile("/manifest.json", filepath.Join(webDir, "manifest.json"))
 		router.StaticFile("/manifest.webmanifest", filepath.Join(webDir, "manifest.webmanifest"))
 		router.StaticFile("/sw.js", filepath.Join(webDir, "sw.js"))
+		router.StaticFile("/pwa-192x192.png", filepath.Join(webDir, "pwa-192x192.png"))
+		router.StaticFile("/pwa-512x512.png", filepath.Join(webDir, "pwa-512x512.png"))
 		router.StaticFile("/robots.txt", filepath.Join(webDir, "robots.txt"))
 		router.StaticFile("/sitemap.xml", filepath.Join(webDir, "sitemap.xml"))
 		router.StaticFile("/og-image.svg", filepath.Join(webDir, "og-image.svg"))

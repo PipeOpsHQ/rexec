@@ -313,8 +313,10 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 	c.SetCookie("oauth_state", "", -1, "/api/auth", "", false, true)
 
 	// Exchange code for token
-	tokenResp, err := h.oauthService.ExchangeCodeForToken(code, codeVerifier)
+	tokenResp, err := h.oauthService.ExchangeCodeForToken(code, storedState.CodeVerifier)
 	if err != nil {
+		// Log the full error for debugging (visible in server logs)
+		println("OAuth Token Exchange Error: " + err.Error())
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("token_exchange", "Failed to exchange code for token: "+err.Error())))
 		return
 	}
