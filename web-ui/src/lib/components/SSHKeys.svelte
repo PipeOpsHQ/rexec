@@ -216,7 +216,7 @@
 
 <ConfirmModal
     bind:show={showDeleteConfirm}
-    title="Delete {itemToDelete?.type === \"key\" ? \"SSH Key\" : \"Remote Connection\"}"
+    title="Delete {itemToDelete?.type === 'key' ? 'SSH Key' : 'Remote Connection'}"
     message={itemToDelete
         ? `Are you sure you want to delete "${itemToDelete.name}"? This action cannot be undone.`
         : ""}
