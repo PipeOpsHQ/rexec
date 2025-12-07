@@ -329,15 +329,15 @@ func runServer() {
 	// Cache control middleware for static assets
 	router.Use(func(c *gin.Context) {
 		path := c.Request.URL.Path
-		// Long cache for hashed assets (immutable)
-		if strings.HasPrefix(path, "/assets/") {
+		// Service worker - check order matters! Must be before generic .js check
+		if path == "/sw.js" {
+			c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+			c.Header("Service-Worker-Allowed", "/")
+		} else if strings.HasPrefix(path, "/assets/") {
+			// Long cache for hashed assets (immutable)
 			c.Header("Cache-Control", "public, max-age=31536000, immutable")
 		} else if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
-			// Cache SW and other static files
 			c.Header("Cache-Control", "public, max-age=86400")
-		} else if path == "/sw.js" {
-			// Service worker should be checked frequently
-			c.Header("Cache-Control", "public, max-age=0, must-revalidate")
 		}
 		c.Next()
 	})
@@ -554,12 +554,15 @@ func runServer() {
 		router.StaticFile("/manifest.json", filepath.Join(webDir, "manifest.json"))
 		router.StaticFile("/manifest.webmanifest", filepath.Join(webDir, "manifest.webmanifest"))
 		router.StaticFile("/sw.js", filepath.Join(webDir, "sw.js"))
+		router.StaticFile("/pwa-96x96.png", filepath.Join(webDir, "pwa-96x96.png"))
 		router.StaticFile("/pwa-192x192.png", filepath.Join(webDir, "pwa-192x192.png"))
 		router.StaticFile("/pwa-512x512.png", filepath.Join(webDir, "pwa-512x512.png"))
 		router.StaticFile("/robots.txt", filepath.Join(webDir, "robots.txt"))
 		router.StaticFile("/sitemap.xml", filepath.Join(webDir, "sitemap.xml"))
 		router.StaticFile("/og-image.svg", filepath.Join(webDir, "og-image.svg"))
 		router.StaticFile("/og-image.png", filepath.Join(webDir, "og-image.png"))
+		router.StaticFile("/screenshot-desktop.png", filepath.Join(webDir, "screenshot-desktop.png"))
+		router.StaticFile("/screenshot-mobile.png", filepath.Join(webDir, "screenshot-mobile.png"))
 
 		// Apple touch icons - serve favicon for these requests
 		router.StaticFile("/apple-touch-icon.png", filepath.Join(webDir, "favicon.svg"))
