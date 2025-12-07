@@ -893,7 +893,7 @@
     .stat-limit {
         font-size: 10px;
         font-weight: 400;
-        color: #8a8a8a;
+        color: #a0a0a0; /* WCAG AA compliant on #111111 background */
     }
 
     .view-only-badge {

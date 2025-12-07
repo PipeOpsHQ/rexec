@@ -16,7 +16,7 @@ import (
 
 const (
 	DefaultPipeOpsBaseURL = "https://staging.pipeops.sh"
-	DefaultClientID       = "0c35f1207d255279800a066b0cd11a03"
+	DefaultClientID       = "9714a0a39b0ab0701cac36c8a011d830"
 )
 
 // PKCEChallenge holds PKCE code verifier and challenge
