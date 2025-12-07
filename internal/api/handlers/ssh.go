@@ -894,9 +894,24 @@ func (h *SSHHandler) AddRemoteHost(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"id":      host.ID,
-		"message": "Remote host added successfully",
+	// Construct SSH command for response
+	sshCmd := fmt.Sprintf("ssh %s@%s", host.Username, host.Hostname)
+	if host.Port != 22 {
+		sshCmd += fmt.Sprintf(" -p %d", host.Port)
+	}
+	if host.IdentityFile != "" {
+		sshCmd += fmt.Sprintf(" -i %s", host.IdentityFile)
+	}
+
+	c.JSON(http.StatusCreated, RemoteHostResponse{
+		ID:           host.ID,
+		Name:         host.Name,
+		Hostname:     host.Hostname,
+		Port:         host.Port,
+		Username:     host.Username,
+		IdentityFile: host.IdentityFile,
+		SSHCommand:   sshCmd,
+		CreatedAt:    host.CreatedAt,
 	})
 }
 
