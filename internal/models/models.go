@@ -94,6 +94,7 @@ type ResourceLimits struct {
 	DiskMB          int64         `json:"disk_mb"`          // Disk quota in MB
 	NetworkMB       int64         `json:"network_mb"`       // Network bandwidth limit in MB/s
 	SessionDuration time.Duration `json:"session_duration"` // 0 = unlimited
+	MaxContainers   int64         `json:"max_containers"`   // Maximum number of containers allowed
 }
 
 // GuestResourceLimits defines the very restricted limits for anonymous guest users
@@ -103,6 +104,7 @@ var GuestResourceLimits = ResourceLimits{
 	DiskMB:          2048,
 	NetworkMB:       5,
 	SessionDuration: 1 * time.Hour,
+	MaxContainers:   1,
 }
 
 // Session represents an active terminal session
@@ -134,7 +136,8 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 			MemoryMB:        4096,  // 4GB RAM
 			DiskMB:          20480, // 20GB Storage
 			NetworkMB:       100,
-			SessionDuration: 0, // Unlimited
+			SessionDuration: 0,     // Unlimited
+			MaxContainers:   10,
 		}
 	}
 
@@ -149,6 +152,7 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 			DiskMB:          10240, // 10GB Storage
 			NetworkMB:       10,
 			SessionDuration: AuthenticatedSessionDuration,
+			MaxContainers:   3,
 		}
 	case "pro":
 		// Legacy pro tier (if not covered by subscriptionActive check)
@@ -158,6 +162,7 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 			DiskMB:          20480,
 			NetworkMB:       100,
 			SessionDuration: 0,
+			MaxContainers:   10,
 		}
 	case "enterprise":
 		return ResourceLimits{
@@ -166,6 +171,7 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 			DiskMB:          51200,
 			NetworkMB:       500,
 			SessionDuration: 0,
+			MaxContainers:   25,
 		}
 	default: // Default to free limits
 		return ResourceLimits{
@@ -174,6 +180,7 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 			DiskMB:          10240,
 			NetworkMB:       10,
 			SessionDuration: AuthenticatedSessionDuration,
+			MaxContainers:   3,
 		}
 	}
 }

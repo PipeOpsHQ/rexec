@@ -13,9 +13,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/rexec/rexec/internal/auth"
-	"github.com/rexec/rexec/internal/container"
 	"github.com/rexec/rexec/internal/models"
 	"github.com/rexec/rexec/internal/storage"
+	"github.com/rexec/rexec/internal/api/handlers/admin_events"
 )
 
 const (
@@ -28,10 +28,11 @@ type AuthHandler struct {
 	jwtSecret    []byte
 	store        *storage.PostgresStore
 	oauthService *auth.PKCEOAuthService
+	adminEventsHub *admin_events.AdminEventsHub
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(store *storage.PostgresStore) *AuthHandler {
+func NewAuthHandler(store *storage.PostgresStore, adminEventsHub *admin_events.AdminEventsHub) *AuthHandler {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		secret = "rexec-dev-secret-change-in-production"
@@ -40,6 +41,7 @@ func NewAuthHandler(store *storage.PostgresStore) *AuthHandler {
 		jwtSecret:    []byte(secret),
 		store:        store,
 		oauthService: auth.NewPKCEOAuthService(),
+		adminEventsHub: adminEventsHub,
 	}
 }
 
@@ -107,6 +109,7 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 			Tier:      "guest",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
+			IsAdmin:   false, // Explicitly set false for guests
 		}
 
 		// Store guest user
@@ -130,6 +133,8 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 				return
 			}
 		}
+		// Broadcast user_created event
+		h.adminEventsHub.Broadcast("user_created", user)
 	}
 
 	// Generate JWT token with 1-hour expiry
@@ -361,7 +366,8 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 			c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("create_user", "Failed to create user")))
 			return
 		}
-	} else {
+		// Broadcast user_created event
+		h.adminEventsHub.Broadcast("user_created", user)
 		// Update user info with latest from PipeOps
 		user.FirstName = userInfo.FirstName
 		user.LastName = userInfo.LastName
@@ -511,7 +517,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 			"ssh_keys":        sshKeyCount,
 		},
 		"limits": gin.H{
-			"containers": containerLimit,
+			"containers": models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).MaxContainers, // Assuming MaxContainers is a new field on ResourceLimits
 			"memory_mb":  models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).MemoryMB,
 			"cpu_shares": models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).CPUShares,
 			"disk_mb":    models.GetUserResourceLimits(user.Tier, user.SubscriptionActive).DiskMB,
@@ -559,6 +565,9 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update profile"})
 		return
 	}
+
+	// Broadcast user_updated event
+	h.adminEventsHub.Broadcast("user_updated", user)
 
 	token, err := h.generateToken(user)
 	if err != nil {

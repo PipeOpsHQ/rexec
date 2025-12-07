@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/rexec/rexec/internal/api/handlers"
+	"github.com/rexec/rexec/internal/api/handlers/admin_events"
 	"github.com/rexec/rexec/internal/api/middleware"
 	"github.com/rexec/rexec/internal/billing"
 	"github.com/rexec/rexec/internal/container"
@@ -88,7 +89,9 @@ func handleAdminCommand(args []string) {
 			fmt.Println("Usage: rexec admin promote <email>")
 			return
 		}
-		promoteUser(args[1])
+		// Initialize the hub for CLI context
+		adminEventsHub := handlers.NewAdminEventsHub(store, containerManager) // Temporary hub for CLI context only
+		promoteUser(args[1], adminEventsHub)
 	default:
 		fmt.Printf("Unknown admin command: %s\n", args[0])
 	}
@@ -110,17 +113,22 @@ func showAdminMenu() {
 		switch input {
 		case "1":
 			fmt.Print("Enter email to promote: ")
-			email, _ := reader.ReadString('\n')
-			promoteUser(strings.TrimSpace(email))
-		case "2":
-			return
-		default:
+			            email, _ := reader.ReadString('\n')
+			            // For interactive menu, create a temporary hub instance (no active WS clients)
+			            // This just allows the broadcast call to function without panicking.
+			            dummyEncryptor, _ := crypto.NewEncryptor("dummy-key-for-admin-cli-operation") // CLI tool does not need encryption
+			            dummyStore, _ := storage.NewPostgresStore("postgres://rexec:rexec@localhost:5432/rexec?sslmode=disable", dummyEncryptor) // Dummy store for CLI
+			            dummyContainerManager, _ := container.NewManager() // Dummy container manager
+			            dummyAdminEventsHub := handlers.NewAdminEventsHub(dummyStore, dummyContainerManager)
+			            promoteUser(strings.TrimSpace(email), dummyAdminEventsHub)
+			        case "2":
+			            return		default:
 			fmt.Println("Invalid option.")
 		}
 	}
 }
 
-func promoteUser(email string) {
+func promoteUser(email string, adminEventsHub *handlers.AdminEventsHub) {
 	// Initialize DB connection
 	godotenv.Load()
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -155,14 +163,16 @@ func promoteUser(email string) {
 	// Let's double check storage.UpdateUser implementation we updated.
 	// Yes: UPDATE users SET username = $2, tier = $3, is_admin = $4 ...
 	
-	if err := store.UpdateUser(ctx, user); err != nil {
-		log.Printf("Failed to promote user: %v", err)
-		return
+			if err := store.UpdateUser(ctx, user); err != nil {
+				log.Printf("Failed to promote user: %v", err)
+				return
+			}
+	
+			// Broadcast user updated event
+			adminEventsHub.Broadcast("user_updated", user)
+	
+		fmt.Printf("✅ User %s (%s) successfully promoted to Admin.\n", user.Email, user.ID)
 	}
-
-	fmt.Printf("✅ User %s (%s) successfully promoted to Admin.\n", user.Email, user.ID)
-}
-
 func runServer() {
 	// Load .env file if it exists
 	godotenv.Load()
@@ -256,41 +266,44 @@ func runServer() {
 		log.Println("✅ Stripe billing enabled")
 	} else {
 		log.Println("⚠️  Stripe not configured (billing disabled)")
-	}
-
-	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(store)
-	containerHandler := handlers.NewContainerHandler(containerManager, store)
-	containerEventsHub := handlers.NewContainerEventsHub(containerManager, store)
-	containerHandler.SetEventsHub(containerEventsHub)
-	terminalHandler := handlers.NewTerminalHandler(containerManager, store)
-	fileHandler := handlers.NewFileHandler(containerManager, store)
-	sshHandler := handlers.NewSSHHandler(store, containerManager)
-	collabHandler := handlers.NewCollabHandler(store, containerManager, terminalHandler)
-	recordingHandler := handlers.NewRecordingHandler(store, os.Getenv("RECORDINGS_PATH"))
-	// Connect recording handler to terminal handler to capture events
-	terminalHandler.SetRecordingHandler(recordingHandler)
-	// Connect collab handler to terminal handler for shared session access
-	terminalHandler.SetCollabHandler(collabHandler)
-	var billingHandler *handlers.BillingHandler
-	if billingService != nil {
-		billingHandler = handlers.NewBillingHandler(billingService, store)
-	}
-
-	// Initialize port forward handler
-	portForwardHandler := handlers.NewPortForwardHandler(store, containerManager)
+		}
 	
-	// Initialize snippet handler
-	snippetHandler := handlers.NewSnippetHandler(store)
-
-	// Initialize admin handler
-	adminHandler := handlers.NewAdminHandler(store)
-
-	// Setup Gin router
-	router := gin.Default()
+		// --- Initialize AdminEventsHub FIRST ---
+		adminEventsHub := handlers.NewAdminEventsHub(store, containerManager)
+	
+		// Initialize handlers
+		authHandler := handlers.NewAuthHandler(store, adminEventsHub)
+		containerHandler := handlers.NewContainerHandler(containerManager, store, adminEventsHub)
+		containerEventsHub := handlers.NewContainerEventsHub(containerManager, store)
+		containerHandler.SetEventsHub(containerEventsHub)
+		terminalHandler := handlers.NewTerminalHandler(containerManager, store, adminEventsHub)
+		fileHandler := handlers.NewFileHandler(containerManager, store)
+		sshHandler := handlers.NewSSHHandler(store, containerManager)
+		collabHandler := handlers.NewCollabHandler(store, containerManager, terminalHandler)
+		recordingHandler := handlers.NewRecordingHandler(store, os.Getenv("RECORDINGS_PATH"))
+		// Connect recording handler to terminal handler to capture events
+		terminalHandler.SetRecordingHandler(recordingHandler)
+		// Connect collab handler to terminal handler for shared session access
+		terminalHandler.SetCollabHandler(collabHandler)
+		var billingHandler *handlers.BillingHandler
+		if billingService != nil {
+			billingHandler = handlers.NewBillingHandler(billingService, store)
+		}
+	
+		// Initialize port forward handler
+		portForwardHandler := handlers.NewPortForwardHandler(store, containerManager)
+	
+		// Initialize snippet handler
+		snippetHandler := handlers.NewSnippetHandler(store)
+	
+		// Initialize admin handler
+		adminHandler := handlers.NewAdminHandler(store, adminEventsHub)
+	
+	
+		// Setup Gin router	router := gin.Default()
 
 	// Gzip compression for faster transfers (skip WebSocket)
-	router.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{"/ws/"})))
+	router.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{"/ws/", "/ws/admin/events"})))
 
 	// Cache control middleware for static assets
 	router.Use(func(c *gin.Context) {
@@ -485,6 +498,9 @@ func runServer() {
 
 	// WebSocket for Port Forwarding
 	router.GET("/ws/port-forward/:forwardId", wsLimiter.Middleware(), middleware.AuthMiddleware(), portForwardHandler.HandlePortForwardWebSocket)
+
+	// WebSocket for Admin Events (NEW)
+	router.GET("/ws/admin/events", wsLimiter.Middleware(), middleware.AuthMiddleware(), middleware.AdminOnly(store), adminEventsHub.HandleWebSocket)
 
 	// Public recording access (no auth required for shared recordings)
 	router.GET("/r/:token", recordingHandler.GetRecordingByToken)
