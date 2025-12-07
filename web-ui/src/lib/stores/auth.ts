@@ -376,7 +376,9 @@ function createAuthStore() {
           return true;
         }
 
-        return false;
+        // For non-guests, if we have a token but network failed, assume it's valid for now
+        // to prevent immediate logout on flaky connections or server restarts.
+        return true;
       }
     },
   };

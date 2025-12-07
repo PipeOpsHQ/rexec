@@ -9,16 +9,18 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/rexec/rexec/internal/crypto"
 	"github.com/rexec/rexec/internal/models"
 )
 
 // PostgresStore handles database operations
 type PostgresStore struct {
-	db *sqlx.DB
+	db        *sqlx.DB
+	encryptor *crypto.Encryptor
 }
 
 // NewPostgresStore creates a new PostgreSQL store
-func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
+func NewPostgresStore(databaseURL string, encryptor *crypto.Encryptor) (*PostgresStore, error) {
 	db, err := sqlx.Connect("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
@@ -29,7 +31,10 @@ func NewPostgresStore(databaseURL string) (*PostgresStore, error) {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	store := &PostgresStore{db: db}
+	store := &PostgresStore{
+		db:        db,
+		encryptor: encryptor,
+	}
 
 	// Run migrations
 	if err := store.migrate(); err != nil {
@@ -1202,11 +1207,28 @@ func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, session
 
 // CreateRemoteHost creates a new remote host record
 func (s *PostgresStore) CreateRemoteHost(ctx context.Context, host *models.RemoteHost) error {
+	// Encrypt sensitive fields
+	var err error
+	host.Hostname, err = s.encryptor.Encrypt(host.Hostname)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt hostname: %w", err)
+	}
+	host.Username, err = s.encryptor.Encrypt(host.Username)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt username: %w", err)
+	}
+	if host.IdentityFile != "" {
+		host.IdentityFile, err = s.encryptor.Encrypt(host.IdentityFile)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt identity file: %w", err)
+		}
+	}
+
 	query := `
 		INSERT INTO remote_hosts (id, user_id, name, hostname, port, username, identity_file, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
-	_, err := s.db.ExecContext(ctx, query,
+	_, err = s.db.ExecContext(ctx, query,
 		host.ID,
 		host.UserID,
 		host.Name,
@@ -1248,6 +1270,14 @@ func (s *PostgresStore) GetRemoteHostsByUserID(ctx context.Context, userID strin
 		if err != nil {
 			return nil, err
 		}
+
+		// Decrypt fields
+		h.Hostname, _ = s.encryptor.Decrypt(h.Hostname)
+		h.Username, _ = s.encryptor.Decrypt(h.Username)
+		if h.IdentityFile != "" {
+			h.IdentityFile, _ = s.encryptor.Decrypt(h.IdentityFile)
+		}
+
 		hosts = append(hosts, &h)
 	}
 	return hosts, nil
@@ -1284,6 +1314,14 @@ func (s *PostgresStore) GetRemoteHostByID(ctx context.Context, id string) (*mode
 	if err != nil {
 		return nil, err
 	}
+
+	// Decrypt fields
+	h.Hostname, _ = s.encryptor.Decrypt(h.Hostname)
+	h.Username, _ = s.encryptor.Decrypt(h.Username)
+	if h.IdentityFile != "" {
+		h.IdentityFile, _ = s.encryptor.Decrypt(h.IdentityFile)
+	}
+
 	return &h, nil
 }
 
@@ -1388,11 +1426,18 @@ func (s *PostgresStore) DeletePortForward(ctx context.Context, id string) error 
 
 // CreateSnippet creates a new snippet record
 func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snippet) error {
+	// Encrypt content
+	encryptedContent, err := s.encryptor.Encrypt(snippet.Content)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt snippet content: %w", err)
+	}
+	snippet.Content = encryptedContent
+
 	query := `
 		INSERT INTO snippets (id, user_id, name, content, language, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err := s.db.ExecContext(ctx, query,
+	_, err = s.db.ExecContext(ctx, query,
 		snippet.ID,
 		snippet.UserID,
 		snippet.Name,
@@ -1430,6 +1475,14 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 		if err != nil {
 			return nil, err
 		}
+
+		// Decrypt content
+		decrypted, err := s.encryptor.Decrypt(sn.Content)
+		if err == nil {
+			sn.Content = decrypted
+		}
+		// If decryption fails, we return encrypted content (or handle error, but usually better to return raw than crash for list)
+
 		snippets = append(snippets, &sn)
 	}
 	return snippets, nil
@@ -1457,6 +1510,13 @@ func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.
 	if err != nil {
 		return nil, err
 	}
+
+	// Decrypt content
+	decrypted, err := s.encryptor.Decrypt(sn.Content)
+	if err == nil {
+		sn.Content = decrypted
+	}
+
 	return &sn, nil
 }
 

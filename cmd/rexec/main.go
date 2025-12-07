@@ -17,6 +17,7 @@ import (
 	"github.com/rexec/rexec/internal/api/middleware"
 	"github.com/rexec/rexec/internal/billing"
 	"github.com/rexec/rexec/internal/container"
+	"github.com/rexec/rexec/internal/crypto"
 	"github.com/rexec/rexec/internal/storage"
 )
 
@@ -80,8 +81,25 @@ func runServer() {
 		databaseURL = "postgres://rexec:rexec@localhost:5432/rexec?sslmode=disable"
 	}
 
+	// Initialize encryption
+	encryptionKey := os.Getenv("REXEC_ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		// Use a default key for development ONLY if not set
+		if os.Getenv("GIN_MODE") != "release" {
+			log.Println("⚠️  REXEC_ENCRYPTION_KEY not set, using default dev key")
+			encryptionKey = "rexec-dev-key-do-not-use-in-prod" // 32 bytes
+		} else {
+			log.Fatal("REXEC_ENCRYPTION_KEY must be set in production")
+		}
+	}
+
+	encryptor, err := crypto.NewEncryptor(encryptionKey)
+	if err != nil {
+		log.Fatalf("Failed to initialize encryptor: %v", err)
+	}
+
 	// Initialize PostgreSQL store
-	store, err := storage.NewPostgresStore(databaseURL)
+	store, err := storage.NewPostgresStore(databaseURL, encryptor)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
