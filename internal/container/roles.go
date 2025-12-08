@@ -149,52 +149,43 @@ QUICKCLI
 echo "[[REXEC_STATUS]]Installing Rexec CLI..."
 quick_install_rexec_cli && echo "  ✓ Rexec CLI ready" || echo "  ! Rexec CLI delayed"
 
-# Wait for filesystem to be fully writable (critical for overlay/container startup)
+# Initialize apt directories (these are tmpfs, so always writable)
+init_apt_dirs() {
+    if command -v apt-get >/dev/null 2>&1; then
+        mkdir -p /var/lib/apt/lists/partial 2>/dev/null || true
+        mkdir -p /var/cache/apt/archives/partial 2>/dev/null || true
+        # dpkg directories may be on overlay, handle gracefully
+        mkdir -p /var/lib/dpkg/updates 2>/dev/null || true
+        mkdir -p /var/lib/dpkg/info 2>/dev/null || true
+        [ -f /var/lib/dpkg/status ] || touch /var/lib/dpkg/status 2>/dev/null || true
+        # Clear any stale locks
+        rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true
+        rm -f /var/lib/dpkg/lock* 2>/dev/null || true
+    fi
+}
+
+# Initialize apt directories immediately (tmpfs mounted, should work)
+init_apt_dirs
+
+# Wait for filesystem to be fully writable (for dpkg which may be on overlay)
 wait_for_filesystem() {
-    max_wait=30
+    max_wait=15
     waited=0
-    test_file="/tmp/.rexec_fs_test_$$"
-    apt_test_file="/var/lib/apt/.rexec_write_test_$$"
+    dpkg_test="/var/lib/dpkg/.rexec_test_$$"
     
     while [ $waited -lt $max_wait ]; do
-        # Try to write to /tmp first (should always work)
-        if touch "$test_file" 2>/dev/null && rm -f "$test_file" 2>/dev/null; then
-            # Create apt directories
-            mkdir -p /var/lib/apt/lists/partial 2>/dev/null || true
-            mkdir -p /var/cache/apt/archives/partial 2>/dev/null || true
-            mkdir -p /var/lib/dpkg/updates 2>/dev/null || true
-            
-            # Verify /var/lib/apt is truly writable by writing a test file
-            if touch "$apt_test_file" 2>/dev/null && rm -f "$apt_test_file" 2>/dev/null; then
-                echo "  Filesystem ready"
-                return 0
-            fi
-            
-            # If /var is read-only, check if we can remount it
-            if mount | grep -q "on /var.*ro[,)]" 2>/dev/null; then
-                echo "  Attempting to remount /var as read-write..."
-                mount -o remount,rw /var 2>/dev/null || true
-            fi
-            
-            # Check if root filesystem is read-only
-            if mount | grep -q "on / .*ro[,)]" 2>/dev/null; then
-                echo "  Attempting to remount root as read-write..."
-                mount -o remount,rw / 2>/dev/null || true
-            fi
+        # Check if dpkg directory is writable
+        if touch "$dpkg_test" 2>/dev/null && rm -f "$dpkg_test" 2>/dev/null; then
+            echo "  Filesystem ready"
+            return 0
         fi
-        echo "  Waiting for filesystem to be ready... ($waited/$max_wait)"
+        
+        echo "  Waiting for filesystem... ($waited/$max_wait)"
         sleep 1
         waited=$((waited + 1))
     done
     
-    # Final attempt - try to write to a test file in /var/lib/apt
-    if touch "$apt_test_file" 2>/dev/null && rm -f "$apt_test_file" 2>/dev/null; then
-        echo "  Filesystem ready (delayed)"
-        return 0
-    fi
-    
-    echo "  Warning: Filesystem may not be fully ready for package installation"
-    echo "  Package installation may fail - AI tools will be skipped if needed"
+    echo "  Warning: dpkg directory may not be writable, package install might fail"
     return 1
 }
 

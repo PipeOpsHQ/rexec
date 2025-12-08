@@ -1104,14 +1104,18 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		// Security is maintained via other measures (seccomp, capabilities, etc.)
 		ReadonlyRootfs: false,
 		// Tmpfs mounts for writable directories
+		// Note: /var/lib/apt and /var/cache/apt are added to ensure package manager
+		// works even if overlay filesystem has issues or base image is minimal
 		Tmpfs: map[string]string{
-			"/tmp":               "rw,noexec,nosuid,size=100m",
+			"/tmp":               "rw,nosuid,size=100m",         // Allow exec for some installers
 			"/var/tmp":           "rw,noexec,nosuid,size=50m",
 			"/run":               "rw,noexec,nosuid,size=50m",
 			"/var/run":           "rw,noexec,nosuid,size=50m",
 			"/home/user":         "rw,nosuid,size=500m",
-			"/root":              "rw,nosuid,size=50m",
-			"/var/log":           "rw,noexec,nosuid,size=50m",   // system logs
+			"/root":              "rw,nosuid,size=100m",
+			"/var/log":           "rw,noexec,nosuid,size=50m",
+			"/var/lib/apt":       "rw,noexec,nosuid,size=200m",  // APT package lists
+			"/var/cache/apt":     "rw,noexec,nosuid,size=500m",  // APT package cache
 		},
 		// Mask sensitive host information from /proc and /sys
 		MaskedPaths: []string{

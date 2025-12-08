@@ -626,6 +626,17 @@ func SetupRole(ctx context.Context, cli *client.Client, containerID string, role
 		return nil, err
 	}
 
+	// Wait for container to be fully running before executing
+	// This helps avoid race conditions with overlay filesystem
+	maxWait := 10
+	for i := 0; i < maxWait; i++ {
+		inspect, err := cli.ContainerInspect(ctx, containerID)
+		if err == nil && inspect.State != nil && inspect.State.Running {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
 	// Apply timeout to prevent hanging on slow package installs
 	ctx, cancel := context.WithTimeout(ctx, RoleSetupTimeout)
 	defer cancel()
