@@ -263,48 +263,48 @@ install_role_packages() {
         echo "Unsupported package manager"
         # Don't exit, try to continue setup
     fi
-        rm -f /tmp/.rexec_installing_system
-    }
-    
-    # Configure Zsh if installed
-    configure_zsh() {
-        if command -v zsh >/dev/null 2>&1; then
-            echo "Configuring zsh..."
+    rm -f /tmp/.rexec_installing_system
+}
 
-            # Install Oh My Zsh
-            export HOME="${HOME:-/root}"
-            export ZSH="$HOME/.oh-my-zsh"
-            if [ ! -d "$ZSH" ]; then
-                echo "Installing Oh My Zsh..."
-                git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$ZSH" 2>/dev/null || true
-            fi
+# Configure Zsh if installed
+configure_zsh() {
+    if command -v zsh >/dev/null 2>&1; then
+        echo "Configuring zsh..."
 
-            # Install Plugins
-            ZSH_CUSTOM="$ZSH/custom"
-            mkdir -p "$ZSH_CUSTOM/plugins"
-            echo "Installing zsh plugins..."
-            
-            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
-                git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
-            fi
-            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
-                git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
-            fi
-            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-history-substring-search" ]; then
-                git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search "$ZSH_CUSTOM/plugins/zsh-history-substring-search" 2>/dev/null || true
-            fi
-            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-completions" ]; then
-                git clone --depth=1 https://github.com/zsh-users/zsh-completions "$ZSH_CUSTOM/plugins/zsh-completions" 2>/dev/null || true
-            fi
+        # Install Oh My Zsh
+        export HOME="${HOME:-/root}"
+        export ZSH="$HOME/.oh-my-zsh"
+        if [ ! -d "$ZSH" ]; then
+            echo "Installing Oh My Zsh..."
+            git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$ZSH" 2>/dev/null || true
+        fi
 
-            # Change default shell
-            if [ -f /etc/passwd ]; then
-                ZSH_PATH=$(which zsh)
-                sed -i "s|root:.*:/bin/.*|root:x:0:0:root:/root:$ZSH_PATH|" /etc/passwd 2>/dev/null || true
-            fi
+        # Install Plugins
+        ZSH_CUSTOM="$ZSH/custom"
+        mkdir -p "$ZSH_CUSTOM/plugins"
+        echo "Installing zsh plugins..."
+        
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+        fi
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+        fi
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-history-substring-search" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-history-substring-search "$ZSH_CUSTOM/plugins/zsh-history-substring-search" 2>/dev/null || true
+        fi
+        if [ ! -d "$ZSH_CUSTOM/plugins/zsh-completions" ]; then
+            git clone --depth=1 https://github.com/zsh-users/zsh-completions "$ZSH_CUSTOM/plugins/zsh-completions" 2>/dev/null || true
+        fi
 
-            # Define ZSHRC content once
-            ZSHRC_CONTENT=$(cat << 'ZSHRC_TEMPLATE'
+        # Change default shell
+        if [ -f /etc/passwd ]; then
+            ZSH_PATH=$(which zsh)
+            sed -i "s|root:.*:/bin/.*|root:x:0:0:root:/root:$ZSH_PATH|" /etc/passwd 2>/dev/null || true
+        fi
+
+        # Define ZSHRC content once
+        ZSHRC_CONTENT=$(cat << 'ZSHRC_TEMPLATE'
 export TERM=xterm-256color
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -346,36 +346,36 @@ fi
 ZSHRC_TEMPLATE
 )
 
-            # Write to /root/.zshrc
-            if [ ! -f /root/.zshrc ]; then
-                echo "$ZSHRC_CONTENT" > /root/.zshrc
-            else
-                echo "  .zshrc already exists, skipping overwrite..."
-            fi
-
-            # Write to /home/user/.zshrc and correct HOME path
-            if [ ! -f /home/user/.zshrc ]; then
-                echo "$ZSHRC_CONTENT" | \
-                    sed "s|export HOME=\"\\${HOME:-/root}\"|export HOME=\"/home/user\"|" | \
-                    sed "s|export PATH=\"/root/.local/bin:\\$PATH\"|export PATH=\"/home/user/.local/bin:\\$PATH\"|" \
-                    > /home/user/.zshrc
-            else
-                echo "  user .zshrc already exists, skipping overwrite..."
-            fi
-            
-            # Setup user environment
-            if id "user" >/dev/null 2>&1; then
-                mkdir -p /home/user
-                if [ -d /root/.oh-my-zsh ]; then
-                    cp -r /root/.oh-my-zsh /home/user/.oh-my-zsh
-                fi
-                chown -R user:user /home/user
-                chmod 644 /home/user/.zshrc 2>/dev/null || true
-            fi
+        # Write to /root/.zshrc
+        if [ ! -f /root/.zshrc ]; then
+            echo "$ZSHRC_CONTENT" > /root/.zshrc
+        else
+            echo "  .zshrc already exists, skipping overwrite..."
         fi
-    }
-    
-    # Create rexec CLI command with subcommands
+
+        # Write to /home/user/.zshrc and correct HOME path
+        if [ ! -f /home/user/.zshrc ]; then
+            echo "$ZSHRC_CONTENT" | \
+                sed "s|export HOME=\"\\${HOME:-/root}\"|export HOME=\"/home/user\"|" | \
+                sed "s|export PATH=\"/root/.local/bin:\\$PATH\"|export PATH=\"/home/user/.local/bin:\\$PATH\"|" \
+                > /home/user/.zshrc
+        else
+            echo "  user .zshrc already exists, skipping overwrite..."
+        fi
+        
+        # Setup user environment
+        if id "user" >/dev/null 2>&1; then
+            mkdir -p /home/user
+            if [ -d /root/.oh-my-zsh ]; then
+                cp -r /root/.oh-my-zsh /home/user/.oh-my-zsh
+            fi
+            chown -R user:user /home/user
+            chmod 644 /home/user/.zshrc 2>/dev/null || true
+        fi
+    fi
+}
+
+# Create rexec CLI command with subcommands
 create_rexec_cli() {
     mkdir -p /root/.local/bin /home/user/.local/bin 2>/dev/null || true
     
