@@ -532,28 +532,24 @@
                             {#each portForwards as pf (pf.id)}
                                 <div class="forward-card">
                                     <div class="forward-info">
-                                        <div class="forward-name">
-                                            {pf.name ||
-                                                `Port ${pf.container_port}`}
-                                        </div>
-                                        <div class="forward-details">
+                                        <div class="forward-header">
+                                            <span class="forward-name">
+                                                {pf.name ||
+                                                    `Port ${pf.container_port}`}
+                                            </span>
                                             <span class="port-badge"
                                                 >:{pf.container_port}</span
                                             >
-                                            <span class="arrow">→</span>
+                                        </div>
+                                        <div class="forward-url">
                                             <a
                                                 href={pf.proxy_url}
                                                 target="_blank"
                                                 rel="noopener"
                                                 class="proxy-link"
-                                                title="Open in new tab"
+                                                title={pf.proxy_url}
                                             >
-                                                {pf.proxy_url
-                                                    ?.replace(
-                                                        /^https?:\/\//,
-                                                        "",
-                                                    )
-                                                    .slice(0, 30)}...
+                                                {pf.proxy_url}
                                             </a>
                                         </div>
                                     </div>
@@ -741,7 +737,7 @@
 
     .modal-container {
         position: relative;
-        width: 420px;
+        width: 520px;
         max-width: 90vw;
         max-height: 90vh;
         overflow-y: auto;
@@ -873,19 +869,37 @@
 
     .forward-card {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
         background: var(--bg-secondary, #111);
         border: 1px solid var(--border, #1a1a1a);
         border-radius: 4px;
+    }
+
+    .forward-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .forward-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     .forward-name {
         font-size: 13px;
         font-weight: 600;
         color: var(--text, #e0e0e0);
-        margin-bottom: 4px;
+    }
+
+    .forward-url {
+        display: flex;
+        align-items: center;
+        font-size: 11px;
+        font-family: var(--font-mono, monospace);
     }
 
     .forward-details {
@@ -910,21 +924,24 @@
     .proxy-link {
         color: var(--accent, #00ff65);
         text-decoration: none;
-        font-size: 10px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 180px;
+        font-size: 11px;
+        word-break: break-all;
+        background: rgba(0, 255, 65, 0.05);
+        padding: 4px 8px;
+        border-radius: 2px;
+        border: 1px solid rgba(0, 255, 65, 0.15);
     }
 
     .proxy-link:hover {
         text-decoration: underline;
+        background: rgba(0, 255, 65, 0.1);
     }
 
     .forward-actions {
         display: flex;
         gap: 6px;
         flex-shrink: 0;
+        justify-content: flex-end;
     }
 
     .btn-sm {
@@ -963,7 +980,7 @@
     }
 
     .modal-container-nested {
-        width: 380px;
+        width: 420px;
         max-width: 90vw;
         background: var(--bg, #0a0a0a);
         border: 1px solid var(--border, #1a1a1a);

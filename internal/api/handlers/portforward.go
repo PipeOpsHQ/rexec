@@ -327,9 +327,15 @@ func (h *PortForwardHandler) HandlePortForwardWebSocket(c *gin.Context) {
 	// Establish TCP connection to the container's internal port
 	// We need the Docker host or container IP
 	dockerClient := h.containerManager.GetClient()
-	inspect, err := dockerClient.ContainerInspect(c.Request.Context(), pf.ContainerID)
+	dockerID := containerRecord.DockerID
+	if dockerID == "" {
+		log.Printf("Container %s has no Docker ID for port forward %s", pf.ContainerID, forwardID)
+		wsConn.WriteMessage(websocket.TextMessage, []byte("Error: Container not available"))
+		return
+	}
+	inspect, err := dockerClient.ContainerInspect(c.Request.Context(), dockerID)
 	if err != nil {
-		log.Printf("Failed to inspect container %s for port forward %s: %v", pf.ContainerID, forwardID, err)
+		log.Printf("Failed to inspect container %s (docker: %s) for port forward %s: %v", pf.ContainerID, dockerID, forwardID, err)
 		return
 	}
 
@@ -495,11 +501,17 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 		return
 	}
 
-	// Get container IP
+	// Get container IP - use Docker ID, not DB ID
 	dockerClient := h.containerManager.GetClient()
-	inspect, err := dockerClient.ContainerInspect(c.Request.Context(), pf.ContainerID)
+	dockerID := containerRecord.DockerID
+	if dockerID == "" {
+		log.Printf("Container %s has no Docker ID for proxy %s", pf.ContainerID, forwardID)
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Container not available"})
+		return
+	}
+	inspect, err := dockerClient.ContainerInspect(c.Request.Context(), dockerID)
 	if err != nil {
-		log.Printf("Failed to inspect container %s for proxy %s: %v", pf.ContainerID, forwardID, err)
+		log.Printf("Failed to inspect container %s (docker: %s) for proxy %s: %v", pf.ContainerID, dockerID, forwardID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to container"})
 		return
 	}
