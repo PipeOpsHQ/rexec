@@ -54,6 +54,14 @@ func generateContainerName() string {
 	return fmt.Sprintf("%s-%s-%d", adj, noun, num)
 }
 
+// truncateOutput returns the last n characters of a string
+func truncateOutput(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return "..." + s[len(s)-n:]
+}
+
 // ContainerHandler handles container-related HTTP requests
 type ContainerHandler struct {
 	manager   *container.Manager
@@ -580,10 +588,10 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 			log.Printf("[Container] Role setup error for %s (%s): %v", info.ID[:12], role, roleErr)
 			sendProgress("configuring", fmt.Sprintf("Role setup failed: %v", roleErr), 97)
 		} else if !roleResult.Success {
-			log.Printf("[Container] Role setup incomplete for %s (%s): %s", info.ID[:12], role, roleResult.Message)
+			log.Printf("[Container] Role setup incomplete for %s (%s): %s\nOutput: %s", info.ID[:12], role, roleResult.Message, roleResult.Output)
 			sendProgress("configuring", fmt.Sprintf("Role setup warning: %s", roleResult.Message), 97)
 		} else {
-			log.Printf("[Container] Role setup complete for %s (%s)", info.ID[:12], role)
+			log.Printf("[Container] Role setup complete for %s (%s)\nOutput (last 500 chars): %s", info.ID[:12], role, truncateOutput(roleResult.Output, 500))
 			sendProgress("configuring", "Role tools installed", 98)
 		}
 	}

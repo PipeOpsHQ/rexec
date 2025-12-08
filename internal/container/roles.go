@@ -572,6 +572,9 @@ do_search() {
 
 # Show Tools
 show_tools() {
+    # Ensure PATH includes .local/bin for AI tools
+    export PATH="$HOME/.local/bin:/root/.local/bin:/usr/local/bin:$PATH"
+    
     if [ "$HAS_GUM" -eq 1 ]; then
         gum style --border normal --padding "0 2" --foreground 212 "Installed Tools"
     else
@@ -924,17 +927,31 @@ AIHELP
 
 # --- Execution ---
 
+echo "[[REXEC_STATUS]]Starting role setup..."
 echo "Setting up Rexec environment..."
 
 # 1. Install CLI and setup paths first (critical)
 echo "[[REXEC_STATUS]]Installing Rexec CLI..."
 create_rexec_cli
+if [ -x /root/.local/bin/rexec ] || [ -x /usr/local/bin/rexec ]; then
+    echo "  ✓ Rexec CLI installed successfully"
+else
+    echo "  ✗ Rexec CLI installation failed!"
+fi
 setup_path
 save_role_info
 
 # 2. Install packages (might take time or fail, but CLI is ready)
 echo "[[REXEC_STATUS]]Installing system packages..."
 install_role_packages
+echo "  Verifying package installation..."
+for pkg in curl wget git; do
+    if command -v $pkg >/dev/null 2>&1; then
+        echo "    ✓ $pkg available"
+    else
+        echo "    ✗ $pkg NOT found"
+    fi
+done
 
 # 3. Configure Zsh (if installed)
 echo "[[REXEC_STATUS]]Configuring shell..."
@@ -943,6 +960,14 @@ configure_zsh
 # 4. Install AI tools
 echo "[[REXEC_STATUS]]Installing AI tools..."
 install_free_ai_tools
+echo "  Verifying AI tools..."
+for tool in tgpt aichat mods gum; do
+    if command -v $tool >/dev/null 2>&1 || [ -x /root/.local/bin/$tool ] || [ -x /usr/local/bin/$tool ]; then
+        echo "    ✓ $tool available"
+    else
+        echo "    ✗ $tool NOT found"
+    fi
+done
 
 # Special handling for Vibe Coder role - install additional AI CLI tools
 if [ "%s" = "Vibe Coder" ]; then
