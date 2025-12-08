@@ -112,6 +112,98 @@ set +e
 
 echo "Installing tools for role: %s..."
 
+# Quick-install rexec CLI first (minimal filesystem requirements)
+# This runs before other setup so users have CLI available immediately
+quick_install_rexec_cli() {
+    mkdir -p /root/.local/bin /usr/local/bin 2>/dev/null || return 1
+    
+    # Minimal rexec CLI for immediate use
+    cat > /root/.local/bin/rexec << 'QUICKCLI'
+#!/bin/sh
+# Rexec CLI - Tools are being installed in background
+case "$1" in
+    tools|ls) 
+        echo "=== Rexec Terminal ==="
+        if [ -f /tmp/.rexec_installing_system ] || [ -f /tmp/.rexec_installing_ai ]; then
+            echo "Tools are currently being installed..."
+            echo "Run 'rexec tools' again in a moment."
+        else
+            export PATH="$HOME/.local/bin:/root/.local/bin:/usr/local/bin:$PATH"
+            echo ""; echo "System:"; for cmd in zsh git curl wget vim nano htop jq tmux fzf ripgrep neofetch; do command -v $cmd >/dev/null 2>&1 && echo "  ✓ $cmd"; done
+            echo ""; echo "AI & Dev:"; for cmd in python3 node go rustc docker kubectl tgpt aichat mods gum aider opencode llm; do command -v $cmd >/dev/null 2>&1 && echo "  ✓ $cmd"; done
+            echo ""
+        fi
+        ;;
+    info) hostname ;;
+    help|--help|-h) echo "Usage: rexec [tools|info|help]" ;;
+    *) echo "Rexec CLI - run 'rexec tools' to see installed tools" ;;
+esac
+QUICKCLI
+    chmod +x /root/.local/bin/rexec
+    ln -sf /root/.local/bin/rexec /usr/local/bin/rexec 2>/dev/null || true
+    ln -sf /root/.local/bin/rexec /usr/bin/rexec 2>/dev/null || true
+    return 0
+}
+
+# Install minimal CLI immediately (even if rest of filesystem isn't ready)
+echo "[[REXEC_STATUS]]Installing Rexec CLI..."
+quick_install_rexec_cli && echo "  ✓ Rexec CLI ready" || echo "  ! Rexec CLI delayed"
+
+# Wait for filesystem to be fully writable (critical for overlay/container startup)
+wait_for_filesystem() {
+    max_wait=30
+    waited=0
+    test_file="/tmp/.rexec_fs_test_$$"
+    apt_test_file="/var/lib/apt/.rexec_write_test_$$"
+    
+    while [ $waited -lt $max_wait ]; do
+        # Try to write to /tmp first (should always work)
+        if touch "$test_file" 2>/dev/null && rm -f "$test_file" 2>/dev/null; then
+            # Create apt directories
+            mkdir -p /var/lib/apt/lists/partial 2>/dev/null || true
+            mkdir -p /var/cache/apt/archives/partial 2>/dev/null || true
+            mkdir -p /var/lib/dpkg/updates 2>/dev/null || true
+            
+            # Verify /var/lib/apt is truly writable by writing a test file
+            if touch "$apt_test_file" 2>/dev/null && rm -f "$apt_test_file" 2>/dev/null; then
+                echo "  Filesystem ready"
+                return 0
+            fi
+            
+            # If /var is read-only, check if we can remount it
+            if mount | grep -q "on /var.*ro[,)]" 2>/dev/null; then
+                echo "  Attempting to remount /var as read-write..."
+                mount -o remount,rw /var 2>/dev/null || true
+            fi
+            
+            # Check if root filesystem is read-only
+            if mount | grep -q "on / .*ro[,)]" 2>/dev/null; then
+                echo "  Attempting to remount root as read-write..."
+                mount -o remount,rw / 2>/dev/null || true
+            fi
+        fi
+        echo "  Waiting for filesystem to be ready... ($waited/$max_wait)"
+        sleep 1
+        waited=$((waited + 1))
+    done
+    
+    # Final attempt - try to write to a test file in /var/lib/apt
+    if touch "$apt_test_file" 2>/dev/null && rm -f "$apt_test_file" 2>/dev/null; then
+        echo "  Filesystem ready (delayed)"
+        return 0
+    fi
+    
+    echo "  Warning: Filesystem may not be fully ready for package installation"
+    echo "  Package installation may fail - AI tools will be skipped if needed"
+    return 1
+}
+
+# Run filesystem check before package installation
+FS_READY=0
+if wait_for_filesystem; then
+    FS_READY=1
+fi
+
 # Create required apt directories (fix for minimal images and read-only issues)
 prepare_apt_dirs() {
     if command -v apt-get >/dev/null 2>&1; then
@@ -187,6 +279,14 @@ install_role_packages() {
     touch /tmp/.rexec_installing_system
     GENERIC_PACKAGES="%s"
     PACKAGES="$GENERIC_PACKAGES"
+    
+    # Check if filesystem is ready for package installation
+    if [ "$FS_READY" != "1" ]; then
+        echo "  Skipping package installation - filesystem not ready"
+        echo "  You can manually install packages later with: apt-get update && apt-get install <package>"
+        rm -f /tmp/.rexec_installing_system
+        return 1
+    fi
     
     # Fix dpkg and wait for locks before starting
     fix_dpkg
@@ -756,13 +856,52 @@ install_free_ai_tools() {
     touch /tmp/.rexec_installing_ai
     echo "Installing free AI terminal tools..."
     export HOME="${HOME:-/root}"
-    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.local/bin" 2>/dev/null || true
+    
+    # Check if we can write to the install directory
+    if ! touch "$HOME/.local/bin/.test_write" 2>/dev/null; then
+        echo "  Warning: Cannot write to $HOME/.local/bin - skipping AI tools"
+        rm -f /tmp/.rexec_installing_ai
+        return 1
+    fi
+    rm -f "$HOME/.local/bin/.test_write"
+    
+    # Fix apt directories if needed (common issue with fresh containers)
+    fix_apt_dirs() {
+        if command -v apt-get >/dev/null 2>&1; then
+            # Ensure apt directories exist and are writable
+            mkdir -p /var/lib/apt/lists/partial 2>/dev/null || true
+            mkdir -p /var/cache/apt/archives/partial 2>/dev/null || true
+            # Remove any stale lock files
+            rm -f /var/lib/apt/lists/lock 2>/dev/null || true
+            rm -f /var/cache/apt/archives/lock 2>/dev/null || true
+            rm -f /var/lib/dpkg/lock* 2>/dev/null || true
+            # Fix dpkg if interrupted
+            if [ -d /var/lib/dpkg/updates ]; then
+                rm -f /var/lib/dpkg/updates/* 2>/dev/null || true
+            fi
+        fi
+    }
     
     # Check if curl is available (critical for downloads)
     if ! command -v curl >/dev/null 2>&1; then
         echo "  Warning: curl not found, attempting to install..."
-        if command -v apt-get >/dev/null 2>&1; then
-            apt-get update -qq && apt-get install -y curl ca-certificates 2>&1 || true
+        
+        # Skip apt-get install if filesystem not ready
+        if [ "$FS_READY" != "1" ]; then
+            echo "  Filesystem not ready - cannot install curl via apt"
+            echo "  AI tools installation will be limited"
+        elif command -v apt-get >/dev/null 2>&1; then
+            fix_apt_dirs
+            # Retry apt-get with better error handling
+            for i in 1 2 3; do
+                if apt-get update -qq 2>/dev/null && apt-get install -y curl ca-certificates 2>&1; then
+                    break
+                fi
+                echo "    Retrying apt-get ($i/3)..."
+                fix_apt_dirs
+                sleep 1
+            done
         elif command -v apk >/dev/null 2>&1; then
             apk add --no-cache curl ca-certificates 2>&1 || true
         elif command -v dnf >/dev/null 2>&1; then
@@ -965,8 +1104,9 @@ AIHELP
 echo "[[REXEC_STATUS]]Starting role setup..."
 echo "Setting up Rexec environment..."
 
-# 1. Install CLI and setup paths first (critical)
-echo "[[REXEC_STATUS]]Installing Rexec CLI..."
+# Note: Quick rexec CLI was already installed at script start (before filesystem wait)
+# Now install the full-featured CLI to replace it
+echo "[[REXEC_STATUS]]Installing full Rexec CLI..."
 create_rexec_cli
 if [ -x /root/.local/bin/rexec ] || [ -x /usr/local/bin/rexec ]; then
     echo "  ✓ Rexec CLI installed successfully"

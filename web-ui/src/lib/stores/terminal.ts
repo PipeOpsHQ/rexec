@@ -695,14 +695,23 @@ function createTerminalStore() {
             if (statusMatch) {
               const statusMsg = statusMatch[1].trim();
               if (statusMsg === "Setup complete.") {
-                 // specific completion message
+                 // Setup complete - clear status and do a soft terminal refresh
                  setTimeout(() => {
                     updateSession(sessionId, (s) => ({
                       ...s,
                       isSettingUp: false,
                       setupMessage: "",
                     }));
-                 }, 1000);
+                    
+                    // Auto-reload: send Enter to get a fresh prompt with tools loaded
+                    const currentSession = getState().sessions.get(sessionId);
+                    if (currentSession?.ws?.readyState === WebSocket.OPEN) {
+                      // Clear terminal and show refreshed state
+                      currentSession.terminal.writeln("\r\n\x1b[32m✓ Environment ready! Press Enter for a fresh prompt.\x1b[0m\r\n");
+                      // Send Enter key to trigger a fresh shell prompt
+                      currentSession.ws.send(JSON.stringify({ type: "input", data: "\n" }));
+                    }
+                 }, 500);
               } else {
                  updateSession(sessionId, (s) => ({
                     ...s,
