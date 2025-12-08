@@ -9,6 +9,7 @@
     // Components
     import Header from "$components/Header.svelte";
     import Landing from "$components/Landing.svelte";
+    import PromoLanding from "$components/PromoLanding.svelte";
     import Dashboard from "$components/Dashboard.svelte";
     import AdminDashboard from "$components/AdminDashboard.svelte";
     import CreateTerminal from "$components/CreateTerminal.svelte";
@@ -28,6 +29,7 @@
     // App state
     let currentView:
         | "landing"
+        | "promo"
         | "dashboard"
         | "admin"
         | "create"
@@ -65,6 +67,8 @@
                 document.title = "Dashboard - Rexec";
             } else if (currentView === "landing") {
                 document.title = "Rexec - Terminal as a Service";
+            } else if (currentView === "promo") {
+                document.title = "Rexec - The Future of Terminals";
             }
 
             // Robots meta
@@ -91,7 +95,7 @@
             
             if (currentView === "pricing") {
                 descMeta.setAttribute('content', 'Simple, transparent pricing for instant Linux terminals. Scale your infrastructure as you grow.');
-            } else if (currentView === "landing") {
+            } else if (currentView === "landing" || currentView === "promo") {
                  descMeta.setAttribute('content', 'Launch secure Linux terminals instantly in your browser. No setup required. Perfect for demos, training, and quick tasks.');
             }
         }
@@ -221,6 +225,12 @@
             // Ensure auth logic runs first (handled by onMount), then check role
             // But here we just set view, auth check happens in goToAdmin or reactive block
             currentView = "admin";
+            return;
+        }
+
+        // Check for /promo route
+        if (path === "/promo") {
+            currentView = "promo";
             return;
         }
 
@@ -461,6 +471,7 @@
 
     $: if (isInitialized && !$isAuthenticated && 
            currentView !== "landing" && 
+           currentView !== "promo" && 
            currentView !== "guides" && 
            currentView !== "use-cases" && 
            currentView !== "use-case-detail" &&
@@ -520,6 +531,8 @@
         const path = window.location.pathname;
         if (path === "/" || path === "") {
             currentView = $isAuthenticated ? "dashboard" : "landing";
+        } else if (path === "/promo") {
+            currentView = "promo";
         } else if (path === "/guides" || path === "/ai-tools") {
             currentView = "guides";
         } else if (path === "/use-cases" || path === "/agentic") {
@@ -576,6 +589,14 @@
                     on:guest={openGuestModal} 
                     on:navigate={(e) => {
                         // @ts-ignore - view is checked elsewhere or we trust it matches types
+                        currentView = e.detail.view;
+                        window.history.pushState({}, "", "/" + e.detail.view);
+                    }}
+                />
+            {:else if currentView === "promo"}
+                <PromoLanding 
+                    on:guest={openGuestModal}
+                    on:navigate={(e) => {
                         currentView = e.detail.view;
                         window.history.pushState({}, "", "/" + e.detail.view);
                     }}

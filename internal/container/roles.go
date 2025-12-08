@@ -149,51 +149,83 @@ QUICKCLI
 echo "[[REXEC_STATUS]]Installing Rexec CLI..."
 quick_install_rexec_cli && echo "  ✓ Rexec CLI ready" || echo "  ! Rexec CLI delayed"
 
-# Initialize apt directories (these are tmpfs, so always writable)
+# Initialize apt directories (these are tmpfs, so always writable but start empty)
 init_apt_dirs() {
     if command -v apt-get >/dev/null 2>&1; then
-        mkdir -p /var/lib/apt/lists/partial 2>/dev/null || true
-        mkdir -p /var/cache/apt/archives/partial 2>/dev/null || true
-        # dpkg directories may be on overlay, handle gracefully
+        echo "  Initializing APT directories..."
+        # Create required apt directory structure (tmpfs starts empty)
+        # Use explicit error checking to diagnose issues
+        if mkdir -p /var/lib/apt/lists/partial 2>&1; then
+            echo "    ✓ /var/lib/apt/lists/partial created"
+        else
+            echo "    ! Failed to create /var/lib/apt/lists/partial"
+        fi
+        if mkdir -p /var/cache/apt/archives/partial 2>&1; then
+            echo "    ✓ /var/cache/apt/archives/partial created"
+        else
+            echo "    ! Failed to create /var/cache/apt/archives/partial"
+        fi
+        # dpkg directories are on overlay, should be writable
         mkdir -p /var/lib/dpkg/updates 2>/dev/null || true
         mkdir -p /var/lib/dpkg/info 2>/dev/null || true
         [ -f /var/lib/dpkg/status ] || touch /var/lib/dpkg/status 2>/dev/null || true
         # Clear any stale locks
         rm -f /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true
         rm -f /var/lib/dpkg/lock* 2>/dev/null || true
+        echo "  ✓ APT directories initialized"
+    elif command -v apk >/dev/null 2>&1; then
+        mkdir -p /var/cache/apk 2>/dev/null || true
+        echo "  ✓ APK directories initialized"
     fi
 }
 
-# Initialize apt directories immediately (tmpfs mounted, should work)
-init_apt_dirs
-
-# Wait for filesystem to be fully writable (for dpkg which may be on overlay)
+# Wait for filesystem to be fully ready (overlay + tmpfs)
 wait_for_filesystem() {
     max_wait=15
     waited=0
-    dpkg_test="/var/lib/dpkg/.rexec_test_$$"
+    
+    echo "  Waiting for filesystem to be ready..."
     
     while [ $waited -lt $max_wait ]; do
-        # Check if dpkg directory is writable
-        if touch "$dpkg_test" 2>/dev/null && rm -f "$dpkg_test" 2>/dev/null; then
-            echo "  Filesystem ready"
+        # Check multiple writable paths to ensure everything is ready
+        apt_ok=0
+        dpkg_ok=0
+        
+        # Test apt lists tmpfs
+        if touch /var/lib/apt/lists/.rexec_test_$$ 2>/dev/null; then
+            rm -f /var/lib/apt/lists/.rexec_test_$$
+            apt_ok=1
+        fi
+        
+        # Test dpkg overlay
+        if touch /var/lib/dpkg/.rexec_test_$$ 2>/dev/null; then
+            rm -f /var/lib/dpkg/.rexec_test_$$
+            dpkg_ok=1
+        fi
+        
+        if [ "$apt_ok" = "1" ] && [ "$dpkg_ok" = "1" ]; then
+            echo "  ✓ Filesystem ready (apt=$apt_ok, dpkg=$dpkg_ok)"
             return 0
         fi
         
-        echo "  Waiting for filesystem... ($waited/$max_wait)"
         sleep 1
         waited=$((waited + 1))
     done
     
-    echo "  Warning: dpkg directory may not be writable, package install might fail"
+    echo "  ⚠ Filesystem check timed out (apt=$apt_ok, dpkg=$dpkg_ok)"
     return 1
 }
 
-# Run filesystem check before package installation
-FS_READY=0
-if wait_for_filesystem; then
+# Wait for filesystem first
+wait_for_filesystem
+if [ $? -eq 0 ]; then
     FS_READY=1
+else
+    FS_READY=0
 fi
+
+# Now initialize apt directories (after filesystem is confirmed ready)
+init_apt_dirs
 
 # Create required apt directories (fix for minimal images and read-only issues)
 prepare_apt_dirs() {

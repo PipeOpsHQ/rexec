@@ -1104,17 +1104,17 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		// Security is maintained via other measures (seccomp, capabilities, etc.)
 		ReadonlyRootfs: false,
 		// Tmpfs mounts for writable directories
-		// Note: /var/lib/apt and /var/cache/apt are NOT mounted as tmpfs
-		// to preserve dpkg state from the base image. The container uses
-		// overlay filesystem (ReadonlyRootfs: false) for package management.
+		// These directories MUST be writable for package management and tools
 		Tmpfs: map[string]string{
-			"/tmp":       "rw,exec,nosuid,size=256m", // exec required for opencode TUI library
-			"/var/tmp":   "rw,noexec,nosuid,size=50m",
-			"/run":       "rw,noexec,nosuid,size=50m",
-			"/var/run":   "rw,noexec,nosuid,size=50m",
-			"/home/user": "rw,exec,nosuid,size=500m", // Allow exec for user scripts
-			"/root":      "rw,exec,nosuid,size=256m", // Allow exec for rexec CLI and opencode
-			"/var/log":   "rw,noexec,nosuid,size=50m",
+			"/tmp":                    "rw,exec,nosuid,size=256m", // exec required for opencode TUI library
+			"/var/tmp":                "rw,noexec,nosuid,size=50m",
+			"/run":                    "rw,noexec,nosuid,size=50m",
+			"/var/run":                "rw,noexec,nosuid,size=50m",
+			"/var/log":                "rw,noexec,nosuid,size=50m",
+			"/var/lib/apt/lists":      "rw,noexec,nosuid,size=100m", // apt package lists (always writable)
+			"/var/cache/apt/archives": "rw,noexec,nosuid,size=500m", // apt package cache
+			// NOTE: /root and /home/user are NOT tmpfs - they use the overlay filesystem
+			// This ensures installed tools (opencode, tgpt, etc.) persist across container restarts
 		},
 		// Mask sensitive host information from /proc and /sys
 		MaskedPaths: []string{

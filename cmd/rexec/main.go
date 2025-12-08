@@ -107,14 +107,14 @@ func handleAdminCommand(args []string, store *storage.PostgresStore, containerMa
 	}
 
 	switch args[0] {
-		case "promote":
-			if len(args) < 2 {
-				fmt.Println("Usage: rexec admin promote <email>")
-				return
-			}
-			promoteUser(args[1], store, adminEventsHub) // Pass store and adminEventsHub
-		default:
-			fmt.Printf("Unknown admin command: %s\n", args[0])
+	case "promote":
+		if len(args) < 2 {
+			fmt.Println("Usage: rexec admin promote <email>")
+			return
+		}
+		promoteUser(args[1], store, adminEventsHub) // Pass store and adminEventsHub
+	default:
+		fmt.Printf("Unknown admin command: %s\n", args[0])
 	}
 }
 
@@ -135,7 +135,7 @@ func showAdminMenu() {
 		case "1":
 			fmt.Print("Enter email to promote: ")
 			email, _ := reader.ReadString('\n')
-			
+
 			// For interactive menu, create a temporary setup for database and hub
 			err := godotenv.Load()
 			if err != nil && !os.IsNotExist(err) {
@@ -177,7 +177,7 @@ func promoteUser(email string, store *storage.PostgresStore, adminEventsHub *adm
 	}
 
 	user.IsAdmin = true
-	
+
 	if err := store.UpdateUser(ctx, user); err != nil {
 		log.Printf("Failed to promote user: %v", err)
 		return
@@ -432,7 +432,7 @@ func runServer() {
 			ssh.POST("/sync/:containerId", sshHandler.SyncSSHKeys)
 			ssh.GET("/status/:containerId", sshHandler.CheckSSHStatus)
 			ssh.POST("/install/:containerId", sshHandler.InstallSSH)
-			
+
 			// Remote Hosts (Jump Hosts)
 			ssh.GET("/hosts", sshHandler.ListRemoteHosts)
 			ssh.POST("/hosts", sshHandler.AddRemoteHost)
@@ -603,6 +603,11 @@ func runServer() {
 		router.GET("/pricing", func(c *gin.Context) {
 			c.File(indexFile)
 		})
+
+		router.GET("/promo", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
 		router.GET("/admin", func(c *gin.Context) {
 			c.File(indexFile)
 		})

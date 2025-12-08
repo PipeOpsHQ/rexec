@@ -184,6 +184,25 @@ show_system_stats
 	return fmt.Sprintf(`#!/bin/sh
 set -e
 
+# Wait for filesystem to be ready (overlay needs a moment after container start)
+wait_for_filesystem() {
+    local max_wait=10
+    local waited=0
+    echo "  Waiting for filesystem..."
+    while [ $waited -lt $max_wait ]; do
+        # Test if we can write to key directories
+        if touch /root/.fs_test 2>/dev/null; then
+            rm -f /root/.fs_test
+            echo "  Filesystem ready"
+            return 0
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+    echo "  Filesystem check timed out"
+    return 1
+}
+
 # Wait for any existing apt/dpkg locks (max 60 seconds)
 wait_for_apt_lock() {
     local max_wait=60
@@ -425,6 +444,7 @@ setup_dirs() {
 
 main() {
     echo "Setting up shell environment..."
+    wait_for_filesystem || true
     setup_dirs
     echo "  [1/7] Installing packages..."
     install_packages
@@ -636,10 +656,12 @@ func SetupRole(ctx context.Context, cli *client.Client, containerID string, role
 
 	// Wait for container to be fully running before executing
 	// This helps avoid race conditions with overlay filesystem
-	maxWait := 10
+	maxWait := 20 // Wait up to 10 seconds for container to start
 	for i := 0; i < maxWait; i++ {
 		inspect, err := cli.ContainerInspect(ctx, containerID)
 		if err == nil && inspect.State != nil && inspect.State.Running {
+			// Container is running, give it a moment for filesystem to settle
+			time.Sleep(1 * time.Second)
 			break
 		}
 		time.Sleep(500 * time.Millisecond)
