@@ -47,6 +47,25 @@
         }
     ];
 
+    // Scroll Reveal Action
+    function reveal(node: HTMLElement) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    node.classList.add('visible');
+                    observer.unobserve(node);
+                }
+            });
+        }, { threshold: 0.15 });
+        
+        observer.observe(node);
+        return {
+            destroy() {
+                observer.disconnect();
+            }
+        };
+    }
+
     onMount(() => {
         let lineIndex = 0;
         const interval = setInterval(() => {
@@ -154,28 +173,30 @@
         </div>
 
         <div class="features-ticker">
-            <div class="ticker-item">
-                <StatusIcon status="bolt" size={18} />
-                <span>Sub-second Init</span>
-            </div>
-            <div class="separator">/</div>
-            <div class="ticker-item">
-                <StatusIcon status="shield" size={18} />
-                <span>Isolated Kernels</span>
-            </div>
-            <div class="separator">/</div>
-            <div class="ticker-item">
-                <StatusIcon status="globe" size={18} />
-                <span>Global Mesh</span>
-            </div>
-            <div class="separator">/</div>
-            <div class="ticker-item">
-                <StatusIcon status="connected" size={18} />
-                <span>P2P Networking</span>
+            <div class="ticker-content">
+                <div class="ticker-item">
+                    <StatusIcon status="bolt" size={18} />
+                    <span>Sub-second Init</span>
+                </div>
+                <div class="separator">/</div>
+                <div class="ticker-item">
+                    <StatusIcon status="shield" size={18} />
+                    <span>Isolated Kernels</span>
+                </div>
+                <div class="separator">/</div>
+                <div class="ticker-item">
+                    <StatusIcon status="globe" size={18} />
+                    <span>Global Mesh</span>
+                </div>
+                <div class="separator">/</div>
+                <div class="ticker-item">
+                    <StatusIcon status="connected" size={18} />
+                    <span>P2P Networking</span>
+                </div>
             </div>
         </div>
 
-        <section class="use-cases">
+        <section class="use-cases" use:reveal>
             <div class="section-header">
                 <h2>Engineered for <span class="text-white">Modern Workflows</span></h2>
             </div>
@@ -196,15 +217,15 @@
                         </div>
                         <div class="card-arrow">
                             <StatusIcon status="arrow-left" size={16} /> 
-                        </div> <!-- Rotated in CSS -->
+                        </div>
                     </button>
                 {/each}
             </div>
         </section>
 
-        <!-- NEW SECTIONS -->
+        <!-- ENHANCED SECTIONS -->
 
-        <section class="architecture-section">
+        <section class="architecture-section" use:reveal>
             <div class="section-header">
                 <h2>The Rexec <span class="text-white">Architecture</span></h2>
                 <p class="section-sub">Built on the edge of the impossible.</p>
@@ -214,6 +235,7 @@
                 <div class="arch-layer">
                     <div class="layer-label">Orchestration Layer</div>
                     <div class="layer-content">Global Mesh Routing & State Mgmt</div>
+                    <div class="layer-glow"></div>
                 </div>
                 <div class="arch-connector">
                     <div class="flow-line"></div>
@@ -221,6 +243,7 @@
                 <div class="arch-layer highlight">
                     <div class="layer-label">Compute Layer</div>
                     <div class="layer-content">MicroVMs + Container Isolation</div>
+                    <div class="layer-glow"></div>
                 </div>
                 <div class="arch-connector">
                     <div class="flow-line"></div>
@@ -228,11 +251,12 @@
                 <div class="arch-layer">
                     <div class="layer-label">Storage Layer</div>
                     <div class="layer-content">Ephemeral Block Storage</div>
+                    <div class="layer-glow"></div>
                 </div>
             </div>
         </section>
 
-        <section class="compare-section">
+        <section class="compare-section" use:reveal>
             <div class="compare-grid">
                 <div class="compare-card">
                     <h3>Traditional VM</h3>
@@ -247,10 +271,11 @@
                 </div>
                 <div class="compare-card highlight">
                     <div class="badge">REXEC</div>
+                    <div class="card-glow-bg"></div>
                     <h3>Ephemeral Container</h3>
                     <div class="stat-row">
                         <span class="label">Boot Time</span>
-                        <span class="value fast">&lt; 300ms</span>
+                        <span class="value fast glitch-text" data-text="< 300ms">&lt; 300ms</span>
                     </div>
                     <div class="stat-row">
                         <span class="label">Cost</span>
@@ -260,24 +285,44 @@
             </div>
         </section>
 
-        <section class="global-mesh">
+        <section class="global-mesh" use:reveal>
             <div class="section-header">
                 <h2>Global Edge <span class="text-white">Network</span></h2>
             </div>
             <div class="map-visual">
-                <!-- Abstract map grid -->
+                <!-- Connected Mesh Network -->
+                <svg class="mesh-lines" viewBox="0 0 800 400" preserveAspectRatio="none">
+                    <path class="mesh-path" d="M160 120 L200 140 L400 100 L440 120 L640 160 L560 240 L400 100" />
+                    <path class="mesh-path" d="M200 140 L560 240" />
+                </svg>
+                
                 <div class="map-grid">
-                    <div class="map-point" style="top: 30%; left: 20%;"></div>
-                    <div class="map-point" style="top: 35%; left: 25%;"></div>
-                    <div class="map-point" style="top: 25%; left: 50%;"></div>
-                    <div class="map-point" style="top: 30%; left: 55%;"></div>
-                    <div class="map-point" style="top: 40%; left: 80%;"></div>
-                    <div class="map-point pulse" style="top: 60%; left: 70%;"></div>
+                    <!-- Points -->
+                    <div class="map-point" style="top: 30%; left: 20%;">
+                        <div class="ripple"></div>
+                    </div>
+                    <div class="map-point" style="top: 35%; left: 25%;">
+                        <div class="ripple" style="animation-delay: 0.2s"></div>
+                    </div>
+                    <div class="map-point" style="top: 25%; left: 50%;">
+                        <div class="ripple" style="animation-delay: 0.5s"></div>
+                    </div>
+                    <div class="map-point" style="top: 30%; left: 55%;">
+                        <div class="ripple" style="animation-delay: 0.7s"></div>
+                    </div>
+                    <div class="map-point" style="top: 40%; left: 80%;">
+                        <div class="ripple" style="animation-delay: 1.1s"></div>
+                    </div>
+                    <div class="map-point pulse main-node" style="top: 60%; left: 70%;">
+                        <div class="ripple"></div>
+                        <div class="ripple" style="animation-delay: 0.5s"></div>
+                    </div>
                 </div>
+                <div class="scan-bar"></div>
             </div>
         </section>
 
-        <section class="final-cta">
+        <section class="final-cta" use:reveal>
             <h2>Ready to launch?</h2>
             <button class="btn-primary large" on:click={handleGuestClick}>
                 Start Building Now
@@ -296,12 +341,16 @@
             </div>
             <div class="footer-col">
                 <h4>Legal</h4>
+                <!-- svelte-ignore a11y-invalid-attribute -->
                 <a href="#">Terms</a>
+                <!-- svelte-ignore a11y-invalid-attribute -->
                 <a href="#">Privacy</a>
             </div>
             <div class="footer-col">
                 <h4>Social</h4>
+                <!-- svelte-ignore a11y-invalid-attribute -->
                 <a href="#">GitHub</a>
+                <!-- svelte-ignore a11y-invalid-attribute -->
                 <a href="#">Twitter</a>
             </div>
         </div>
@@ -316,6 +365,8 @@
         background-color: #050505;
         margin: 0;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
     }
 
     .promo-page {
@@ -323,6 +374,18 @@
         color: #888;
         position: relative;
         overflow-x: hidden;
+    }
+
+    /* Scroll Reveal State */
+    :global(.visible) {
+        opacity: 1 !important;
+        transform: translateY(0) !important;
+    }
+
+    section {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     /* Background */
@@ -458,7 +521,7 @@
         border-radius: 8px;
         cursor: pointer;
         overflow: hidden;
-        transition: transform 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
 
     .btn-primary.large {
@@ -468,6 +531,7 @@
 
     .btn-primary:hover {
         transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(255, 255, 255, 0.1);
     }
 
     .glow {
@@ -614,12 +678,17 @@
         padding: 24px 0;
         display: flex;
         justify-content: center;
-        gap: 40px;
         color: #666;
         font-family: 'JetBrains Mono', monospace;
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 1px;
+    }
+
+    .ticker-content {
+        display: flex;
+        gap: 40px;
+        align-items: center;
     }
 
     .ticker-item {
@@ -632,21 +701,22 @@
 
     /* Use Cases */
     .section-header {
-        margin-bottom: 40px;
+        margin-bottom: 60px;
         text-align: center;
     }
 
     .section-header h2 {
-        font-size: 32px;
-        font-weight: 400;
+        font-size: 36px;
+        font-weight: 500;
         color: #666;
         margin: 0;
+        letter-spacing: -0.5px;
     }
     
     .section-sub {
         font-size: 16px;
         color: #666;
-        margin-top: 8px;
+        margin-top: 12px;
     }
 
     .text-white { color: #fff; }
@@ -660,24 +730,23 @@
     .feature-card {
         background: #0f0f0f;
         border: 1px solid #222;
-        padding: 24px;
-        border-radius: 12px;
+        padding: 32px;
+        border-radius: 16px;
         text-align: left;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         display: flex;
         flex-direction: column;
         gap: 16px;
-        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        opacity: 0;
-        transform: translateY(20px);
-        animation-delay: var(--delay);
+        position: relative;
+        overflow: hidden;
     }
 
     .feature-card:hover {
-        border-color: #444;
+        border-color: #333;
         background: #141414;
         transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     }
 
     .card-icon {
@@ -685,23 +754,29 @@
         background: #1a1a1a;
         width: 48px;
         height: 48px;
-        border-radius: 10px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 8px;
+        transition: transform 0.4s ease;
+    }
+
+    .feature-card:hover .card-icon {
+        transform: scale(1.1);
+        background: #222;
     }
 
     .feature-card h3 {
         color: #fff;
-        font-size: 16px;
+        font-size: 18px;
         margin: 0 0 4px 0;
         font-weight: 600;
     }
 
     .feature-card p {
         color: #666;
-        font-size: 13px;
+        font-size: 14px;
         margin: 0;
         line-height: 1.5;
     }
@@ -711,12 +786,12 @@
         color: #333;
         transform: rotate(180deg);
         align-self: flex-start;
-        transition: color 0.2s, transform 0.2s;
+        transition: color 0.2s, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .feature-card:hover .card-arrow {
         color: #fff;
-        transform: rotate(180deg) translateX(4px);
+        transform: rotate(180deg) translateX(6px);
     }
 
     /* Architecture Section */
@@ -729,7 +804,7 @@
     .arch-diagram {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 0; /* Connected by lines */
         align-items: center;
         width: 100%;
         max-width: 600px;
@@ -739,15 +814,40 @@
         width: 100%;
         background: #0f0f0f;
         border: 1px solid #222;
-        padding: 20px;
-        border-radius: 8px;
+        padding: 24px;
+        border-radius: 12px;
         text-align: center;
+        position: relative;
+        transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        overflow: hidden;
+    }
+
+    .arch-layer:hover {
+        transform: scale(1.02);
+        border-color: #333;
+        z-index: 5;
     }
 
     .arch-layer.highlight {
         border-color: #00ffaa;
-        background: rgba(0, 255, 170, 0.05);
-        box-shadow: 0 0 20px rgba(0, 255, 170, 0.1);
+        background: rgba(0, 255, 170, 0.03);
+        box-shadow: 0 0 30px rgba(0, 255, 170, 0.05);
+    }
+
+    .arch-layer.highlight:hover {
+        box-shadow: 0 0 40px rgba(0, 255, 170, 0.1);
+    }
+
+    .layer-glow {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03), transparent 70%);
+        opacity: 0;
+        transition: opacity 0.4s;
+    }
+
+    .arch-layer:hover .layer-glow {
+        opacity: 1;
     }
 
     .layer-label {
@@ -756,6 +856,7 @@
         color: #666;
         margin-bottom: 8px;
         text-transform: uppercase;
+        letter-spacing: 1px;
     }
 
     .arch-layer.highlight .layer-label {
@@ -765,12 +866,31 @@
     .layer-content {
         color: #fff;
         font-weight: 500;
+        font-size: 16px;
     }
 
     .arch-connector {
-        height: 20px;
+        height: 40px;
         width: 2px;
         background: #222;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .flow-line {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(to bottom, transparent, #00ffaa, transparent);
+        transform: translateY(-100%);
+        animation: flow 2s infinite;
+    }
+
+    @keyframes flow {
+        0% { transform: translateY(-100%); }
+        100% { transform: translateY(100%); }
     }
 
     /* Compare Section */
@@ -778,21 +898,35 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 40px;
-        max-width: 800px;
+        max-width: 900px;
         margin: 0 auto;
     }
 
     .compare-card {
         background: #0f0f0f;
         border: 1px solid #222;
-        padding: 32px;
-        border-radius: 12px;
+        padding: 40px;
+        border-radius: 16px;
         position: relative;
+        transition: transform 0.4s ease;
     }
 
     .compare-card.highlight {
         border-color: #00ffaa;
-        background: rgba(0, 255, 170, 0.02);
+        box-shadow: 0 0 0 1px rgba(0, 255, 170, 0.1);
+        overflow: hidden;
+    }
+    
+    .compare-card.highlight:hover {
+        transform: scale(1.02);
+        box-shadow: 0 20px 50px rgba(0, 255, 170, 0.1);
+    }
+
+    .card-glow-bg {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 0%, rgba(0, 255, 170, 0.05), transparent 60%);
+        z-index: 0;
     }
 
     .badge {
@@ -802,26 +936,32 @@
         transform: translateX(-50%);
         background: #00ffaa;
         color: #000;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
-        padding: 4px 8px;
-        border-radius: 4px;
+        padding: 6px 12px;
+        border-radius: 20px;
         letter-spacing: 1px;
+        z-index: 2;
+        box-shadow: 0 4px 12px rgba(0, 255, 170, 0.3);
     }
 
     .compare-card h3 {
         color: #fff;
-        font-size: 18px;
-        margin: 0 0 24px 0;
+        font-size: 20px;
+        margin: 0 0 32px 0;
         text-align: center;
+        position: relative;
+        z-index: 1;
     }
 
     .stat-row {
         display: flex;
         justify-content: space-between;
-        padding: 12px 0;
+        padding: 16px 0;
         border-bottom: 1px solid #222;
-        font-size: 14px;
+        font-size: 15px;
+        position: relative;
+        z-index: 1;
     }
 
     .stat-row:last-child {
@@ -829,9 +969,42 @@
     }
 
     .stat-row .label { color: #666; }
-    .stat-row .value { color: #fff; font-family: 'JetBrains Mono', monospace; }
+    .stat-row .value { color: #fff; font-family: 'JetBrains Mono', monospace; font-weight: 500; }
     .stat-row .value.slow { color: #ff5f56; }
-    .stat-row .value.fast { color: #00ffaa; }
+    .stat-row .value.fast { 
+        color: #00ffaa; 
+        text-shadow: 0 0 10px rgba(0, 255, 170, 0.3);
+    }
+
+    /* Glitch Text Effect */
+    .glitch-text {
+        position: relative;
+    }
+    
+    .glitch-text::before,
+    .glitch-text::after {
+        content: attr(data-text);
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #0f0f0f;
+    }
+    
+    .glitch-text::before {
+        left: 2px;
+        text-shadow: -1px 0 #ff00c1;
+        clip: rect(44px, 450px, 56px, 0);
+        animation: glitch-anim-2 5s infinite linear alternate-reverse;
+    }
+
+    .glitch-text::after {
+        left: -2px;
+        text-shadow: -1px 0 #00fff9;
+        clip: rect(44px, 450px, 56px, 0);
+        animation: glitch-anim-2 5s infinite linear alternate-reverse;
+    }
 
     /* Global Mesh */
     .global-mesh {
@@ -839,53 +1012,108 @@
     }
 
     .map-visual {
-        height: 400px;
+        height: 450px;
         background: #0f0f0f;
         border: 1px solid #222;
-        border-radius: 12px;
+        border-radius: 16px;
         position: relative;
         overflow: hidden;
         background-image: 
             linear-gradient(#1a1a1a 1px, transparent 1px),
             linear-gradient(90deg, #1a1a1a 1px, transparent 1px);
-        background-size: 40px 40px;
+        background-size: 60px 60px;
+    }
+
+    .mesh-lines {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 0.3;
+    }
+
+    .mesh-path {
+        stroke: #00ffaa;
+        stroke-width: 1;
+        fill: none;
+        stroke-dasharray: 10;
+        animation: dash 30s linear infinite;
+    }
+
+    @keyframes dash {
+        to { stroke-dashoffset: 1000; }
     }
 
     .map-point {
         position: absolute;
         width: 8px;
         height: 8px;
-        background: #00ffaa;
+        background: #fff;
         border-radius: 50%;
-        box-shadow: 0 0 10px #00ffaa;
+        z-index: 2;
+        transform: translate(-50%, -50%);
     }
 
-    .map-point.pulse {
-        animation: pulse 2s infinite;
+    .map-point.main-node {
+        background: #00ffaa;
+        width: 12px;
+        height: 12px;
     }
 
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(0, 255, 170, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(0, 255, 170, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(0, 255, 170, 0); }
+    .ripple {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        border: 1px solid #00ffaa;
+        animation: ripple 2s infinite cubic-bezier(0, 0.2, 0.8, 1);
+        opacity: 0;
+    }
+
+    @keyframes ripple {
+        0% { width: 0; height: 0; opacity: 0.8; }
+        100% { width: 100px; height: 100px; opacity: 0; }
+    }
+
+    .scan-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, transparent, #00ffaa, transparent);
+        opacity: 0.3;
+        animation: scan 4s linear infinite;
+        z-index: 3;
+    }
+
+    @keyframes scan {
+        0% { top: 0; }
+        100% { top: 100%; }
     }
 
     /* Final CTA */
     .final-cta {
         text-align: center;
-        padding: 80px 0;
+        padding: 100px 0;
     }
 
     .final-cta h2 {
-        font-size: 48px;
+        font-size: 56px;
         color: #fff;
-        margin: 0 0 32px 0;
+        margin: 0 0 40px 0;
+        letter-spacing: -2px;
+        font-weight: 700;
     }
 
     /* Footer */
     .main-footer {
         border-top: 1px solid #222;
-        padding: 60px 40px 40px 40px;
+        padding: 80px 40px 40px 40px;
         background: #0a0a0a;
     }
 
@@ -899,8 +1127,9 @@
 
     .footer-col h4 {
         color: #fff;
-        margin: 0 0 16px 0;
+        margin: 0 0 24px 0;
         font-size: 14px;
+        font-weight: 600;
     }
 
     .footer-col a {
@@ -908,17 +1137,17 @@
         color: #666;
         text-decoration: none;
         font-size: 14px;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
         transition: color 0.2s;
     }
 
     .footer-col a:hover {
-        color: #00ffaa;
+        color: #fff;
     }
 
     .footer-bottom {
         max-width: 1200px;
-        margin: 40px auto 0 auto;
+        margin: 60px auto 0 auto;
         padding-top: 40px;
         border-top: 1px solid #222;
         color: #444;
@@ -929,6 +1158,14 @@
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+    @keyframes glitch-anim-2 {
+        0% { clip: rect(12px, 9999px, 86px, 0); }
+        20% { clip: rect(94px, 9999px, 2px, 0); }
+        40% { clip: rect(24px, 9999px, 16px, 0); }
+        60% { clip: rect(65px, 9999px, 120px, 0); }
+        80% { clip: rect(3px, 9999px, 55px, 0); }
+        100% { clip: rect(48px, 9999px, 92px, 0); }
+    }
 
     @media (max-width: 900px) {
         .hero-section {
@@ -953,5 +1190,7 @@
         .footer-content {
             grid-template-columns: 1fr 1fr;
         }
+        
+        .final-cta h2 { font-size: 40px; }
     }
 </style>
