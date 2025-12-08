@@ -6,6 +6,7 @@
 
     const dispatch = createEventDispatcher<{
         guest: void;
+        navigate: { view: string; slug?: string };
     }>();
 
     let scrollY = 0;
@@ -28,24 +29,28 @@
     // Use Cases Data
     const useCases = [
         {
+            slug: "ephemeral-dev-environments",
             title: "Disposable DevEnvs",
             desc: "Spin up a fresh, clean state for every task or PR. No drift.",
             icon: "box",
             col: "span-2"
         },
         {
+            slug: "universal-jump-host",
             title: "Secure Gateway",
             desc: "Zero-trust access to private VPCs without VPNs.",
             icon: "shield",
             col: "span-1"
         },
         {
+            slug: "collaborative-intelligence",
             title: "AI Playground",
             desc: "Safe, sandboxed execution for autonomous agents.",
             icon: "ai",
             col: "span-1"
         },
         {
+            slug: "technical-interviews",
             title: "Live Interviews",
             desc: "Real-time multiplayer coding in a real Linux shell.",
             icon: "code",
@@ -96,6 +101,15 @@
         }
     }
 
+    function navigateToUseCase(slug: string) {
+        // Since we are now full screen, we can just use location href to ensure clean state
+        // or dispatch if the parent handles it.
+        // Let's use dispatch to be SPA-friendly if possible, but the parent logic needs to support it.
+        // The parent App.svelte logic for 'navigate' just sets currentView.
+        // So we will use window.location.href for simplicity and robustness with the slug routing.
+        window.location.href = `/use-cases/${slug}`;
+    }
+
     // Calculated transforms
     $: heroScale = 1 - Math.min(scrollY / innerHeight, 0.2);
     $: heroOpacity = 1 - Math.min(scrollY / (innerHeight * 0.5), 1);
@@ -110,7 +124,11 @@
     on:mousemove={handleMouseMove} 
 />
 
-<div class="page-container">
+<div class="promo-page">
+    <div class="background-mesh">
+        <div class="grid-overlay"></div>
+    </div>
+    
     <nav class="nav-bar" class:scrolled={scrollY > 50}>
         <div class="nav-content">
             <div class="brand">REXEC</div>
@@ -122,7 +140,7 @@
         </div>
     </nav>
 
-    <main>
+    <main class="content">
         <!-- HERO SECTION -->
         <section class="hero">
             <div class="hero-bg-glow"></div>
@@ -246,7 +264,8 @@
             
             <div class="use-cases-list">
                 {#each useCases as useCase}
-                    <div class="use-case-row">
+                    <!-- svelte-ignore a11y-click-events-have-key-events -->
+                    <div class="use-case-row" on:click={() => navigateToUseCase(useCase.slug)} role="button" tabindex="0">
                         <div class="uc-icon">
                             <StatusIcon status={useCase.icon} size={20} />
                         </div>
@@ -276,8 +295,8 @@
     <footer>
         <div class="footer-links">
             <span>© 2025 Rexec</span>
-            <a href="/terms">Terms</a>
-            <a href="/privacy">Privacy</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/guides">Guides</a>
             <a href="https://github.com/rexec/rexec">GitHub</a>
         </div>
     </footer>
@@ -285,17 +304,45 @@
 
 <style>
     :global(body) {
-        background-color: #000;
+        background-color: #050505;
         margin: 0;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         color: #fff;
         overflow-x: hidden;
     }
 
-    .page-container {
+    .promo-page {
         min-height: 100vh;
-        background: #000;
+        background: #050505;
         position: relative;
+    }
+
+    /* Background */
+    .background-mesh {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+    }
+
+    .grid-overlay {
+        position: absolute;
+        inset: -50%;
+        width: 200%;
+        height: 200%;
+        background-image: 
+            linear-gradient(rgba(0, 255, 170, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 170, 0.03) 1px, transparent 1px);
+        background-size: 60px 60px;
+        transform: rotateX(60deg) translateY(-100px) translateZ(-200px);
+        animation: grid-move 20s linear infinite;
+        opacity: 0.3;
+    }
+
+    @keyframes grid-move {
+        0% { transform: rotateX(60deg) translateY(0) translateZ(-200px); }
+        100% { transform: rotateX(60deg) translateY(60px) translateZ(-200px); }
     }
 
     /* --- Navigation --- */
@@ -541,6 +588,8 @@
         max-width: 1000px;
         margin: 100px auto;
         padding: 0 24px;
+        position: relative;
+        z-index: 5;
     }
 
     .section-label {
@@ -570,7 +619,8 @@
     }
 
     .bento-card {
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(10, 10, 10, 0.7);
+        backdrop-filter: blur(10px);
         border-radius: 20px;
         border: 1px solid rgba(255, 255, 255, 0.05);
         padding: 30px;
@@ -694,6 +744,8 @@
         max-width: 800px;
         margin: 100px auto;
         padding: 0 24px;
+        position: relative;
+        z-index: 5;
     }
 
     .use-cases-list {
@@ -747,6 +799,8 @@
     .final-cta {
         padding: 120px 24px;
         text-align: center;
+        position: relative;
+        z-index: 5;
     }
 
     .cta-container h2 {
@@ -776,6 +830,8 @@
         padding: 40px 0;
         border-top: 1px solid rgba(255,255,255,0.05);
         text-align: center;
+        position: relative;
+        z-index: 5;
     }
 
     .footer-links {

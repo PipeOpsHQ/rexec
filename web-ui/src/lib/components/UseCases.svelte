@@ -1,11 +1,28 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, onMount } from "svelte";
     import StatusIcon from "./icons/StatusIcon.svelte";
     
     const dispatch = createEventDispatcher<{
         tryNow: void;
         navigate: { slug: string };
     }>();
+
+    let mouseX = 0;
+    let mouseY = 0;
+
+    function handleMouseMove(e: MouseEvent) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        
+        const cards = document.querySelectorAll('.use-case-card');
+        cards.forEach((card: Element) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            (card as HTMLElement).style.setProperty('--mouse-x', `${x}px`);
+            (card as HTMLElement).style.setProperty('--mouse-y', `${y}px`);
+        });
+    }
 
     function handleTryNow() {
         dispatch("tryNow");
@@ -18,185 +35,161 @@
     const useCases = [
         {
             slug: "ephemeral-dev-environments",
-            title: "Ephemeral Dev Environments",
+            title: "Disposable DevEnvs",
             icon: "bolt",
-            description: "The future is disposable. Spin up a fresh, clean environment for every task, PR, or experiment. No drift, no cleanup.",
-            points: [
-                "Zero setup time - milliseconds to code",
-                "Immutable infrastructure patterns applied to dev",
-                "Always clean state - avoid 'works on my machine'",
-                "Perfect for testing dangerous scripts"
-            ]
-        },
-        {
-            slug: "collaborative-intelligence",
-            title: "Collaborative Intelligence",
-            icon: "ai",
-            description: "A shared workspace for humans and AI agents. Let LLMs execute code in a real, safe environment while you supervise.",
-            points: [
-                "Sandboxed execution for autonomous agents",
-                "Human-in-the-loop oversight",
-                "Persistent context for long-running agent tasks",
-                "Standardized toolchain for consistent AI output"
-            ]
+            tagline: "Fresh state. Every time.",
+            description: "Spin up a fresh, clean environment for every task. Zero drift, zero cleanup."
         },
         {
             slug: "universal-jump-host",
-            title: "Universal Jump Host",
+            title: "Secure Gateway",
             icon: "shield",
-            description: "Access your private infrastructure securely from any browser. No VPNs, no complex SSH config management.",
-            points: [
-                "Browser-based SSH client",
-                "Access private VPCs/subnets securely",
-                "Manage keys centrally",
-                "Audit logs for all session activity"
-            ]
+            tagline: "Zero-trust access.",
+            description: "Access private VPCs securely from any browser without VPNs."
         },
         {
-            slug: "instant-education-onboarding",
-            title: "Instant Education & Onboarding",
-            icon: "book",
-            description: "Onboard new engineers in seconds, not days. Provide pre-configured environments for workshops and tutorials.",
-            points: [
-                "Standardized team environments",
-                "Interactive documentation that runs",
-                "Zero friction for workshop attendees",
-                "Focus on learning, not configuring"
-            ]
+            slug: "collaborative-intelligence",
+            title: "AI Playground",
+            icon: "ai",
+            tagline: "Safe agent execution.",
+            description: "A sandboxed workspace for humans and AI agents to build together."
         },
         {
             slug: "technical-interviews",
-            title: "Technical Interviews",
+            title: "Live Interviews",
             icon: "terminal",
-            description: "Conduct real-time coding interviews in a real Linux environment, not a constrained web editor.",
-            points: [
-                "Full shell access for realistic assessment",
-                "Multiplayer mode for pair programming",
-                "Pre-install custom challenges/repos",
-                "Review candidate approach in real-time"
-            ]
+            tagline: "Real code. Real time.",
+            description: "Conduct coding interviews in a real Linux environment, not a web editor."
         },
         {
             slug: "open-source-review",
-            title: "Open Source Review",
+            title: "PR Review",
             icon: "connected",
-            description: "Review Pull Requests by instantly spinning up the branch in a clean container. Test without polluting your local machine.",
-            points: [
-                "One-click environment for any PR",
-                "Verify build/test scripts safely",
-                "No dependency conflicts with local setup",
-                "Dispose immediately after review"
-            ]
+            tagline: "One-click testing.",
+            description: "Review Pull Requests by instantly spinning up the branch in a clean container."
         },
         {
             slug: "gpu-terminals",
-            title: "GPU Terminals for AI/ML (Coming Soon)",
+            title: "GPU Terminals",
             icon: "gpu",
-            description: "Rexec will provide instant-on, powerful GPU-enabled terminals for your team's AI/ML model development, training, and fine-tuning. Manage and share these dedicated GPU resources securely, eliminating the complexities of direct infrastructure access and SSH key sharing.",
-            points: [
-                "On-demand access to GPU-accelerated terminals",
-                "Centralized team management of GPU resources",
-                "Pre-configured with ML frameworks (TensorFlow, PyTorch)",
-                "Isolated for reproducible experiments and data security",
-                "Securely share running GPU sessions with collaborators",
-                "Flexible scaling and collaborative resource allocation"
-            ],
+            tagline: "AI/ML Ready.",
+            description: "Instant access to H100s/A100s for model training and fine-tuning.",
             comingSoon: true
         },
         {
             slug: "edge-device-development",
-            title: "Edge Device Development",
+            title: "Edge Emulation",
             icon: "wifi",
-            description: "Develop and test applications for IoT and edge devices in a simulated or emulated environment.",
-            points: [
-                "Cross-compilation toolchains ready",
-                "Test on various architectures (ARM, RISC-V)",
-                "Secure remote access to virtual devices",
-                "Rapid prototyping for embedded systems"
-            ]
+            tagline: "IoT in the cloud.",
+            description: "Develop and test for ARM/RISC-V devices without physical hardware."
         },
         {
             slug: "real-time-data-processing",
-            title: "Real-time Data Processing",
+            title: "Data Pipelines",
             icon: "data",
-            description: "Build, test, and deploy streaming ETL pipelines and real-time analytics applications.",
-            points: [
-                "High-performance data ingress/egress",
-                "Integrated with Kafka, Flink, Spark (coming soon)",
-                "Monitor data flows in isolation",
-                "Secure access to data sources"
-            ]
+            tagline: "Stream processing.",
+            description: "Build and test streaming ETL pipelines with Kafka and Flink."
         }
     ];
 </script>
 
-<svelte:head>
-    <title>Rexec Use Cases - The Future of Development</title>
-    <meta name="description" content="Discover how Rexec powers ephemeral development environments, AI agent execution, collaborative coding, and secure cloud access." />
-    <meta property="og:title" content="Rexec Use Cases" />
-    <meta property="og:description" content="Discover how Rexec powers ephemeral development environments, AI agent execution, collaborative coding, and secure cloud access." />
-</svelte:head>
+<svelte:window on:mousemove={handleMouseMove} />
 
 <div class="usecases-page">
+    <div class="background-mesh"></div>
+    
     <div class="page-header">
         <div class="header-badge">
             <span class="dot"></span>
-            <span>Why Rexec?</span>
+            <span>PROTOCOLS</span>
         </div>
-        <h1>Powerful <span class="accent">Use Cases</span></h1>
+        <h1>Deployment <span class="gradient-text">Scenarios</span></h1>
         <p class="subtitle">
-            Rexec is more than just a terminal. It's an ephemeral computing platform designed for modern workflows.
+            Choose your workflow. Rexec adapts to your needs with specialized environments.
         </p>
     </div>
 
     <div class="cases-grid">
         {#each useCases as useCase, i}
             <button 
-                class="case-card" 
+                class="use-case-card" 
                 class:coming-soon={useCase.comingSoon}
-                style="animation-delay: {i * 50}ms"
+                style="--delay: {i * 50}ms"
                 on:click={() => navigateToCase(useCase.slug)}
             >
-                <div class="case-icon">
-                    <StatusIcon status={useCase.icon} size={32} />
-                </div>
-                <h3>{useCase.title}</h3>
-                <p class="case-description">{useCase.description}</p>
-                <ul class="case-points">
-                    {#each useCase.points.slice(0, 3) as point}
-                        <li>
-                            <span class="bullet">•</span>
-                            {point}
-                        </li>
-                    {/each}
-                </ul>
-                <div class="card-footer">
-                    <span class="learn-more">Learn more <span class="arrow">→</span></span>
+                <div class="card-glow"></div>
+                <div class="card-content">
+                    <div class="card-header">
+                        <div class="icon-box">
+                            <StatusIcon status={useCase.icon} size={24} />
+                        </div>
+                        {#if useCase.comingSoon}
+                            <span class="badge">SOON</span>
+                        {/if}
+                    </div>
+                    
+                    <h3>{useCase.title}</h3>
+                    <p class="tagline">{useCase.tagline}</p>
+                    <p class="description">{useCase.description}</p>
+                    
+                    <div class="card-footer">
+                        <span class="learn-more">Explore Protocol</span>
+                        <span class="arrow">→</span>
+                    </div>
                 </div>
             </button>
         {/each}
     </div>
 
     <section class="cta-section">
-        <h2>Ready to explore?</h2>
-        <p>Start your first session and see what's possible.</p>
-        <button class="btn btn-primary btn-lg" on:click={handleTryNow}>
-            <StatusIcon status="rocket" size={16} />
-            <span>Launch Terminal</span>
-        </button>
+        <div class="cta-content">
+            <h2>Ready to build?</h2>
+            <button class="btn-primary" on:click={handleTryNow}>
+                <span class="btn-text">Initialize Session</span>
+                <div class="btn-shine"></div>
+            </button>
+        </div>
     </section>
 </div>
 
 <style>
     .usecases-page {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 40px 20px;
+        min-height: 100vh;
+        background-color: #050505;
+        color: #fff;
+        padding: 80px 20px;
+        position: relative;
+        overflow: hidden;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Background */
+    .background-mesh {
+        position: fixed;
+        inset: 0;
+        background-image: 
+            radial-gradient(circle at 15% 50%, rgba(30, 30, 30, 0.4) 0%, transparent 25%),
+            radial-gradient(circle at 85% 30%, rgba(20, 40, 30, 0.4) 0%, transparent 25%);
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .background-mesh::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231a1a1a' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.5;
     }
 
     .page-header {
+        position: relative;
+        z-index: 2;
         text-align: center;
-        margin-bottom: 60px;
+        margin-bottom: 80px;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .header-badge {
@@ -204,207 +197,248 @@
         align-items: center;
         gap: 8px;
         padding: 4px 12px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
         font-size: 11px;
-        color: var(--text-secondary);
-        margin-bottom: 20px;
+        color: #00ffaa;
+        margin-bottom: 24px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        font-family: 'JetBrains Mono', monospace;
     }
 
     .header-badge .dot {
         width: 6px;
         height: 6px;
-        background: var(--accent);
-        animation: blink 1s step-end infinite;
+        background: #00ffaa;
+        border-radius: 50%;
+        box-shadow: 0 0 10px #00ffaa;
+        animation: pulse 2s infinite;
     }
 
     h1 {
-        font-size: 36px;
+        font-size: 48px;
         font-weight: 700;
-        margin-bottom: 16px;
-        letter-spacing: 1px;
+        margin-bottom: 24px;
+        letter-spacing: -1px;
+        line-height: 1.1;
     }
 
-    h1 .accent {
-        color: var(--accent);
-        text-shadow: var(--accent-glow);
+    .gradient-text {
+        background: linear-gradient(90deg, #fff 0%, #888 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
 
     .subtitle {
-        font-size: 16px;
-        color: var(--text-muted);
-        max-width: 600px;
-        margin: 0 auto;
+        font-size: 18px;
+        color: #888;
         line-height: 1.6;
     }
 
+    /* Grid */
     .cases-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 30px;
-        margin-bottom: 60px;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+        max-width: 1200px;
+        margin: 0 auto 80px auto;
+        position: relative;
+        z-index: 2;
     }
 
-    .case-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        padding: 30px;
-        border-radius: 12px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    .use-case-card {
+        background: rgba(10, 10, 10, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 32px;
+        text-align: left;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease;
         display: flex;
         flex-direction: column;
-        cursor: pointer;
-        text-align: left;
-        font-family: var(--font-mono);
-        width: 100%;
-        animation: fadeInUp 0.5s ease both;
+        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+        animation-delay: var(--delay);
+        backdrop-filter: blur(10px);
     }
 
-    .case-card:hover {
-        transform: translateY(-8px) scale(1.02);
-        border-color: var(--accent);
-        box-shadow: 0 20px 40px rgba(0, 255, 65, 0.15);
+    .use-case-card:hover {
+        transform: translateY(-4px);
+        background: rgba(20, 20, 20, 0.8);
     }
 
-    .case-card:hover .arrow {
-        transform: translateX(4px);
+    /* Spotlight */
+    .use-case-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: radial-gradient(600px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.04), transparent 40%);
+        z-index: 1;
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
     }
 
-    .case-card:hover .learn-more {
-        color: var(--accent);
+    .use-case-card:hover::before {
+        opacity: 1;
     }
 
-    .case-card:active {
-        transform: translateY(-4px) scale(1.01);
+    .card-content {
+        position: relative;
+        z-index: 2;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
 
-    .case-card.coming-soon {
-        border-color: var(--yellow);
-        background: rgba(252, 238, 10, 0.03);
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
     }
 
-    .case-card.coming-soon:hover {
-        border-color: var(--yellow);
-        box-shadow: 0 10px 30px rgba(252, 238, 10, 0.15);
-    }
-
-    .case-card.coming-soon .case-icon {
-        background: rgba(252, 238, 10, 0.1);
-        border-color: rgba(252, 238, 10, 0.3);
-        color: var(--yellow);
-    }
-
-    .case-card.coming-soon .bullet {
-        color: var(--yellow);
-    }
-
-    .case-icon {
-        margin-bottom: 20px;
-        color: var(--accent);
-        background: rgba(0, 255, 65, 0.1);
-        width: 60px;
-        height: 60px;
+    .icon-box {
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 12px;
-        border: 1px solid rgba(0, 255, 65, 0.2);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+    }
+
+    .use-case-card:hover .icon-box {
+        background: rgba(255, 255, 255, 0.08);
+        transform: scale(1.05);
+        color: #00ffaa;
+        border-color: rgba(0, 255, 170, 0.2);
+    }
+
+    .badge {
+        font-size: 10px;
+        background: rgba(255, 238, 0, 0.1);
+        color: #ffee00;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 1px;
     }
 
     h3 {
         font-size: 20px;
-        margin: 0 0 10px 0;
-        color: var(--text);
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        color: #fff;
     }
 
-    .case-description {
+    .tagline {
+        font-size: 13px;
+        color: #00ffaa;
+        font-family: 'JetBrains Mono', monospace;
+        margin: 0 0 12px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .description {
         font-size: 14px;
-        color: var(--text-secondary);
-        margin-bottom: 20px;
-        line-height: 1.5;
+        color: #888;
+        line-height: 1.6;
+        margin: 0 0 24px 0;
         flex-grow: 1;
     }
 
-    .case-points {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .case-points li {
-        font-size: 13px;
-        color: var(--text-muted);
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .bullet {
-        color: var(--accent);
-    }
-
-    .cta-section {
-        text-align: center;
-        padding: 60px;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-    }
-
-    .cta-section h2 {
-        font-size: 28px;
-        margin-bottom: 12px;
-    }
-
-    .cta-section p {
-        color: var(--text-muted);
-        margin-bottom: 24px;
-    }
-
-    @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-    }
-
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
     .card-footer {
-        margin-top: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         padding-top: 20px;
-        border-top: 1px solid var(--border);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        margin-top: auto;
     }
 
     .learn-more {
         font-size: 13px;
-        color: var(--text-secondary);
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        color: #666;
+        font-weight: 500;
         transition: color 0.2s;
     }
 
     .arrow {
+        color: #444;
+        transition: transform 0.2s, color 0.2s;
+    }
+
+    .use-case-card:hover .learn-more {
+        color: #fff;
+    }
+
+    .use-case-card:hover .arrow {
+        color: #00ffaa;
+        transform: translateX(4px);
+    }
+
+    .cta-section {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        padding: 60px 0;
+    }
+
+    .btn-primary {
+        background: #fff;
+        color: #000;
+        border: none;
+        padding: 16px 32px;
+        border-radius: 30px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
         transition: transform 0.2s;
-        display: inline-block;
+    }
+
+    .btn-primary:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-shine {
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+        animation: shine 3s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shine {
+        0% { left: -100%; }
+        20% { left: 100%; }
+        100% { left: 100%; }
     }
 
     @media (max-width: 768px) {
-        .cases-grid {
-            grid-template-columns: 1fr;
-        }
+        h1 { font-size: 36px; }
+        .cases-grid { grid-template-columns: 1fr; }
     }
 </style>
