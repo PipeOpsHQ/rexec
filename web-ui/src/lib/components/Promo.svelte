@@ -69,6 +69,58 @@
         cardEl.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1)';
     }
 
+    // 3D effect for hero terminal - tracks mouse across entire hero section
+    let terminalEl: HTMLElement | null = null;
+    
+    function handleTerminalMouseMove(event: MouseEvent) {
+        if (!terminalEl) return;
+        const rect = terminalEl.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        // Calculate distance from center of terminal
+        const deltaX = event.clientX - centerX;
+        const deltaY = event.clientY - centerY;
+        
+        // Limit rotation based on distance (max ~15 degrees)
+        const maxRotation = 15;
+        const maxDistance = 500;
+        
+        const rotateY = (deltaX / maxDistance) * maxRotation;
+        const rotateX = -(deltaY / maxDistance) * maxRotation;
+        
+        // Clamp values
+        const clampedRotateX = Math.max(-maxRotation, Math.min(maxRotation, rotateX));
+        const clampedRotateY = Math.max(-maxRotation, Math.min(maxRotation, rotateY));
+        
+        // Add subtle translation for depth
+        const translateX = (deltaX / maxDistance) * 10;
+        const translateY = (deltaY / maxDistance) * 10;
+        
+        terminalEl.style.transform = `
+            perspective(1500px) 
+            rotateX(${clampedRotateX}deg) 
+            rotateY(${clampedRotateY}deg) 
+            translateX(${translateX}px) 
+            translateY(${translateY}px)
+            scale(1.02)
+        `;
+        
+        // Add dynamic shadow based on tilt
+        const shadowX = -rotateY * 2;
+        const shadowY = rotateX * 2;
+        terminalEl.style.boxShadow = `
+            ${shadowX}px ${shadowY}px 60px rgba(0, 255, 136, 0.15),
+            0 25px 80px rgba(0, 0, 0, 0.5)
+        `;
+    }
+    
+    function handleTerminalMouseLeave() {
+        if (!terminalEl) return;
+        terminalEl.style.transform = 'perspective(1500px) rotateX(0deg) rotateY(0deg) translateX(0) translateY(0) scale(1)';
+        terminalEl.style.boxShadow = '0 25px 80px rgba(0, 0, 0, 0.4)';
+    }
+
     onMount(() => {
         // Trigger hero animations after mount
         setTimeout(() => {
@@ -264,7 +316,7 @@
 
 <div class="promo">
     <!-- Hero Section - Full Width -->
-    <section class="hero" class:loaded={heroLoaded}>
+    <section class="hero" class:loaded={heroLoaded} on:mousemove={handleTerminalMouseMove} on:mouseleave={handleTerminalMouseLeave}>
         <div class="hero-bg">
             <div class="grid-lines"></div>
             <div class="glow glow-1"></div>
@@ -357,7 +409,7 @@
                 </div>
             </div>
 
-            <div class="hero-terminal animate-fade-up" style="--delay: 0.6s">
+            <div class="hero-terminal animate-fade-up" style="--delay: 0.6s" bind:this={terminalEl}>
                 <div class="terminal-window">
                     <div class="terminal-header">
                         <div class="terminal-buttons">
@@ -1090,6 +1142,10 @@
         max-width: 800px;
         z-index: 1;
         position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+        will-change: transform;
+        border-radius: 16px;
     }
 
     .terminal-window {
@@ -1101,6 +1157,7 @@
             0 25px 100px rgba(0, 0, 0, 0.5),
             0 0 0 1px rgba(255, 255, 255, 0.05) inset;
         backdrop-filter: blur(10px);
+        transform-style: preserve-3d;
     }
 
     .terminal-reflection {
