@@ -36,7 +36,6 @@
     let showAddForwardModal = false;
     let newForwardName = "";
     let newContainerPort: number | string = "";
-    let newLocalPort: number | string = "";
     let isAddingForward = false;
 
     let showDeleteConfirm = false;
@@ -164,7 +163,6 @@
     function openAddForwardModal() {
         newForwardName = "";
         newContainerPort = "";
-        newLocalPort = "";
         showAddForwardModal = true;
     }
 
@@ -172,29 +170,24 @@
         showAddForwardModal = false;
         newForwardName = "";
         newContainerPort = "";
-        newLocalPort = "";
     }
 
     async function addPortForward() {
         const containerId = container?.db_id || container?.id;
         if (!containerId) return;
-        if (!newContainerPort || !newLocalPort) {
-            toast.error("Please specify both container and local ports");
+        if (!newContainerPort) {
+            toast.error("Please specify the container port");
             return;
         }
 
         const containerPortNum = parseInt(newContainerPort.toString(), 10);
-        const localPortNum = parseInt(newLocalPort.toString(), 10);
 
         if (
             isNaN(containerPortNum) ||
             containerPortNum <= 0 ||
-            containerPortNum > 65535 ||
-            isNaN(localPortNum) ||
-            localPortNum <= 0 ||
-            localPortNum > 65535
+            containerPortNum > 65535
         ) {
-            toast.error("Invalid port numbers. Must be between 1 and 65535.");
+            toast.error("Invalid port number. Must be between 1 and 65535.");
             return;
         }
 
@@ -205,7 +198,7 @@
                 name: newForwardName.trim(),
                 container_id: containerId,
                 container_port: containerPortNum,
-                local_port: localPortNum,
+                local_port: containerPortNum, // Auto-set (not used in path-based forwarding)
             },
         );
 
@@ -677,7 +670,7 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="pf-container">Terminal Port</label>
+                            <label for="pf-container">Container Port</label>
                             <input
                                 id="pf-container"
                                 type="number"
@@ -687,18 +680,7 @@
                                 min="1"
                                 max="65535"
                             />
-                        </div>
-                        <div class="form-group">
-                            <label for="pf-local">Local Port</label>
-                            <input
-                                id="pf-local"
-                                type="number"
-                                bind:value={newLocalPort}
-                                placeholder="8080"
-                                class="input"
-                                min="1"
-                                max="65535"
-                            />
+                            <small class="form-hint">The port your app is listening on inside the container</small>
                         </div>
                     </div>
                 </div>
@@ -1026,6 +1008,14 @@
         margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        font-family: var(--font-mono, monospace);
+    }
+
+    .form-hint {
+        display: block;
+        font-size: 11px;
+        color: var(--text-muted, #888);
+        margin-top: 6px;
         font-family: var(--font-mono, monospace);
     }
 
