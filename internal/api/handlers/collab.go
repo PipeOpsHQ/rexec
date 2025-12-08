@@ -252,6 +252,27 @@ func (h *CollabHandler) JoinSession(c *gin.Context) {
 		role = "owner"
 	}
 
+	// Pre-register the user as a participant so they have terminal access immediately
+	// This allows the terminal WebSocket to connect before the collab WebSocket
+	session.mu.Lock()
+	if _, exists := session.Participants[userID.(string)]; !exists {
+		username, _ := c.Get("username")
+		usernameStr := ""
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		colorIndex := len(session.Participants)
+		session.Participants[userID.(string)] = &CollabParticipant{
+			ID:       uuid.New().String(),
+			UserID:   userID.(string),
+			Username: usernameStr,
+			Role:     role,
+			Conn:     nil, // Will be set when WebSocket connects
+			Color:    getParticipantColor(colorIndex),
+		}
+	}
+	session.mu.Unlock()
+
 	// Get container info for better display
 	containerName := session.ContainerID[:12] // Default to truncated ID
 	if container, err := h.store.GetContainerByDockerID(c.Request.Context(), session.ContainerID); err == nil && container != nil {
@@ -300,19 +321,28 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 	}
 
 	session.mu.Lock()
-	colorIndex := len(session.Participants)
-	participant := &CollabParticipant{
-		ID:       uuid.New().String(),
-		UserID:   userID.(string),
-		Username: username.(string),
-		Role:     role,
-		Conn:     conn,
-		Color:    getParticipantColor(colorIndex),
+	// Check if participant was pre-registered via JoinSession REST API
+	var participant *CollabParticipant
+	if existingParticipant, exists := session.Participants[userID.(string)]; exists {
+		// Update existing participant with WebSocket connection
+		existingParticipant.Conn = conn
+		participant = existingParticipant
+	} else {
+		// New participant connecting directly via WebSocket
+		colorIndex := len(session.Participants)
+		participant = &CollabParticipant{
+			ID:       uuid.New().String(),
+			UserID:   userID.(string),
+			Username: username.(string),
+			Role:     role,
+			Conn:     conn,
+			Color:    getParticipantColor(colorIndex),
+		}
+		session.Participants[userID.(string)] = participant
 	}
-	session.Participants[userID.(string)] = participant
 	session.mu.Unlock()
 
-	// Store participant in database
+	// Store participant in database (upsert behavior - safe to call multiple times)
 	h.store.AddCollabParticipant(c.Request.Context(), &storage.CollabParticipantRecord{
 		ID:        participant.ID,
 		SessionID: session.ID,
