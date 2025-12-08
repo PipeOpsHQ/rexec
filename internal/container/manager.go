@@ -1088,7 +1088,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 			MemorySwap: cfg.MemoryLimit, // Set equal to Memory to disable swap and enforce hard limit
 			CPUPeriod:  cpuPeriod,
 			CPUQuota:   cpuQuota,
-			PidsLimit:  &[]int64{256}[0], // Limit number of processes to prevent fork bombs
+			PidsLimit:  &[]int64{512}[0], // Limit number of processes (512 allows AI tools like opencode)
 		},
 		// Storage options for disk quota (requires overlay2 on XFS with pquota mount option)
 		StorageOpt: storageOpts,
@@ -1104,18 +1104,17 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		// Security is maintained via other measures (seccomp, capabilities, etc.)
 		ReadonlyRootfs: false,
 		// Tmpfs mounts for writable directories
-		// Note: /var/lib/apt and /var/cache/apt are added to ensure package manager
-		// works even if overlay filesystem has issues or base image is minimal
+		// Note: /var/lib/apt and /var/cache/apt are NOT mounted as tmpfs
+		// to preserve dpkg state from the base image. The container uses
+		// overlay filesystem (ReadonlyRootfs: false) for package management.
 		Tmpfs: map[string]string{
-			"/tmp":               "rw,nosuid,size=100m",         // Allow exec for some installers
-			"/var/tmp":           "rw,noexec,nosuid,size=50m",
-			"/run":               "rw,noexec,nosuid,size=50m",
-			"/var/run":           "rw,noexec,nosuid,size=50m",
-			"/home/user":         "rw,nosuid,size=500m",
-			"/root":              "rw,nosuid,size=100m",
-			"/var/log":           "rw,noexec,nosuid,size=50m",
-			"/var/lib/apt":       "rw,noexec,nosuid,size=200m",  // APT package lists
-			"/var/cache/apt":     "rw,noexec,nosuid,size=500m",  // APT package cache
+			"/tmp":       "rw,exec,nosuid,size=256m", // exec required for opencode TUI library
+			"/var/tmp":   "rw,noexec,nosuid,size=50m",
+			"/run":       "rw,noexec,nosuid,size=50m",
+			"/var/run":   "rw,noexec,nosuid,size=50m",
+			"/home/user": "rw,exec,nosuid,size=500m", // Allow exec for user scripts
+			"/root":      "rw,exec,nosuid,size=256m", // Allow exec for rexec CLI and opencode
+			"/var/log":   "rw,noexec,nosuid,size=50m",
 		},
 		// Mask sensitive host information from /proc and /sys
 		MaskedPaths: []string{

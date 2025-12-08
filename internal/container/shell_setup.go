@@ -203,9 +203,17 @@ wait_for_apt_lock() {
 install_packages() {
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
+        # Create necessary apt directories (needed when /var/lib/apt is tmpfs)
+        mkdir -p /var/lib/apt/lists/partial /var/cache/apt/archives/partial 2>/dev/null || true
+        # Fix any dpkg issues from interrupted installs
+        rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock 2>/dev/null || true
+        # Remove any corrupted dpkg update files
+        rm -f /var/lib/dpkg/updates/* 2>/dev/null || true
+        dpkg --configure -a 2>/dev/null || true
         wait_for_apt_lock || true
-        apt-get update -qq
-        apt-get install -y -qq --reinstall zsh git libpcre2-8-0 curl wget locales >/dev/null 2>&1
+        apt-get update -qq 2>/dev/null || apt-get update 2>/dev/null || true
+        apt-get install -y -qq --reinstall zsh git libpcre2-8-0 curl wget locales 2>/dev/null || \
+        apt-get install -y zsh git curl wget 2>/dev/null || true
         # Try to install language-pack-en for Ubuntu (fixes locale issues), but don't fail on Debian
         apt-get install -y -qq language-pack-en >/dev/null 2>&1 || true
         

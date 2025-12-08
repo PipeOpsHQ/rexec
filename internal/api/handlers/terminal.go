@@ -551,6 +551,30 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 	}
 	defer attachResp.Close()
 
+	// Set initial terminal size immediately after attach
+	// This is critical for TUI applications like opencode that need proper dimensions
+	session.mu.Lock()
+	initialCols := session.Cols
+	initialRows := session.Rows
+	session.mu.Unlock()
+
+	if initialCols > 0 && initialRows > 0 {
+		if err := client.ContainerExecResize(ctx, execResp.ID, container.ResizeOptions{
+			Height: initialRows,
+			Width:  initialCols,
+		}); err != nil {
+			log.Printf("[Terminal] Initial resize failed for %s: %v", session.ContainerID[:12], err)
+		}
+	} else {
+		// Default size if not set
+		if err := client.ContainerExecResize(ctx, execResp.ID, container.ResizeOptions{
+			Height: 24,
+			Width:  80,
+		}); err != nil {
+			log.Printf("[Terminal] Default resize failed for %s: %v", session.ContainerID[:12], err)
+		}
+	}
+
 	// Handle bidirectional communication
 	var wg sync.WaitGroup
 	wg.Add(2)
