@@ -461,8 +461,19 @@ func (h *CollabHandler) EndSession(c *gin.Context) {
 				if p.Conn != nil {
 					p.Conn.WriteJSON(CollabMessage{
 						Type:      "ended",
+						Data:      "Session ended by owner",
 						Timestamp: time.Now().UnixMilli(),
 					})
+				}
+			}
+			session.mu.Unlock()
+			
+			// Give time for messages to be delivered before closing connections
+			time.Sleep(100 * time.Millisecond)
+			
+			session.mu.Lock()
+			for _, p := range session.Participants {
+				if p.Conn != nil {
 					p.Conn.Close()
 				}
 			}

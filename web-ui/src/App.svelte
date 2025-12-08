@@ -4,6 +4,7 @@
     import { containers, startAutoRefresh, stopAutoRefresh } from "$stores/containers";
     import { terminal, hasSessions } from "$stores/terminal";
     import { toast } from "$stores/toast";
+    import { collab } from "$stores/collab";
 
     // Components
     import Header from "$components/Header.svelte";
@@ -352,6 +353,22 @@
         // Listen for OAuth messages from popup window
         window.addEventListener("message", handleOAuthMessage);
 
+        // Subscribe to collab session events - close terminal when session ends
+        const unsubscribeCollab = collab.onMessage((msg) => {
+            if (msg.type === 'ended' || msg.type === 'expired') {
+                // Find and close all collab terminal sessions
+                const state = terminal.getState();
+                state.sessions.forEach((session, sessionId) => {
+                    if (session.isCollabSession) {
+                        terminal.closeSession(sessionId);
+                        toast.info(msg.type === 'expired' 
+                            ? 'Shared session expired' 
+                            : 'Shared session ended by owner');
+                    }
+                });
+            }
+        });
+
         // Run async initialization
         (async () => {
             // Check for admin key in URL (Build-time env var protection)
@@ -422,6 +439,7 @@
         // Cleanup on destroy
         return () => {
             window.removeEventListener("message", handleOAuthMessage);
+            unsubscribeCollab();
             stopAutoRefresh(); // Stop polling when component unmounts
         };
     });
