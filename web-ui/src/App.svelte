@@ -13,7 +13,6 @@
     // Components
     import Header from "$components/Header.svelte";
     import Landing from "$components/Landing.svelte";
-    import PromoLanding from "$components/PromoLanding.svelte";
     import Dashboard from "$components/Dashboard.svelte";
     import AdminDashboard from "$components/AdminDashboard.svelte";
     import CreateTerminal from "$components/CreateTerminal.svelte";
@@ -29,11 +28,11 @@
     import UseCaseDetail from "$components/UseCaseDetail.svelte";
     import SnippetsPage from "$components/SnippetsPage.svelte";
     import NotFound from "$components/NotFound.svelte";
+    import Promo from "$components/Promo.svelte";
 
     // App state
     let currentView:
         | "landing"
-        | "promo"
         | "dashboard"
         | "admin"
         | "create"
@@ -45,6 +44,7 @@
         | "use-cases"
         | "use-case-detail"
         | "pricing"
+        | "promo"
         | "404" = "landing";
     let isLoading = true;
     let isInitialized = false; // Prevents reactive statements from firing before token validation
@@ -242,15 +242,15 @@
             return;
         }
 
-        // Check for /promo route
-        if (path === "/promo" || path === "/promo/") {
-            currentView = "promo";
-            return;
-        }
-
         // Check for /pricing route
         if (path === "/pricing") {
             currentView = "pricing";
+            return;
+        }
+
+        // Check for /promo route
+        if (path === "/promo") {
+            currentView = "promo";
             return;
         }
 
@@ -504,12 +504,11 @@
         startAutoRefresh(); // Start polling when authenticated
     }
 
-    $: if (
-        isInitialized &&
-        !$isAuthenticated &&
-        currentView !== "landing" &&
-        currentView !== "promo" &&
-        currentView !== "guides" &&
+        $: if (isInitialized && !$isAuthenticated && 
+
+               currentView !== "landing" && 
+               currentView !== "promo" &&
+               currentView !== "guides" && 
         currentView !== "use-cases" &&
         currentView !== "use-case-detail" &&
         currentView !== "join" &&
@@ -569,8 +568,6 @@
         const path = window.location.pathname;
         if (path === "/" || path === "") {
             currentView = $isAuthenticated ? "dashboard" : "landing";
-        } else if (path === "/promo") {
-            currentView = "promo";
         } else if (path === "/guides" || path === "/ai-tools") {
             currentView = "guides";
         } else if (path === "/use-cases" || path === "/agentic") {
@@ -607,131 +604,152 @@
             <p>Loading...</p>
         </div>
     {:else}
-        {#if currentView !== "promo"}
-            <Header
-                on:home={goToDashboard}
-                on:create={goToCreate}
-                on:settings={goToSettings}
-                on:sshkeys={goToSSHKeys}
-                on:snippets={goToSnippets}
-                on:guest={openGuestModal}
-                on:pricing={() => {
-                    currentView = "pricing";
-                    window.history.pushState({}, "", "/pricing");
-                }}
-                on:admin={goToAdmin}
-            />
-        {/if}
+        <Header
+            on:home={goToDashboard}
+            on:create={goToCreate}
+            on:settings={goToSettings}
+            on:sshkeys={goToSSHKeys}
+            on:snippets={goToSnippets}
+            on:guest={openGuestModal}
+            on:pricing={() => {
+                currentView = "pricing";
+                window.history.pushState({}, "", "/pricing");
+            }}
+            on:admin={goToAdmin}
+        />
 
-        {#if currentView === "promo"}
-            <PromoLanding 
-                on:guest={openGuestModal}
-                on:navigate={(e) => {
-                    // @ts-ignore - e.detail.view check
-                    currentView = e.detail.view;
-                    window.history.pushState({}, "", "/" + e.detail.view);
-                }}
-            />
-        {:else}
-            <main class="main" class:has-terminal={$hasSessions}>
-                {#if currentView === "landing"}
-                    <Landing 
-                        on:guest={openGuestModal} 
-                        on:navigate={(e) => {
-                            // @ts-ignore - view is checked elsewhere or we trust it matches types
-                            currentView = e.detail.view;
-                            window.history.pushState({}, "", "/" + e.detail.view);
-                        }}
-                    />
-                {:else if currentView === "dashboard"}
-                    <Dashboard
-                        on:create={goToCreate}
-                        on:connect={(e) => {
-                            // Only create session - TerminalPanel will handle WebSocket connection
-                            terminal.createSession(e.detail.id, e.detail.name);
-                        }}
-                    />
-                {:else if currentView === "admin"}
-                    <AdminDashboard />
-                {:else if currentView === "create"}
-                    <CreateTerminal
-                        on:cancel={goToDashboard}
-                        on:created={onContainerCreated}
-                    />
-                {:else if currentView === "settings"}
-                    <Settings on:back={goToDashboard} />
-                {:else if currentView === "sshkeys"}
-                    <SSHKeys 
-                        on:back={goToDashboard} 
-                        on:run={(e) => {
-                            const command = e.detail.command;
-                            const activeSessionId = terminal.getState().activeSessionId;
-                            
-                            if (activeSessionId) {
-                                currentView = "dashboard";
-                                // Small delay to ensure view switch
-                                setTimeout(() => {
-                                    terminal.sendInput(activeSessionId, command + '\n');
-                                    toast.success("Running SSH command...");
-                                }, 50);
-                            } else {
-                                toast.error("No active terminal. Please create one first.");
-                                currentView = "dashboard";
-                            }
-                        }}
-                    />
-                {:else if currentView === "snippets"}
-                    <SnippetsPage on:back={goToDashboard} />
-                {:else if currentView === "join"}
-                    <JoinSession code={joinCode} on:joined={(e) => {
+        <main class="main" class:has-terminal={$hasSessions}>
+            {#if currentView === "landing"}
+                <Landing
+                    on:guest={openGuestModal}
+                    on:navigate={(e) => {
+                        // @ts-ignore - view is checked elsewhere or we trust it matches types
+                        currentView = e.detail.view;
+                        window.history.pushState({}, "", "/" + e.detail.view);
+                                        }}
+                                    />
+                                {:else if currentView === "dashboard"}                <Dashboard
+                    on:create={goToCreate}
+                    on:connect={(e) => {
+                        // Only create session - TerminalPanel will handle WebSocket connection
+                        terminal.createSession(e.detail.id, e.detail.name);
+                    }}
+                />
+            {:else if currentView === "admin"}
+                <AdminDashboard />
+            {:else if currentView === "create"}
+                <CreateTerminal
+                    on:cancel={goToDashboard}
+                    on:created={onContainerCreated}
+                />
+            {:else if currentView === "settings"}
+                <Settings on:back={goToDashboard} />
+            {:else if currentView === "sshkeys"}
+                <SSHKeys
+                    on:back={goToDashboard}
+                    on:run={(e) => {
+                        const command = e.detail.command;
+                        const activeSessionId =
+                            terminal.getState().activeSessionId;
+
+                        if (activeSessionId) {
+                            currentView = "dashboard";
+                            // Small delay to ensure view switch
+                            setTimeout(() => {
+                                terminal.sendInput(
+                                    activeSessionId,
+                                    command + "\n",
+                                );
+                                toast.success("Running SSH command...");
+                            }, 50);
+                        } else {
+                            toast.error(
+                                "No active terminal. Please create one first.",
+                            );
+                            currentView = "dashboard";
+                        }
+                    }}
+                />
+            {:else if currentView === "snippets"}
+                <SnippetsPage on:back={goToDashboard} />
+            {:else if currentView === "join"}
+                <JoinSession
+                    code={joinCode}
+                    on:joined={(e) => {
                         // Use createCollabSession for shared terminals to track mode/role
                         terminal.createCollabSession(
-                            e.detail.containerId, 
+                            e.detail.containerId,
                             e.detail.containerName,
-                            e.detail.mode || 'control',
-                            e.detail.role || 'viewer'
+                            e.detail.mode || "control",
+                            e.detail.role || "viewer",
                         );
                         currentView = "dashboard";
-                    }} on:cancel={goToDashboard} />
-                {:else if currentView === "guides"}
-                    <Guides 
-                        on:tryNow={openGuestModal}
-                        on:navigate={(e) => {
-                            if (e.detail.view === "agentic") { // Legacy handling
-                                currentView = "use-cases";
-                                window.history.pushState({}, "", "/use-cases");
-                            }
-                        }}
-                    />
-                {:else if currentView === "use-cases"}
-                    <UseCases 
-                        on:tryNow={openGuestModal}
-                        on:navigate={(e) => {
-                            useCaseSlug = e.detail.slug;
-                            currentView = "use-case-detail";
-                            window.history.pushState({}, "", `/use-cases/${e.detail.slug}`);
-                        }}
-                    />
-                {:else if currentView === "use-case-detail"}
-                    <UseCaseDetail 
-                        slug={useCaseSlug}
-                        on:back={() => {
+                    }}
+                    on:cancel={goToDashboard}
+                />
+            {:else if currentView === "guides"}
+                <Guides
+                    on:tryNow={openGuestModal}
+                    on:navigate={(e) => {
+                        if (e.detail.view === "agentic") {
+                            // Legacy handling
                             currentView = "use-cases";
                             window.history.pushState({}, "", "/use-cases");
-                        }}
-                        on:tryNow={openGuestModal}
-                        on:navigate={(e) => {
-                            useCaseSlug = e.detail.slug;
-                            window.history.pushState({}, "", `/use-cases/${e.detail.slug}`);
-                        }}
-                    />
-                {:else if currentView === "pricing"}
-                    <Pricing mode="page" />
-                {:else if currentView === "404"}
-                    <NotFound on:home={goToDashboard} />
-                {/if}
-            </main>
-        {/if}
+                        }
+                    }}
+                />
+            {:else if currentView === "use-cases"}
+                <UseCases
+                    on:tryNow={openGuestModal}
+                    on:navigate={(e) => {
+                        useCaseSlug = e.detail.slug;
+                        currentView = "use-case-detail";
+                        window.history.pushState(
+                            {},
+                            "",
+                            `/use-cases/${e.detail.slug}`,
+                        );
+                    }}
+                />
+            {:else if currentView === "use-case-detail"}
+                <UseCaseDetail
+                    slug={useCaseSlug}
+                    on:back={() => {
+                        currentView = "use-cases";
+                        window.history.pushState({}, "", "/use-cases");
+                    }}
+                    on:tryNow={openGuestModal}
+                    on:navigate={(e) => {
+                        useCaseSlug = e.detail.slug;
+                        window.history.pushState(
+                            {},
+                            "",
+                            `/use-cases/${e.detail.slug}`,
+                        );
+                    }}
+                />
+            {:else if currentView === "pricing"}
+                <Pricing mode="page" />
+            {:else if currentView === "promo"}
+                <Promo 
+                    on:guest={openGuestModal}
+                    on:navigate={(e) => {
+                        if (e.detail.view === "use-cases") {
+                            window.history.pushState({}, "", "/use-cases");
+                            currentView = "use-cases";
+                        } else if (e.detail.view === "guides") {
+                            window.history.pushState({}, "", "/guides");
+                            currentView = "guides";
+                        } else if (e.detail.view === "pricing") {
+                            window.history.pushState({}, "", "/pricing");
+                            currentView = "pricing";
+                        }
+                    }}
+                />
+            {:else if currentView === "404"}
+                <NotFound on:home={goToDashboard} />
+            {/if}
+        </main>
 
         <!-- Terminal overlay (floating or docked) -->
         {#if $hasSessions}

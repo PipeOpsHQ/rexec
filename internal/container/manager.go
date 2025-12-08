@@ -1343,6 +1343,15 @@ func (m *Manager) GetContainer(idOrName string) (*ContainerInfo, bool) {
 		}
 	}
 
+	// Fallback: search by ID prefix (for short IDs like first 12 chars)
+	if len(idOrName) >= 12 {
+		for dockerID, info := range m.containers {
+			if strings.HasPrefix(dockerID, idOrName) || strings.HasPrefix(idOrName, dockerID[:12]) {
+				return info, true
+			}
+		}
+	}
+
 	return nil, false
 }
 

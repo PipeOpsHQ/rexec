@@ -129,7 +129,13 @@ func (h *TerminalHandler) HasCollabAccess(userID, containerID string) bool {
 	defer h.collabHandler.mu.RUnlock()
 
 	for _, session := range h.collabHandler.sessions {
-		if session.ContainerID == containerID {
+		// Check exact match or prefix match (in case IDs are truncated)
+		matches := session.ContainerID == containerID
+		if !matches && len(containerID) >= 12 && len(session.ContainerID) >= 12 {
+			matches = strings.HasPrefix(session.ContainerID, containerID[:12]) ||
+				strings.HasPrefix(containerID, session.ContainerID[:12])
+		}
+		if matches {
 			session.mu.RLock()
 			_, hasAccess := session.Participants[userID]
 			session.mu.RUnlock()
@@ -153,6 +159,16 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	// Verify user owns this container (lookup by Docker ID or terminal name)
 	containerInfo, ok := h.containerManager.GetContainer(containerIdOrName)
 	if !ok {
+		// Try to sync from Docker in case container exists but wasn't loaded
+		ctx := context.Background()
+		if err := h.containerManager.LoadExistingContainers(ctx); err != nil {
+			log.Printf("[Terminal] Failed to sync containers: %v", err)
+		}
+		// Try again after sync
+		containerInfo, ok = h.containerManager.GetContainer(containerIdOrName)
+	}
+	if !ok {
+		log.Printf("[Terminal] Container not found: %s (user: %s)", containerIdOrName, userID)
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":           "container not found",
 			"code":            "container_not_found",
