@@ -180,12 +180,14 @@ install_role_packages() {
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
         
+        echo "  Detected apt-get package manager"
+        
         # Apt options for robustness
         APT_OPTS="-o DPkg::Lock::Timeout=60 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
         
         # Enable universe repository for Ubuntu (needed for neovim, ripgrep, etc.)
         if grep -q "Ubuntu" /etc/issue 2>/dev/null || grep -q "Ubuntu" /etc/os-release 2>/dev/null; then
-            echo "Enabling universe repository..."
+            echo "  Enabling universe repository..."
             apt-get $APT_OPTS update -qq 2>&1 || true
             apt-get $APT_OPTS install -y -qq software-properties-common 2>&1 || true
             add-apt-repository -y universe 2>&1 || true
@@ -202,31 +204,33 @@ install_role_packages() {
         PACKAGES="$APT_PACKAGES"
         
         # Update package lists - handle flock not being available
+        echo "  Updating package lists..."
         if command -v flock >/dev/null 2>&1; then
-            flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS update -qq 2>&1 || apt-get $APT_OPTS update -qq 2>&1 || true
+            flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS update -qq 2>&1 || apt-get $APT_OPTS update -qq 2>&1 || echo "  Warning: apt-get update failed"
         else
-            apt-get $APT_OPTS update -qq 2>&1 || true
+            apt-get $APT_OPTS update -qq 2>&1 || echo "  Warning: apt-get update failed"
         fi
 
         # Try bulk install first
-        echo "Installing packages: $PACKAGES"
+        echo "  Installing packages: $PACKAGES"
         if command -v flock >/dev/null 2>&1; then
-            if ! flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS install -y -qq $PACKAGES 2>&1; then
-                echo "Bulk install failed, trying individual packages..."
+            if ! flock -w 120 /var/lib/dpkg/lock-frontend apt-get $APT_OPTS install -y $PACKAGES 2>&1; then
+                echo "  Bulk install failed, trying individual packages..."
                 for pkg in $PACKAGES; do
-                    echo "Installing $pkg..."
-                    apt-get $APT_OPTS install -y -qq "$pkg" 2>&1 || echo "Warning: Failed to install $pkg"
+                    echo "    Installing $pkg..."
+                    apt-get $APT_OPTS install -y "$pkg" 2>&1 || echo "    Warning: Failed to install $pkg"
                 done
             fi
         else
-            if ! apt-get $APT_OPTS install -y -qq $PACKAGES 2>&1; then
-                echo "Bulk install failed, trying individual packages..."
+            if ! apt-get $APT_OPTS install -y $PACKAGES 2>&1; then
+                echo "  Bulk install failed, trying individual packages..."
                 for pkg in $PACKAGES; do
-                    echo "Installing $pkg..."
-                    apt-get $APT_OPTS install -y -qq "$pkg" 2>&1 || echo "Warning: Failed to install $pkg"
+                    echo "    Installing $pkg..."
+                    apt-get $APT_OPTS install -y "$pkg" 2>&1 || echo "    Warning: Failed to install $pkg"
                 done
             fi
         fi
+        echo "  System packages installation complete."
     elif command -v apk >/dev/null 2>&1; then
         # Alpine mapping
         PACKAGES=""
@@ -821,7 +825,18 @@ echo ""
 AIHELP
     chmod +x "$HOME/.local/bin/ai-help"
     cp "$HOME/.local/bin/ai-help" /home/user/.local/bin/ai-help 2>/dev/null || true
+    
+    # Create symlinks for all AI tools to /usr/local/bin so they're always in PATH
+    echo "  Creating symlinks for AI tools..."
+    mkdir -p /usr/local/bin 2>/dev/null || true
+    for tool in tgpt aichat mods gum opencode ai-help; do
+        if [ -x "$HOME/.local/bin/$tool" ]; then
+            ln -sf "$HOME/.local/bin/$tool" "/usr/local/bin/$tool" 2>/dev/null || true
+        fi
+    done
+    
     rm -f /tmp/.rexec_installing_ai
+    echo "  AI tools installation complete."
 }
 
 # --- Execution ---

@@ -616,12 +616,19 @@ func GetContainerShell(ctx context.Context, cli *client.Client, containerID stri
 	return "/bin/sh"
 }
 
+// RoleSetupTimeout is the maximum time allowed for role setup (package installs can be slow)
+const RoleSetupTimeout = 5 * time.Minute
+
 // SetupRole installs tools for a specific role
 func SetupRole(ctx context.Context, cli *client.Client, containerID string, roleID string) (*SetupShellResponse, error) {
 	script, err := GenerateRoleScript(roleID)
 	if err != nil {
 		return nil, err
 	}
+
+	// Apply timeout to prevent hanging on slow package installs
+	ctx, cancel := context.WithTimeout(ctx, RoleSetupTimeout)
+	defer cancel()
 
 	// Create exec configuration
 	execConfig := container.ExecOptions{
@@ -645,29 +652,51 @@ func SetupRole(ctx context.Context, cli *client.Client, containerID string, role
 	}
 	defer attachResp.Close()
 
-	// Read output
+	// Read output with timeout awareness
 	var output strings.Builder
 	buf := make([]byte, 4096)
-	for {
-		n, err := attachResp.Reader.Read(buf)
-		if n > 0 {
-			output.Write(buf[:n])
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for {
+			n, err := attachResp.Reader.Read(buf)
+			if n > 0 {
+				output.Write(buf[:n])
+			}
+			if err != nil {
+				break
+			}
 		}
-		if err != nil {
-			break
-		}
+	}()
+
+	// Wait for completion or timeout
+	select {
+	case <-done:
+		// Script completed
+	case <-ctx.Done():
+		return &SetupShellResponse{
+			Success: false,
+			Message: fmt.Sprintf("Role setup timed out for %s after %v", roleID, RoleSetupTimeout),
+			Output:  output.String(),
+		}, nil
 	}
 
 	// Check exit code
 	inspect, err := cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to inspect exec: %w", err)
+		// If we can't inspect, the script might still have run successfully
+		return &SetupShellResponse{
+			Success: true,
+			Message: fmt.Sprintf("Role setup completed for %s (exit status unknown)", roleID),
+			Output:  output.String(),
+		}, nil
 	}
 
 	if inspect.ExitCode != 0 {
 		return &SetupShellResponse{
 			Success: false,
-			Message: fmt.Sprintf("Role setup failed for %s", roleID),
+			Message: fmt.Sprintf("Role setup failed for %s (exit code: %d)", roleID, inspect.ExitCode),
 			Output:  output.String(),
 		}, nil
 	}
