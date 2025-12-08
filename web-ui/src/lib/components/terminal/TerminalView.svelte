@@ -388,30 +388,41 @@
 
     // Global keyboard shortcuts
     function handleGlobalKeydown(event: KeyboardEvent) {
-        // Handle Ghostty-style shortcuts (Cmd+Key on macOS)
-        if (event.metaKey && !event.ctrlKey && !event.altKey) {
+        // Detect platform
+        const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform || '') || 
+                      /Macintosh/.test(navigator.userAgent);
+        
+        // Use Cmd on Mac, Ctrl on Windows/Linux for app shortcuts
+        const modKey = isMac ? event.metaKey : event.ctrlKey;
+        const otherModKey = isMac ? event.ctrlKey : event.metaKey;
+        
+        // Handle app-level shortcuts (Cmd/Ctrl+Key)
+        if (modKey && !otherModKey && !event.altKey) {
             const key = event.key.toLowerCase();
             const isShift = event.shiftKey;
 
-            // Cmd+D / Cmd+Shift+D: Split Pane
+            // Cmd/Ctrl+D / Cmd/Ctrl+Shift+D: Split Pane
             if (key === 'd' && activeId) {
                 event.preventDefault();
-                // Cmd+Shift+D = Horizontal (Top/Bottom), Cmd+D = Vertical (Left/Right)
+                event.stopPropagation();
+                // Shift = Horizontal (Top/Bottom), No shift = Vertical (Left/Right)
                 const direction = isShift ? 'horizontal' : 'vertical';
                 terminal.splitPane(activeId, direction);
                 return;
             }
 
-            // Cmd+T: New Tab (Inline Create)
+            // Cmd/Ctrl+T: New Tab (Inline Create)
             if (key === 't') {
                 event.preventDefault();
+                event.stopPropagation();
                 openCreatePanel();
                 return;
             }
 
-            // Cmd+W: Close Pane/Tab
+            // Cmd/Ctrl+W: Close Pane/Tab
             if (key === 'w' && activeId) {
                 event.preventDefault();
+                event.stopPropagation();
                 const session = $terminal.sessions.get(activeId);
                 if (session && session.activePaneId && session.activePaneId !== 'main') {
                     terminal.closeSplitPane(activeId, session.activePaneId);
@@ -421,22 +432,24 @@
                 return;
             }
             
-            // Cmd+N: New Window (Pop out)
-            if (key === 'n' && activeId) {
+            // Cmd/Ctrl+N: New Window (Pop out) - only on Mac to avoid browser new window
+            if (isMac && key === 'n' && activeId) {
                 event.preventDefault();
+                event.stopPropagation();
                 popOutTerminal(activeId, window.innerWidth / 2 - 300, window.innerHeight / 2 - 200);
                 return;
             }
 
-            // Cmd+. : Send Ctrl+C
-            if (key === '.' && activeId) {
+            // Cmd+. (Mac only): Send Ctrl+C
+            if (isMac && key === '.' && activeId) {
                 event.preventDefault();
+                event.stopPropagation();
                 terminal.sendCtrlC(activeId);
                 return;
             }
 
-            // Cmd+Arrows: Navigate Panes
-            if (activeId && $terminal.sessions.get(activeId)?.splitPanes?.size > 0 && !isShift) { // Only handle non-shifted arrow keys for navigation
+            // Cmd/Ctrl+Arrows: Navigate Panes
+            if (activeId && $terminal.sessions.get(activeId)?.splitPanes?.size > 0 && !isShift) {
                 let direction: 'left' | 'right' | 'up' | 'down' | null = null;
                 switch (event.key) {
                     case 'ArrowLeft':
@@ -454,6 +467,7 @@
                 }
                 if (direction) {
                     event.preventDefault();
+                    event.stopPropagation();
                     terminal.navigateSplitPanes(activeId, direction);
                     return;
                 }

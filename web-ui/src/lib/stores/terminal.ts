@@ -123,32 +123,64 @@ function createCustomKeyHandler(term: Terminal) {
     const platform = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
     const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
     const isMac = /Mac|iPod|iPhone|iPad/.test(platform) || /Macintosh/.test(userAgent);
+    const isFirefox = /Firefox/.test(userAgent);
+    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+
+    // Firefox-specific: Handle Backquote key (`) which Firefox sometimes mishandles
+    if (isFirefox && event.code === 'Backquote' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      return true; // Let xterm handle it
+    }
 
     // Prevent browser defaults for common terminal shortcuts on ALL platforms
     // Ctrl+S (save/xoff), Ctrl+P (print/up), Ctrl+F (find/forward), Ctrl+R (refresh/search), etc.
     if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
         const key = event.key.toLowerCase();
         // Block browser defaults for keys essential to terminal usage
-        const preventedKeys = ['s', 'p', 'f', 'r', 'o', 'g', 'b', 'h', 'i'];
+        const preventedKeys = ['s', 'p', 'f', 'r', 'o', 'g', 'b', 'h', 'i', 'u', 'l', 'k', 'j'];
         if (preventedKeys.includes(key)) {
              event.preventDefault();
              // Return true to let xterm process it
              return true;
         }
+        
+        // Ctrl+C: Special handling - only intercept if there's no text selection
+        if (key === 'c') {
+          const selection = window.getSelection();
+          if (!selection || selection.isCollapsed || selection.toString().length === 0) {
+            // No selection - this is Ctrl+C for interrupt, let terminal handle it
+            event.preventDefault();
+            return true;
+          }
+          // Has selection - let browser handle copy
+          return true;
+        }
+    }
+
+    // Safari-specific: Prevent default on certain key combos that Safari intercepts
+    if (isSafari) {
+      if (event.ctrlKey && ['a', 'e', 'k', 'u', 'w'].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+        return true;
+      }
     }
 
     // macOS specific handling: Map Cmd+Key -> Ctrl+Key
     if (isMac && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
         const key = event.key.toLowerCase();
         
-        // Preserve standard clipboard shortcuts (Cmd+C, Cmd+V)
+        // Preserve standard clipboard shortcuts (Cmd+C, Cmd+V, Cmd+X)
         // Let the browser/xterm handle these naturally
-        if (key === 'c' || key === 'v') return true;
+        if (key === 'c' || key === 'v' || key === 'x' || key === 'a') return true;
 
         // Ghostty-style shortcuts to pass through to UI handler (TerminalView.svelte)
         // d = split, t = tab, w = close, n = new window
         const reserved = ['d', 't', 'w', 'n', 'enter'];
         if (reserved.includes(key)) {
+            return false;
+        }
+        
+        // Prevent Cmd+Q (quit browser) from being sent to terminal
+        if (key === 'q') {
             return false;
         }
         
@@ -168,6 +200,17 @@ function createCustomKeyHandler(term: Terminal) {
              return false;
         }
     }
+    
+    // Windows/Linux: Handle Alt key combinations that might conflict with browser
+    if (!isMac && event.altKey && !event.ctrlKey && !event.metaKey) {
+      // Alt+F4, Alt+Tab etc should go to OS, not terminal
+      if (['F4', 'Tab'].includes(event.key)) {
+        return false;
+      }
+      // Let terminal handle other Alt combos (for readline alt-b, alt-f, etc.)
+      return true;
+    }
+
     return true;
   };
 }

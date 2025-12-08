@@ -1204,9 +1204,18 @@
         border: 1px solid var(--border);
         border-radius: 6px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        z-index: 10000;
+        z-index: 100000; /* Higher than any overlay/modal */
         overflow: hidden;
         animation: menuFadeIn 0.15s ease;
+    }
+    
+    /* Ensure menu displays above terminal on mobile */
+    @media (max-width: 768px) {
+        .more-menu {
+            position: fixed;
+            max-width: calc(100vw - 32px);
+            right: 16px !important;
+        }
     }
 
     @keyframes menuFadeIn {

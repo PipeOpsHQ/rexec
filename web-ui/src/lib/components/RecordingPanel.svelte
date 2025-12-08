@@ -800,37 +800,54 @@
 
   .player-container {
     background: #050506;
-    height: 160px;
+    height: 200px;
+    min-height: 160px;
     overflow: hidden;
+    border: 1px solid #1a1a22;
+    margin: 0 12px;
+    border-radius: 4px;
   }
 
   .player-container :global(.xterm) {
     height: 100%;
-    padding: 6px;
+    padding: 8px;
+  }
+  
+  .player-container :global(.xterm-viewport) {
+    overflow-y: auto !important;
   }
 
   .player-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: #080809;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #0a0a0c;
+    border-top: 1px solid #1a1a22;
+    margin: 0 12px 12px;
+    border-radius: 0 0 4px 4px;
   }
 
   .progress-bar {
     flex: 1;
-    height: 3px;
+    height: 6px;
     background: #1a1a22;
-    border-radius: 2px;
+    border-radius: 3px;
     overflow: hidden;
     cursor: pointer;
+    position: relative;
+  }
+  
+  .progress-bar:hover {
+    height: 8px;
   }
 
   .progress-fill {
     height: 100%;
-    background: #ff4757;
-    border-radius: 2px;
+    background: linear-gradient(90deg, #ff4757, #ff6b7a);
+    border-radius: 3px;
     transition: width 0.1s ease;
+    box-shadow: 0 0 8px rgba(255, 71, 87, 0.4);
   }
 
   .control-buttons {
