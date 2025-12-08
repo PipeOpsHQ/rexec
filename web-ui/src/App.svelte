@@ -219,9 +219,11 @@
     async function handleTerminalUrl() {
         const path = window.location.pathname;
         const params = new URLSearchParams(window.location.search);
+        
+        console.log("Routing:", path);
 
         // Check for /admin route
-        if (path === "/admin") {
+        if (path === "/admin" || path === "/admin/") {
             // Ensure auth logic runs first (handled by onMount), then check role
             // But here we just set view, auth check happens in goToAdmin or reactive block
             currentView = "admin";
@@ -229,7 +231,8 @@
         }
 
         // Check for /promo route
-        if (path === "/promo") {
+        if (path === "/promo" || path === "/promo/") {
+            console.log("Route matched: promo");
             currentView = "promo";
             return;
         }
