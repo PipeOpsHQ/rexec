@@ -10,48 +10,55 @@
     }>();
 
     let isOAuthLoading = false;
-    let text = "Initialize...";
-    let typedText = "";
-    let cursorVisible = true;
-    let scrollY = 0;
+    let terminalLines = [
+        { text: "initiating handshake...", color: "text-muted" },
+        { text: "connecting to mesh network...", color: "text-muted" },
+        { text: "allocating ephemeral resources [cpu: 4, mem: 8gb]", color: "text-success" },
+        { text: "mounting secure filesystem...", color: "text-success" },
+        { text: "environment ready.", color: "text-accent" },
+        { text: "$ _", color: "text-white", type: "prompt" }
+    ];
+    let visibleLines: typeof terminalLines = [];
 
-    const featuredUseCases = [
+    const useCases = [
         {
             slug: "ephemeral-dev-environments",
-            title: "EPHEMERAL_DEV",
-            icon: "bolt",
-            desc: "Spin up fresh environments in milliseconds."
-        },
-        {
-            slug: "collaborative-intelligence",
-            title: "COLLAB_INTELLIGENCE",
-            icon: "ai",
-            desc: "Shared workspace for humans and AI agents."
+            title: "Disposable DevEnvs",
+            desc: "Fresh state for every task.",
+            icon: "box"
         },
         {
             slug: "universal-jump-host",
-            title: "UNIVERSAL_JUMP",
-            icon: "shield",
-            desc: "Secure browser-based access to private infrastructure."
+            title: "Secure Gateway",
+            desc: "Zero-trust infrastructure access.",
+            icon: "shield"
+        },
+        {
+            slug: "collaborative-intelligence",
+            title: "AI Playground",
+            desc: "Safe execution for agents.",
+            icon: "ai"
+        },
+        {
+            slug: "technical-interviews",
+            title: "Live Coding",
+            desc: "Real environments, real time.",
+            icon: "code"
         }
     ];
 
     onMount(() => {
-        let i = 0;
-        const typeInterval = setInterval(() => {
-            typedText = text.slice(0, i + 1);
-            i++;
-            if (i > text.length) clearInterval(typeInterval);
-        }, 100);
+        let lineIndex = 0;
+        const interval = setInterval(() => {
+            if (lineIndex < terminalLines.length) {
+                visibleLines = [...visibleLines, terminalLines[lineIndex]];
+                lineIndex++;
+            } else {
+                clearInterval(interval);
+            }
+        }, 600);
 
-        const cursorInterval = setInterval(() => {
-            cursorVisible = !cursorVisible;
-        }, 500);
-
-        return () => {
-            clearInterval(typeInterval);
-            clearInterval(cursorInterval);
-        };
+        return () => clearInterval(interval);
     });
 
     function handleGuestClick() {
@@ -81,651 +88,536 @@
     }
 </script>
 
-<svelte:window bind:scrollY={scrollY} />
-
-<div class="promo-container">
-    <div class="grid-overlay"></div>
-    <div class="scanline"></div>
+<div class="promo-page">
+    <div class="background-mesh"></div>
     
-    <!-- Space Background Elements -->
-    <div class="space-scene" style="transform: translateY({scrollY * 0.2}px)">
-        <div class="solar-system">
-            <div class="orbit orbit-1">
-                <div class="planet planet-1"></div>
-            </div>
-            <div class="orbit orbit-2">
-                <div class="planet planet-2"></div>
-            </div>
-            <div class="orbit orbit-3">
-                <div class="planet planet-3"></div>
-            </div>
-            <div class="sun"></div>
+    <nav class="nav-header">
+        <div class="logo">REXEC <span class="version">v2.0</span></div>
+        <div class="nav-links">
+            <button class="nav-item" on:click={() => window.location.href = '/pricing'}>Pricing</button>
+            <button class="nav-item" on:click={() => window.location.href = '/guides'}>Docs</button>
+            <button class="nav-item highlight" on:click={handleOAuthLogin}>Sign In</button>
         </div>
-        
-        <div class="rocket-container">
-            <svg class="rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path class="rocket-body" d="M12 2c0 0-8 6-8 12 0 4.418 3.582 8 8 8s8-3.582 8-8c0-6-8-12-8-12z" fill="#050505"/>
-                <path class="rocket-fin-l" d="M4 14l-2 4 4 1" />
-                <path class="rocket-fin-r" d="M20 14l2 4-4 1" />
-                <circle class="rocket-window" cx="12" cy="10" r="2" fill="#00ffaa" />
-                <path class="rocket-flame" d="M12 22v4M10 22v2M14 22v2" stroke="#ff00ff" />
-            </svg>
-            <div class="rocket-trail"></div>
-        </div>
-    </div>
+    </nav>
 
-    <div class="content-wrapper">
-        <header class="hero">
-            <div class="glitch-wrapper">
-                <h1 class="glitch" data-text="REXEC_SYSTEMS">REXEC_SYSTEMS</h1>
+    <main class="content">
+        <div class="hero-section">
+            <div class="hero-text">
+                <h1>
+                    Infrastructure at the <br />
+                    <span class="gradient-text">Speed of Thought</span>
+                </h1>
+                <p class="hero-sub">
+                    Instantly provision secure, ephemeral Linux environments in your browser. 
+                    No setup. No cleanup. Just code.
+                </p>
+                
+                <div class="cta-row">
+                    <button class="btn-primary" on:click={handleGuestClick}>
+                        <span>Start Instant Session</span>
+                        <div class="glow"></div>
+                    </button>
+                    <div class="command-copy">
+                        <code>curl -sL rexec.dev/install | bash</code>
+                        <button class="copy-btn" aria-label="Copy command">
+                            <StatusIcon status="copy" size={14} />
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="sub-hero">
-                <span class="prompt">&gt;</span> 
-                <span class="typed">{typedText}</span>
-                <span class="cursor" style:opacity={cursorVisible ? 1 : 0}>_</span>
+
+            <div class="hero-visual">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <div class="dots">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <span class="title">guest@rexec-node-01:~</span>
+                    </div>
+                    <div class="terminal-body">
+                        {#each visibleLines as line}
+                            <div class="line {line.color}">
+                                {#if line.type === 'prompt'}
+                                    <span class="prompt-char">&gt;</span>
+                                    <span class="cursor">_</span>
+                                {:else}
+                                    <span class="prefix">[system]</span> {line.text}
+                                {/if}
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+                <div class="visual-glow"></div>
+            </div>
+        </div>
+
+        <div class="features-ticker">
+            <div class="ticker-item">
+                <StatusIcon status="bolt" size={18} />
+                <span>Sub-second Init</span>
+            </div>
+            <div class="separator">/</div>
+            <div class="ticker-item">
+                <StatusIcon status="shield" size={18} />
+                <span>Isolated Kernels</span>
+            </div>
+            <div class="separator">/</div>
+            <div class="ticker-item">
+                <StatusIcon status="globe" size={18} />
+                <span>Global Mesh</span>
+            </div>
+            <div class="separator">/</div>
+            <div class="ticker-item">
+                <StatusIcon status="connected" size={18} />
+                <span>P2P Networking</span>
+            </div>
+        </div>
+
+        <section class="use-cases">
+            <div class="section-header">
+                <h2>Engineered for <span class="text-white">Modern Workflows</span></h2>
             </div>
             
-            <p class="mission-statement">
-                INSTANT. SECURE. EPHEMERAL.
-                <br>
-                THE TERMINAL LAYER FOR THE WEB.
-            </p>
-
-            <div class="cta-group">
-                <button class="cyber-btn primary" on:click={handleGuestClick}>
-                    <span class="btn-content">INIT_GUEST_SESSION</span>
-                    <span class="btn-glitch"></span>
-                </button>
-                <button class="cyber-btn secondary" on:click={handleOAuthLogin} disabled={isOAuthLoading}>
-                    <span class="btn-content">{isOAuthLoading ? "CONNECTING..." : "AUTH_PIPEOPS_ID"}</span>
-                </button>
-            </div>
-        </header>
-
-        <section class="features-grid">
-            <div class="cyber-card">
-                <div class="card-header">
-                    <StatusIcon status="bolt" size={16} />
-                    <h3>ZERO_LATENCY</h3>
-                </div>
-                <p>Spin up environments in milliseconds. No cold starts. Pure speed.</p>
-            </div>
-
-            <div class="cyber-card">
-                <div class="card-header">
-                    <StatusIcon status="shield" size={16} />
-                    <h3>SECURE_ENCLAVE</h3>
-                </div>
-                <p>Isolated sandboxes. Ephemeral filesystems. Your data vanishes on exit.</p>
-            </div>
-
-            <div class="cyber-card">
-                <div class="card-header">
-                    <StatusIcon status="connected" size={16} />
-                    <h3>GLOBAL_MESH</h3>
-                </div>
-                <p>Access your workspace from any node on the network. Browser-native SSH.</p>
-            </div>
-        </section>
-
-        <!-- New Use Cases Section -->
-        <section class="use-cases-section">
-            <div class="section-title">
-                <span class="bracket">[</span>
-                <h2>DEPLOYMENT_PROTOCOLS</h2>
-                <span class="bracket">]</span>
-            </div>
-            
-            <div class="cases-list">
-                {#each featuredUseCases as useCase, i}
+            <div class="cards-grid">
+                {#each useCases as item, i}
                     <button 
-                        class="case-item" 
-                        on:click={() => navigateToUseCase(useCase.slug)}
-                        style="animation-delay: {i * 150}ms"
+                        class="feature-card" 
+                        on:click={() => navigateToUseCase(item.slug)}
+                        style="--delay: {i * 0.1}s"
                     >
-                        <div class="case-icon-wrapper">
-                            <StatusIcon status={useCase.icon} size={20} />
+                        <div class="card-icon">
+                            <StatusIcon status={item.icon} size={24} />
                         </div>
-                        <div class="case-info">
-                            <h4>{useCase.title}</h4>
-                            <p>{useCase.desc}</p>
+                        <div class="card-content">
+                            <h3>{item.title}</h3>
+                            <p>{item.desc}</p>
                         </div>
-                        <div class="case-arrow">→</div>
+                        <div class="card-arrow">
+                            <StatusIcon status="arrow-left" size={16} /> 
+                        </div> <!-- Rotated in CSS -->
                     </button>
                 {/each}
             </div>
         </section>
-
-        <footer class="system-status">
-            <div class="status-line">
-                <span>SYSTEM: ONLINE</span>
-                <span>VERSION: 2.0.4</span>
-                <span>LATENCY: &lt;15ms</span>
-            </div>
-        </footer>
-    </div>
+    </main>
 </div>
 
 <style>
     :global(body) {
         background-color: #050505;
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    .promo-page {
+        min-height: 100vh;
+        color: #888;
+        position: relative;
         overflow-x: hidden;
     }
 
-    .promo-container {
-        position: relative;
-        min-height: 100vh;
-        width: 100%;
-        background-color: #030303;
-        color: #e0e0e0;
-        font-family: "JetBrains Mono", "Fira Code", monospace;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        perspective: 1000px;
-    }
-
-    /* Grid Background */
-    .grid-overlay {
-        position: absolute;
-        inset: -50%;
-        width: 200%;
-        height: 200%;
+    /* Background */
+    .background-mesh {
+        position: fixed;
+        inset: 0;
         background-image: 
-            linear-gradient(rgba(0, 255, 170, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 255, 170, 0.05) 1px, transparent 1px);
-        background-size: 60px 60px;
-        z-index: 1;
+            radial-gradient(circle at 15% 50%, rgba(30, 30, 30, 0.4) 0%, transparent 25%),
+            radial-gradient(circle at 85% 30%, rgba(20, 40, 30, 0.4) 0%, transparent 25%);
+        z-index: 0;
         pointer-events: none;
-        transform: rotateX(60deg) translateY(-100px) translateZ(-200px);
-        animation: grid-move 20s linear infinite;
-        opacity: 0.4;
     }
 
-    @keyframes grid-move {
-        0% { transform: rotateX(60deg) translateY(0) translateZ(-200px); }
-        100% { transform: rotateX(60deg) translateY(60px) translateZ(-200px); }
-    }
-
-    /* Space Scene & Animations */
-    .space-scene {
+    .background-mesh::after {
+        content: "";
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 2;
-        pointer-events: none;
-        overflow: hidden;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231a1a1a' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        opacity: 0.5;
     }
 
-    .solar-system {
-        position: absolute;
-        top: 20%;
-        right: 10%;
-        width: 400px;
-        height: 400px;
-        transform-style: preserve-3d;
-        transform: rotateX(75deg) rotateY(10deg);
-        opacity: 0.3;
-    }
-
-    .sun {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 40px;
-        height: 40px;
-        transform: translate(-50%, -50%);
-        background: radial-gradient(circle, #ff00ff 0%, transparent 70%);
-        border-radius: 50%;
-        box-shadow: 0 0 40px #ff00ff;
-    }
-
-    .orbit {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        border: 1px solid rgba(0, 255, 170, 0.2);
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-    }
-
-    .orbit-1 { width: 120px; height: 120px; animation: rotate 10s linear infinite; }
-    .orbit-2 { width: 220px; height: 220px; animation: rotate 20s linear infinite reverse; }
-    .orbit-3 { width: 340px; height: 340px; animation: rotate 35s linear infinite; }
-
-    .planet {
-        position: absolute;
-        top: 50%;
-        right: -4px;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #00ffaa;
-        box-shadow: 0 0 10px #00ffaa;
-        transform: translateY(-50%);
-    }
-
-    .planet-2 { background: #00ffff; box-shadow: 0 0 10px #00ffff; width: 6px; height: 6px; }
-    .planet-3 { background: #ffffff; box-shadow: 0 0 10px #ffffff; width: 4px; height: 4px; }
-
-    @keyframes rotate {
-        from { transform: translate(-50%, -50%) rotate(0deg); }
-        to { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-
-    .rocket-container {
-        position: absolute;
-        bottom: 10%;
-        left: -100px; /* Start off-screen */
-        width: 60px;
-        height: 60px;
-        animation: rocket-flight 30s linear infinite;
-        filter: drop-shadow(0 0 10px rgba(0, 255, 170, 0.5));
-    }
-
-    .rocket {
-        width: 100%;
-        height: 100%;
-        transform: rotate(45deg);
-        overflow: visible;
-    }
-    
-    .rocket path {
-        stroke: #00ffaa;
-        stroke-width: 1.5;
-    }
-
-    .rocket-flame {
-        animation: flame-flicker 0.1s linear infinite alternate;
-        stroke: #ff00ff !important;
-    }
-
-    @keyframes rocket-flight {
-        0% { left: -100px; bottom: 10%; transform: rotate(0deg); opacity: 0; }
-        10% { opacity: 1; }
-        40% { left: 40%; bottom: 60%; transform: rotate(10deg); }
-        60% { left: 60%; bottom: 40%; transform: rotate(20deg); }
-        90% { opacity: 1; }
-        100% { left: 110%; bottom: 80%; transform: rotate(30deg); opacity: 0; }
-    }
-
-    @keyframes flame-flicker {
-        from { opacity: 0.6; transform: scaleY(0.8); }
-        to { opacity: 1; transform: scaleY(1.2); }
-    }
-
-    /* CRT Scanline */
-    .scanline {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(
-            to bottom,
-            transparent 50%,
-            rgba(0, 0, 0, 0.2) 51%
-        );
-        background-size: 100% 4px;
-        pointer-events: none;
+    /* Nav */
+    .nav-header {
+        position: relative;
         z-index: 10;
-        opacity: 0.3;
-    }
-
-    .content-wrapper {
-        position: relative;
-        z-index: 20;
-        max-width: 1000px;
-        width: 100%;
-        padding: 4rem 2rem;
         display: flex;
-        flex-direction: column;
-        gap: 5rem;
-        text-align: center;
-    }
-
-    /* Hero Typography */
-    .hero {
-        display: flex;
-        flex-direction: column;
+        justify-content: space-between;
         align-items: center;
-        gap: 1.5rem;
+        padding: 24px 40px;
+        max-width: 1400px;
+        margin: 0 auto;
     }
 
-    .glitch-wrapper {
-        position: relative;
-    }
-
-    .glitch {
-        font-size: 5rem;
-        font-weight: 900;
-        text-transform: uppercase;
-        position: relative;
-        text-shadow: 2px 2px 0px #ff00ff, -2px -2px 0px #00ffff;
-        animation: glitch-anim 2s infinite linear alternate-reverse;
-        margin: 0;
-        letter-spacing: -2px;
-    }
-    
-    .glitch::before,
-    .glitch::after {
-        content: attr(data-text);
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-    }
-
-    .glitch::before {
-        left: 2px;
-        text-shadow: -1px 0 #ff00c1;
-        clip: rect(44px, 450px, 56px, 0);
-        animation: glitch-anim-2 5s infinite linear alternate-reverse;
-    }
-
-    .glitch::after {
-        left: -2px;
-        text-shadow: -1px 0 #00fff9;
-        clip: rect(44px, 450px, 56px, 0);
-        animation: glitch-anim-2 5s infinite linear alternate-reverse;
-    }
-
-    .sub-hero {
-        font-size: 1.5rem;
-        color: #00ffaa;
-        background: rgba(0, 255, 170, 0.05);
-        padding: 0.5rem 1rem;
-        border: 1px solid rgba(0, 255, 170, 0.2);
-        box-shadow: 0 0 15px rgba(0, 255, 170, 0.1);
-        backdrop-filter: blur(4px);
-    }
-
-    .prompt {
-        color: #ff00ff;
-        margin-right: 0.5rem;
-    }
-
-    .mission-statement {
-        font-size: 1.1rem;
-        line-height: 1.6;
-        color: #888;
-        letter-spacing: 2px;
-        max-width: 600px;
-        border-left: 2px solid #333;
-        padding-left: 1rem;
-    }
-
-    /* Buttons */
-    .cta-group {
+    .logo {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 20px;
+        color: #fff;
+        letter-spacing: -0.5px;
         display: flex;
-        gap: 2rem;
-        margin-top: 1rem;
+        align-items: center;
+        gap: 8px;
     }
 
-    .cyber-btn {
-        position: relative;
-        padding: 1rem 2rem;
-        background: transparent;
+    .version {
+        font-size: 10px;
+        background: #1a1a1a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: #666;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 32px;
+        align-items: center;
+    }
+
+    .nav-item {
+        background: none;
         border: none;
+        color: #888;
+        font-size: 14px;
         cursor: pointer;
-        font-family: inherit;
-        font-size: 1rem;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        transition: all 0.2s;
-        clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+        transition: color 0.2s;
     }
 
-    .cyber-btn.primary {
-        background: #00ffaa;
-        color: #000;
+    .nav-item:hover {
+        color: #fff;
+    }
+
+    .nav-item.highlight {
+        color: #fff;
+        font-weight: 500;
+    }
+
+    /* Main Content */
+    .content {
+        position: relative;
+        z-index: 10;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 80px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 120px;
+    }
+
+    /* Hero */
+    .hero-section {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 60px;
+        align-items: center;
+    }
+
+    .hero-text h1 {
+        font-size: 64px;
+        line-height: 1.1;
+        color: #fff;
+        margin: 0 0 24px 0;
+        letter-spacing: -2px;
         font-weight: 700;
     }
 
-    .cyber-btn.primary:hover {
-        background: #ccffee;
-        box-shadow: 0 0 30px rgba(0, 255, 170, 0.6);
+    .gradient-text {
+        background: linear-gradient(135deg, #fff 0%, #888 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+        font-size: 18px;
+        line-height: 1.6;
+        max-width: 500px;
+        margin: 0 0 40px 0;
+    }
+
+    .cta-row {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .btn-primary {
+        position: relative;
+        background: #fff;
+        color: #000;
+        border: none;
+        padding: 16px 32px;
+        font-size: 15px;
+        font-weight: 600;
+        border-radius: 8px;
+        cursor: pointer;
+        overflow: hidden;
+        transition: transform 0.2s;
+    }
+
+    .btn-primary:hover {
         transform: translateY(-2px);
     }
 
-    .cyber-btn.secondary {
-        background: transparent;
-        border: 1px solid #00ffaa;
-        color: #00ffaa;
-    }
-
-    .cyber-btn.secondary:hover {
-        background: rgba(0, 255, 170, 0.1);
-        box-shadow: 0 0 20px rgba(0, 255, 170, 0.3);
-    }
-
-    /* Features Grid */
-    .features-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 2rem;
-        width: 100%;
-    }
-
-    .cyber-card {
-        background: rgba(15, 15, 15, 0.9);
-        border: 1px solid #333;
-        padding: 2rem;
-        text-align: left;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        position: relative;
-        overflow: hidden;
-        backdrop-filter: blur(10px);
-    }
-
-    .cyber-card::before {
-        content: '';
+    .glow {
         position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #00ffaa, transparent);
-        transform: translateX(-100%);
-        transition: transform 0.5s;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%);
+        opacity: 0;
+        transform: scale(0.5);
+        transition: opacity 0.3s, transform 0.3s;
     }
 
-    .cyber-card:hover {
-        border-color: #00ffaa;
-        transform: translateY(-5px);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    .btn-primary:hover .glow {
+        opacity: 0.1;
+        transform: scale(1);
     }
 
-    .cyber-card:hover::before {
-        transform: translateX(100%);
-    }
-
-    .card-header {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        margin-bottom: 1rem;
-        color: #00ffaa;
-    }
-
-    .card-header h3 {
-        font-size: 1.1rem;
-        margin: 0;
-        font-weight: 400;
-    }
-
-    .cyber-card p {
-        color: #888;
-        font-size: 0.9rem;
-        line-height: 1.5;
-        margin: 0;
-    }
-
-    /* Use Cases Section */
-    .use-cases-section {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-        align-items: center;
-    }
-
-    .section-title {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        font-size: 1.5rem;
-        color: #e0e0e0;
-        margin-bottom: 1rem;
-    }
-
-    .section-title .bracket {
-        color: #ff00ff;
-        font-weight: 300;
-    }
-
-    .section-title h2 {
-        margin: 0;
-        font-weight: 400;
-        letter-spacing: 3px;
-    }
-
-    .cases-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        width: 100%;
-        max-width: 800px;
-    }
-
-    .case-item {
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 1.5rem;
-        background: rgba(10, 10, 10, 0.6);
+    .command-copy {
+        background: #111;
         border: 1px solid #333;
-        border-left: 3px solid #333;
-        color: inherit;
-        text-align: left;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        color: #aaa;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        color: #666;
         cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-        animation: slide-in 0.6s cubic-bezier(0.23, 1, 0.32, 1) backwards;
+        padding: 0;
+        display: flex;
     }
 
-    .case-item::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(0, 255, 170, 0.05), transparent);
-        transform: translateX(-100%);
-        transition: transform 0.4s;
-    }
-
-    .case-item:hover {
-        background: rgba(20, 20, 20, 0.9);
-        border-color: #555;
-        border-left-color: #00ffaa;
-        transform: translateX(10px);
-        box-shadow: -5px 5px 15px rgba(0, 0, 0, 0.5);
-    }
-
-    .case-item:hover::after {
-        transform: translateX(100%);
-    }
-
-    .case-icon-wrapper {
-        color: #555;
-        transition: color 0.3s;
-    }
-
-    .case-item:hover .case-icon-wrapper {
-        color: #00ffaa;
-    }
-
-    .case-info {
-        flex: 1;
-    }
-
-    .case-info h4 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.1rem;
+    .copy-btn:hover {
         color: #fff;
+    }
+
+    /* Terminal Visual */
+    .hero-visual {
+        position: relative;
+        perspective: 1000px;
+    }
+
+    .terminal-window {
+        background: #0a0a0a;
+        border: 1px solid #333;
+        border-radius: 12px;
+        box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+        overflow: hidden;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        transform: rotateY(-10deg) rotateX(5deg);
+        transition: transform 0.5s ease;
+        position: relative;
+        z-index: 2;
+    }
+
+    .hero-visual:hover .terminal-window {
+        transform: rotateY(-5deg) rotateX(2deg) translateY(-10px);
+    }
+
+    .visual-glow {
+        position: absolute;
+        inset: -20px;
+        background: radial-gradient(circle at 50% 50%, rgba(0, 255, 136, 0.15), transparent 70%);
+        filter: blur(40px);
+        z-index: 1;
+        transform: translateZ(-50px);
+    }
+
+    .terminal-header {
+        background: #111;
+        padding: 12px 16px;
+        border-bottom: 1px solid #222;
+        display: flex;
+        align-items: center;
+    }
+
+    .dots {
+        display: flex;
+        gap: 6px;
+        margin-right: 16px;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    .red { background: #ff5f56; }
+    .yellow { background: #ffbd2e; }
+    .green { background: #27c93f; }
+
+    .terminal-header .title {
+        color: #444;
+        font-size: 12px;
+        flex: 1;
+        text-align: center;
+    }
+
+    .terminal-body {
+        padding: 24px;
+        min-height: 280px;
+        color: #ccc;
+    }
+
+    .line {
+        margin-bottom: 8px;
+        opacity: 0;
+        animation: fadeIn 0.2s forwards;
+    }
+
+    .text-muted { color: #666; }
+    .text-success { color: #27c93f; }
+    .text-accent { color: #00ffaa; }
+    .text-white { color: #fff; }
+
+    .prefix {
+        color: #444;
+        margin-right: 8px;
+    }
+
+    .prompt-char {
+        color: #ff00ff;
+        margin-right: 8px;
+    }
+
+    .cursor {
+        animation: blink 1s step-end infinite;
+    }
+
+    /* Ticker */
+    .features-ticker {
+        border-top: 1px solid #222;
+        border-bottom: 1px solid #222;
+        padding: 24px 0;
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        color: #666;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        text-transform: uppercase;
         letter-spacing: 1px;
     }
 
-    .case-info p {
-        margin: 0;
-        font-size: 0.9rem;
-        color: #888;
-    }
-
-    .case-arrow {
-        color: #333;
-        font-size: 1.2rem;
-        transition: all 0.3s;
-    }
-
-    .case-item:hover .case-arrow {
-        color: #00ffaa;
-        transform: translateX(5px);
-    }
-
-    @keyframes slide-in {
-        from { opacity: 0; transform: translateX(-30px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-
-    /* Footer Status */
-    .system-status {
-        margin-top: auto;
-        width: 100%;
-        border-top: 1px solid #333;
-        padding-top: 2rem;
-    }
-
-    .status-line {
+    .ticker-item {
         display: flex;
-        justify-content: space-between;
-        color: #555;
-        font-size: 0.8rem;
-        text-transform: uppercase;
+        align-items: center;
+        gap: 12px;
     }
 
-    /* Animations */
-    @keyframes glitch-anim {
-        0% { transform: skew(0deg); }
-        20% { transform: skew(-2deg); }
-        40% { transform: skew(2deg); }
-        60% { transform: skew(-1deg); }
-        80% { transform: skew(3deg); }
-        100% { transform: skew(0deg); }
+    .separator { color: #222; }
+
+    /* Use Cases */
+    .section-header {
+        margin-bottom: 40px;
     }
 
-    @keyframes glitch-anim-2 {
-        0% { clip: rect(12px, 9999px, 86px, 0); }
-        20% { clip: rect(94px, 9999px, 2px, 0); }
-        40% { clip: rect(24px, 9999px, 16px, 0); }
-        60% { clip: rect(65px, 9999px, 120px, 0); }
-        80% { clip: rect(3px, 9999px, 55px, 0); }
-        100% { clip: rect(48px, 9999px, 92px, 0); }
+    .section-header h2 {
+        font-size: 24px;
+        font-weight: 400;
+        color: #666;
+        margin: 0;
     }
 
-    @media (max-width: 768px) {
-        .glitch { font-size: 3rem; }
-        .cta-group { flex-direction: column; width: 100%; }
-        .cyber-btn { width: 100%; }
-        .features-grid { grid-template-columns: 1fr; }
-        .solar-system { display: none; } /* Hide heavy animation on mobile */
-        .rocket-container { display: none; }
+    .text-white { color: #fff; }
+
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 24px;
+    }
+
+    .feature-card {
+        background: #0f0f0f;
+        border: 1px solid #222;
+        padding: 24px;
+        border-radius: 12px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        opacity: 0;
+        transform: translateY(20px);
+        animation-delay: var(--delay);
+    }
+
+    .feature-card:hover {
+        border-color: #444;
+        background: #141414;
+        transform: translateY(-4px);
+    }
+
+    .card-icon {
+        color: #fff;
+        background: #1a1a1a;
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+
+    .feature-card h3 {
+        color: #fff;
+        font-size: 16px;
+        margin: 0 0 4px 0;
+        font-weight: 600;
+    }
+
+    .feature-card p {
+        color: #666;
+        font-size: 13px;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .card-arrow {
+        margin-top: auto;
+        color: #333;
+        transform: rotate(180deg);
+        align-self: flex-start;
+        transition: color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover .card-arrow {
+        color: #fff;
+        transform: rotate(180deg) translateX(4px);
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 900px) {
+        .hero-section {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+        
+        .hero-text h1 { font-size: 42px; }
+        .hero-sub { margin: 0 auto 40px auto; }
+        .cta-row { justify-content: center; flex-direction: column; }
+        
+        .features-ticker {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
     }
 </style>
