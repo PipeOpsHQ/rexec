@@ -29,8 +29,12 @@
     import SnippetsPage from "$components/SnippetsPage.svelte";
     import NotFound from "$components/NotFound.svelte";
     import Promo from "$components/Promo.svelte";
+    
+    // A/B Testing
+    import { getLandingVariant, trackABEvent, type LandingVariant } from "$utils/abtest";
 
     // App state
+    let landingVariant: LandingVariant = 'original';
     let currentView:
         | "landing"
         | "dashboard"
@@ -390,6 +394,10 @@
 
     // Initialize app
     onMount(() => {
+        // Initialize A/B test variant
+        landingVariant = getLandingVariant();
+        trackABEvent('landing_page_viewed');
+        
         // Listen for OAuth messages from popup window
         window.addEventListener("message", handleOAuthMessage);
 
@@ -621,14 +629,38 @@
 
         <main class="main" class:has-terminal={$hasSessions}>
             {#if currentView === "landing"}
-                <Landing
-                    on:guest={openGuestModal}
-                    on:navigate={(e) => {
-                        // @ts-ignore - view is checked elsewhere or we trust it matches types
-                        currentView = e.detail.view;
-                        window.history.pushState({}, "", "/" + e.detail.view);
-                                        }}
-                                    />
+                {#if landingVariant === 'promo'}
+                    <Promo 
+                        on:guest={() => {
+                            trackABEvent('landing_cta_clicked', { variant: 'promo' });
+                            openGuestModal();
+                        }}
+                        on:navigate={(e) => {
+                            if (e.detail.view === "use-cases") {
+                                window.history.pushState({}, "", "/use-cases");
+                                currentView = "use-cases";
+                            } else if (e.detail.view === "guides") {
+                                window.history.pushState({}, "", "/guides");
+                                currentView = "guides";
+                            } else if (e.detail.view === "pricing") {
+                                window.history.pushState({}, "", "/pricing");
+                                currentView = "pricing";
+                            }
+                        }}
+                    />
+                {:else}
+                    <Landing
+                        on:guest={() => {
+                            trackABEvent('landing_cta_clicked', { variant: 'original' });
+                            openGuestModal();
+                        }}
+                        on:navigate={(e) => {
+                            // @ts-ignore - view is checked elsewhere or we trust it matches types
+                            currentView = e.detail.view;
+                            window.history.pushState({}, "", "/" + e.detail.view);
+                        }}
+                    />
+                {/if}
                                 {:else if currentView === "dashboard"}                <Dashboard
                     on:create={goToCreate}
                     on:connect={(e) => {
