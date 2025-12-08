@@ -1143,13 +1143,14 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		// Drop all capabilities except minimal required for terminal use
 		CapDrop: []string{"ALL"},
 		CapAdd: []string{
-			"CHOWN",        // Change file ownership
-			"DAC_OVERRIDE", // Bypass file permission checks (needed for sudo)
-			"FOWNER",       // Bypass permission checks on file owner
-			"SETGID",       // Set group ID
-			"SETUID",       // Set user ID (needed for su/sudo)
-			"KILL",         // Send signals
+			"CHOWN",            // Change file ownership
+			"DAC_OVERRIDE",     // Bypass file permission checks (needed for sudo)
+			"FOWNER",           // Bypass permission checks on file owner
+			"SETGID",           // Set group ID
+			"SETUID",           // Set user ID (needed for su/sudo)
+			"KILL",             // Send signals
 			"NET_BIND_SERVICE", // Bind to ports < 1024 (useful for web dev)
+			"SYS_PTRACE",       // Needed for TUI apps like opencode, debugging, strace
 		},
 		// Sysctls - restrict kernel parameters the container can modify
 		Sysctls: map[string]string{
