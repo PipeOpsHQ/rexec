@@ -122,12 +122,12 @@ func (h *TerminalHandler) SetCollabHandler(ch *CollabHandler) {
 // HasCollabAccess checks if a user has collab access to a container
 func (h *TerminalHandler) HasCollabAccess(userID, containerID string) bool {
 	if h.collabHandler == nil {
+		log.Printf("[Terminal] HasCollabAccess: collabHandler is nil")
 		return false
 	}
 
+	// First check in-memory sessions
 	h.collabHandler.mu.RLock()
-	defer h.collabHandler.mu.RUnlock()
-
 	for _, session := range h.collabHandler.sessions {
 		// Check exact match or prefix match (in case IDs are truncated)
 		matches := session.ContainerID == containerID
@@ -140,11 +140,95 @@ func (h *TerminalHandler) HasCollabAccess(userID, containerID string) bool {
 			_, hasAccess := session.Participants[userID]
 			session.mu.RUnlock()
 			if hasAccess {
+				h.collabHandler.mu.RUnlock()
+				log.Printf("[Terminal] HasCollabAccess: user %s has in-memory access to container %s", userID, containerID[:12])
 				return true
 			}
 		}
 	}
+	h.collabHandler.mu.RUnlock()
+
+	// Fallback: check database for active collab session
+	ctx := context.Background()
+	
+	// Try with full containerID first, then with prefix variations
+	containerIDs := []string{containerID}
+	if len(containerID) >= 64 {
+		// Also try short ID
+		containerIDs = append(containerIDs, containerID[:12])
+	}
+	
+	for _, cid := range containerIDs {
+		session, err := h.collabHandler.store.GetCollabSessionByContainerID(ctx, cid)
+		if err != nil {
+			log.Printf("[Terminal] HasCollabAccess: DB error checking session for %s: %v", cid, err)
+			continue
+		}
+		if session == nil {
+			continue
+		}
+		
+		// Check if user is a participant in this session
+		participants, err := h.collabHandler.store.GetCollabParticipants(ctx, session.ID)
+		if err != nil {
+			log.Printf("[Terminal] HasCollabAccess: DB error checking participants: %v", err)
+			continue
+		}
+		
+		for _, p := range participants {
+			if p.UserID == userID {
+				log.Printf("[Terminal] HasCollabAccess: user %s has DB access to container %s (session %s)", userID, cid, session.ID)
+				// Restore session to memory for faster future lookups
+				h.restoreCollabSession(session, userID)
+				return true
+			}
+		}
+	}
+	
+	log.Printf("[Terminal] HasCollabAccess: user %s has NO access to container %s", userID, containerID[:min(12, len(containerID))])
 	return false
+}
+
+// restoreCollabSession restores a collab session from DB to memory
+func (h *TerminalHandler) restoreCollabSession(record *storage.CollabSessionRecord, userID string) {
+	if h.collabHandler == nil {
+		return
+	}
+	
+	h.collabHandler.mu.Lock()
+	defer h.collabHandler.mu.Unlock()
+	
+	// Check if already exists
+	if _, exists := h.collabHandler.sessions[record.ShareCode]; exists {
+		return
+	}
+	
+	// Create in-memory session
+	session := &CollabSession{
+		ID:           record.ID,
+		ContainerID:  record.ContainerID,
+		OwnerID:      record.OwnerID,
+		ShareCode:    record.ShareCode,
+		Mode:         record.Mode,
+		MaxUsers:     record.MaxUsers,
+		ExpiresAt:    record.ExpiresAt,
+		Participants: make(map[string]*CollabParticipant),
+		broadcast:    make(chan CollabMessage, 1024),
+	}
+	
+	// Add the user as a participant
+	session.Participants[userID] = &CollabParticipant{
+		ID:       userID,
+		UserID:   userID,
+		Username: "Participant",
+		Role:     "viewer",
+		Color:    "#3b82f6",
+	}
+	
+	h.collabHandler.sessions[record.ShareCode] = session
+	go session.broadcastLoop()
+	
+	log.Printf("[Terminal] Restored collab session %s from DB", record.ShareCode)
 }
 
 // HandleWebSocket handles WebSocket connections for terminal access

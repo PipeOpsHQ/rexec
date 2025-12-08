@@ -255,23 +255,37 @@ func (h *CollabHandler) JoinSession(c *gin.Context) {
 	// Pre-register the user as a participant so they have terminal access immediately
 	// This allows the terminal WebSocket to connect before the collab WebSocket
 	session.mu.Lock()
-	if _, exists := session.Participants[userID.(string)]; !exists {
+	var participantID string
+	if existingParticipant, exists := session.Participants[userID.(string)]; !exists {
 		username, _ := c.Get("username")
 		usernameStr := ""
 		if username != nil {
 			usernameStr = username.(string)
 		}
 		colorIndex := len(session.Participants)
+		participantID = uuid.New().String()
 		session.Participants[userID.(string)] = &CollabParticipant{
-			ID:       uuid.New().String(),
+			ID:       participantID,
 			UserID:   userID.(string),
 			Username: usernameStr,
 			Role:     role,
 			Conn:     nil, // Will be set when WebSocket connects
 			Color:    getParticipantColor(colorIndex),
 		}
+	} else {
+		participantID = existingParticipant.ID
 	}
 	session.mu.Unlock()
+
+	// Also store participant in database for persistence
+	h.store.AddCollabParticipant(c.Request.Context(), &storage.CollabParticipantRecord{
+		ID:        participantID,
+		SessionID: session.ID,
+		UserID:    userID.(string),
+		Username:  func() string { if u, _ := c.Get("username"); u != nil { return u.(string) }; return "" }(),
+		Role:      role,
+		JoinedAt:  time.Now(),
+	})
 
 	// Get container info for better display
 	containerName := session.ContainerID[:12] // Default to truncated ID

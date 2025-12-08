@@ -490,14 +490,14 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 	// Retrieve port forward from DB (no auth required for public access)
 	pf, err := h.store.GetPortForwardByID(c.Request.Context(), forwardID)
 	if err != nil || pf == nil || !pf.IsActive {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Port forward not found or inactive"})
+		h.renderPortForwardError(c, "Port Forward Not Found", "This port forward link is invalid or has been deactivated.", 0)
 		return
 	}
 
 	// Verify container status
 	containerRecord, err := h.store.GetContainerByID(c.Request.Context(), pf.ContainerID)
 	if err != nil || containerRecord == nil || containerRecord.Status != string(models.StatusRunning) {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Container not running"})
+		h.renderPortForwardError(c, "Container Not Running", "The container associated with this port forward is not currently running. Please start the container and try again.", pf.ContainerPort)
 		return
 	}
 
@@ -506,13 +506,13 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 	dockerID := containerRecord.DockerID
 	if dockerID == "" {
 		log.Printf("Container %s has no Docker ID for proxy %s", pf.ContainerID, forwardID)
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Container not available"})
+		h.renderPortForwardError(c, "Container Unavailable", "The container is not properly initialized. Please try restarting it.", pf.ContainerPort)
 		return
 	}
 	inspect, err := dockerClient.ContainerInspect(c.Request.Context(), dockerID)
 	if err != nil {
 		log.Printf("Failed to inspect container %s (docker: %s) for proxy %s: %v", pf.ContainerID, dockerID, forwardID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to container"})
+		h.renderPortForwardError(c, "Connection Error", "Failed to connect to the container. Please try again later.", pf.ContainerPort)
 		return
 	}
 
@@ -527,7 +527,7 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 	}
 
 	if ipAddress == "" {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Container has no network address"})
+		h.renderPortForwardError(c, "Network Error", "The container has no network address. Please try restarting it.", pf.ContainerPort)
 		return
 	}
 
@@ -574,7 +574,7 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 	resp, err := client.Do(proxyReq)
 	if err != nil {
 		log.Printf("Proxy request failed for %s: %v", forwardID, err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to reach container service"})
+		h.renderPortForwardError(c, "Service Unavailable", "The service at this port is not responding. Make sure your application is running and listening on the correct port.", pf.ContainerPort)
 		return
 	}
 	defer resp.Body.Close()
@@ -591,4 +591,129 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 
 	// Stream response body
 	io.Copy(c.Writer, resp.Body)
+}
+
+// renderPortForwardError renders a branded HTML error page for port forwarding
+func (h *PortForwardHandler) renderPortForwardError(c *gin.Context, title, message string, port int) {
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%s - Rexec</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%%, #1a1a2e 50%%, #16213e 100%%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 500px;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            background: linear-gradient(135deg, #6366f1 0%%, #8b5cf6 100%%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        p {
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        .port-info {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .port-info code {
+            background: rgba(99, 102, 241, 0.2);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            color: #a5b4fc;
+        }
+        .tips {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .tips h3 {
+            font-size: 0.875rem;
+            color: #6366f1;
+            margin-bottom: 0.5rem;
+        }
+        .tips ul {
+            list-style: none;
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+        .tips li {
+            padding: 0.25rem 0;
+        }
+        .tips li::before {
+            content: "→";
+            color: #6366f1;
+            margin-right: 0.5rem;
+        }
+        a {
+            color: #6366f1;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">R×</div>
+        <h1>%s</h1>
+        <p>%s</p>
+        <div class="port-info">
+            Target Port: <code>%d</code>
+        </div>
+        <div class="tips">
+            <h3>Troubleshooting Tips</h3>
+            <ul>
+                <li>Ensure your app is running inside the container</li>
+                <li>Check that it's listening on port %d</li>
+                <li>Bind to 0.0.0.0, not localhost</li>
+                <li>Check container logs for errors</li>
+            </ul>
+        </div>
+        <p style="margin-top: 1.5rem; font-size: 0.875rem;">
+            <a href="/">← Back to Rexec</a>
+        </p>
+    </div>
+</body>
+</html>`, title, title, message, port, port)
+
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	c.Header("X-Rexec-Error", "true") // Signal this is our error page
+	c.String(http.StatusOK, html) // Use 200 to bypass platform error page replacement
 }
