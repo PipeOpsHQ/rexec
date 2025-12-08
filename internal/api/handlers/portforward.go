@@ -595,108 +595,17 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 
 // renderPortForwardError renders a branded HTML error page for port forwarding
 func (h *PortForwardHandler) renderPortForwardError(c *gin.Context, title, message string, port int) {
-	html := fmt.Sprintf(`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%s - Rexec</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0a0a0f 0%%, #1a1a2e 50%%, #16213e 100%%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-        }
-        .container {
-            text-align: center;
-            padding: 2rem;
-            max-width: 500px;
-        }
-        .logo {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 1.5rem;
-            background: linear-gradient(135deg, #6366f1 0%%, #8b5cf6 100%%);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            font-weight: bold;
-        }
-        h1 {
-            font-size: 1.75rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        p {
-            color: #94a3b8;
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-        .port-info {
-            background: rgba(99, 102, 241, 0.1);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .port-info code {
-            background: rgba(99, 102, 241, 0.2);
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: 'JetBrains Mono', monospace;
-            color: #a5b4fc;
-        }
-        .tips {
-            text-align: left;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            padding: 1rem;
-        }
-        .tips h3 {
-            font-size: 0.875rem;
-            color: #6366f1;
-            margin-bottom: 0.5rem;
-        }
-        .tips ul {
-            list-style: none;
-            font-size: 0.875rem;
-            color: #94a3b8;
-        }
-        .tips li {
-            padding: 0.25rem 0;
-        }
-        .tips li::before {
-            content: "→";
-            color: #6366f1;
-            margin-right: 0.5rem;
-        }
-        a {
-            color: #6366f1;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="logo">R×</div>
-        <h1>%s</h1>
-        <p>%s</p>
+	portDisplay := ""
+	if port > 0 {
+		portDisplay = fmt.Sprintf(`
         <div class="port-info">
             Target Port: <code>%d</code>
-        </div>
+        </div>`, port)
+	}
+
+	tipsDisplay := ""
+	if port > 0 {
+		tipsDisplay = fmt.Sprintf(`
         <div class="tips">
             <h3>Troubleshooting Tips</h3>
             <ul>
@@ -705,13 +614,265 @@ func (h *PortForwardHandler) renderPortForwardError(c *gin.Context, title, messa
                 <li>Bind to 0.0.0.0, not localhost</li>
                 <li>Check container logs for errors</li>
             </ul>
+        </div>`, port)
+	}
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%s - Rexec</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --bg-card: #111111;
+            --bg-secondary: #161616;
+            --border: #262626;
+            --text: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            padding: 20px;
+        }
+        .content {
+            max-width: 600px;
+            width: 100%%;
+            text-align: center;
+        }
+        .terminal-window {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%%;
+        }
+        .dot.red { background: #ff5f56; }
+        .dot.yellow { background: #ffbd2e; }
+        .dot.green { background: #27c93f; }
+        .terminal-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        .terminal-body {
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .line {
+            display: flex;
+            gap: 8px;
+        }
+        .prompt { color: var(--accent); }
+        .command { color: var(--text); }
+        .error-line { margin: 8px 0; }
+        .error-code { color: #ff6b6b; font-weight: 600; }
+        .output { color: var(--text-secondary); }
+        .cursor {
+            color: var(--accent);
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink { 50%% { opacity: 0; } }
+        .error-info h1 {
+            font-size: 72px;
+            font-weight: 700;
+            color: var(--accent);
+            margin: 0;
+            line-height: 1;
+            font-family: var(--font-mono);
+        }
+        .error-info h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text);
+            margin: 8px 0 16px;
+        }
+        .error-info p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin: 0 0 24px;
+            line-height: 1.6;
+        }
+        .port-info {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: inline-block;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        .port-info code {
+            background: rgba(59, 130, 246, 0.15);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            color: var(--accent);
+            margin-left: 4px;
+        }
+        .tips {
+            text-align: left;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .tips h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        .tips ul {
+            list-style: none;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .tips li {
+            padding: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tips li::before {
+            content: "→";
+            color: var(--accent);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            background: transparent;
+            color: var(--text);
+        }
+        .btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent);
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+        .actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 480px) {
+            .error-info h1 { font-size: 56px; }
+            .terminal-body { font-size: 11px; }
+            .actions { flex-direction: column; }
+            .btn { width: 100%%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="terminal-dots">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                </div>
+                <span class="terminal-title">rexec@port-forward</span>
+            </div>
+            <div class="terminal-body">
+                <div class="line">
+                    <span class="prompt">$</span>
+                    <span class="command">curl localhost:%d</span>
+                </div>
+                <div class="line error-line">
+                    <span class="error-code">Error: %s</span>
+                </div>
+                <div class="line">
+                    <span class="output">{"error": "%s"}</span>
+                </div>
+                <div class="line">
+                    <span class="prompt">$</span>
+                    <span class="cursor">_</span>
+                </div>
+            </div>
         </div>
-        <p style="margin-top: 1.5rem; font-size: 0.875rem;">
-            <a href="/">← Back to Rexec</a>
-        </p>
+        
+        <div class="error-info">
+            <h2>%s</h2>
+            <p>%s</p>
+        </div>
+        
+        %s
+        %s
+        
+        <div class="actions">
+            <a href="/" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                Go to Dashboard
+            </a>
+            <a href="javascript:history.back()" class="btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Go Back
+            </a>
+        </div>
     </div>
 </body>
-</html>`, title, title, message, port, port)
+</html>`, title, port, title, title, title, message, portDisplay, tipsDisplay)
 
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.Header("X-Rexec-Error", "true") // Signal this is our error page
