@@ -22,14 +22,14 @@
     "workbox-strategies": "^7.4.0"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^3.1.0",
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tsconfig/svelte": "^5.0.4",
     "rollup": "^4.53.3",
     "svelte": "^4.2.18",
     "svelte-check": "^3.8.0",
     "tslib": "^2.6.3",
     "typescript": "^5.5.2",
-    "vite": "^5.3.1",
+    "vite": "^7.2.7",
     "vite-plugin-pwa": "^1.2.0"
   },
   "optionalDependencies": {
