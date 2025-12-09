@@ -59,8 +59,14 @@
     }
 
     // Check if user can upgrade to get more resources
-    $: canUpgrade = $userTier === "guest" || $userTier === "free" || $userTier === "pro";
-    $: nextTierName = $userTier === "guest" ? "Free" : $userTier === "free" ? "Pro" : $userTier === "pro" ? "Enterprise" : null;
+    $: canUpgrade = !$subscriptionActive && ($userTier === "guest" || $userTier === "free" || $userTier === "pro");
+    $: nextTierName = (() => {
+        if ($subscriptionActive && $userTier !== "enterprise") return "Enterprise";
+        if ($userTier === "guest") return "Free";
+        if ($userTier === "free") return "Pro";
+        if ($userTier === "pro") return "Enterprise";
+        return null;
+    })();
     
     // Check if user is at max resources for their tier
     $: isAtMaxMemory = memoryMB >= resourceLimits.maxMemory;
@@ -70,6 +76,10 @@
 
     // Get next tier limits for comparison
     $: nextTierLimits = (() => {
+        // Users with active subscription but not enterprise can upgrade to enterprise
+        if ($subscriptionActive && $userTier !== "enterprise") {
+            return { maxMemory: 8192, maxCPU: 8000, maxDisk: 51200 }; // Enterprise tier
+        }
         switch ($userTier) {
             case "guest":
                 return { maxMemory: 2048, maxCPU: 2000, maxDisk: 10240 }; // Free tier

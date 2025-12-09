@@ -346,6 +346,12 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 			username = normalizedEmail
 		}
 
+		// Determine tier based on PipeOps subscription status
+		tier := "free"
+		if userInfo.SubscriptionActive {
+			tier = "pro"
+		}
+
 		user = &models.User{
 			ID:                 uuid.New().String(),
 			Email:              normalizedEmail,
@@ -355,7 +361,7 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 			Avatar:             userInfo.Avatar,
 			Verified:           userInfo.Verified,
 			SubscriptionActive: userInfo.SubscriptionActive,
-			Tier:               "free",
+			Tier:               tier,
 			PipeOpsID:          fmt.Sprintf("%d", userInfo.ID),
 			CreatedAt:          time.Now(),
 			UpdatedAt:          time.Now(),
@@ -380,8 +386,14 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 		user.Verified = userInfo.Verified
 		user.SubscriptionActive = userInfo.SubscriptionActive
 
-		// Ensure OAuth users are at least on the free tier (upgrade from guest)
-		if user.Tier == "guest" {
+		// Sync tier with subscription status from PipeOps
+		if userInfo.SubscriptionActive {
+			// Active PipeOps subscription = Pro tier
+			if user.Tier != "pro" && user.Tier != "enterprise" {
+				user.Tier = "pro"
+			}
+		} else if user.Tier == "guest" {
+			// Ensure OAuth users are at least on the free tier (upgrade from guest)
 			user.Tier = "free"
 		}
 		
