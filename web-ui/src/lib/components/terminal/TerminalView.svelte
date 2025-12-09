@@ -568,14 +568,17 @@
                         >
                             <span class="status-dot {getStatusClass(session.status)}"></span>
                             <span class="tab-name">{session.name}</span>
-                            <button
+                            <span
                                 class="tab-close"
+                                role="button"
+                                tabindex="0"
                                 onclick={(e) => { e.stopPropagation(); closeSession(id); }}
+                                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); closeSession(id); } }}
                                 title="Close terminal"
                                 aria-label="Close {session.name}"
                             >
                                 ×
-                            </button>
+                            </span>
                         </button>
                     {/each}
                     <button
@@ -700,15 +703,17 @@
                                     )}"
                                 ></span>
                                 <span class="tab-name">{session.name}</span>
-                                <button
+                                <span
                                     class="tab-close"
-                                    onclick={(e) => { e.stopPropagation();
-                                        closeSession(id); }}
+                                    role="button"
+                                    tabindex="0"
+                                    onclick={(e) => { e.stopPropagation(); closeSession(id); }}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); closeSession(id); } }}
                                     title="Close terminal"
                                     aria-label="Close {session.name}"
                                 >
                                     ×
-                                </button>
+                                </span>
                             </button>
                         {/each}
                         <button
@@ -890,15 +895,17 @@
                                     )}"
                                 ></span>
                                 <span class="tab-name">{session.name}</span>
-                                <button
+                                <span
                                     class="tab-close"
-                                    onclick={(e) => { e.stopPropagation();
-                                        closeSession(id); }}
+                                    role="button"
+                                    tabindex="0"
+                                    onclick={(e) => { e.stopPropagation(); closeSession(id); }}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); closeSession(id); } }}
                                     title="Close terminal"
                                     aria-label="Close {session.name}"
                                 >
                                     ×
-                                </button>
+                                </span>
                             </button>
                         {/each}
                         <button
