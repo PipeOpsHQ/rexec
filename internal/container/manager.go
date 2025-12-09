@@ -1231,8 +1231,13 @@ cat > /home/user/.tmux.conf << 'TMUXCONF'
 set -g default-terminal "xterm-256color"
 set -ga terminal-overrides ",xterm-256color:Tc"
 set -g history-limit 50000
-# Enable mouse for scrolling and selection
+# Mouse mode: enable for scrolling but configure for better copy behavior
+# Users can hold Shift to bypass tmux and use browser selection
 set -g mouse on
+# When selecting with mouse, automatically copy to tmux buffer
+# This works with tmux's internal clipboard
+bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-selection-no-clear
+bind-key -T copy-mode MouseDragEnd1Pane send-keys -X copy-selection-no-clear
 set -g status off
 set -g set-titles on
 set -g set-titles-string "#{pane_title}"
@@ -1257,6 +1262,9 @@ set -g xterm-keys on
 setw -g mode-keys vi
 # Fix for terminal reset on reconnect - clear alternate screen issues
 set -ga terminal-overrides ',*:Ss=\E[%%p1%%d q:Se=\E[2 q'
+# Allow passthrough of OSC 52 for clipboard integration
+set -g allow-passthrough on
+set -ga terminal-overrides ',xterm*:Ms=\E]52;c;%%p2%%s\007'
 TMUXCONF
 export HOME=/home/user && 
 cd /home/user && 

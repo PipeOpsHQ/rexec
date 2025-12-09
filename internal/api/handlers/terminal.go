@@ -377,59 +377,73 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	sharedSession, hasSharedSession := h.sharedSessions[dockerID]
 	h.mu.RUnlock()
 
-	// If collab user joining, they MUST use shared session
+	// Get the collab mode to determine behavior
+	collabMode := h.getCollabMode(dockerID)
+
+	// If collab user joining:
+	// - View mode: Use shared session (mirrored view, input blocked on frontend)
+	// - Control mode: Get their own independent terminal session (own tmux session)
 	if isCollabUser {
-		if hasSharedSession && !sharedSession.closed {
-			h.joinSharedSession(sharedSession, conn, userID.(string), false)
+		// Control mode: Each user gets their own independent terminal session
+		if collabMode == "control" {
+			log.Printf("[Terminal] Control mode collab user %s getting independent session for %s", userID, dockerID[:12])
+			// Fall through to regular session creation below
+			// Don't return here - let them create their own session
 		} else {
-			// No shared session exists. Check if owner is connected in a private session.
-			ownerID := containerInfo.UserID
-			ownerSessionKey := dockerID + ":" + ownerID
-
-			h.mu.Lock()
-			ownerSession, ownerConnected := h.sessions[ownerSessionKey]
-			h.mu.Unlock()
-
-			if ownerConnected {
-				log.Printf("[Terminal] Upgrading owner %s to shared session for container %s", ownerID, dockerID)
-
-				// 1. Force owner to reconnect (which will join the shared session we are about to create)
-				// We send a specific close message or just close it.
-				ownerSession.Conn.WriteJSON(TerminalMessage{
-					Type: "reconnect",
-					Data: "Upgrading to shared session...",
-				})
-				ownerSession.Close()
-
-				// 2. Create the shared session immediately
-				// The owner isn't in it yet, but will be when they reconnect.
-				sharedSession = h.getOrCreateSharedSession(dockerID, ownerID, containerInfo.ImageType)
-
-				// 3. Join the collab user now
+			// View mode: Use shared session (mirrored terminal)
+			if hasSharedSession && !sharedSession.closed {
 				h.joinSharedSession(sharedSession, conn, userID.(string), false)
-				return
-			}
+			} else {
+				// No shared session exists. Check if owner is connected in a private session.
+				ownerID := containerInfo.UserID
+				ownerSessionKey := dockerID + ":" + ownerID
 
-			// No shared session exists, and owner not connected
-			conn.WriteJSON(TerminalMessage{
-				Type: "error",
-				Data: "Session owner must connect first",
-			})
-			conn.Close()
+				h.mu.Lock()
+				ownerSession, ownerConnected := h.sessions[ownerSessionKey]
+				h.mu.Unlock()
+
+				if ownerConnected {
+					log.Printf("[Terminal] Upgrading owner %s to shared session for container %s", ownerID, dockerID)
+
+					// 1. Force owner to reconnect (which will join the shared session we are about to create)
+					// We send a specific close message or just close it.
+					ownerSession.Conn.WriteJSON(TerminalMessage{
+						Type: "reconnect",
+						Data: "Upgrading to shared session...",
+					})
+					ownerSession.Close()
+
+					// 2. Create the shared session immediately
+					// The owner isn't in it yet, but will be when they reconnect.
+					sharedSession = h.getOrCreateSharedSession(dockerID, ownerID, containerInfo.ImageType)
+
+					// 3. Join the collab user now
+					h.joinSharedSession(sharedSession, conn, userID.(string), false)
+					return
+				}
+
+				// No shared session exists, and owner not connected
+				conn.WriteJSON(TerminalMessage{
+					Type: "error",
+					Data: "Session owner must connect first",
+				})
+				conn.Close()
+			}
+			return
 		}
-		return
 	}
 
 	// Owner connecting - check if there's an active collab that needs shared session
-	if hasSharedSession && !sharedSession.closed {
+	// Only use shared sessions for VIEW mode, not control mode
+	if hasSharedSession && !sharedSession.closed && collabMode == "view" {
 		// Join existing shared session
 		h.joinSharedSession(sharedSession, conn, userID.(string), isOwner)
 		return
 	}
 
-	// Check if owner is starting while there's an active collab session
-	if h.hasActiveCollabSession(dockerID) {
-		// Create shared session for collab
+	// Check if owner is starting while there's an active VIEW mode collab session
+	if h.hasActiveCollabSession(dockerID) && collabMode == "view" {
+		// Create shared session for view-mode collab
 		imageType := ""
 		if containerInfo != nil {
 			imageType = containerInfo.ImageType
@@ -439,7 +453,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Regular non-collab session
+	// Regular session (non-collab or control-mode collab)
 	// Support multiple connections via unique client-provided ID
 	connectionID := c.Query("id")
 	if connectionID == "" {
@@ -679,20 +693,36 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		// Detect shell first
 		shell := h.detectShell(ctx, session.ContainerID, imageType)
 		
+		// Determine tmux session name
+		// - For owner/single user: use "main" (allows reconnecting to same session)
+		// - For control-mode collab users: use unique session per user (independent sessions)
+		tmuxSessionName := "main"
+		collabMode := h.getCollabMode(session.ContainerID)
+		if collabMode == "control" && session.UserID != "" {
+			// Use shortened user ID for unique session name
+			// This gives each control-mode collab user their own tmux session
+			userHash := session.UserID
+			if len(userHash) > 8 {
+				userHash = userHash[:8]
+			}
+			tmuxSessionName = "user-" + userHash
+			log.Printf("[Terminal] Control mode: using unique tmux session '%s' for user %s", tmuxSessionName, session.UserID)
+		}
+		
 		// Check if tmux is available for session persistence
 		// Fall back to direct shell if tmux is not installed
 		if h.commandExists(ctx, session.ContainerID, "tmux") {
 			// Attach to persistent tmux session for session resumption
 			// new-session -A: attach if session exists, create if not
-			// -s main: session name
+			// -s <name>: session name
 			// This reconnects to the existing session, showing any buffered output
-			log.Printf("[Terminal] Using tmux for persistent session in %s", session.ContainerID[:12])
+			log.Printf("[Terminal] Using tmux session '%s' for persistent session in %s", tmuxSessionName, session.ContainerID[:12])
 			execConfig = container.ExecOptions{
 				AttachStdin:  true,
 				AttachStdout: true,
 				AttachStderr: true,
 				Tty:          true,
-				Cmd:          []string{"tmux", "new-session", "-A", "-s", "main", shell},
+				Cmd:          []string{"tmux", "new-session", "-A", "-s", tmuxSessionName, shell},
 				Env: []string{
 					"TERM=xterm-256color",
 					"COLORTERM=truecolor",
@@ -1259,6 +1289,22 @@ func (h *TerminalHandler) hasActiveCollabSession(containerID string) bool {
 		}
 	}
 	return false
+}
+
+// getCollabMode returns the collab mode for a container ("view", "control", or "" if no collab)
+func (h *TerminalHandler) getCollabMode(containerID string) string {
+	if h.collabHandler == nil {
+		return ""
+	}
+	h.collabHandler.mu.RLock()
+	defer h.collabHandler.mu.RUnlock()
+
+	for _, session := range h.collabHandler.sessions {
+		if session.ContainerID == containerID {
+			return session.Mode
+		}
+	}
+	return ""
 }
 
 // getOrCreateSharedSession gets or creates a shared terminal session for collaboration
