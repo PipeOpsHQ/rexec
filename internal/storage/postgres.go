@@ -312,7 +312,135 @@ func (s *PostgresStore) migrate() error {
 	`
 
 	_, err := s.db.Exec(collabTables)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Seed example snippets for marketplace
+	return s.seedExampleSnippets()
+}
+
+// seedExampleSnippets creates a system user and populates the marketplace with example snippets
+func (s *PostgresStore) seedExampleSnippets() error {
+	ctx := context.Background()
+
+	// Check if system user already exists
+	systemUserID := "00000000-0000-0000-0000-000000000000"
+	var exists bool
+	err := s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", systemUserID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check system user: %w", err)
+	}
+
+	if !exists {
+		// Create system user for example snippets
+		_, err = s.db.ExecContext(ctx, `
+			INSERT INTO users (id, email, username, password_hash, tier, is_admin, created_at, updated_at)
+			VALUES ($1, 'system@rexec.io', 'rexec', '', 'enterprise', false, NOW(), NOW())
+		`, systemUserID)
+		if err != nil {
+			return fmt.Errorf("failed to create system user: %w", err)
+		}
+	}
+
+	// Check if we already have seeded snippets
+	var snippetCount int
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM snippets WHERE user_id = $1", systemUserID).Scan(&snippetCount)
+	if err != nil {
+		return fmt.Errorf("failed to count snippets: %w", err)
+	}
+
+	if snippetCount >= 30 {
+		// Already seeded
+		return nil
+	}
+
+	// Example snippets organized by role
+	snippets := []struct {
+		ID          string
+		Name        string
+		Content     string
+		Language    string
+		Description string
+	}{
+		// Standard/Minimalist snippets
+		{"seed-001", "System Info", "#!/bin/bash\necho '=== System Info ==='\nuname -a\necho ''\necho '=== Memory ==='\nfree -h\necho ''\necho '=== Disk ==='\ndf -h /\necho ''\necho '=== CPU ==='\nlscpu | grep -E '^(Model name|CPU\\(s\\)|Thread)'\necho ''\nneofetch 2>/dev/null || echo 'neofetch not installed'", "bash", "Display comprehensive system information including OS, memory, disk, and CPU details"},
+		{"seed-002", "Find Large Files", "#!/bin/bash\necho 'Finding files larger than 100MB...'\nfind . -type f -size +100M -exec ls -lh {} \\; 2>/dev/null | awk '{print $5, $9}' | sort -rh | head -20", "bash", "Find and list the 20 largest files over 100MB in current directory"},
+		{"seed-003", "Process Monitor", "#!/bin/bash\necho 'Top 10 processes by CPU:'\nps aux --sort=-%cpu | head -11\necho ''\necho 'Top 10 processes by Memory:'\nps aux --sort=-%mem | head -11", "bash", "Show top 10 processes by CPU and memory usage"},
+		{"seed-004", "Quick Backup", "#!/bin/bash\nDIR=${1:-.}\nBACKUP_NAME=\"backup_$(date +%Y%m%d_%H%M%S).tar.gz\"\ntar -czvf \"$BACKUP_NAME\" \"$DIR\"\necho \"Backup created: $BACKUP_NAME\"\nls -lh \"$BACKUP_NAME\"", "bash", "Create a timestamped tar.gz backup of current or specified directory"},
+		{"seed-005", "Network Check", "#!/bin/bash\necho '=== Network Interfaces ==='\nip addr show | grep -E '^[0-9]+:|inet '\necho ''\necho '=== Connectivity Test ==='\nping -c 3 8.8.8.8\necho ''\necho '=== DNS Test ==='\nnslookup google.com", "bash", "Check network interfaces, connectivity, and DNS resolution"},
+
+		// Node.js/JavaScript snippets
+		{"seed-006", "Node Project Init", "#!/bin/bash\nmkdir -p src tests\nnpm init -y\nnpm install --save-dev typescript @types/node jest ts-jest\ncat > tsconfig.json << 'EOF'\n{\n  \"compilerOptions\": {\n    \"target\": \"ES2020\",\n    \"module\": \"commonjs\",\n    \"outDir\": \"./dist\",\n    \"rootDir\": \"./src\",\n    \"strict\": true\n  }\n}\nEOF\necho 'console.log(\"Hello, TypeScript!\");' > src/index.ts\necho 'Node.js TypeScript project initialized!'", "bash", "Initialize a new Node.js project with TypeScript, Jest, and proper directory structure"},
+		{"seed-007", "NPM Audit Fix", "#!/bin/bash\necho '=== Running npm audit ==='\nnpm audit\necho ''\necho '=== Fixing vulnerabilities ==='\nnpm audit fix\necho ''\necho '=== Checking outdated packages ==='\nnpm outdated", "bash", "Run npm security audit, fix vulnerabilities, and check for outdated packages"},
+		{"seed-008", "Express API Starter", "const express = require('express');\nconst app = express();\napp.use(express.json());\n\napp.get('/health', (req, res) => res.json({ status: 'ok' }));\n\napp.get('/api/items', (req, res) => {\n  res.json([{ id: 1, name: 'Item 1' }]);\n});\n\napp.post('/api/items', (req, res) => {\n  res.status(201).json({ id: 2, ...req.body });\n});\n\napp.listen(3000, () => console.log('Server running on :3000'));", "javascript", "Minimal Express.js REST API with health check and CRUD endpoints"},
+		{"seed-009", "Package.json Scripts", "#!/bin/bash\ncat << 'EOF'\n// Add these to your package.json scripts:\n\"scripts\": {\n  \"dev\": \"nodemon src/index.ts\",\n  \"build\": \"tsc\",\n  \"start\": \"node dist/index.js\",\n  \"test\": \"jest\",\n  \"test:watch\": \"jest --watch\",\n  \"lint\": \"eslint src/**/*.ts\",\n  \"format\": \"prettier --write src/**/*.ts\"\n}\nEOF", "bash", "Common package.json scripts for TypeScript Node.js projects"},
+
+		// Python/Data Science snippets
+		{"seed-010", "Python Venv Setup", "#!/bin/bash\npython3 -m venv venv\nsource venv/bin/activate\npip install --upgrade pip\npip install pandas numpy matplotlib jupyter requests\npip freeze > requirements.txt\necho 'Virtual environment created and activated!'", "bash", "Create Python virtual environment with common data science packages"},
+		{"seed-011", "Data Analysis Template", "import pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# Load data\ndf = pd.read_csv('data.csv')\n\n# Quick overview\nprint('Shape:', df.shape)\nprint('\\nColumns:', df.columns.tolist())\nprint('\\nData types:')\nprint(df.dtypes)\nprint('\\nSummary statistics:')\nprint(df.describe())\nprint('\\nMissing values:')\nprint(df.isnull().sum())", "python", "Python data analysis template with pandas for quick dataset exploration"},
+		{"seed-012", "Flask API Starter", "from flask import Flask, jsonify, request\n\napp = Flask(__name__)\n\nitems = [{'id': 1, 'name': 'Item 1'}]\n\n@app.route('/health')\ndef health():\n    return jsonify({'status': 'ok'})\n\n@app.route('/api/items', methods=['GET'])\ndef get_items():\n    return jsonify(items)\n\n@app.route('/api/items', methods=['POST'])\ndef create_item():\n    item = {'id': len(items) + 1, **request.json}\n    items.append(item)\n    return jsonify(item), 201\n\nif __name__ == '__main__':\n    app.run(debug=True, port=5000)", "python", "Minimal Flask REST API with health check and CRUD endpoints"},
+		{"seed-013", "Jupyter Setup", "#!/bin/bash\npip install jupyterlab ipykernel\npython -m ipykernel install --user --name=myenv\njupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root", "bash", "Install JupyterLab and start it for remote access"},
+
+		// Go/Gopher snippets
+		{"seed-014", "Go Module Init", "#!/bin/bash\ngo mod init myproject\nmkdir -p cmd/myapp internal pkg\ncat > cmd/myapp/main.go << 'EOF'\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, Go!\")\n}\nEOF\ngo mod tidy\ngo build -o bin/myapp ./cmd/myapp\necho 'Go project initialized!'", "bash", "Initialize a Go module with standard project layout"},
+		{"seed-015", "Go HTTP Server", "package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n)\n\nfunc main() {\n\thttp.HandleFunc(\"/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tjson.NewEncoder(w).Encode(map[string]string{\"status\": \"ok\"})\n\t})\n\n\thttp.HandleFunc(\"/api/items\", func(w http.ResponseWriter, r *http.Request) {\n\t\titems := []map[string]interface{}{{\"id\": 1, \"name\": \"Item 1\"}}\n\t\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t\tjson.NewEncoder(w).Encode(items)\n\t})\n\n\tlog.Println(\"Server starting on :8080\")\n\tlog.Fatal(http.ListenAndServe(\":8080\", nil))\n}", "go", "Simple Go HTTP server with JSON endpoints"},
+		{"seed-016", "Go Test Template", "package mypackage\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\ttests := []struct {\n\t\tname     string\n\t\ta, b     int\n\t\texpected int\n\t}{\n\t\t{\"positive\", 2, 3, 5},\n\t\t{\"negative\", -1, -1, -2},\n\t\t{\"zero\", 0, 0, 0},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tresult := Add(tt.a, tt.b)\n\t\t\tif result != tt.expected {\n\t\t\t\tt.Errorf(\"Add(%d, %d) = %d; want %d\", tt.a, tt.b, result, tt.expected)\n\t\t\t}\n\t\t})\n\t}\n}", "go", "Go table-driven test template with subtests"},
+		{"seed-017", "Go Build All", "#!/bin/bash\necho 'Building for multiple platforms...'\nGOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64 ./cmd/app\nGOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64 ./cmd/app\nGOOS=windows GOARCH=amd64 go build -o bin/app-windows-amd64.exe ./cmd/app\nls -la bin/\necho 'Cross-compilation complete!'", "bash", "Cross-compile Go application for Linux, macOS, and Windows"},
+
+		// Neovim/Editor snippets
+		{"seed-018", "Neovim Config Check", "#!/bin/bash\necho '=== Neovim Version ==='\nnvim --version | head -5\necho ''\necho '=== Config Location ==='\nls -la ~/.config/nvim/ 2>/dev/null || echo 'No config found'\necho ''\necho '=== Installed Plugins ==='\nls ~/.local/share/nvim/site/pack/ 2>/dev/null || echo 'No plugins found'", "bash", "Check Neovim version, config, and installed plugins"},
+		{"seed-019", "LazyVim Setup", "#!/bin/bash\n# Backup existing config\nmv ~/.config/nvim ~/.config/nvim.bak 2>/dev/null\nmv ~/.local/share/nvim ~/.local/share/nvim.bak 2>/dev/null\n\n# Clone LazyVim starter\ngit clone https://github.com/LazyVim/starter ~/.config/nvim\nrm -rf ~/.config/nvim/.git\n\necho 'LazyVim installed! Run nvim to complete setup.'", "bash", "Install LazyVim - a modern Neovim configuration"},
+		{"seed-020", "Ripgrep Search", "#!/bin/bash\n# Usage: ./script.sh 'pattern' [path]\nPATTERN=\"${1:-TODO}\"\nPATH=\"${2:-.}\"\n\necho \"Searching for '$PATTERN' in $PATH\"\nrg --color=always --line-number --heading \"$PATTERN\" \"$PATH\" | head -100", "bash", "Fast code search with ripgrep - colorized output with line numbers"},
+
+		// DevOps/YAML Herder snippets
+		{"seed-021", "Docker Cleanup", "#!/bin/bash\necho '=== Removing stopped containers ==='\ndocker container prune -f\necho ''\necho '=== Removing unused images ==='\ndocker image prune -a -f\necho ''\necho '=== Removing unused volumes ==='\ndocker volume prune -f\necho ''\necho '=== Disk usage ==='\ndocker system df", "bash", "Clean up Docker resources - containers, images, volumes"},
+		{"seed-022", "Kubernetes Debug", "#!/bin/bash\nNS=${1:-default}\necho \"=== Pods in $NS ===\"\nkubectl get pods -n $NS\necho ''\necho '=== Recent Events ==='\nkubectl get events -n $NS --sort-by='.lastTimestamp' | tail -20\necho ''\necho '=== Failed Pods ==='\nkubectl get pods -n $NS --field-selector=status.phase!=Running,status.phase!=Succeeded", "bash", "Debug Kubernetes namespace - show pods, events, and failures"},
+		{"seed-023", "Terraform Init", "#!/bin/bash\nterraform init\nterraform validate\nterraform fmt -recursive\nterraform plan -out=tfplan\necho ''\necho 'Review the plan above. Run: terraform apply tfplan'", "bash", "Initialize, validate, format, and plan Terraform configuration"},
+		{"seed-024", "Docker Compose Template", "version: '3.8'\n\nservices:\n  app:\n    build: .\n    ports:\n      - \"3000:3000\"\n    environment:\n      - NODE_ENV=development\n    volumes:\n      - .:/app\n      - /app/node_modules\n    depends_on:\n      - db\n      - redis\n\n  db:\n    image: postgres:15-alpine\n    environment:\n      POSTGRES_PASSWORD: secret\n      POSTGRES_DB: myapp\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n\n  redis:\n    image: redis:7-alpine\n\nvolumes:\n  postgres_data:", "yaml", "Docker Compose template with app, PostgreSQL, and Redis"},
+		{"seed-025", "Ansible Ping", "#!/bin/bash\nansible all -m ping -i inventory.ini\necho ''\necho '=== Host Facts ==='\nansible all -m setup -i inventory.ini -a 'filter=ansible_distribution*' | head -50", "bash", "Ansible ping all hosts and gather basic facts"},
+
+		// AI/Vibe Coder snippets
+		{"seed-026", "AI Code Review", "#!/bin/bash\n# Get git diff and ask AI for code review\nDIFF=$(git diff --cached)\nif [ -z \"$DIFF\" ]; then\n  echo 'No staged changes to review'\n  exit 1\nfi\n\necho \"$DIFF\" | tgpt 'Review this code diff. Point out bugs, security issues, and suggest improvements:'", "bash", "Use AI to review staged git changes before committing"},
+		{"seed-027", "AI Commit Message", "#!/bin/bash\nDIFF=$(git diff --cached)\nif [ -z \"$DIFF\" ]; then\n  echo 'No staged changes'\n  exit 1\nfi\n\nMSG=$(echo \"$DIFF\" | tgpt 'Write a concise git commit message for this diff. Use conventional commits format (feat/fix/docs/etc). Just the message, no explanation:')\necho \"Suggested commit message:\"\necho \"$MSG\"", "bash", "Generate AI-powered git commit messages from staged changes"},
+		{"seed-028", "AI Shell Helper", "#!/bin/bash\n# Ask AI how to do something in the terminal\nQUESTION=\"$*\"\nif [ -z \"$QUESTION\" ]; then\n  echo 'Usage: ./script.sh how do I find files modified today'\n  exit 1\nfi\n\ntgpt \"Give me a bash command to: $QUESTION. Just the command, no explanation.\"", "bash", "Ask AI for shell commands - get instant answers"},
+		{"seed-029", "AI Debug Helper", "#!/bin/bash\nERROR_LOG=\"$1\"\nif [ -z \"$ERROR_LOG\" ]; then\n  echo 'Usage: ./script.sh error.log'\n  exit 1\nfi\n\ncat \"$ERROR_LOG\" | tail -50 | tgpt 'Analyze these error logs and suggest fixes:'", "bash", "Use AI to analyze error logs and suggest fixes"},
+		{"seed-030", "OpenCode Quick Start", "#!/bin/bash\necho 'Starting OpenCode AI coding assistant...'\necho ''\necho 'Tips:'\necho '  - Use /help to see available commands'\necho '  - Use /compact for token-efficient mode'\necho '  - Press Ctrl+C to exit'\necho ''\nopencode", "bash", "Launch OpenCode AI assistant with helpful tips"},
+	}
+
+	// Insert snippets
+	for _, snip := range snippets {
+		// Check if this snippet already exists
+		var exists bool
+		err = s.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM snippets WHERE id = $1)", snip.ID).Scan(&exists)
+		if err != nil {
+			log.Printf("Warning: failed to check snippet %s: %v", snip.ID, err)
+			continue
+		}
+
+		if exists {
+			continue
+		}
+
+		// Encrypt the content
+		encryptedContent, err := s.encryptor.Encrypt(snip.Content)
+		if err != nil {
+			log.Printf("Warning: failed to encrypt snippet %s: %v", snip.Name, err)
+			continue
+		}
+
+		_, err = s.db.ExecContext(ctx, `
+			INSERT INTO snippets (id, user_id, name, content, language, is_public, description, usage_count, created_at)
+			VALUES ($1, $2, $3, $4, $5, true, $6, 0, NOW())
+		`, snip.ID, systemUserID, snip.Name, encryptedContent, snip.Language, snip.Description)
+		if err != nil {
+			log.Printf("Warning: failed to insert snippet %s: %v", snip.Name, err)
+			continue
+		}
+	}
+
+	log.Println("Example snippets seeded successfully")
+	return nil
 }
 
 // Close closes the database connection
