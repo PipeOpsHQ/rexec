@@ -19,12 +19,25 @@
         name: string;
         content: string;
         language: string;
+        description?: string;
+        icon?: string;
+        category?: string;
+        install_command?: string;
+        requires_install?: boolean;
+        usage_count?: number;
+        username?: string;
         created_at: string;
     }
 
     let snippets: Snippet[] = [];
+    let marketplaceSnippets: Snippet[] = [];
     let isLoading = true;
-    let activeTab: "list" | "create" = "list";
+    let isLoadingMarketplace = false;
+    let activeTab: "list" | "create" | "marketplace" = "list";
+    
+    // Marketplace filters
+    let marketplaceSearch = "";
+    let marketplaceCategory = "all";
     
     // Create state
     let newName = "";
@@ -35,7 +48,7 @@
     let showDeleteConfirm = false;
     let snippetToDelete: { id: string; name: string } | null = null;
 
-    // Load snippets
+    // Load user snippets
     async function loadSnippets() {
         isLoading = true;
         const { data, error } = await api.get<{ snippets: Snippet[] }>("/api/snippets");
@@ -48,8 +61,36 @@
         isLoading = false;
     }
 
+    // Load marketplace snippets
+    async function loadMarketplaceSnippets() {
+        isLoadingMarketplace = true;
+        const params = new URLSearchParams();
+        if (marketplaceSearch) params.set("search", marketplaceSearch);
+        if (marketplaceCategory !== "all") params.set("language", marketplaceCategory);
+        params.set("sort", "popular");
+
+        const { data, error } = await api.get<{ snippets: Snippet[] }>(
+            `/api/marketplace/snippets?${params.toString()}`
+        );
+        
+        if (data) {
+            marketplaceSnippets = data.snippets || [];
+        } else if (error) {
+            toast.error("Failed to load marketplace");
+        }
+        isLoadingMarketplace = false;
+    }
+
     // Refresh when opening
-    $: if (show) loadSnippets();
+    $: if (show) {
+        loadSnippets();
+        if (activeTab === "marketplace") loadMarketplaceSnippets();
+    }
+    
+    // Load marketplace when switching to tab
+    $: if (activeTab === "marketplace" && marketplaceSnippets.length === 0) {
+        loadMarketplaceSnippets();
+    }
 
     function handleClose() {
         show = false;
@@ -166,14 +207,21 @@
                     class:active={activeTab === "list"} 
                     onclick={() => activeTab = "list"}
                 >
-                    Library
+                    My Snippets
+                </button>
+                <button 
+                    class="tab-btn" 
+                    class:active={activeTab === "marketplace"} 
+                    onclick={() => activeTab = "marketplace"}
+                >
+                    Marketplace
                 </button>
                 <button 
                     class="tab-btn" 
                     class:active={activeTab === "create"} 
                     onclick={() => activeTab = "create"}
                 >
-                    Create New
+                    Create
                 </button>
             </div>
 
@@ -214,6 +262,90 @@
                                             title="Delete"
                                         >
                                             <StatusIcon status="trash" size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                {:else if activeTab === "marketplace"}
+                    <!-- Marketplace Search -->
+                    <div class="marketplace-controls">
+                        <div class="search-box">
+                            <StatusIcon status="search" size={14} />
+                            <input 
+                                type="text" 
+                                placeholder="Search snippets..."
+                                bind:value={marketplaceSearch}
+                                onkeydown={(e) => e.key === 'Enter' && loadMarketplaceSnippets()}
+                            />
+                        </div>
+                        <select 
+                            class="category-select"
+                            bind:value={marketplaceCategory}
+                            onchange={() => loadMarketplaceSnippets()}
+                        >
+                            <option value="all">All</option>
+                            <option value="system">System</option>
+                            <option value="nodejs">Node.js</option>
+                            <option value="python">Python</option>
+                            <option value="golang">Go</option>
+                            <option value="devops">DevOps</option>
+                            <option value="ai">AI Tools</option>
+                        </select>
+                    </div>
+
+                    {#if isLoadingMarketplace}
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Loading marketplace...</p>
+                        </div>
+                    {:else if marketplaceSnippets.length === 0}
+                        <div class="empty-state">
+                            <div class="empty-icon"><StatusIcon status="grid" size={32} /></div>
+                            <p>No snippets found in marketplace.</p>
+                        </div>
+                    {:else}
+                        <div class="snippets-list marketplace-list">
+                            {#each marketplaceSnippets as snippet (snippet.id)}
+                                <div class="snippet-card marketplace-card">
+                                    <div class="snippet-header">
+                                        <div class="snippet-icon">
+                                            <StatusIcon status={snippet.category || 'file'} size={16} />
+                                        </div>
+                                        <div class="snippet-meta">
+                                            <div class="snippet-name">{snippet.name}</div>
+                                            {#if snippet.username}
+                                                <div class="snippet-author">by {snippet.username}</div>
+                                            {/if}
+                                        </div>
+                                        {#if snippet.usage_count}
+                                            <div class="snippet-uses">{snippet.usage_count} uses</div>
+                                        {/if}
+                                    </div>
+                                    {#if snippet.description}
+                                        <div class="snippet-desc">{snippet.description}</div>
+                                    {/if}
+                                    <div class="snippet-preview">{snippet.content}</div>
+                                    <div class="snippet-actions">
+                                        {#if snippet.install_command}
+                                            <button 
+                                                class="btn btn-secondary btn-sm"
+                                                onclick={() => {
+                                                    navigator.clipboard.writeText(snippet.install_command || '');
+                                                    toast.success("Install command copied!");
+                                                }}
+                                                title="Copy install command"
+                                            >
+                                                Install
+                                            </button>
+                                        {/if}
+                                        <button 
+                                            class="btn btn-primary btn-sm"
+                                            onclick={() => runSnippet(snippet)}
+                                            title="Run in terminal"
+                                        >
+                                            Run
                                         </button>
                                     </div>
                                 </div>
@@ -532,4 +664,103 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Marketplace Styles */
+    .marketplace-controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .search-box {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    .search-box input {
+        flex: 1;
+        background: none;
+        border: none;
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+    }
+
+    .search-box input::placeholder {
+        color: var(--text-muted);
+    }
+
+    .category-select {
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text);
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .category-select:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .marketplace-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .marketplace-card {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .snippet-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .snippet-icon {
+        color: var(--accent);
+        opacity: 0.8;
+    }
+
+    .snippet-meta {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .snippet-author {
+        font-size: 10px;
+        color: var(--text-muted);
+    }
+
+    .snippet-uses {
+        font-size: 10px;
+        color: var(--text-muted);
+        background: var(--bg);
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+
+    .snippet-desc {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+    .marketplace-card .snippet-actions {
+        justify-content: flex-end;
+        margin-top: 4px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+    }
 </style>

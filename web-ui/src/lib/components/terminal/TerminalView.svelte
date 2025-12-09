@@ -96,11 +96,12 @@
 
     // Inline create terminal state
     let showCreatePanel = false;
-
-
+    let showAddMenu = false;
+    let addMenuPosition = { x: 0, y: 0 };
 
     function openCreatePanel() {
         showCreatePanel = true;
+        showAddMenu = false;
     }
 
     function closeCreatePanel() {
@@ -111,6 +112,21 @@
         showCreatePanel = false;
         terminal.createSession(id, name);
         toast.success(`Created and connected to ${name}`);
+    }
+
+    function toggleAddMenu(e: MouseEvent) {
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        addMenuPosition = { x: rect.left, y: rect.bottom + 4 };
+        showAddMenu = !showAddMenu;
+    }
+
+    function closeAddMenu() {
+        showAddMenu = false;
+    }
+
+    function selectExistingSession(sessionId: string) {
+        terminal.setActiveSession(sessionId);
+        showAddMenu = false;
     }
 
     // Floating drag handlers
@@ -548,7 +564,18 @@
         window.removeEventListener("mouseup", handleDetachedMouseUp);
         window.removeEventListener("keydown", handleGlobalKeydown);
     });
+
+    function handleGlobalClick(e: MouseEvent) {
+        if (showAddMenu) {
+            const target = e.target as HTMLElement;
+            if (!target.closest('.add-menu-container')) {
+                showAddMenu = false;
+            }
+        }
+    }
 </script>
+
+<svelte:window onclick={handleGlobalClick} />
 
 {#if $sessionCount > 0}
     {#if $isFullscreen}
@@ -581,14 +608,38 @@
                             </span>
                         </button>
                     {/each}
-                    <button
-                        class="fullscreen-tab new-tab-btn"
-                        class:active={showCreatePanel}
-                        onclick={openCreatePanel}
-                        title="New Terminal"
-                    >
-                        +
-                    </button>
+                    <div class="add-menu-container">
+                        <button
+                            class="fullscreen-tab new-tab-btn"
+                            class:active={showCreatePanel || showAddMenu}
+                            onclick={toggleAddMenu}
+                            title="Add Terminal"
+                        >
+                            +
+                        </button>
+                        {#if showAddMenu}
+                            <div class="add-menu" style="left: {addMenuPosition.x}px; top: {addMenuPosition.y}px;">
+                                <button class="add-menu-item" onclick={openCreatePanel}>
+                                    <span class="menu-icon">+</span>
+                                    <span>Create New Terminal</span>
+                                </button>
+                                {#if sessions.length > 0}
+                                    <div class="add-menu-divider"></div>
+                                    <div class="add-menu-label">Switch to existing</div>
+                                    {#each sessions as [id, session]}
+                                        <button 
+                                            class="add-menu-item" 
+                                            class:active={id === activeId}
+                                            onclick={() => selectExistingSession(id)}
+                                        >
+                                            <span class="menu-icon status-dot {session.status}"></span>
+                                            <span>{session.name}</span>
+                                        </button>
+                                    {/each}
+                                {/if}
+                            </div>
+                        {/if}
+                    </div>
                 </div>
 
                 <div class="fullscreen-actions">
@@ -716,14 +767,38 @@
                                 </span>
                             </button>
                         {/each}
-                        <button
-                            class="new-tab-btn"
-                            class:active={showCreatePanel}
-                            onclick={openCreatePanel}
-                            title="New Terminal"
-                        >
-                            +
-                        </button>
+                        <div class="add-menu-container">
+                            <button
+                                class="new-tab-btn"
+                                class:active={showCreatePanel || showAddMenu}
+                                onclick={toggleAddMenu}
+                                title="Add Terminal"
+                            >
+                                +
+                            </button>
+                            {#if showAddMenu}
+                                <div class="add-menu floating-add-menu">
+                                    <button class="add-menu-item" onclick={openCreatePanel}>
+                                        <span class="menu-icon">+</span>
+                                        <span>Create New Terminal</span>
+                                    </button>
+                                    {#if sessions.length > 0}
+                                        <div class="add-menu-divider"></div>
+                                        <div class="add-menu-label">Switch to existing</div>
+                                        {#each sessions as [id, session]}
+                                            <button 
+                                                class="add-menu-item" 
+                                                class:active={id === activeId}
+                                                onclick={() => selectExistingSession(id)}
+                                            >
+                                                <span class="menu-icon status-dot {session.status}"></span>
+                                                <span>{session.name}</span>
+                                            </button>
+                                        {/each}
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
                     </div>
 
                     <div class="floating-actions">
@@ -908,14 +983,38 @@
                                 </span>
                             </button>
                         {/each}
-                        <button
-                            class="docked-tab new-tab-btn"
-                            class:active={showCreatePanel}
-                            onclick={openCreatePanel}
-                            title="New Terminal"
-                        >
-                            +
-                        </button>
+                        <div class="add-menu-container">
+                            <button
+                                class="docked-tab new-tab-btn"
+                                class:active={showCreatePanel || showAddMenu}
+                                onclick={toggleAddMenu}
+                                title="Add Terminal"
+                            >
+                                +
+                            </button>
+                            {#if showAddMenu}
+                                <div class="add-menu docked-add-menu">
+                                    <button class="add-menu-item" onclick={openCreatePanel}>
+                                        <span class="menu-icon">+</span>
+                                        <span>Create New Terminal</span>
+                                    </button>
+                                    {#if sessions.length > 0}
+                                        <div class="add-menu-divider"></div>
+                                        <div class="add-menu-label">Switch to existing</div>
+                                        {#each sessions as [id, session]}
+                                            <button 
+                                                class="add-menu-item" 
+                                                class:active={id === activeId}
+                                                onclick={() => selectExistingSession(id)}
+                                            >
+                                                <span class="menu-icon status-dot {session.status}"></span>
+                                                <span>{session.name}</span>
+                                            </button>
+                                        {/each}
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
                     </div>
 
                     <div class="docked-spacer"></div>
@@ -1097,6 +1196,91 @@
 {/if}
 
 <style>
+    /* Add Menu Dropdown */
+    .add-menu-container {
+        position: relative;
+    }
+
+    .add-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 4px;
+        min-width: 200px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        z-index: 10000;
+        overflow: hidden;
+    }
+
+    .docked-add-menu {
+        bottom: 100%;
+        top: auto;
+        margin-bottom: 4px;
+        margin-top: 0;
+    }
+
+    .add-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 14px;
+        background: none;
+        border: none;
+        color: var(--text);
+        font-size: 12px;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.15s;
+    }
+
+    .add-menu-item:hover {
+        background: var(--bg-secondary);
+    }
+
+    .add-menu-item.active {
+        background: rgba(0, 255, 65, 0.1);
+        color: var(--accent);
+    }
+
+    .add-menu-item .menu-icon {
+        width: 16px;
+        text-align: center;
+        color: var(--accent);
+    }
+
+    .add-menu-item .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin: 0 4px;
+    }
+
+    .add-menu-item .status-dot.connected {
+        background: var(--accent);
+    }
+
+    .add-menu-item .status-dot.disconnected {
+        background: var(--text-muted);
+    }
+
+    .add-menu-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0;
+    }
+
+    .add-menu-label {
+        padding: 6px 14px;
+        font-size: 10px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
     /* Fullscreen Terminal */
     .fullscreen-terminal {
         position: fixed;
