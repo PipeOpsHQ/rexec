@@ -564,6 +564,7 @@
                currentView !== "guides" && 
         currentView !== "use-cases" &&
         currentView !== "use-case-detail" &&
+        currentView !== "marketplace" &&
         currentView !== "join" &&
         currentView !== "pricing" &&
         currentView !== "404"
