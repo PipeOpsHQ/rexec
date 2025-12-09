@@ -2,6 +2,7 @@
     import { onMount, onDestroy, tick } from "svelte";
     import { terminal, sessionCount, isFloating, isFullscreen } from "$stores/terminal";
     import { toast } from "$stores/toast";
+    import { containers } from "$stores/containers";
     import TerminalPanel from "./TerminalPanel.svelte";
     import InlineCreateTerminal from "../InlineCreateTerminal.svelte";
     import RecordingPanel from "../RecordingPanel.svelte";
@@ -105,6 +106,14 @@
     $: dockedSessions = sessions.filter(([_, s]) => !s.isDetached);
     $: detachedSessions = sessions.filter(([_, s]) => s.isDetached);
     $: activeId = $terminal.activeSessionId;
+    
+    // Get connected session container IDs
+    $: connectedContainerIds = new Set(sessions.map(([_, s]) => s.containerId));
+    
+    // Get terminals from API that are not currently connected
+    $: availableTerminals = $containers.containers.filter(
+        c => c.status === "running" && !connectedContainerIds.has(c.id) && !connectedContainerIds.has(c.db_id)
+    );
 
     // Inline create terminal state
     let showCreatePanel = false;
@@ -136,6 +145,12 @@
     function selectExistingSession(sessionId: string) {
         terminal.setActiveSession(sessionId);
         showAddMenu = false;
+    }
+
+    function connectToTerminal(containerId: string, name: string) {
+        terminal.createSession(containerId, name);
+        showAddMenu = false;
+        toast.success(`Connected to ${name}`);
     }
 
     // Floating drag handlers
@@ -1190,9 +1205,26 @@
                     <span class="menu-icon">+</span>
                     <span>Create New Terminal</span>
                 </button>
+                
+                {#if availableTerminals.length > 0}
+                    <div class="add-menu-divider"></div>
+                    <div class="add-menu-label">Connect to available terminal</div>
+                    <div class="add-menu-sessions">
+                        {#each availableTerminals as container}
+                            <button 
+                                class="add-menu-item"
+                                onclick={() => connectToTerminal(container.id, container.name)}
+                            >
+                                <span class="menu-icon status-dot running"></span>
+                                <span>{container.name}</span>
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
+                
                 {#if sessions.length > 0}
                     <div class="add-menu-divider"></div>
-                    <div class="add-menu-label">Switch to existing terminal</div>
+                    <div class="add-menu-label">Switch to connected session</div>
                     <div class="add-menu-sessions">
                         {#each sessions as [id, session]}
                             <button 
@@ -1353,7 +1385,8 @@
         border-radius: 50%;
     }
 
-    .add-menu-item .status-dot.connected {
+    .add-menu-item .status-dot.connected,
+    .add-menu-item .status-dot.running {
         background: var(--accent);
         box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
     }
