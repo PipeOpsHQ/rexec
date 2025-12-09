@@ -1040,7 +1040,7 @@
         <div
             class="detached-header"
             onmousedown={(e) => handleDetachedMouseDown(e, id)}
-            on:dblclick={() => dockSession(id)}
+            ondblclick={() => dockSession(id)}
             role="toolbar"
             tabindex="-1"
         >
