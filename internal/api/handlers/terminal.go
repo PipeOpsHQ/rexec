@@ -74,15 +74,16 @@ type SharedTerminalSession struct {
 
 // TerminalSession represents an active terminal session
 type TerminalSession struct {
-	UserID      string
-	ContainerID string
-	ExecID      string
-	Conn        *websocket.Conn
-	Cols        uint
-	Rows        uint
-	Done        chan struct{}
-	mu          sync.Mutex
-	closed      bool
+	UserID          string
+	ContainerID     string
+	ExecID          string
+	Conn            *websocket.Conn
+	Cols            uint
+	Rows            uint
+	Done            chan struct{}
+	mu              sync.Mutex
+	closed          bool
+	ForceNewSession bool // If true, create new tmux session instead of resuming main
 }
 
 // TerminalMessage represents messages between client and server
@@ -460,14 +461,19 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		// Fallback for old clients or single sessions
 		connectionID = "default"
 	}
+	
+	// Check if this is a new session request (for split panes)
+	// newSession=true means create a fresh tmux session instead of resuming main
+	forceNewSession := c.Query("newSession") == "true"
 
 	session := &TerminalSession{
-		UserID:      userID.(string),
-		ContainerID: dockerID,
-		Conn:        conn,
-		Cols:        80,
-		Rows:        24,
-		Done:        make(chan struct{}),
+		UserID:        userID.(string),
+		ContainerID:   dockerID,
+		Conn:          conn,
+		Cols:          80,
+		Rows:          24,
+		Done:          make(chan struct{}),
+		ForceNewSession: forceNewSession,
 	}
 
 	// Register session with unique key to allow multiplexing
@@ -696,9 +702,15 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		// Determine tmux session name
 		// - For owner/single user: use "main" (allows reconnecting to same session)
 		// - For control-mode collab users: use unique session per user (independent sessions)
+		// - For split panes (ForceNewSession): generate unique session name
 		tmuxSessionName := "main"
 		collabMode := h.getCollabMode(session.ContainerID)
-		if collabMode == "control" && session.UserID != "" {
+		
+		if session.ForceNewSession {
+			// Split pane - create a completely new tmux session with unique name
+			tmuxSessionName = fmt.Sprintf("split-%d", time.Now().UnixNano())
+			log.Printf("[Terminal] Split pane: creating new tmux session '%s'", tmuxSessionName)
+		} else if collabMode == "control" && session.UserID != "" {
 			// Use shortened user ID for unique session name
 			// This gives each control-mode collab user their own tmux session
 			userHash := session.UserID
@@ -712,17 +724,26 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		// Check if tmux is available for session persistence
 		// Fall back to direct shell if tmux is not installed
 		if h.commandExists(ctx, session.ContainerID, "tmux") {
-			// Attach to persistent tmux session for session resumption
-			// new-session -A: attach if session exists, create if not
-			// -s <name>: session name
-			// This reconnects to the existing session, showing any buffered output
-			log.Printf("[Terminal] Using tmux session '%s' for persistent session in %s", tmuxSessionName, session.ContainerID[:12])
+			// For split panes (ForceNewSession), always create new session (no -A flag)
+			// For main sessions, attach if exists or create (-A flag)
+			var tmuxCmd []string
+			if session.ForceNewSession {
+				// Create new session, don't attach to existing
+				tmuxCmd = []string{"tmux", "new-session", "-s", tmuxSessionName, shell}
+			} else {
+				// Attach if session exists, create if not
+				tmuxCmd = []string{"tmux", "new-session", "-A", "-s", tmuxSessionName, shell}
+			}
+			
+			log.Printf("[Terminal] Using tmux session '%s' for %s in %s", tmuxSessionName, 
+				map[bool]string{true: "split pane", false: "main terminal"}[session.ForceNewSession], 
+				session.ContainerID[:12])
 			execConfig = container.ExecOptions{
 				AttachStdin:  true,
 				AttachStdout: true,
 				AttachStderr: true,
 				Tty:          true,
-				Cmd:          []string{"tmux", "new-session", "-A", "-s", tmuxSessionName, shell},
+				Cmd:          tmuxCmd,
 				Env: []string{
 					"TERM=xterm-256color",
 					"COLORTERM=truecolor",

@@ -1907,7 +1907,8 @@ function createTerminalStore() {
       if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
 
       // Create independent WebSocket connection for this pane with unique ID
-      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${paneId}`;
+      // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
+      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${paneId}&newSession=true`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
