@@ -27,6 +27,7 @@
     import UseCases from "$components/UseCases.svelte";
     import UseCaseDetail from "$components/UseCaseDetail.svelte";
     import SnippetsPage from "$components/SnippetsPage.svelte";
+    import MarketplacePage from "$components/MarketplacePage.svelte";
     import NotFound from "$components/NotFound.svelte";
     import Promo from "$components/Promo.svelte";
     import Billing from "$components/Billing.svelte";
@@ -40,6 +41,7 @@
         | "settings"
         | "sshkeys"
         | "snippets"
+        | "marketplace"
         | "join"
         | "guides"
         | "use-cases"
@@ -352,6 +354,12 @@
             return;
         }
 
+        // Check for /marketplace route
+        if (path === "/marketplace") {
+            currentView = "marketplace";
+            return;
+        }
+
         // Check for pending join after authentication
         const pendingJoin = localStorage.getItem("pendingJoinCode");
         if (pendingJoin && $isAuthenticated) {
@@ -414,6 +422,7 @@
             "/use-cases",
             "/agentic",
             "/snippets",
+            "/marketplace",
             "/settings",
             "/sshkeys",
             "/promo",
@@ -587,6 +596,11 @@
         currentView = "snippets";
     }
 
+    function goToMarketplace() {
+        currentView = "marketplace";
+        window.history.pushState({}, "", "/marketplace");
+    }
+
     function goToBilling() {
         currentView = "billing";
         window.history.pushState({}, "", "/billing");
@@ -728,6 +742,14 @@
                 />
             {:else if currentView === "snippets"}
                 <SnippetsPage on:back={goToDashboard} />
+            {:else if currentView === "marketplace"}
+                <MarketplacePage 
+                    on:back={goToDashboard} 
+                    on:use={(e) => {
+                        // Copy to clipboard handled in component
+                        goToDashboard();
+                    }}
+                />
             {:else if currentView === "join"}
                 <JoinSession
                     code={joinCode}

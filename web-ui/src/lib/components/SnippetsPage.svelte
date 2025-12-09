@@ -16,6 +16,11 @@
         name: string;
         content: string;
         language: string;
+        is_public: boolean;
+        description?: string;
+        usage_count: number;
+        username?: string;
+        is_owner?: boolean;
         created_at: string;
     }
 
@@ -26,6 +31,8 @@
     // Create state
     let newName = "";
     let newContent = "";
+    let newDescription = "";
+    let newIsPublic = false;
     let isCreating = false;
 
     // Ace Editor instance
@@ -97,6 +104,8 @@
         const { data, error } = await api.post<Snippet>("/api/snippets", {
             name: newName.trim(),
             content: newContent.trim(),
+            description: newDescription.trim(),
+            is_public: newIsPublic,
             language: "bash"
         });
 
@@ -105,11 +114,26 @@
             toast.success("Snippet saved");
             showCreate = false;
             newName = "";
-            newContent = ""; // Clear newContent, which also clears the editor
+            newContent = "";
+            newDescription = "";
+            newIsPublic = false;
         } else {
             toast.error(error || "Failed to save snippet");
         }
         isCreating = false;
+    }
+
+    async function togglePublic(snippet: Snippet) {
+        const { data, error } = await api.put<Snippet>(`/api/snippets/${snippet.id}`, {
+            is_public: !snippet.is_public
+        });
+        
+        if (data) {
+            snippets = snippets.map(s => s.id === snippet.id ? { ...s, is_public: data.is_public } : s);
+            toast.success(data.is_public ? "Snippet is now public" : "Snippet is now private");
+        } else {
+            toast.error(error || "Failed to update snippet");
+        }
     }
 
     function deleteSnippet(id: string, name: string) {
@@ -155,11 +179,16 @@
             <h1>Snippets & Macros</h1>
             <p class="subtitle">Save frequently used commands and scripts.</p>
         </div>
-        {#if !showCreate}
-            <button class="btn btn-primary" onclick={() => showCreate = true}>
-                + Create New
-            </button>
-        {/if}
+        <div class="header-actions">
+            <a href="/marketplace" class="btn btn-secondary">
+                🏪 Marketplace
+            </a>
+            {#if !showCreate}
+                <button class="btn btn-primary" onclick={() => showCreate = true}>
+                    + Create New
+                </button>
+            {/if}
+        </div>
     </div>
 
     {#if showCreate}
@@ -180,14 +209,38 @@
                     />
                 </div>
                 <div class="form-group">
+                    <label for="snip-desc">Description (optional)</label>
+                    <input 
+                        id="snip-desc" 
+                        type="text" 
+                        bind:value={newDescription} 
+                        placeholder="Brief description of what this snippet does"
+                        class="input"
+                    />
+                </div>
+                <div class="form-group">
                     <label for="snip-content">Command / Script</label>
                     <div class="ace-editor-container" bind:this={editorElement}></div>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-label">
+                        <input 
+                            type="checkbox" 
+                            bind:checked={newIsPublic}
+                        />
+                        <span class="checkbox-text">
+                            <strong>Make public</strong>
+                            <small>Share in marketplace for others to use</small>
+                        </span>
+                    </label>
                 </div>
                 <div class="form-actions">
                     <button class="btn btn-secondary" onclick={() => {
                         showCreate = false;
-                        newContent = ""; // Clear content when closing form
+                        newContent = "";
                         newName = "";
+                        newDescription = "";
+                        newIsPublic = false;
                     }}>Cancel</button>
                     <button 
                         class="btn btn-primary" 
@@ -221,8 +274,20 @@
                 {#each snippets as snippet (snippet.id)}
                     <div class="snippet-card">
                         <div class="snippet-header">
-                            <div class="snippet-title">{snippet.name}</div>
+                            <div class="snippet-title">
+                                {snippet.name}
+                                {#if snippet.is_public}
+                                    <span class="public-badge" title="Public - visible in marketplace">🌐</span>
+                                {/if}
+                            </div>
                             <div class="snippet-actions">
+                                <button 
+                                    class="action-btn" 
+                                    title={snippet.is_public ? "Make private" : "Make public"}
+                                    onclick={() => togglePublic(snippet)}
+                                >
+                                    {snippet.is_public ? "🔓" : "🔒"}
+                                </button>
                                 <button 
                                     class="btn-icon" 
                                     onclick={() => copyToClipboard(snippet.content)}
@@ -266,6 +331,11 @@
 
     .title-group {
         flex: 1;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
     }
 
     h1 {
@@ -503,4 +573,63 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Checkbox group */
+    .checkbox-group {
+        margin-top: 8px;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        cursor: pointer;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        margin-top: 3px;
+        accent-color: var(--accent);
+    }
+
+    .checkbox-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .checkbox-text strong {
+        font-size: 14px;
+        color: var(--text);
+    }
+
+    .checkbox-text small {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .public-badge {
+        font-size: 12px;
+        margin-left: 6px;
+    }
+
+    .snippet-description {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+        font-style: italic;
+    }
+
+    .snippet-meta {
+        display: flex;
+        gap: 12px;
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 8px;
+    }
+
+    .usage-count {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 </style>

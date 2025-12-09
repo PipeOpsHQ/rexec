@@ -205,6 +205,39 @@ func (s *PostgresStore) migrate() error {
 		}
 	}
 
+	// Add snippet marketplace columns
+	snippetColumns := []string{
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='is_public') THEN
+				ALTER TABLE snippets ADD COLUMN is_public BOOLEAN DEFAULT false;
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='description') THEN
+				ALTER TABLE snippets ADD COLUMN description TEXT;
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='usage_count') THEN
+				ALTER TABLE snippets ADD COLUMN usage_count INTEGER DEFAULT 0;
+			END IF;
+		END $$`,
+	}
+
+	for _, query := range snippetColumns {
+		if _, err := s.db.Exec(query); err != nil {
+			return err
+		}
+	}
+
+	// Create index for public snippets marketplace
+	if _, err := s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_snippets_public ON snippets(is_public) WHERE is_public = true`); err != nil {
+		log.Printf("Warning: could not create public snippets index: %v", err)
+	}
+
 	// Step 3: Create indexes on optional columns (after they exist)
 	createIndexes := `
 	CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id ON users(stripe_customer_id);
@@ -1492,8 +1525,8 @@ func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snipp
 	snippet.Content = encryptedContent
 
 	query := `
-		INSERT INTO snippets (id, user_id, name, content, language, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO snippets (id, user_id, name, content, language, is_public, description, usage_count, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	_, err = s.db.ExecContext(ctx, query,
 		snippet.ID,
@@ -1501,6 +1534,9 @@ func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snipp
 		snippet.Name,
 		snippet.Content,
 		snippet.Language,
+		snippet.IsPublic,
+		snippet.Description,
+		0, // usage_count starts at 0
 		snippet.CreatedAt,
 	)
 	return err
@@ -1509,7 +1545,7 @@ func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snipp
 // GetSnippetsByUserID retrieves all snippets for a user
 func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) ([]*models.Snippet, error) {
 	query := `
-		SELECT id, user_id, name, content, language, created_at
+		SELECT id, user_id, name, content, language, is_public, COALESCE(description, ''), COALESCE(usage_count, 0), created_at
 		FROM snippets WHERE user_id = $1
 		ORDER BY created_at DESC
 	`
@@ -1528,6 +1564,9 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 			&sn.Name,
 			&sn.Content,
 			&sn.Language,
+			&sn.IsPublic,
+			&sn.Description,
+			&sn.UsageCount,
 			&sn.CreatedAt,
 		)
 		if err != nil {
@@ -1539,7 +1578,6 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 		if err == nil {
 			sn.Content = decrypted
 		}
-		// If decryption fails, we return encrypted content (or handle error, but usually better to return raw than crash for list)
 
 		snippets = append(snippets, &sn)
 	}
@@ -1550,7 +1588,7 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.Snippet, error) {
 	var sn models.Snippet
 	query := `
-		SELECT id, user_id, name, content, language, created_at
+		SELECT id, user_id, name, content, language, is_public, COALESCE(description, ''), COALESCE(usage_count, 0), created_at
 		FROM snippets WHERE id = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, id)
@@ -1560,6 +1598,9 @@ func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.
 		&sn.Name,
 		&sn.Content,
 		&sn.Language,
+		&sn.IsPublic,
+		&sn.Description,
+		&sn.UsageCount,
 		&sn.CreatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -1576,6 +1617,110 @@ func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.
 	}
 
 	return &sn, nil
+}
+
+// UpdateSnippet updates a snippet
+func (s *PostgresStore) UpdateSnippet(ctx context.Context, snippet *models.Snippet) error {
+	// Encrypt content
+	encryptedContent, err := s.encryptor.Encrypt(snippet.Content)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt snippet content: %w", err)
+	}
+
+	query := `
+		UPDATE snippets 
+		SET name = $1, content = $2, language = $3, is_public = $4, description = $5
+		WHERE id = $6
+	`
+	_, err = s.db.ExecContext(ctx, query,
+		snippet.Name,
+		encryptedContent,
+		snippet.Language,
+		snippet.IsPublic,
+		snippet.Description,
+		snippet.ID,
+	)
+	return err
+}
+
+// GetPublicSnippets retrieves all public snippets for marketplace
+func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search, sort string) ([]*models.Snippet, error) {
+	var args []interface{}
+	argIdx := 1
+
+	query := `
+		SELECT s.id, s.user_id, u.name as username, s.name, s.content, s.language, 
+		       COALESCE(s.description, ''), COALESCE(s.usage_count, 0), s.created_at
+		FROM snippets s
+		LEFT JOIN users u ON s.user_id = u.id
+		WHERE s.is_public = true
+	`
+
+	if language != "" && language != "all" {
+		query += fmt.Sprintf(" AND s.language = $%d", argIdx)
+		args = append(args, language)
+		argIdx++
+	}
+
+	if search != "" {
+		query += fmt.Sprintf(" AND (s.name ILIKE $%d OR s.description ILIKE $%d)", argIdx, argIdx)
+		args = append(args, "%"+search+"%")
+		argIdx++
+	}
+
+	switch sort {
+	case "recent":
+		query += " ORDER BY s.created_at DESC"
+	case "name":
+		query += " ORDER BY s.name ASC"
+	default: // popular
+		query += " ORDER BY s.usage_count DESC, s.created_at DESC"
+	}
+
+	query += " LIMIT 100"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var snippets []*models.Snippet
+	for rows.Next() {
+		var sn models.Snippet
+		err := rows.Scan(
+			&sn.ID,
+			&sn.UserID,
+			&sn.Username,
+			&sn.Name,
+			&sn.Content,
+			&sn.Language,
+			&sn.Description,
+			&sn.UsageCount,
+			&sn.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		sn.IsPublic = true
+
+		// Decrypt content
+		decrypted, err := s.encryptor.Decrypt(sn.Content)
+		if err == nil {
+			sn.Content = decrypted
+		}
+
+		snippets = append(snippets, &sn)
+	}
+	return snippets, nil
+}
+
+// IncrementSnippetUsage increments the usage count for a snippet
+func (s *PostgresStore) IncrementSnippetUsage(ctx context.Context, id string) error {
+	query := `UPDATE snippets SET usage_count = COALESCE(usage_count, 0) + 1 WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, id)
+	return err
 }
 
 // DeleteSnippet deletes a snippet by ID

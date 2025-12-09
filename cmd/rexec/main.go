@@ -452,8 +452,13 @@ func runServer() {
 		{
 			snippets.GET("", snippetHandler.ListSnippets)
 			snippets.POST("", snippetHandler.CreateSnippet)
+			snippets.PUT("/:id", snippetHandler.UpdateSnippet)
 			snippets.DELETE("/:id", snippetHandler.DeleteSnippet)
+			snippets.POST("/:id/use", snippetHandler.UseSnippet)
 		}
+
+		// Public snippets marketplace (authenticated users can see who owns)
+		api.GET("/snippets/marketplace", snippetHandler.ListPublicSnippets)
 
 		// WebSocket for real-time container events
 		api.GET("/containers/events", containerEventsHub.HandleWebSocket)
@@ -535,6 +540,9 @@ func runServer() {
 	// Public recording access (no auth required for shared recordings)
 	router.GET("/r/:token", recordingHandler.GetRecordingByToken)
 	router.GET("/r/:token/stream", recordingHandler.StreamRecordingByToken)
+
+	// Public snippets marketplace (no auth required, but authenticated users see ownership)
+	router.GET("/api/marketplace/snippets", snippetHandler.ListPublicSnippets)
 
 	// Serve static files (frontend)
 	webDir := os.Getenv("WEB_DIR")
