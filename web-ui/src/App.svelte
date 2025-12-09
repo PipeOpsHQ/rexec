@@ -29,6 +29,7 @@
     import SnippetsPage from "$components/SnippetsPage.svelte";
     import NotFound from "$components/NotFound.svelte";
     import Promo from "$components/Promo.svelte";
+    import Billing from "$components/Billing.svelte";
 
     // App state
     let currentView:
@@ -45,6 +46,7 @@
         | "use-case-detail"
         | "pricing"
         | "promo"
+        | "billing"
         | "404" = "landing";
     let isLoading = true;
     let isInitialized = false; // Prevents reactive statements from firing before token validation
@@ -248,6 +250,44 @@
             return;
         }
 
+        // Check for /billing route
+        if (path === "/billing") {
+            if (!$isAuthenticated) {
+                currentView = "landing";
+                return;
+            }
+            currentView = "billing";
+            return;
+        }
+
+        // Check for /billing/success route (Stripe checkout success)
+        if (path === "/billing/success") {
+            // Stripe redirects here after successful checkout
+            // Show billing page - the webhook will have updated the tier
+            toast.success("Payment successful! Your plan has been upgraded.");
+            window.history.replaceState({}, "", "/billing");
+            if ($isAuthenticated) {
+                currentView = "billing";
+                // Refresh user profile to get updated tier
+                auth.fetchProfile();
+            } else {
+                currentView = "landing";
+            }
+            return;
+        }
+
+        // Check for /billing/cancel route (Stripe checkout cancelled)
+        if (path === "/billing/cancel") {
+            toast.info("Checkout cancelled. No changes were made to your plan.");
+            window.history.replaceState({}, "", "/billing");
+            if ($isAuthenticated) {
+                currentView = "billing";
+            } else {
+                currentView = "landing";
+            }
+            return;
+        }
+
         // Check for /promo route
         if (path === "/promo") {
             currentView = "promo";
@@ -366,6 +406,9 @@
             "/ui/dashboard",
             "/admin",
             "/pricing",
+            "/billing",
+            "/billing/success",
+            "/billing/cancel",
             "/guides",
             "/ai-tools",
             "/use-cases",
@@ -544,6 +587,11 @@
         currentView = "snippets";
     }
 
+    function goToBilling() {
+        currentView = "billing";
+        window.history.pushState({}, "", "/billing");
+    }
+
     function goToAdmin() {
         if ($isAdmin) {
             currentView = "admin";
@@ -581,6 +629,8 @@
             }
         } else if (path === "/pricing") {
             currentView = "pricing";
+        } else if (path === "/billing") {
+            currentView = $isAuthenticated ? "billing" : "landing";
         } else if (path === "/admin") {
             if ($isAuthenticated && $isAdmin) {
                 currentView = "admin";
@@ -611,6 +661,7 @@
             on:settings={goToSettings}
             on:sshkeys={goToSSHKeys}
             on:snippets={goToSnippets}
+            on:billing={goToBilling}
             on:guest={openGuestModal}
             on:pricing={() => {
                 currentView = "pricing";
@@ -642,6 +693,10 @@
                 <CreateTerminal
                     on:cancel={goToDashboard}
                     on:created={onContainerCreated}
+                    on:upgrade={() => {
+                        currentView = "pricing";
+                        window.history.pushState({}, "", "/pricing");
+                    }}
                 />
             {:else if currentView === "settings"}
                 <Settings on:back={goToDashboard} />
@@ -731,6 +786,14 @@
                 />
             {:else if currentView === "pricing"}
                 <Pricing mode="page" />
+            {:else if currentView === "billing"}
+                <Billing 
+                    on:back={goToDashboard}
+                    on:pricing={() => {
+                        currentView = "pricing";
+                        window.history.pushState({}, "", "/pricing");
+                    }}
+                />
             {:else if currentView === "promo"}
                 <Promo 
                     on:guest={openGuestModal}

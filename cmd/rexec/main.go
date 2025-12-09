@@ -486,6 +486,7 @@ func runServer() {
 			{
 				billing.GET("/plans", billingHandler.GetPlans)
 				billing.GET("/subscription", billingHandler.GetSubscription)
+				billing.GET("/history", billingHandler.GetBillingHistory)
 				billing.POST("/checkout", billingHandler.CreateCheckoutSession)
 				billing.POST("/portal", billingHandler.CreatePortalSession)
 				billing.POST("/cancel", billingHandler.CancelSubscription)

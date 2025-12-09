@@ -14,6 +14,7 @@ import (
 	portalsession "github.com/stripe/stripe-go/v76/billingportal/session"
 	"github.com/stripe/stripe-go/v76/checkout/session"
 	"github.com/stripe/stripe-go/v76/customer"
+	"github.com/stripe/stripe-go/v76/invoice"
 	"github.com/stripe/stripe-go/v76/subscription"
 	"github.com/stripe/stripe-go/v76/webhook"
 )
@@ -383,4 +384,58 @@ func TierLimits(tier Tier) int {
 	default:
 		return 2
 	}
+}
+
+// Invoice represents a billing invoice
+type Invoice struct {
+	ID              string    `json:"id"`
+	Number          string    `json:"number"`
+	Status          string    `json:"status"`
+	AmountDue       int64     `json:"amount_due"`
+	AmountPaid      int64     `json:"amount_paid"`
+	Currency        string    `json:"currency"`
+	Created         time.Time `json:"created"`
+	PeriodStart     time.Time `json:"period_start"`
+	PeriodEnd       time.Time `json:"period_end"`
+	InvoicePDF      string    `json:"invoice_pdf,omitempty"`
+	HostedInvoiceURL string   `json:"hosted_invoice_url,omitempty"`
+	Description     string    `json:"description,omitempty"`
+}
+
+// ListInvoices retrieves invoices for a customer
+func (s *Service) ListInvoices(ctx context.Context, customerID string, limit int64) ([]Invoice, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+
+	params := &stripe.InvoiceListParams{
+		Customer: stripe.String(customerID),
+	}
+	params.Limit = stripe.Int64(limit)
+
+	var invoices []Invoice
+	iter := invoice.List(params)
+	for iter.Next() {
+		inv := iter.Invoice()
+		invoices = append(invoices, Invoice{
+			ID:              inv.ID,
+			Number:          inv.Number,
+			Status:          string(inv.Status),
+			AmountDue:       inv.AmountDue,
+			AmountPaid:      inv.AmountPaid,
+			Currency:        string(inv.Currency),
+			Created:         time.Unix(inv.Created, 0),
+			PeriodStart:     time.Unix(inv.PeriodStart, 0),
+			PeriodEnd:       time.Unix(inv.PeriodEnd, 0),
+			InvoicePDF:      inv.InvoicePDF,
+			HostedInvoiceURL: inv.HostedInvoiceURL,
+			Description:     inv.Description,
+		})
+	}
+
+	if err := iter.Err(); err != nil {
+		return nil, fmt.Errorf("failed to list invoices: %w", err)
+	}
+
+	return invoices, nil
 }

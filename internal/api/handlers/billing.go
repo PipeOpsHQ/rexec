@@ -343,3 +343,38 @@ func (h *BillingHandler) GetPlans(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"plans": plans})
 }
+
+// GetBillingHistory returns the user's invoice history
+// GET /api/billing/history
+func (h *BillingHandler) GetBillingHistory(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	user, err := h.store.GetUserByID(c.Request.Context(), userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user"})
+		return
+	}
+	if user == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	customerID, err := h.store.GetUserStripeCustomerID(c.Request.Context(), user.ID)
+	if err != nil || customerID == "" {
+		// No Stripe customer, return empty history
+		c.JSON(http.StatusOK, gin.H{"invoices": []interface{}{}})
+		return
+	}
+
+	invoices, err := h.billingService.ListInvoices(c.Request.Context(), customerID, 50)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get billing history"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"invoices": invoices})
+}

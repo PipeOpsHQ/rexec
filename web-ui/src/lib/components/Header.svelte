@@ -18,6 +18,7 @@
         settings: void;
         sshkeys: void;
         snippets: void;
+        billing: void;
         guest: void;
         pricing: void;
         guides: void;
@@ -295,6 +296,24 @@
                         >
                             <StatusIcon status="script" size={14} />
                             Snippets
+                        </button>
+                        <button
+                            class="user-menu-item"
+                            class:disabled={$isGuest}
+                            disabled={$isGuest}
+                            title={$isGuest
+                                ? "Sign in with PipeOps to access Billing"
+                                : ""}
+                            on:click={() => {
+                                if (!$isGuest) {
+                                    showUserMenu = false;
+                                    dispatch("billing");
+                                }
+                            }}
+                        >
+                            <StatusIcon status="invoice" size={14} />
+                            Billing
+                            {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
                         </button>
                         {#if $isGuest}
                             <div class="user-menu-divider"></div>

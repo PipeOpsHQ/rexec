@@ -13,6 +13,7 @@
     const dispatch = createEventDispatcher<{
         created: { id: string; name: string };
         cancel: void;
+        upgrade: void;
     }>();
 
     let selectedImage = "";
@@ -56,6 +57,30 @@
         if (cpuShares > resourceLimits.maxCPU) cpuShares = resourceLimits.maxCPU;
         if (diskMB > resourceLimits.maxDisk) diskMB = resourceLimits.maxDisk;
     }
+
+    // Check if user can upgrade to get more resources
+    $: canUpgrade = $userTier === "guest" || $userTier === "free" || $userTier === "pro";
+    $: nextTierName = $userTier === "guest" ? "Free" : $userTier === "free" ? "Pro" : $userTier === "pro" ? "Enterprise" : null;
+    
+    // Check if user is at max resources for their tier
+    $: isAtMaxMemory = memoryMB >= resourceLimits.maxMemory;
+    $: isAtMaxCPU = cpuShares >= resourceLimits.maxCPU;
+    $: isAtMaxDisk = diskMB >= resourceLimits.maxDisk;
+    $: showUpgradeHint = canUpgrade && (isAtMaxMemory || isAtMaxCPU || isAtMaxDisk);
+
+    // Get next tier limits for comparison
+    $: nextTierLimits = (() => {
+        switch ($userTier) {
+            case "guest":
+                return { maxMemory: 2048, maxCPU: 2000, maxDisk: 10240 }; // Free tier
+            case "free":
+                return { maxMemory: 4096, maxCPU: 4000, maxDisk: 20480 }; // Pro tier
+            case "pro":
+                return { maxMemory: 8192, maxCPU: 8000, maxDisk: 51200 }; // Enterprise tier
+            default:
+                return null;
+        }
+    })();
 
     // Slider event handlers
     function handleMemoryChange(e: Event) {
@@ -728,10 +753,32 @@
                             </div>
                         </div>
 
-                        <p class="resource-hint">
-                            Trial users can customize resources within these
-                            limits
-                        </p>
+                        {#if showUpgradeHint && nextTierLimits}
+                            <div class="upgrade-prompt">
+                                <div class="upgrade-icon">
+                                    <StatusIcon status="bolt" size={16} />
+                                </div>
+                                <div class="upgrade-content">
+                                    <span class="upgrade-title">Need more resources?</span>
+                                    <span class="upgrade-desc">
+                                        Upgrade to {nextTierName} for up to {formatMemory(nextTierLimits.maxMemory)} RAM, 
+                                        {formatCPU(nextTierLimits.maxCPU)}, and {formatStorage(nextTierLimits.maxDisk)} storage.
+                                    </span>
+                                </div>
+                                <button class="upgrade-btn" on:click={() => dispatch("upgrade")}>
+                                    Upgrade
+                                </button>
+                            </div>
+                        {:else}
+                            <p class="resource-hint">
+                                {#if $userTier === "enterprise"}
+                                    Enterprise plan resources
+                                {:else}
+                                    {$userTier === "guest" ? "Guest" : $userTier === "free" ? "Free" : "Pro"} plan limits — 
+                                    <button class="upgrade-link" on:click={() => dispatch("upgrade")}>upgrade for more</button>
+                                {/if}
+                            </p>
+                        {/if}
                     </div>
                 {/if}
             </div>
@@ -1439,6 +1486,80 @@
         margin: 4px 0 0 0;
         text-align: center;
         font-style: italic;
+    }
+
+    .upgrade-link {
+        background: none;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: inherit;
+        font-style: inherit;
+        padding: 0;
+        text-decoration: underline;
+    }
+
+    .upgrade-link:hover {
+        opacity: 0.8;
+    }
+
+    .upgrade-prompt {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 8px;
+        margin-top: 12px;
+    }
+
+    .upgrade-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: rgba(0, 212, 255, 0.2);
+        border-radius: 6px;
+        color: #00d4ff;
+        flex-shrink: 0;
+    }
+
+    .upgrade-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .upgrade-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .upgrade-desc {
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+
+    .upgrade-btn {
+        padding: 8px 16px;
+        background: linear-gradient(135deg, #00d4ff 0%, #8b5cf6 100%);
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .upgrade-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
     }
 
     /* Name Input */

@@ -5,6 +5,7 @@
     const dispatch = createEventDispatcher<{
         cancel: void;
         created: { id: string; name: string };
+        upgrade: void;
     }>();
 
     function handleCreated(event: CustomEvent<{ id: string; name: string }>) {
@@ -13,6 +14,10 @@
 
     function handleCancel() {
         dispatch("cancel");
+    }
+
+    function handleUpgrade() {
+        dispatch("upgrade");
     }
 </script>
 
@@ -26,6 +31,7 @@
         compact={false}
         on:created={handleCreated}
         on:cancel={handleCancel}
+        on:upgrade={handleUpgrade}
     />
 </div>
 
