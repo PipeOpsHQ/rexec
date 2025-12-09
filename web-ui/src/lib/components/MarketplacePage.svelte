@@ -2,7 +2,6 @@
     import { createEventDispatcher, onMount } from "svelte";
     import { toast } from "$stores/toast";
     import { api } from "$utils/api";
-    import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
         back: void;
@@ -16,6 +15,10 @@
         language: string;
         is_public: boolean;
         description?: string;
+        icon?: string;
+        category?: string;
+        install_command?: string;
+        requires_install?: boolean;
         usage_count: number;
         username?: string;
         is_owner?: boolean;
@@ -25,22 +28,26 @@
     let snippets: Snippet[] = [];
     let isLoading = true;
     let searchQuery = "";
-    let selectedLanguage = "all";
+    let selectedCategory = "all";
     let sortBy = "popular";
+    let expandedSnippet: string | null = null;
 
-    const languages = [
-        { value: "all", label: "All Languages" },
-        { value: "bash", label: "Bash" },
-        { value: "python", label: "Python" },
-        { value: "javascript", label: "JavaScript" },
-        { value: "go", label: "Go" },
+    const categories = [
+        { value: "all", label: "🌐 All", icon: "🌐" },
+        { value: "system", label: "🖥️ System", icon: "🖥️" },
+        { value: "nodejs", label: "📦 Node.js", icon: "📦" },
+        { value: "python", label: "🐍 Python", icon: "🐍" },
+        { value: "golang", label: "🐹 Go", icon: "🐹" },
+        { value: "devops", label: "☸️ DevOps", icon: "☸️" },
+        { value: "editor", label: "✏️ Editor", icon: "✏️" },
+        { value: "ai", label: "🤖 AI Tools", icon: "🤖" },
     ];
 
     async function loadSnippets() {
         isLoading = true;
         const params = new URLSearchParams();
         if (searchQuery) params.set("search", searchQuery);
-        if (selectedLanguage !== "all") params.set("language", selectedLanguage);
+        if (selectedCategory !== "all") params.set("language", selectedCategory);
         params.set("sort", sortBy);
 
         const { data, error } = await api.get<{ snippets: Snippet[] }>(
@@ -64,14 +71,9 @@
     }
 
     async function useSnippet(snippet: Snippet) {
-        // Record usage
         await api.post(`/api/snippets/${snippet.id}/use`, {});
-        
-        // Dispatch to parent to insert into terminal
         dispatch("use", { content: snippet.content, name: snippet.name });
         toast.success(`"${snippet.name}" copied to clipboard`);
-        
-        // Also copy to clipboard
         try {
             await navigator.clipboard.writeText(snippet.content);
         } catch (e) {
@@ -79,13 +81,24 @@
         }
     }
 
+    async function runInstall(snippet: Snippet) {
+        if (!snippet.install_command) return;
+        await navigator.clipboard.writeText(snippet.install_command);
+        toast.success("Install command copied! Paste in terminal to install.");
+    }
+
     function copyToClipboard(content: string) {
         navigator.clipboard.writeText(content);
         toast.success("Copied to clipboard");
     }
 
-    function formatDate(dateStr: string): string {
-        return new Date(dateStr).toLocaleDateString();
+    function toggleExpand(id: string) {
+        expandedSnippet = expandedSnippet === id ? null : id;
+    }
+
+    function getCategoryIcon(category: string): string {
+        const cat = categories.find(c => c.value === category);
+        return cat?.icon || "📄";
     }
 </script>
 
@@ -106,18 +119,24 @@
                 bind:value={searchQuery}
                 onkeydown={(e) => e.key === 'Enter' && handleSearch()}
             />
-            <button class="search-btn" onclick={handleSearch}>Search</button>
+            <button class="search-btn" onclick={handleSearch}>🔍</button>
         </div>
-        <div class="filter-group">
-            <select bind:value={selectedLanguage} onchange={loadSnippets}>
-                {#each languages as lang}
-                    <option value={lang.value}>{lang.label}</option>
-                {/each}
-            </select>
+        <div class="category-tabs">
+            {#each categories as cat}
+                <button 
+                    class="cat-tab" 
+                    class:active={selectedCategory === cat.value}
+                    onclick={() => { selectedCategory = cat.value; loadSnippets(); }}
+                >
+                    {cat.label}
+                </button>
+            {/each}
+        </div>
+        <div class="sort-group">
             <select bind:value={sortBy} onchange={loadSnippets}>
-                <option value="popular">Most Popular</option>
-                <option value="recent">Most Recent</option>
-                <option value="name">Alphabetical</option>
+                <option value="popular">🔥 Popular</option>
+                <option value="recent">🆕 Recent</option>
+                <option value="name">🔤 A-Z</option>
             </select>
         </div>
     </div>
@@ -132,43 +151,78 @@
             <div class="empty-state">
                 <div class="empty-icon">🔍</div>
                 <h2>No Snippets Found</h2>
-                <p>Try adjusting your search or filters, or be the first to share a snippet!</p>
+                <p>Try adjusting your search or filters</p>
             </div>
         {:else}
             <div class="snippets-grid">
                 {#each snippets as snippet (snippet.id)}
-                    <div class="snippet-card">
-                        <div class="snippet-header">
-                            <div class="snippet-title">{snippet.name}</div>
-                            <div class="snippet-author">by {snippet.username || "Anonymous"}</div>
+                    <div class="snippet-card" class:expanded={expandedSnippet === snippet.id}>
+                        <div class="card-header" onclick={() => toggleExpand(snippet.id)}>
+                            <span class="snippet-icon">{snippet.icon || getCategoryIcon(snippet.category || '')}</span>
+                            <div class="snippet-info">
+                                <span class="snippet-name">{snippet.name}</span>
+                                <span class="snippet-meta">
+                                    by {snippet.username || "rexec"} · {snippet.usage_count} uses
+                                </span>
+                            </div>
+                            <div class="card-actions">
+                                {#if snippet.requires_install && snippet.install_command}
+                                    <button 
+                                        class="btn-icon install"
+                                        onclick={(e) => { e.stopPropagation(); runInstall(snippet); }}
+                                        title="Copy install command"
+                                    >
+                                        ⬇️
+                                    </button>
+                                {/if}
+                                <button 
+                                    class="btn-icon copy"
+                                    onclick={(e) => { e.stopPropagation(); copyToClipboard(snippet.content); }}
+                                    title="Copy snippet"
+                                >
+                                    📋
+                                </button>
+                                <button 
+                                    class="btn-icon use"
+                                    onclick={(e) => { e.stopPropagation(); useSnippet(snippet); }}
+                                    title="Use snippet"
+                                >
+                                    ▶️
+                                </button>
+                            </div>
                         </div>
-                        {#if snippet.description}
-                            <p class="snippet-description">{snippet.description}</p>
+                        
+                        {#if expandedSnippet === snippet.id}
+                            <div class="card-body">
+                                {#if snippet.description}
+                                    <p class="description">{snippet.description}</p>
+                                {/if}
+                                
+                                {#if snippet.requires_install && snippet.install_command}
+                                    <div class="install-section">
+                                        <span class="install-label">📦 Install first:</span>
+                                        <code class="install-cmd">{snippet.install_command}</code>
+                                        <button 
+                                            class="copy-install"
+                                            onclick={() => copyToClipboard(snippet.install_command || '')}
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                {/if}
+                                
+                                <div class="code-preview">
+                                    <pre><code>{snippet.content}</code></pre>
+                                </div>
+                                
+                                <div class="card-footer">
+                                    <span class="lang-badge">{snippet.language}</span>
+                                    {#if snippet.category}
+                                        <span class="cat-badge">{snippet.category}</span>
+                                    {/if}
+                                </div>
+                            </div>
                         {/if}
-                        <div class="snippet-preview">
-                            <code>{snippet.content.slice(0, 150)}{snippet.content.length > 150 ? '...' : ''}</code>
-                        </div>
-                        <div class="snippet-footer">
-                            <div class="snippet-meta">
-                                <span class="language-badge">{snippet.language}</span>
-                                <span class="usage-count">📊 {snippet.usage_count} uses</span>
-                                <span class="date">{formatDate(snippet.created_at)}</span>
-                            </div>
-                            <div class="snippet-actions">
-                                <button 
-                                    class="btn btn-secondary btn-sm"
-                                    onclick={() => copyToClipboard(snippet.content)}
-                                >
-                                    📋 Copy
-                                </button>
-                                <button 
-                                    class="btn btn-primary btn-sm"
-                                    onclick={() => useSnippet(snippet)}
-                                >
-                                    ▶ Use
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 {/each}
             </div>
@@ -178,32 +232,27 @@
 
 <style>
     .marketplace-page {
-        max-width: 1100px;
+        max-width: 1000px;
         margin: 0 auto;
-        padding: 20px;
+        padding: 16px;
         animation: fadeIn 0.2s ease;
     }
 
     .page-header {
         display: flex;
         align-items: center;
-        gap: 20px;
-        margin-bottom: 24px;
+        gap: 16px;
+        margin-bottom: 20px;
     }
 
-    .title-group {
-        flex: 1;
-    }
-
-    h1 {
-        font-size: 24px;
-        margin: 0 0 4px 0;
-        font-weight: 600;
+    .title-group h1 {
+        font-size: 22px;
+        margin: 0 0 2px 0;
     }
 
     .subtitle {
         color: var(--text-muted);
-        font-size: 14px;
+        font-size: 13px;
         margin: 0;
     }
 
@@ -211,11 +260,11 @@
         background: none;
         border: 1px solid var(--border);
         color: var(--text-secondary);
-        padding: 8px 16px;
+        padding: 6px 12px;
         font-family: var(--font-mono);
-        font-size: 13px;
+        font-size: 12px;
         cursor: pointer;
-        transition: all 0.2s;
+        border-radius: 4px;
     }
 
     .back-btn:hover {
@@ -225,20 +274,19 @@
 
     .filters {
         display: flex;
-        gap: 16px;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
     }
 
     .search-box {
         display: flex;
-        flex: 1;
-        min-width: 250px;
+        gap: 0;
     }
 
     .search-box input {
         flex: 1;
-        padding: 10px 14px;
+        padding: 8px 12px;
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-right: none;
@@ -249,45 +297,63 @@
     }
 
     .search-btn {
-        padding: 10px 20px;
+        padding: 8px 16px;
         background: var(--accent);
-        border: 1px solid var(--accent);
+        border: none;
         border-radius: 0 4px 4px 0;
-        color: #000;
-        font-weight: 600;
         cursor: pointer;
+        font-size: 14px;
     }
 
-    .filter-group {
+    .category-tabs {
         display: flex;
-        gap: 8px;
+        gap: 6px;
+        flex-wrap: wrap;
     }
 
-    .filter-group select {
-        padding: 10px 14px;
+    .cat-tab {
+        padding: 6px 12px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .cat-tab:hover {
+        border-color: var(--accent);
+    }
+
+    .cat-tab.active {
+        background: var(--accent);
+        color: #000;
+        border-color: var(--accent);
+    }
+
+    .sort-group select {
+        padding: 6px 12px;
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 4px;
         color: var(--text);
         font-family: var(--font-mono);
-        font-size: 13px;
+        font-size: 12px;
         cursor: pointer;
     }
 
     .snippets-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .snippet-card {
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 8px;
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+        overflow: hidden;
         transition: border-color 0.2s;
     }
 
@@ -295,135 +361,201 @@
         border-color: var(--accent);
     }
 
-    .snippet-header {
+    .card-header {
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
-
-    .snippet-title {
-        font-weight: 600;
-        font-size: 15px;
-        color: var(--text);
-    }
-
-    .snippet-author {
-        font-size: 12px;
-        color: var(--text-muted);
-    }
-
-    .snippet-description {
-        font-size: 13px;
-        color: var(--text-secondary);
-        margin: 0;
-        line-height: 1.4;
-    }
-
-    .snippet-preview {
-        background: var(--bg);
-        border-radius: 4px;
-        padding: 10px;
-        overflow: hidden;
-    }
-
-    .snippet-preview code {
-        font-family: var(--font-mono);
-        font-size: 12px;
-        color: var(--text-muted);
-        white-space: pre-wrap;
-        word-break: break-all;
-    }
-
-    .snippet-footer {
-        display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-top: auto;
+        gap: 12px;
+        padding: 12px;
+        cursor: pointer;
+    }
+
+    .snippet-icon {
+        font-size: 20px;
+        width: 32px;
+        text-align: center;
+    }
+
+    .snippet-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .snippet-name {
+        display: block;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .snippet-meta {
-        display: flex;
-        gap: 10px;
         font-size: 11px;
         color: var(--text-muted);
-        align-items: center;
     }
 
-    .language-badge {
-        background: var(--accent);
-        color: #000;
-        padding: 2px 8px;
-        border-radius: 4px;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 10px;
-    }
-
-    .snippet-actions {
+    .card-actions {
         display: flex;
-        gap: 8px;
+        gap: 4px;
     }
 
-    .btn-sm {
-        padding: 6px 12px;
-        font-size: 12px;
-    }
-
-    .btn {
-        border: none;
-        border-radius: 4px;
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
         cursor: pointer;
-        font-family: var(--font-mono);
+        font-size: 14px;
         transition: all 0.2s;
     }
 
-    .btn-primary {
+    .btn-icon:hover {
+        border-color: var(--accent);
         background: var(--accent);
-        color: #000;
-        font-weight: 600;
     }
 
-    .btn-secondary {
+    .btn-icon.use {
+        background: var(--accent);
+        border-color: var(--accent);
+    }
+
+    .card-body {
+        padding: 0 12px 12px 12px;
+        border-top: 1px solid var(--border);
+        animation: slideDown 0.2s ease;
+    }
+
+    .description {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin: 12px 0;
+        line-height: 1.4;
+    }
+
+    .install-section {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid rgba(255, 193, 7, 0.3);
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .install-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+    }
+
+    .install-cmd {
+        flex: 1;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--accent);
         background: var(--bg);
+        padding: 4px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+        overflow-x: auto;
+    }
+
+    .copy-install {
+        padding: 4px 8px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
         color: var(--text);
+    }
+
+    .copy-install:hover {
+        border-color: var(--accent);
+    }
+
+    .code-preview {
+        background: var(--bg);
+        border-radius: 6px;
+        padding: 12px;
+        overflow-x: auto;
+        max-height: 200px;
+    }
+
+    .code-preview pre {
+        margin: 0;
+    }
+
+    .code-preview code {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text-muted);
+        white-space: pre;
+    }
+
+    .card-footer {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .lang-badge, .cat-badge {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .lang-badge {
+        background: var(--accent);
+        color: #000;
+    }
+
+    .cat-badge {
+        background: var(--bg);
+        color: var(--text-secondary);
         border: 1px solid var(--border);
     }
 
-    .btn-secondary:hover {
-        border-color: var(--text);
-    }
-
-    /* Loading/Empty */
     .loading-state, .empty-state {
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 60px 0;
+        padding: 48px 0;
         color: var(--text-muted);
         text-align: center;
     }
 
     .spinner {
-        width: 32px;
-        height: 32px;
+        width: 28px;
+        height: 28px;
         border: 3px solid var(--border);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
     }
 
     .empty-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
+        font-size: 40px;
+        margin-bottom: 12px;
     }
 
     .empty-state h2 {
-        font-size: 18px;
-        margin-bottom: 8px;
+        font-size: 16px;
+        margin-bottom: 4px;
         color: var(--text);
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 </style>

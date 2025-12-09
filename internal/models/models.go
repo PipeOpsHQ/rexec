@@ -50,16 +50,20 @@ type PortForward struct {
 
 // Snippet represents a saved script or macro
 type Snippet struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"user_id"`
-	Username    string    `json:"username,omitempty"` // For marketplace display
-	Name        string    `json:"name"`
-	Content     string    `json:"content"`
-	Language    string    `json:"language"` // bash, python, etc.
-	IsPublic    bool      `json:"is_public"`
-	UsageCount  int       `json:"usage_count"`
-	Description string    `json:"description,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID               string    `json:"id"`
+	UserID           string    `json:"user_id"`
+	Username         string    `json:"username,omitempty"` // For marketplace display
+	Name             string    `json:"name"`
+	Content          string    `json:"content"`
+	Language         string    `json:"language"` // bash, python, etc.
+	IsPublic         bool      `json:"is_public"`
+	UsageCount       int       `json:"usage_count"`
+	Description      string    `json:"description,omitempty"`
+	Icon             string    `json:"icon,omitempty"`              // Emoji icon for display
+	Category         string    `json:"category,omitempty"`          // devops, security, database, etc.
+	InstallCommand   string    `json:"install_command,omitempty"`   // Command to install dependencies
+	RequiresInstall  bool      `json:"requires_install"`            // Whether install step is needed
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 // Container represents a user's terminal container

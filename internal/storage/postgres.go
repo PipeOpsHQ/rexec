@@ -225,6 +225,30 @@ func (s *PostgresStore) migrate() error {
 				ALTER TABLE snippets ADD COLUMN usage_count INTEGER DEFAULT 0;
 			END IF;
 		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='icon') THEN
+				ALTER TABLE snippets ADD COLUMN icon VARCHAR(20);
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='category') THEN
+				ALTER TABLE snippets ADD COLUMN category VARCHAR(50);
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='install_command') THEN
+				ALTER TABLE snippets ADD COLUMN install_command TEXT;
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='snippets' AND column_name='requires_install') THEN
+				ALTER TABLE snippets ADD COLUMN requires_install BOOLEAN DEFAULT false;
+			END IF;
+		END $$`,
 	}
 
 	for _, query := range snippetColumns {
@@ -357,55 +381,59 @@ func (s *PostgresStore) seedExampleSnippets() error {
 
 	// Example snippets organized by role
 	snippets := []struct {
-		ID          string
-		Name        string
-		Content     string
-		Language    string
-		Description string
+		ID              string
+		Name            string
+		Content         string
+		Language        string
+		Description     string
+		Icon            string
+		Category        string
+		InstallCommand  string
+		RequiresInstall bool
 	}{
-		// Standard/Minimalist snippets
-		{"seed-001", "System Info", "#!/bin/bash\necho '=== System Info ==='\nuname -a\necho ''\necho '=== Memory ==='\nfree -h\necho ''\necho '=== Disk ==='\ndf -h /\necho ''\necho '=== CPU ==='\nlscpu | grep -E '^(Model name|CPU\\(s\\)|Thread)'\necho ''\nneofetch 2>/dev/null || echo 'neofetch not installed'", "bash", "Display comprehensive system information including OS, memory, disk, and CPU details"},
-		{"seed-002", "Find Large Files", "#!/bin/bash\necho 'Finding files larger than 100MB...'\nfind . -type f -size +100M -exec ls -lh {} \\; 2>/dev/null | awk '{print $5, $9}' | sort -rh | head -20", "bash", "Find and list the 20 largest files over 100MB in current directory"},
-		{"seed-003", "Process Monitor", "#!/bin/bash\necho 'Top 10 processes by CPU:'\nps aux --sort=-%cpu | head -11\necho ''\necho 'Top 10 processes by Memory:'\nps aux --sort=-%mem | head -11", "bash", "Show top 10 processes by CPU and memory usage"},
-		{"seed-004", "Quick Backup", "#!/bin/bash\nDIR=${1:-.}\nBACKUP_NAME=\"backup_$(date +%Y%m%d_%H%M%S).tar.gz\"\ntar -czvf \"$BACKUP_NAME\" \"$DIR\"\necho \"Backup created: $BACKUP_NAME\"\nls -lh \"$BACKUP_NAME\"", "bash", "Create a timestamped tar.gz backup of current or specified directory"},
-		{"seed-005", "Network Check", "#!/bin/bash\necho '=== Network Interfaces ==='\nip addr show | grep -E '^[0-9]+:|inet '\necho ''\necho '=== Connectivity Test ==='\nping -c 3 8.8.8.8\necho ''\necho '=== DNS Test ==='\nnslookup google.com", "bash", "Check network interfaces, connectivity, and DNS resolution"},
+		// 🖥️ Standard/System snippets
+		{"seed-001", "System Info", "#!/bin/bash\necho '=== System Info ==='\nuname -a\necho ''\necho '=== Memory ==='\nfree -h\necho ''\necho '=== Disk ==='\ndf -h /\necho ''\necho '=== CPU ==='\nlscpu | grep -E '^(Model name|CPU\\(s\\)|Thread)'\necho ''\nneofetch 2>/dev/null || echo 'neofetch not installed'", "bash", "Display comprehensive system information including OS, memory, disk, and CPU details", "🖥️", "system", "", false},
+		{"seed-002", "Find Large Files", "#!/bin/bash\necho 'Finding files larger than 100MB...'\nfind . -type f -size +100M -exec ls -lh {} \\; 2>/dev/null | awk '{print $5, $9}' | sort -rh | head -20", "bash", "Find and list the 20 largest files over 100MB in current directory", "📁", "system", "", false},
+		{"seed-003", "Process Monitor", "#!/bin/bash\necho 'Top 10 processes by CPU:'\nps aux --sort=-%cpu | head -11\necho ''\necho 'Top 10 processes by Memory:'\nps aux --sort=-%mem | head -11", "bash", "Show top 10 processes by CPU and memory usage", "📊", "system", "", false},
+		{"seed-004", "Quick Backup", "#!/bin/bash\nDIR=${1:-.}\nBACKUP_NAME=\"backup_$(date +%Y%m%d_%H%M%S).tar.gz\"\ntar -czvf \"$BACKUP_NAME\" \"$DIR\"\necho \"Backup created: $BACKUP_NAME\"\nls -lh \"$BACKUP_NAME\"", "bash", "Create a timestamped tar.gz backup of current or specified directory", "💾", "system", "", false},
+		{"seed-005", "Network Check", "#!/bin/bash\necho '=== Network Interfaces ==='\nip addr show | grep -E '^[0-9]+:|inet '\necho ''\necho '=== Connectivity Test ==='\nping -c 3 8.8.8.8\necho ''\necho '=== DNS Test ==='\nnslookup google.com", "bash", "Check network interfaces, connectivity, and DNS resolution", "🌐", "network", "", false},
 
-		// Node.js/JavaScript snippets
-		{"seed-006", "Node Project Init", "#!/bin/bash\nmkdir -p src tests\nnpm init -y\nnpm install --save-dev typescript @types/node jest ts-jest\ncat > tsconfig.json << 'EOF'\n{\n  \"compilerOptions\": {\n    \"target\": \"ES2020\",\n    \"module\": \"commonjs\",\n    \"outDir\": \"./dist\",\n    \"rootDir\": \"./src\",\n    \"strict\": true\n  }\n}\nEOF\necho 'console.log(\"Hello, TypeScript!\");' > src/index.ts\necho 'Node.js TypeScript project initialized!'", "bash", "Initialize a new Node.js project with TypeScript, Jest, and proper directory structure"},
-		{"seed-007", "NPM Audit Fix", "#!/bin/bash\necho '=== Running npm audit ==='\nnpm audit\necho ''\necho '=== Fixing vulnerabilities ==='\nnpm audit fix\necho ''\necho '=== Checking outdated packages ==='\nnpm outdated", "bash", "Run npm security audit, fix vulnerabilities, and check for outdated packages"},
-		{"seed-008", "Express API Starter", "const express = require('express');\nconst app = express();\napp.use(express.json());\n\napp.get('/health', (req, res) => res.json({ status: 'ok' }));\n\napp.get('/api/items', (req, res) => {\n  res.json([{ id: 1, name: 'Item 1' }]);\n});\n\napp.post('/api/items', (req, res) => {\n  res.status(201).json({ id: 2, ...req.body });\n});\n\napp.listen(3000, () => console.log('Server running on :3000'));", "javascript", "Minimal Express.js REST API with health check and CRUD endpoints"},
-		{"seed-009", "Package.json Scripts", "#!/bin/bash\ncat << 'EOF'\n// Add these to your package.json scripts:\n\"scripts\": {\n  \"dev\": \"nodemon src/index.ts\",\n  \"build\": \"tsc\",\n  \"start\": \"node dist/index.js\",\n  \"test\": \"jest\",\n  \"test:watch\": \"jest --watch\",\n  \"lint\": \"eslint src/**/*.ts\",\n  \"format\": \"prettier --write src/**/*.ts\"\n}\nEOF", "bash", "Common package.json scripts for TypeScript Node.js projects"},
+		// 📦 Node.js/JavaScript snippets
+		{"seed-006", "Node Project Init", "#!/bin/bash\nmkdir -p src tests\nnpm init -y\nnpm install --save-dev typescript @types/node jest ts-jest\ncat > tsconfig.json << 'EOF'\n{\n  \"compilerOptions\": {\n    \"target\": \"ES2020\",\n    \"module\": \"commonjs\",\n    \"outDir\": \"./dist\",\n    \"rootDir\": \"./src\",\n    \"strict\": true\n  }\n}\nEOF\necho 'console.log(\"Hello, TypeScript!\");' > src/index.ts\necho 'Node.js TypeScript project initialized!'", "bash", "Initialize a new Node.js project with TypeScript, Jest, and proper directory structure", "📦", "nodejs", "npm install -g typescript ts-node", true},
+		{"seed-007", "NPM Audit Fix", "#!/bin/bash\necho '=== Running npm audit ==='\nnpm audit\necho ''\necho '=== Fixing vulnerabilities ==='\nnpm audit fix\necho ''\necho '=== Checking outdated packages ==='\nnpm outdated", "bash", "Run npm security audit, fix vulnerabilities, and check for outdated packages", "🔒", "nodejs", "", false},
+		{"seed-008", "Express API Starter", "const express = require('express');\nconst app = express();\napp.use(express.json());\n\napp.get('/health', (req, res) => res.json({ status: 'ok' }));\n\napp.get('/api/items', (req, res) => {\n  res.json([{ id: 1, name: 'Item 1' }]);\n});\n\napp.post('/api/items', (req, res) => {\n  res.status(201).json({ id: 2, ...req.body });\n});\n\napp.listen(3000, () => console.log('Server running on :3000'));", "javascript", "Minimal Express.js REST API with health check and CRUD endpoints", "🚀", "nodejs", "npm install express", true},
+		{"seed-009", "Package.json Scripts", "#!/bin/bash\ncat << 'EOF'\n// Add these to your package.json scripts:\n\"scripts\": {\n  \"dev\": \"nodemon src/index.ts\",\n  \"build\": \"tsc\",\n  \"start\": \"node dist/index.js\",\n  \"test\": \"jest\",\n  \"test:watch\": \"jest --watch\",\n  \"lint\": \"eslint src/**/*.ts\",\n  \"format\": \"prettier --write src/**/*.ts\"\n}\nEOF", "bash", "Common package.json scripts for TypeScript Node.js projects", "📝", "nodejs", "", false},
 
-		// Python/Data Science snippets
-		{"seed-010", "Python Venv Setup", "#!/bin/bash\npython3 -m venv venv\nsource venv/bin/activate\npip install --upgrade pip\npip install pandas numpy matplotlib jupyter requests\npip freeze > requirements.txt\necho 'Virtual environment created and activated!'", "bash", "Create Python virtual environment with common data science packages"},
-		{"seed-011", "Data Analysis Template", "import pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# Load data\ndf = pd.read_csv('data.csv')\n\n# Quick overview\nprint('Shape:', df.shape)\nprint('\\nColumns:', df.columns.tolist())\nprint('\\nData types:')\nprint(df.dtypes)\nprint('\\nSummary statistics:')\nprint(df.describe())\nprint('\\nMissing values:')\nprint(df.isnull().sum())", "python", "Python data analysis template with pandas for quick dataset exploration"},
-		{"seed-012", "Flask API Starter", "from flask import Flask, jsonify, request\n\napp = Flask(__name__)\n\nitems = [{'id': 1, 'name': 'Item 1'}]\n\n@app.route('/health')\ndef health():\n    return jsonify({'status': 'ok'})\n\n@app.route('/api/items', methods=['GET'])\ndef get_items():\n    return jsonify(items)\n\n@app.route('/api/items', methods=['POST'])\ndef create_item():\n    item = {'id': len(items) + 1, **request.json}\n    items.append(item)\n    return jsonify(item), 201\n\nif __name__ == '__main__':\n    app.run(debug=True, port=5000)", "python", "Minimal Flask REST API with health check and CRUD endpoints"},
-		{"seed-013", "Jupyter Setup", "#!/bin/bash\npip install jupyterlab ipykernel\npython -m ipykernel install --user --name=myenv\njupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root", "bash", "Install JupyterLab and start it for remote access"},
+		// 🐍 Python/Data Science snippets
+		{"seed-010", "Python Venv Setup", "#!/bin/bash\npython3 -m venv venv\nsource venv/bin/activate\npip install --upgrade pip\npip install pandas numpy matplotlib jupyter requests\npip freeze > requirements.txt\necho 'Virtual environment created and activated!'", "bash", "Create Python virtual environment with common data science packages", "🐍", "python", "", false},
+		{"seed-011", "Data Analysis Template", "import pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# Load data\ndf = pd.read_csv('data.csv')\n\n# Quick overview\nprint('Shape:', df.shape)\nprint('\\nColumns:', df.columns.tolist())\nprint('\\nData types:')\nprint(df.dtypes)\nprint('\\nSummary statistics:')\nprint(df.describe())\nprint('\\nMissing values:')\nprint(df.isnull().sum())", "python", "Python data analysis template with pandas for quick dataset exploration", "📈", "python", "pip install pandas numpy matplotlib", true},
+		{"seed-012", "Flask API Starter", "from flask import Flask, jsonify, request\n\napp = Flask(__name__)\n\nitems = [{'id': 1, 'name': 'Item 1'}]\n\n@app.route('/health')\ndef health():\n    return jsonify({'status': 'ok'})\n\n@app.route('/api/items', methods=['GET'])\ndef get_items():\n    return jsonify(items)\n\n@app.route('/api/items', methods=['POST'])\ndef create_item():\n    item = {'id': len(items) + 1, **request.json}\n    items.append(item)\n    return jsonify(item), 201\n\nif __name__ == '__main__':\n    app.run(debug=True, port=5000)", "python", "Minimal Flask REST API with health check and CRUD endpoints", "🌶️", "python", "pip install flask", true},
+		{"seed-013", "Jupyter Setup", "#!/bin/bash\npip install jupyterlab ipykernel\npython -m ipykernel install --user --name=myenv\njupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root", "bash", "Install JupyterLab and start it for remote access", "📓", "python", "pip install jupyterlab", true},
 
-		// Go/Gopher snippets
-		{"seed-014", "Go Module Init", "#!/bin/bash\ngo mod init myproject\nmkdir -p cmd/myapp internal pkg\ncat > cmd/myapp/main.go << 'EOF'\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, Go!\")\n}\nEOF\ngo mod tidy\ngo build -o bin/myapp ./cmd/myapp\necho 'Go project initialized!'", "bash", "Initialize a Go module with standard project layout"},
-		{"seed-015", "Go HTTP Server", "package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n)\n\nfunc main() {\n\thttp.HandleFunc(\"/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tjson.NewEncoder(w).Encode(map[string]string{\"status\": \"ok\"})\n\t})\n\n\thttp.HandleFunc(\"/api/items\", func(w http.ResponseWriter, r *http.Request) {\n\t\titems := []map[string]interface{}{{\"id\": 1, \"name\": \"Item 1\"}}\n\t\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t\tjson.NewEncoder(w).Encode(items)\n\t})\n\n\tlog.Println(\"Server starting on :8080\")\n\tlog.Fatal(http.ListenAndServe(\":8080\", nil))\n}", "go", "Simple Go HTTP server with JSON endpoints"},
-		{"seed-016", "Go Test Template", "package mypackage\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\ttests := []struct {\n\t\tname     string\n\t\ta, b     int\n\t\texpected int\n\t}{\n\t\t{\"positive\", 2, 3, 5},\n\t\t{\"negative\", -1, -1, -2},\n\t\t{\"zero\", 0, 0, 0},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tresult := Add(tt.a, tt.b)\n\t\t\tif result != tt.expected {\n\t\t\t\tt.Errorf(\"Add(%d, %d) = %d; want %d\", tt.a, tt.b, result, tt.expected)\n\t\t\t}\n\t\t})\n\t}\n}", "go", "Go table-driven test template with subtests"},
-		{"seed-017", "Go Build All", "#!/bin/bash\necho 'Building for multiple platforms...'\nGOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64 ./cmd/app\nGOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64 ./cmd/app\nGOOS=windows GOARCH=amd64 go build -o bin/app-windows-amd64.exe ./cmd/app\nls -la bin/\necho 'Cross-compilation complete!'", "bash", "Cross-compile Go application for Linux, macOS, and Windows"},
+		// 🐹 Go/Gopher snippets
+		{"seed-014", "Go Module Init", "#!/bin/bash\ngo mod init myproject\nmkdir -p cmd/myapp internal pkg\ncat > cmd/myapp/main.go << 'EOF'\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, Go!\")\n}\nEOF\ngo mod tidy\ngo build -o bin/myapp ./cmd/myapp\necho 'Go project initialized!'", "bash", "Initialize a Go module with standard project layout", "🐹", "golang", "", false},
+		{"seed-015", "Go HTTP Server", "package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n)\n\nfunc main() {\n\thttp.HandleFunc(\"/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tjson.NewEncoder(w).Encode(map[string]string{\"status\": \"ok\"})\n\t})\n\n\thttp.HandleFunc(\"/api/items\", func(w http.ResponseWriter, r *http.Request) {\n\t\titems := []map[string]interface{}{{\"id\": 1, \"name\": \"Item 1\"}}\n\t\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t\tjson.NewEncoder(w).Encode(items)\n\t})\n\n\tlog.Println(\"Server starting on :8080\")\n\tlog.Fatal(http.ListenAndServe(\":8080\", nil))\n}", "go", "Simple Go HTTP server with JSON endpoints", "🌐", "golang", "", false},
+		{"seed-016", "Go Test Template", "package mypackage\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\ttests := []struct {\n\t\tname     string\n\t\ta, b     int\n\t\texpected int\n\t}{\n\t\t{\"positive\", 2, 3, 5},\n\t\t{\"negative\", -1, -1, -2},\n\t\t{\"zero\", 0, 0, 0},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tresult := Add(tt.a, tt.b)\n\t\t\tif result != tt.expected {\n\t\t\t\tt.Errorf(\"Add(%d, %d) = %d; want %d\", tt.a, tt.b, result, tt.expected)\n\t\t\t}\n\t\t})\n\t}\n}", "go", "Go table-driven test template with subtests", "🧪", "golang", "", false},
+		{"seed-017", "Go Build All", "#!/bin/bash\necho 'Building for multiple platforms...'\nGOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64 ./cmd/app\nGOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64 ./cmd/app\nGOOS=windows GOARCH=amd64 go build -o bin/app-windows-amd64.exe ./cmd/app\nls -la bin/\necho 'Cross-compilation complete!'", "bash", "Cross-compile Go application for Linux, macOS, and Windows", "🔨", "golang", "", false},
 
-		// Neovim/Editor snippets
-		{"seed-018", "Neovim Config Check", "#!/bin/bash\necho '=== Neovim Version ==='\nnvim --version | head -5\necho ''\necho '=== Config Location ==='\nls -la ~/.config/nvim/ 2>/dev/null || echo 'No config found'\necho ''\necho '=== Installed Plugins ==='\nls ~/.local/share/nvim/site/pack/ 2>/dev/null || echo 'No plugins found'", "bash", "Check Neovim version, config, and installed plugins"},
-		{"seed-019", "LazyVim Setup", "#!/bin/bash\n# Backup existing config\nmv ~/.config/nvim ~/.config/nvim.bak 2>/dev/null\nmv ~/.local/share/nvim ~/.local/share/nvim.bak 2>/dev/null\n\n# Clone LazyVim starter\ngit clone https://github.com/LazyVim/starter ~/.config/nvim\nrm -rf ~/.config/nvim/.git\n\necho 'LazyVim installed! Run nvim to complete setup.'", "bash", "Install LazyVim - a modern Neovim configuration"},
-		{"seed-020", "Ripgrep Search", "#!/bin/bash\n# Usage: ./script.sh 'pattern' [path]\nPATTERN=\"${1:-TODO}\"\nPATH=\"${2:-.}\"\n\necho \"Searching for '$PATTERN' in $PATH\"\nrg --color=always --line-number --heading \"$PATTERN\" \"$PATH\" | head -100", "bash", "Fast code search with ripgrep - colorized output with line numbers"},
+		// ✏️ Neovim/Editor snippets
+		{"seed-018", "Neovim Config Check", "#!/bin/bash\necho '=== Neovim Version ==='\nnvim --version | head -5\necho ''\necho '=== Config Location ==='\nls -la ~/.config/nvim/ 2>/dev/null || echo 'No config found'\necho ''\necho '=== Installed Plugins ==='\nls ~/.local/share/nvim/site/pack/ 2>/dev/null || echo 'No plugins found'", "bash", "Check Neovim version, config, and installed plugins", "✏️", "editor", "", false},
+		{"seed-019", "LazyVim Setup", "#!/bin/bash\n# Backup existing config\nmv ~/.config/nvim ~/.config/nvim.bak 2>/dev/null\nmv ~/.local/share/nvim ~/.local/share/nvim.bak 2>/dev/null\n\n# Clone LazyVim starter\ngit clone https://github.com/LazyVim/starter ~/.config/nvim\nrm -rf ~/.config/nvim/.git\n\necho 'LazyVim installed! Run nvim to complete setup.'", "bash", "Install LazyVim - a modern Neovim configuration", "🚀", "editor", "apt-get install -y neovim || brew install neovim", true},
+		{"seed-020", "Ripgrep Search", "#!/bin/bash\n# Usage: ./script.sh 'pattern' [path]\nPATTERN=\"${1:-TODO}\"\nPATH=\"${2:-.}\"\n\necho \"Searching for '$PATTERN' in $PATH\"\nrg --color=always --line-number --heading \"$PATTERN\" \"$PATH\" | head -100", "bash", "Fast code search with ripgrep - colorized output with line numbers", "🔍", "editor", "apt-get install -y ripgrep || brew install ripgrep", true},
 
-		// DevOps/YAML Herder snippets
-		{"seed-021", "Docker Cleanup", "#!/bin/bash\necho '=== Removing stopped containers ==='\ndocker container prune -f\necho ''\necho '=== Removing unused images ==='\ndocker image prune -a -f\necho ''\necho '=== Removing unused volumes ==='\ndocker volume prune -f\necho ''\necho '=== Disk usage ==='\ndocker system df", "bash", "Clean up Docker resources - containers, images, volumes"},
-		{"seed-022", "Kubernetes Debug", "#!/bin/bash\nNS=${1:-default}\necho \"=== Pods in $NS ===\"\nkubectl get pods -n $NS\necho ''\necho '=== Recent Events ==='\nkubectl get events -n $NS --sort-by='.lastTimestamp' | tail -20\necho ''\necho '=== Failed Pods ==='\nkubectl get pods -n $NS --field-selector=status.phase!=Running,status.phase!=Succeeded", "bash", "Debug Kubernetes namespace - show pods, events, and failures"},
-		{"seed-023", "Terraform Init", "#!/bin/bash\nterraform init\nterraform validate\nterraform fmt -recursive\nterraform plan -out=tfplan\necho ''\necho 'Review the plan above. Run: terraform apply tfplan'", "bash", "Initialize, validate, format, and plan Terraform configuration"},
-		{"seed-024", "Docker Compose Template", "version: '3.8'\n\nservices:\n  app:\n    build: .\n    ports:\n      - \"3000:3000\"\n    environment:\n      - NODE_ENV=development\n    volumes:\n      - .:/app\n      - /app/node_modules\n    depends_on:\n      - db\n      - redis\n\n  db:\n    image: postgres:15-alpine\n    environment:\n      POSTGRES_PASSWORD: secret\n      POSTGRES_DB: myapp\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n\n  redis:\n    image: redis:7-alpine\n\nvolumes:\n  postgres_data:", "yaml", "Docker Compose template with app, PostgreSQL, and Redis"},
-		{"seed-025", "Ansible Ping", "#!/bin/bash\nansible all -m ping -i inventory.ini\necho ''\necho '=== Host Facts ==='\nansible all -m setup -i inventory.ini -a 'filter=ansible_distribution*' | head -50", "bash", "Ansible ping all hosts and gather basic facts"},
+		// ☸️ DevOps/YAML Herder snippets
+		{"seed-021", "Docker Cleanup", "#!/bin/bash\necho '=== Removing stopped containers ==='\ndocker container prune -f\necho ''\necho '=== Removing unused images ==='\ndocker image prune -a -f\necho ''\necho '=== Removing unused volumes ==='\ndocker volume prune -f\necho ''\necho '=== Disk usage ==='\ndocker system df", "bash", "Clean up Docker resources - containers, images, volumes", "🐳", "devops", "", false},
+		{"seed-022", "Kubernetes Debug", "#!/bin/bash\nNS=${1:-default}\necho \"=== Pods in $NS ===\"\nkubectl get pods -n $NS\necho ''\necho '=== Recent Events ==='\nkubectl get events -n $NS --sort-by='.lastTimestamp' | tail -20\necho ''\necho '=== Failed Pods ==='\nkubectl get pods -n $NS --field-selector=status.phase!=Running,status.phase!=Succeeded", "bash", "Debug Kubernetes namespace - show pods, events, and failures", "☸️", "devops", "curl -LO https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin/", true},
+		{"seed-023", "Terraform Init", "#!/bin/bash\nterraform init\nterraform validate\nterraform fmt -recursive\nterraform plan -out=tfplan\necho ''\necho 'Review the plan above. Run: terraform apply tfplan'", "bash", "Initialize, validate, format, and plan Terraform configuration", "🏗️", "devops", "apt-get install -y terraform || brew install terraform", true},
+		{"seed-024", "Docker Compose Template", "version: '3.8'\n\nservices:\n  app:\n    build: .\n    ports:\n      - \"3000:3000\"\n    environment:\n      - NODE_ENV=development\n    volumes:\n      - .:/app\n      - /app/node_modules\n    depends_on:\n      - db\n      - redis\n\n  db:\n    image: postgres:15-alpine\n    environment:\n      POSTGRES_PASSWORD: secret\n      POSTGRES_DB: myapp\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n\n  redis:\n    image: redis:7-alpine\n\nvolumes:\n  postgres_data:", "yaml", "Docker Compose template with app, PostgreSQL, and Redis", "🐳", "devops", "", false},
+		{"seed-025", "Ansible Ping", "#!/bin/bash\nansible all -m ping -i inventory.ini\necho ''\necho '=== Host Facts ==='\nansible all -m setup -i inventory.ini -a 'filter=ansible_distribution*' | head -50", "bash", "Ansible ping all hosts and gather basic facts", "📡", "devops", "pip install ansible", true},
 
-		// AI/Vibe Coder snippets
-		{"seed-026", "AI Code Review", "#!/bin/bash\n# Get git diff and ask AI for code review\nDIFF=$(git diff --cached)\nif [ -z \"$DIFF\" ]; then\n  echo 'No staged changes to review'\n  exit 1\nfi\n\necho \"$DIFF\" | tgpt 'Review this code diff. Point out bugs, security issues, and suggest improvements:'", "bash", "Use AI to review staged git changes before committing"},
-		{"seed-027", "AI Commit Message", "#!/bin/bash\nDIFF=$(git diff --cached)\nif [ -z \"$DIFF\" ]; then\n  echo 'No staged changes'\n  exit 1\nfi\n\nMSG=$(echo \"$DIFF\" | tgpt 'Write a concise git commit message for this diff. Use conventional commits format (feat/fix/docs/etc). Just the message, no explanation:')\necho \"Suggested commit message:\"\necho \"$MSG\"", "bash", "Generate AI-powered git commit messages from staged changes"},
-		{"seed-028", "AI Shell Helper", "#!/bin/bash\n# Ask AI how to do something in the terminal\nQUESTION=\"$*\"\nif [ -z \"$QUESTION\" ]; then\n  echo 'Usage: ./script.sh how do I find files modified today'\n  exit 1\nfi\n\ntgpt \"Give me a bash command to: $QUESTION. Just the command, no explanation.\"", "bash", "Ask AI for shell commands - get instant answers"},
-		{"seed-029", "AI Debug Helper", "#!/bin/bash\nERROR_LOG=\"$1\"\nif [ -z \"$ERROR_LOG\" ]; then\n  echo 'Usage: ./script.sh error.log'\n  exit 1\nfi\n\ncat \"$ERROR_LOG\" | tail -50 | tgpt 'Analyze these error logs and suggest fixes:'", "bash", "Use AI to analyze error logs and suggest fixes"},
-		{"seed-030", "OpenCode Quick Start", "#!/bin/bash\necho 'Starting OpenCode AI coding assistant...'\necho ''\necho 'Tips:'\necho '  - Use /help to see available commands'\necho '  - Use /compact for token-efficient mode'\necho '  - Press Ctrl+C to exit'\necho ''\nopencode", "bash", "Launch OpenCode AI assistant with helpful tips"},
+		// 🤖 AI/Vibe Coder snippets
+		{"seed-026", "Claude Code", "#!/bin/bash\necho 'Starting Claude Code AI assistant...'\necho ''\necho 'Tips:'\necho '  - Use /help to see available commands'\necho '  - Describe what you want to build'\necho '  - Press Ctrl+C to exit'\necho ''\nclaude", "bash", "Launch Claude Code AI coding assistant", "🤖", "ai", "npm install -g @anthropic-ai/claude-code", true},
+		{"seed-027", "GitHub Copilot CLI", "#!/bin/bash\necho 'GitHub Copilot CLI commands:'\necho '  gh copilot suggest \"how to...\"  - Get command suggestions'\necho '  gh copilot explain \"command\"    - Explain a command'\necho ''\ngh copilot suggest \"find files modified in last 24 hours\"", "bash", "Use GitHub Copilot CLI for command suggestions and explanations", "🐙", "ai", "gh extension install github/gh-copilot", true},
+		{"seed-028", "OpenCode Quick Start", "#!/bin/bash\necho 'Starting OpenCode AI coding assistant...'\necho ''\necho 'Tips:'\necho '  - Use /help to see available commands'\necho '  - Use /compact for token-efficient mode'\necho '  - Press Ctrl+C to exit'\necho ''\nopencode", "bash", "Launch OpenCode AI assistant with helpful tips", "💻", "ai", "go install github.com/opencode-ai/opencode@latest", true},
+		{"seed-029", "Aider Code Review", "#!/bin/bash\n# Use Aider for AI pair programming\necho 'Starting Aider AI pair programmer...'\necho ''\necho 'Tips:'\necho '  - Add files with /add filename'\necho '  - Ask for changes naturally'\necho '  - Use /diff to see changes'\necho ''\naider", "bash", "Launch Aider AI pair programming assistant", "👨‍💻", "ai", "pip install aider-chat", true},
+		{"seed-030", "Gemini CLI", "#!/bin/bash\necho 'Gemini CLI - Google AI in your terminal'\necho ''\necho 'Usage:'\necho '  gemini \"your question here\"'\necho '  echo \"code\" | gemini \"explain this\"'\necho ''\ngemini \"What can you help me with?\"", "bash", "Use Google Gemini AI from the command line", "💎", "ai", "npm install -g @anthropic-ai/claude-code && pip install google-generativeai", true},
 	}
 
 	// Insert snippets
@@ -430,9 +458,9 @@ func (s *PostgresStore) seedExampleSnippets() error {
 		}
 
 		_, err = s.db.ExecContext(ctx, `
-			INSERT INTO snippets (id, user_id, name, content, language, is_public, description, usage_count, created_at)
-			VALUES ($1, $2, $3, $4, $5, true, $6, 0, NOW())
-		`, snip.ID, systemUserID, snip.Name, encryptedContent, snip.Language, snip.Description)
+			INSERT INTO snippets (id, user_id, name, content, language, is_public, description, icon, category, install_command, requires_install, usage_count, created_at)
+			VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8, $9, $10, 0, NOW())
+		`, snip.ID, systemUserID, snip.Name, encryptedContent, snip.Language, snip.Description, snip.Icon, snip.Category, snip.InstallCommand, snip.RequiresInstall)
 		if err != nil {
 			log.Printf("Warning: failed to insert snippet %s: %v", snip.Name, err)
 			continue
@@ -1653,8 +1681,8 @@ func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snipp
 	snippet.Content = encryptedContent
 
 	query := `
-		INSERT INTO snippets (id, user_id, name, content, language, is_public, description, usage_count, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO snippets (id, user_id, name, content, language, is_public, description, icon, category, install_command, requires_install, usage_count, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	_, err = s.db.ExecContext(ctx, query,
 		snippet.ID,
@@ -1664,6 +1692,10 @@ func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snipp
 		snippet.Language,
 		snippet.IsPublic,
 		snippet.Description,
+		snippet.Icon,
+		snippet.Category,
+		snippet.InstallCommand,
+		snippet.RequiresInstall,
 		0, // usage_count starts at 0
 		snippet.CreatedAt,
 	)
@@ -1673,7 +1705,7 @@ func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snipp
 // GetSnippetsByUserID retrieves all snippets for a user
 func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) ([]*models.Snippet, error) {
 	query := `
-		SELECT id, user_id, name, content, language, is_public, COALESCE(description, ''), COALESCE(usage_count, 0), created_at
+		SELECT id, user_id, name, content, language, is_public, COALESCE(description, ''), COALESCE(icon, ''), COALESCE(category, ''), COALESCE(install_command, ''), COALESCE(requires_install, false), COALESCE(usage_count, 0), created_at
 		FROM snippets WHERE user_id = $1
 		ORDER BY created_at DESC
 	`
@@ -1694,6 +1726,10 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 			&sn.Language,
 			&sn.IsPublic,
 			&sn.Description,
+			&sn.Icon,
+			&sn.Category,
+			&sn.InstallCommand,
+			&sn.RequiresInstall,
 			&sn.UsageCount,
 			&sn.CreatedAt,
 		)
@@ -1716,7 +1752,7 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.Snippet, error) {
 	var sn models.Snippet
 	query := `
-		SELECT id, user_id, name, content, language, is_public, COALESCE(description, ''), COALESCE(usage_count, 0), created_at
+		SELECT id, user_id, name, content, language, is_public, COALESCE(description, ''), COALESCE(icon, ''), COALESCE(category, ''), COALESCE(install_command, ''), COALESCE(requires_install, false), COALESCE(usage_count, 0), created_at
 		FROM snippets WHERE id = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, id)
@@ -1728,6 +1764,10 @@ func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.
 		&sn.Language,
 		&sn.IsPublic,
 		&sn.Description,
+		&sn.Icon,
+		&sn.Category,
+		&sn.InstallCommand,
+		&sn.RequiresInstall,
 		&sn.UsageCount,
 		&sn.CreatedAt,
 	)
@@ -1757,8 +1797,8 @@ func (s *PostgresStore) UpdateSnippet(ctx context.Context, snippet *models.Snipp
 
 	query := `
 		UPDATE snippets 
-		SET name = $1, content = $2, language = $3, is_public = $4, description = $5
-		WHERE id = $6
+		SET name = $1, content = $2, language = $3, is_public = $4, description = $5, icon = $6, category = $7, install_command = $8, requires_install = $9
+		WHERE id = $10
 	`
 	_, err = s.db.ExecContext(ctx, query,
 		snippet.Name,
@@ -1766,6 +1806,10 @@ func (s *PostgresStore) UpdateSnippet(ctx context.Context, snippet *models.Snipp
 		snippet.Language,
 		snippet.IsPublic,
 		snippet.Description,
+		snippet.Icon,
+		snippet.Category,
+		snippet.InstallCommand,
+		snippet.RequiresInstall,
 		snippet.ID,
 	)
 	return err
@@ -1778,7 +1822,7 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 
 	query := `
 		SELECT s.id, s.user_id, COALESCE(u.username, 'Anonymous') as username, s.name, s.content, s.language, 
-		       COALESCE(s.description, ''), COALESCE(s.usage_count, 0), s.created_at
+		       COALESCE(s.description, ''), COALESCE(s.icon, ''), COALESCE(s.category, ''), COALESCE(s.install_command, ''), COALESCE(s.requires_install, false), COALESCE(s.usage_count, 0), s.created_at
 		FROM snippets s
 		LEFT JOIN users u ON s.user_id = u.id
 		WHERE s.is_public = true
@@ -1824,6 +1868,10 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 			&sn.Content,
 			&sn.Language,
 			&sn.Description,
+			&sn.Icon,
+			&sn.Category,
+			&sn.InstallCommand,
+			&sn.RequiresInstall,
 			&sn.UsageCount,
 			&sn.CreatedAt,
 		)
