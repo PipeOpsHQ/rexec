@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -646,7 +645,7 @@ func (m *Manager) ensureIsolatedNetwork() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := m.client.NetworkInspect(ctx, IsolatedNetworkName, types.NetworkInspectOptions{})
+	_, err := m.client.NetworkInspect(ctx, IsolatedNetworkName, network.InspectOptions{})
 	if err == nil {
 		return nil // Network exists
 	}
@@ -656,7 +655,7 @@ func (m *Manager) ensureIsolatedNetwork() error {
 	}
 
 	// Create network with Inter-Container Communication (ICC) disabled
-	_, err = m.client.NetworkCreate(ctx, IsolatedNetworkName, types.NetworkCreate{
+	_, err = m.client.NetworkCreate(ctx, IsolatedNetworkName, network.CreateOptions{
 		Driver: "bridge",
 		Options: map[string]string{
 			"com.docker.network.bridge.enable_icc": "false",
