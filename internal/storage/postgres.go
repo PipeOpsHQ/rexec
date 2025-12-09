@@ -1649,7 +1649,7 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 	argIdx := 1
 
 	query := `
-		SELECT s.id, s.user_id, COALESCE(u.name, u.username, 'Anonymous') as username, s.name, s.content, s.language, 
+		SELECT s.id, s.user_id, COALESCE(u.username, 'Anonymous') as username, s.name, s.content, s.language, 
 		       COALESCE(s.description, ''), COALESCE(s.usage_count, 0), s.created_at
 		FROM snippets s
 		LEFT JOIN users u ON s.user_id = u.id
