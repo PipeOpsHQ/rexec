@@ -344,7 +344,7 @@
     <div class="modal-overlay" onclick={closeModal} role="presentation">
         <div
             class="modal"
-            onclick|stopPropagation
+            onclick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
         >

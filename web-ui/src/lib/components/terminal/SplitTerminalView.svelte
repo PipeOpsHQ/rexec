@@ -52,7 +52,7 @@
             <span class="status-dot" class:connected={isConnected}></span>
             Session {pane.id.slice(-4)}
         </span>
-        <button class="close-pane" onclick|stopPropagation={handleClose} title="Close split">
+        <button class="close-pane" onclick={(e) => { e.stopPropagation(); handleClose(); }} title="Close split">
             ×
         </button>
     </div>

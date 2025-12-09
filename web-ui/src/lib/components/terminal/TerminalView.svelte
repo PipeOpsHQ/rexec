@@ -570,7 +570,7 @@
                             <span class="tab-name">{session.name}</span>
                             <button
                                 class="tab-close"
-                                onclick|stopPropagation={() => closeSession(id)}
+                                onclick={(e) => { e.stopPropagation(); closeSession(id); }}
                                 title="Close terminal"
                                 aria-label="Close {session.name}"
                             >
@@ -702,8 +702,8 @@
                                 <span class="tab-name">{session.name}</span>
                                 <button
                                     class="tab-close"
-                                    onclick|stopPropagation={() =>
-                                        closeSession(id)}
+                                    onclick={(e) => { e.stopPropagation();
+                                        closeSession(id); }}
                                     title="Close terminal"
                                     aria-label="Close {session.name}"
                                 >
@@ -892,8 +892,8 @@
                                 <span class="tab-name">{session.name}</span>
                                 <button
                                     class="tab-close"
-                                    onclick|stopPropagation={() =>
-                                        closeSession(id)}
+                                    onclick={(e) => { e.stopPropagation();
+                                        closeSession(id); }}
                                     title="Close terminal"
                                     aria-label="Close {session.name}"
                                 >

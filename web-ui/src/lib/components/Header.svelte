@@ -167,7 +167,7 @@
             <div class="user-menu-container">
                 <button
                     class="user-badge"
-                    onclick|stopPropagation={toggleUserMenu}
+                    onclick={(e) => { e.stopPropagation(); toggleUserMenu(); }}
                 >
                     <span class="user-avatar">
                         {$auth.user?.name?.charAt(0).toUpperCase() || "U"}
@@ -369,7 +369,7 @@
 
 {#if showMobileMenu}
     <div class="mobile-menu-overlay" onclick={closeMobileMenu}>
-        <div class="mobile-menu-content" onclick|stopPropagation>
+        <div class="mobile-menu-content" onclick={(e) => e.stopPropagation()}>
             <div class="mobile-menu-header">
                 <span class="logo-text">Menu</span>
                 <button class="close-btn" onclick={closeMobileMenu}>

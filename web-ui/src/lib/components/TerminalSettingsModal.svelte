@@ -623,7 +623,7 @@
     {#if showAddForwardModal}
         <div
             class="modal-overlay-nested"
-            onclick|self={closeAddForwardModal}
+            onclick={(e) => { if (e.target === e.currentTarget) closeAddForwardModal(); }}
             onkeydown={(e) => e.key === "Escape" && closeAddForwardModal()}
             transition:fade={{ duration: 150 }}
             role="dialog"
@@ -633,7 +633,7 @@
         >
             <div
                 class="modal-container-nested"
-                onclick|stopPropagation
+                onclick={(e) => e.stopPropagation()}
                 transition:scale={{ duration: 150, start: 0.95 }}
             >
                 <div class="modal-header">

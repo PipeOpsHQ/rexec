@@ -62,7 +62,7 @@
 {#if isOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="panel-overlay" onclick|self={close} transition:fade={{ duration: 150 }}>
+  <div class="panel-overlay" onclick={(e) => { if (e.target === e.currentTarget) close(); }} transition:fade={{ duration: 150 }}>
     <div class="collab-panel" class:compact transition:slide={{ duration: 200, axis: 'x' }}>
       <div class="panel-header">
         <div class="header-left">

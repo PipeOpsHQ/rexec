@@ -765,7 +765,7 @@
     <!-- Download Modal -->
     {#if showDownloadModal}
         <div class="download-modal-overlay" onclick={() => showDownloadModal = false} onkeydown={(e) => e.key === 'Escape' && (showDownloadModal = false)} role="presentation">
-            <div class="download-modal" onclick|stopPropagation role="dialog" aria-modal="true">
+            <div class="download-modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
                 <div class="download-modal-header">
                     <h3>Download File</h3>
                     <button class="close-btn" onclick={() => showDownloadModal = false}>×</button>

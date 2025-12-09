@@ -811,7 +811,7 @@
 
 {#if showShortcutsModal}
     <div class="modal-backdrop" onclick={toggleShortcuts}>
-        <div class="modal-content shortcuts-modal" onclick|stopPropagation>
+        <div class="modal-content shortcuts-modal" onclick={(e) => e.stopPropagation()}>
             <div class="modal-header">
                 <h3>Keyboard Shortcuts</h3>
                 <button class="close-btn" onclick={toggleShortcuts}>×</button>

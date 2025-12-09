@@ -284,7 +284,7 @@
 {#if isOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="panel-overlay" onclick|self={close}>
+  <div class="panel-overlay" onclick={(e) => { if (e.target === e.currentTarget) close(); }}>
     <div class="recording-panel" class:compact transition:slide={{ duration: 200 }}>
     <div class="panel-header">
       <div class="header-left">
