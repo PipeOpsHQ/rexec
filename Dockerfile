@@ -31,14 +31,14 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/web-ui
 
-# Copy package files and install dependencies
+# Copy package.json only (not package-lock.json to avoid platform-specific locks)
 COPY web-ui/package.json ./
 
-# Clean npm cache and node_modules before installing dependencies
-RUN npm cache clean --force && rm -rf node_modules && rm -rf node_modules/@rollup
+# Clean npm cache before installing dependencies
+RUN npm cache clean --force
 
-# Install dependencies (use install instead of ci to resolve platform-specific optionals)
-RUN npm install
+# Install dependencies fresh (ignores package-lock.json platform issues)
+RUN npm install --ignore-scripts --no-optional || npm install
 
 # Copy source files
 COPY web-ui/ ./
