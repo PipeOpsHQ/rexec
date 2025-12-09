@@ -37,8 +37,8 @@ COPY web-ui/package.json ./
 # Clean npm cache before installing dependencies
 RUN npm cache clean --force
 
-# Install dependencies fresh (ignores package-lock.json platform issues)
-RUN npm install --ignore-scripts --no-optional || npm install
+# Install dependencies fresh
+RUN npm install
 
 # Copy source files
 COPY web-ui/ ./
