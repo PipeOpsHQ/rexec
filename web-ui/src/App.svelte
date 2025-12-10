@@ -505,7 +505,10 @@
             const agentId = agentMatch[1];
             // Create agent terminal session - fetch agent info first
             try {
-                const response = await fetch(`/api/agents/${agentId}/status`);
+                const authToken = localStorage.getItem("rexec_token");
+                const response = await fetch(`/api/agents/${agentId}/status`, {
+                    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+                });
                 if (response.ok) {
                     const status = await response.json();
                     if (status.status === "online") {
@@ -517,10 +520,13 @@
                         currentView = "dashboard";
                     }
                 } else {
-                    currentView = "404";
+                    toast.error("Agent not found");
+                    currentView = "dashboard";
                 }
-            } catch {
-                currentView = "404";
+            } catch (err) {
+                console.error("Failed to fetch agent status:", err);
+                toast.error("Failed to connect to agent");
+                currentView = "dashboard";
             }
             return;
         }

@@ -715,11 +715,16 @@ func runServer() {
 			c.File(indexFile)
 		})
 
-		// Also support direct container ID in URL path
+		// Also support direct container ID or agent URL in URL path
 		router.GET("/:id", func(c *gin.Context) {
 			id := c.Param("id")
-			// Only serve index.html if it looks like a container ID (64 hex chars or UUID)
+			// Serve index.html if it looks like a container ID (64 hex chars or UUID) or agent URL
 			if len(id) == 64 || (len(id) == 36 && id[8] == '-' && id[13] == '-') {
+				c.File(indexFile)
+				return
+			}
+			// Handle agent:uuid format
+			if len(id) > 6 && id[:6] == "agent:" {
 				c.File(indexFile)
 				return
 			}
