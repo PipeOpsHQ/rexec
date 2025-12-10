@@ -31,6 +31,7 @@
     import NotFound from "$components/NotFound.svelte";
     import Promo from "$components/Promo.svelte";
     import Billing from "$components/Billing.svelte";
+    import ScreenLock from "$components/ScreenLock.svelte";
 
     // App state
     let currentView:
@@ -842,6 +843,9 @@
         {#if $hasSessions}
             <TerminalView />
         {/if}
+
+        <!-- Screen Lock Security -->
+        <ScreenLock />
 
         <!-- Toast notifications -->
         <ToastContainer />
