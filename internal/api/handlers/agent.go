@@ -485,10 +485,21 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 				})
 
 			case "resize":
-				agentConn.conn.WriteJSON(map[string]interface{}{
-					"type": "shell_resize",
-					"data": msg.Data,
-				})
+				// Frontend sends cols/rows at top level, extract and forward
+				var resizeMsg struct {
+					Cols int `json:"cols"`
+					Rows int `json:"rows"`
+				}
+				// Re-unmarshal the original message to get cols/rows
+				if err := json.Unmarshal(message, &resizeMsg); err == nil && resizeMsg.Cols > 0 && resizeMsg.Rows > 0 {
+					agentConn.conn.WriteJSON(map[string]interface{}{
+						"type": "shell_resize",
+						"data": map[string]int{
+							"cols": resizeMsg.Cols,
+							"rows": resizeMsg.Rows,
+						},
+					})
+				}
 
 			case "exec":
 				agentConn.conn.WriteJSON(map[string]interface{}{

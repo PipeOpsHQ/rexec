@@ -1,10 +1,12 @@
 <script lang="ts">
     import StatusIcon from "./icons/StatusIcon.svelte";
     import PlatformIcon from "./icons/PlatformIcon.svelte";
+    import { auth } from "$stores/auth";
 
     export let onback: (() => void) | undefined = undefined;
 
     let copiedCommand = "";
+    let showToken = false;
 
     function copyToClipboard(text: string, id: string) {
         navigator.clipboard.writeText(text);
@@ -15,6 +17,9 @@
     function handleBack() {
         if (onback) onback();
     }
+
+    // Get current user's token for CLI login
+    $: currentToken = $auth.token || "";
 </script>
 
 <div class="docs-page">
@@ -112,6 +117,61 @@
                     </button>
                 </div>
             </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>API Token</h2>
+            <p>
+                Use your API token to authenticate the CLI without interactive login. 
+                This token is tied to your current session.
+            </p>
+            
+            {#if currentToken}
+                <div class="token-section">
+                    <div class="token-header">
+                        <span class="token-label">Your API Token</span>
+                        <button 
+                            class="toggle-btn"
+                            onclick={() => showToken = !showToken}
+                        >
+                            <StatusIcon status={showToken ? "eye-off" : "eye"} size={14} />
+                            {showToken ? 'Hide' : 'Show'}
+                        </button>
+                    </div>
+                    <div class="code-block token-block">
+                        <code class="token-value">
+                            {showToken ? currentToken : '••••••••••••••••••••••••••••••••'}
+                        </code>
+                        <button 
+                            class="copy-btn" 
+                            onclick={() => copyToClipboard(currentToken, 'api-token')}
+                        >
+                            {copiedCommand === 'api-token' ? 'Copied!' : 'Copy'}
+                        </button>
+                    </div>
+                    <p class="token-warning">
+                        <StatusIcon status="warning" size={14} />
+                        Keep this token secret. It provides full access to your account.
+                    </p>
+                    
+                    <div class="token-usage">
+                        <h4>Usage</h4>
+                        <div class="code-block">
+                            <code>rexec login --token YOUR_TOKEN</code>
+                            <button 
+                                class="copy-btn" 
+                                onclick={() => copyToClipboard(`rexec login --token ${currentToken}`, 'token-cmd')}
+                            >
+                                {copiedCommand === 'token-cmd' ? 'Copied!' : 'Copy'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {:else}
+                <div class="token-section">
+                    <p class="token-note">Sign in to generate your API token.</p>
+                </div>
+            {/if}
         </section>
 
         <section class="docs-section">
@@ -545,5 +605,83 @@
             align-items: flex-start;
             gap: 8px;
         }
+    }
+
+    /* Token section styles */
+    .token-section {
+        background: #111;
+        border: 1px solid #222;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 16px;
+    }
+
+    .token-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .token-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: transparent;
+        border: 1px solid #333;
+        border-radius: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .toggle-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    .token-block {
+        background: #0a0a0a;
+    }
+
+    .token-value {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--accent);
+        word-break: break-all;
+    }
+
+    .token-warning {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--warning);
+    }
+
+    .token-usage {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid #222;
+    }
+
+    .token-usage h4 {
+        font-size: 13px;
+        color: var(--text);
+        margin: 0 0 12px 0;
+    }
+
+    .token-note {
+        color: var(--text-muted);
+        font-size: 14px;
     }
 </style>
