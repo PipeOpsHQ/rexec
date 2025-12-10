@@ -33,6 +33,7 @@
     import Billing from "$components/Billing.svelte";
     import ScreenLock from "$components/ScreenLock.svelte";
     import AgentDocs from "$components/AgentDocs.svelte";
+    import CLILogin from "$components/CLILogin.svelte";
 
     // App state
     let currentView:
@@ -52,6 +53,7 @@
         | "promo"
         | "billing"
         | "agent-docs"
+        | "cli-login"
         | "404" = "landing";
     let isLoading = true;
     let isInitialized = false; // Prevents reactive statements from firing before token validation
@@ -224,6 +226,15 @@
                 };
 
                 auth.login(token, user);
+                
+                // Check for CLI callback - redirect with token
+                const cliCallback = localStorage.getItem("cli_callback");
+                if (cliCallback) {
+                    localStorage.removeItem("cli_callback");
+                    window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
+                    return;
+                }
+                
                 currentView = "dashboard";
                 containers.fetchContainers();
                 toast.success(`Welcome, ${user.name}!`);
@@ -376,6 +387,25 @@
         // Check for /docs/agent or /agents route
         if (path === "/docs/agent" || path === "/agents") {
             currentView = "agent-docs";
+            return;
+        }
+
+        // Check for /cli-login route (CLI login with callback)
+        if (path === "/cli-login") {
+            const callback = params.get("callback");
+            if ($isAuthenticated && callback) {
+                // User is already logged in, redirect to callback with token
+                const token = localStorage.getItem("auth_token");
+                if (token) {
+                    window.location.href = `${callback}?token=${encodeURIComponent(token)}`;
+                    return;
+                }
+            }
+            // Store callback and show login
+            if (callback) {
+                localStorage.setItem("cli_callback", callback);
+            }
+            currentView = "cli-login";
             return;
         }
 
@@ -790,6 +820,8 @@
                         window.history.back();
                     }}
                 />
+            {:else if currentView === "cli-login"}
+                <CLILogin />
             {:else if currentView === "join"}
                 <JoinSession
                     code={joinCode}

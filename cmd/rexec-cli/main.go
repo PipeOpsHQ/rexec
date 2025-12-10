@@ -343,13 +343,144 @@ func handleLogin(args []string) {
 		}
 	}
 	
-	// Interactive login
-	fmt.Printf("\n%s%sRexec Login%s\n\n", Bold, Cyan, Reset)
-	fmt.Printf("1. Open %s%s/api/auth/oauth/url%s in your browser\n", Cyan, cfg.Host, Reset)
-	fmt.Printf("2. Login with PipeOps\n")
-	fmt.Printf("3. Copy the token from the callback\n\n")
+	// Interactive login with browser-based flow
+	fmt.Printf("\n%s%s╔══════════════════════════════════════════╗%s\n", Bold, Cyan, Reset)
+	fmt.Printf("%s%s║           Rexec CLI Login                ║%s\n", Bold, Cyan, Reset)
+	fmt.Printf("%s%s╚══════════════════════════════════════════╝%s\n\n", Bold, Cyan, Reset)
 	
-	fmt.Print("Enter token: ")
+	// Try to start local server for callback
+	tokenChan := make(chan string, 1)
+	errChan := make(chan error, 1)
+	port := 9876
+	
+	// Start local callback server
+	server := &http.Server{Addr: fmt.Sprintf(":%d", port)}
+	
+	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		token := r.URL.Query().Get("token")
+		if token != "" {
+			// Return success page
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rexec CLI - Login Successful</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .success { color: #00ff88; font-size: 48px; }
+        h1 { margin: 20px 0 10px; }
+        p { color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success">✓</div>
+        <h1>Login Successful!</h1>
+        <p>You can close this window and return to your terminal.</p>
+    </div>
+</body>
+</html>`))
+			tokenChan <- token
+		} else {
+			w.WriteHeader(400)
+			w.Write([]byte("Missing token"))
+		}
+	})
+	
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- err
+		}
+	}()
+	
+	// Give server time to start
+	time.Sleep(100 * time.Millisecond)
+	
+	// Build login URL with CLI callback
+	loginURL := fmt.Sprintf("%s/cli-login?callback=http://localhost:%d/callback", cfg.Host, port)
+	
+	fmt.Printf("%sOpening browser for login...%s\n\n", Dim, Reset)
+	fmt.Printf("If browser doesn't open, visit:\n")
+	fmt.Printf("%s%s%s\n\n", Cyan, loginURL, Reset)
+	
+	// Try to open browser
+	openBrowser(loginURL)
+	
+	fmt.Printf("%sWaiting for login...%s (Press Ctrl+C to cancel)\n", Yellow, Reset)
+	
+	// Wait for token or timeout
+	select {
+	case token := <-tokenChan:
+		server.Close()
+		cfg.Token = token
+		
+		// Verify and get profile
+		resp, err := apiRequest("GET", "/api/profile", nil)
+		if err != nil {
+			fmt.Printf("\n%sError: %v%s\n", Red, err, Reset)
+			os.Exit(1)
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != 200 {
+			fmt.Printf("\n%sInvalid token received%s\n", Red, Reset)
+			os.Exit(1)
+		}
+		
+		var profile struct {
+			Username string `json:"username"`
+			Email    string `json:"email"`
+			Tier     string `json:"tier"`
+		}
+		json.NewDecoder(resp.Body).Decode(&profile)
+		
+		cfg.Username = profile.Username
+		cfg.Email = profile.Email
+		cfg.Tier = profile.Tier
+		
+		if err := saveConfig(cfg); err != nil {
+			fmt.Printf("\n%sError saving config: %v%s\n", Red, err, Reset)
+			os.Exit(1)
+		}
+		
+		fmt.Printf("\n%s✓ Successfully logged in as %s%s%s (%s)%s\n", Green, Bold, profile.Username, Reset+Green, profile.Email, Reset)
+		fmt.Printf("\n%sYou can now use rexec commands or run %srexec -i%s for interactive mode.%s\n", Dim, Cyan, Dim, Reset)
+		
+	case err := <-errChan:
+		fmt.Printf("\n%sCouldn't start local server: %v%s\n", Red, err, Reset)
+		fmt.Printf("\n%sManual login:%s\n", Yellow, Reset)
+		manualLogin(cfg)
+		
+	case <-time.After(5 * time.Minute):
+		server.Close()
+		fmt.Printf("\n%sLogin timed out. Please try again.%s\n", Red, Reset)
+		os.Exit(1)
+	}
+}
+
+func manualLogin(cfg *Config) {
+	fmt.Printf("1. Go to: %s%s/settings%s\n", Cyan, cfg.Host, Reset)
+	fmt.Printf("2. Click on %s'API Tokens'%s section\n", Bold, Reset)
+	fmt.Printf("3. Generate a new token and copy it\n\n")
+	
+	fmt.Print("Paste your token here: ")
 	reader := bufio.NewReader(os.Stdin)
 	token, _ := reader.ReadString('\n')
 	token = strings.TrimSpace(token)
@@ -391,6 +522,19 @@ func handleLogin(args []string) {
 	}
 	
 	fmt.Printf("\n%s✓ Logged in as %s (%s)%s\n", Green, profile.Username, profile.Email, Reset)
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	cmd.Start()
 }
 
 func handleLogout() {
