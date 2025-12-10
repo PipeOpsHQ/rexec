@@ -278,6 +278,106 @@
             ],
             testimonial: { quote: "I used to lose hours of work when my VPN dropped. With Rexec's resumable sessions, I just reconnect and everything is still there.", author: "Marcus Rivera", role: "DevOps Engineer" },
             relatedUseCases: ["collaborative-intelligence", "ephemeral-dev-environments", "gpu-terminals"]
+        },
+        "rexec-cli": {
+            title: "Rexec CLI & TUI",
+            icon: "terminal",
+            tagline: "Manage your terminals from anywhere using our powerful command-line interface.",
+            description: "The Rexec CLI brings the power of the platform to your local terminal. Manage sessions, ssh into containers, and use the interactive TUI dashboard without leaving your keyboard.",
+            heroImage: "/images/use-cases/cli.svg",
+            benefits: [
+                { title: "Full Terminal Management", description: "Create, list, connect, and stop terminals directly from your command line.", icon: "terminal" },
+                { title: "Interactive TUI", description: "Visual dashboard in your terminal. Navigate sessions with arrow keys and shortcuts.", icon: "bolt" },
+                { title: "Scriptable Automation", description: "Pipe commands, automate setups, and integrate Rexec into your local scripts.", icon: "connected" },
+                { title: "Secure SSH Integration", description: "Seamlessly SSH into any Rexec container using native tools or the CLI wrapper.", icon: "shield" }
+            ],
+            workflow: [
+                { step: 1, title: "Install CLI", description: "One-line install script for macOS and Linux." },
+                { step: 2, title: "Authenticate", description: "Login securely via browser: `rexec login`" },
+                { step: 3, title: "Launch TUI", description: "Start the interactive dashboard: `rexec -i`" },
+                { step: 4, title: "Connect", description: "Select a session and jump straight in." }
+            ],
+            examples: [
+                { title: "Quick Connect", description: "Instantly connect to a specific container by name or ID.", code: "rexec connect my-container" },
+                { title: "Interactive Mode", description: "Launch the TUI to browse all active sessions and manage them visually.", code: "rexec -i" },
+                { title: "Port Forwarding", description: "Forward remote ports to your local machine effortlessly.", code: "rexec forward -L 8080:localhost:80 my-container" }
+            ],
+            relatedUseCases: ["universal-jump-host", "resumable-sessions", "rexec-agent"]
+        },
+        "rexec-agent": {
+            title: "Connect Your Own Servers",
+            icon: "connected",
+            tagline: "Turn any Linux server into a Rexec terminal.",
+            description: "Bring your own infrastructure. Install the lightweight Rexec agent on any Linux server (VPS, Bare Metal, Cloud, Edge) and manage it through the unified Rexec interface. No complex VPNs or open ports required.",
+            heroImage: "/images/use-cases/agent.svg",
+            benefits: [
+                { title: "Any Infrastructure", description: "Works on AWS, GCP, Azure, DigitalOcean, or your Raspberry Pi under the desk.", icon: "connected" },
+                { title: "Secure Tunneling", description: "Outbound-only WebSocket connection. No need to open inbound firewall ports.", icon: "shield" },
+                { title: "Unified Management", description: "View and manage all your dispersed servers from a single pane of glass.", icon: "bolt" },
+                { title: "Zero VPN", description: "Access your private servers securely without setting up and maintaining a VPN.", icon: "wifi" }
+            ],
+            workflow: [
+                { step: 1, title: "Generate Token", description: "Create a new agent token in the Rexec dashboard." },
+                { step: 2, title: "Install Agent", description: "Run the simple install script on your target server." },
+                { step: 3, title: "Auto-Connect", description: "The agent connects back to Rexec instantly." },
+                { step: 4, title: "Remote Access", description: "Access your server via the Rexec web UI or CLI immediately." }
+            ],
+            examples: [
+                { title: "Cloud VPS Management", description: "Manage a fleet of VPS instances across different providers from one interface.", code: "curl -fsSL rexec.pipeops.io/install-agent.sh | bash" },
+                { title: "Home Lab Access", description: "Access your home server from anywhere without port forwarding on your router." },
+                { title: "Edge Device Control", description: "Deploy agents to remote IoT devices for easy maintenance and debugging." }
+            ],
+            relatedUseCases: ["universal-jump-host", "hybrid-infrastructure", "rexec-cli"]
+        },
+        "hybrid-infrastructure": {
+            title: "Hybrid Infrastructure Access",
+            icon: "shield",
+            tagline: "Mix cloud-managed terminals with your own infrastructure.",
+            description: "Access everything through a single, unified interface. Seamlessly switch between Rexec's cloud terminals and your on-premise servers without changing tools or context.",
+            heroImage: "/images/use-cases/hybrid.svg",
+            benefits: [
+                { title: "Unified Interface", description: "Manage cloud ephemeral environments and persistent on-prem servers side-by-side.", icon: "bolt" },
+                { title: "Centralized Auditing", description: "One audit log for all your infrastructure access, regardless of location.", icon: "data" },
+                { title: "Granular Access Control", description: "Define who can access what, across all your environments using Rexec roles.", icon: "shield" },
+                { title: "No VPN Required", description: "Securely access internal resources without the headache of VPN client configuration.", icon: "wifi" }
+            ],
+            workflow: [
+                { step: 1, title: "Connect Agents", description: "Deploy Rexec agents to your private infrastructure." },
+                { step: 2, title: "Define Policies", description: "Set up teams and roles to control access permissions." },
+                { step: 3, title: "Grant Access", description: "Users can now access approved servers instantly." },
+                { step: 4, title: "Audit Usage", description: "Track every session and command across your hybrid estate." }
+            ],
+            examples: [
+                { title: "Multi-Cloud Management", description: "Operate across AWS, Azure, and on-premise datacenters from a single URL." },
+                { title: "Burst to Cloud", description: "Develop locally, then seamlessly deploy to cloud instances for testing." },
+                { title: "Legacy System Access", description: "Modernize access to legacy mainframes or bare-metal servers." }
+            ],
+            relatedUseCases: ["rexec-agent", "universal-jump-host", "remote-debugging"]
+        },
+        "remote-debugging": {
+            title: "Remote Debugging & Troubleshooting",
+            icon: "bug",
+            tagline: "Debug production issues directly from your browser.",
+            description: "Connect to any server running the Rexec agent for instant access. Troubleshoot live systems with full terminal capabilities, share sessions with colleagues, and resolve incidents faster.",
+            heroImage: "/images/use-cases/debugging.svg",
+            benefits: [
+                { title: "Instant Access", description: "Jump into a troubleshooting session in seconds when every moment counts.", icon: "bolt" },
+                { title: "Collaborative Debugging", description: "Invite other engineers to your session to pair-debug complex issues.", icon: "connected" },
+                { title: "Secure & Audited", description: "Grant temporary emergency access with full recording of actions taken.", icon: "shield" },
+                { title: "No SSH Key Hassle", description: "Don't waste time finding the right key or asking for access during an outage.", icon: "terminal" }
+            ],
+            workflow: [
+                { step: 1, title: "Receive Alert", description: "Get notified of an issue in your monitoring system." },
+                { step: 2, title: "Click to Connect", description: "Launch a Rexec session directly from your alert dashboard." },
+                { step: 3, title: "Diagnose Issue", description: "Run diagnostic tools, check logs, and inspect processes." },
+                { step: 4, title: "Resolve & Close", description: "Fix the problem and terminate the session. All recorded for post-mortem." }
+            ],
+            examples: [
+                { title: "Production Incident", description: "Investigate a high-CPU alert on a production web server.", code: "top -o %CPU\n# Identify runaway process\nkill -9 <pid>" },
+                { title: "Log Analysis", description: "Tail logs in real-time to catch intermittent errors.", code: "tail -f /var/log/nginx/error.log | grep 500" },
+                { title: "Performance Tuning", description: "Adjust kernel parameters or configuration on a live system." }
+            ],
+            relatedUseCases: ["rexec-agent", "collaborative-intelligence", "resumable-sessions"]
         }
     };
 
