@@ -328,6 +328,9 @@ func runServer() {
 	
 	// Connect events hub to agent handler for real-time updates
 	agentHandler.SetEventsHub(containerEventsHub)
+	
+	// Connect agent handler to events hub for including agents in WebSocket list
+	containerEventsHub.SetAgentHandler(agentHandler)
 
 	// Setup Gin router
 	router := gin.Default()

@@ -33,6 +33,11 @@ type ContainerEventsHub struct {
 
 	// Upgrader for WebSocket
 	upgrader websocket.Upgrader
+	
+	// Agent handler for getting online agents (set after creation to avoid circular deps)
+	agentHandler interface {
+		GetOnlineAgentsForUser(userID string) []gin.H
+	}
 }
 
 // NewContainerEventsHub creates a new container events hub
@@ -51,6 +56,13 @@ func NewContainerEventsHub(manager *container.Manager, store *storage.PostgresSt
 	}
 
 	return hub
+}
+
+// SetAgentHandler sets the agent handler for getting online agents
+func (h *ContainerEventsHub) SetAgentHandler(ah interface {
+	GetOnlineAgentsForUser(userID string) []gin.H
+}) {
+	h.agentHandler = ah
 }
 
 // HandleWebSocket handles WebSocket connections for container events
@@ -203,6 +215,13 @@ func (h *ContainerEventsHub) sendContainerList(conn *websocket.Conn, userID, tie
 				"disk_mb":    diskMB,
 			},
 		})
+	}
+
+	// Include online agents in the list
+	if h.agentHandler != nil {
+		onlineAgents := h.agentHandler.GetOnlineAgentsForUser(userID)
+		// Prepend agents to containers (agents first)
+		containers = append(onlineAgents, containers...)
 	}
 
 	event := ContainerEvent{
