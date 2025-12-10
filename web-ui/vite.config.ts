@@ -114,7 +114,7 @@ export default defineConfig({
           // Split xterm into its own chunk (large library)
           'xterm': ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl', '@xterm/addon-web-links', '@xterm/addon-unicode11'],
           // Svelte runtime
-          'svelte': ['svelte', 'svelte/internal', 'svelte/store', 'svelte/transition', 'svelte/animate', 'svelte/easing'],
+          'svelte': ['svelte'],
         },
       },
     },
