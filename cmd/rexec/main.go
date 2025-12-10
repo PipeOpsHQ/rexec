@@ -667,6 +667,14 @@ func runServer() {
 			c.File(indexFile)
 		})
 
+		router.GET("/agents", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
+		router.GET("/docs/agent", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
 		// Also support direct container ID in URL path
 		router.GET("/:id", func(c *gin.Context) {
 			id := c.Param("id")
