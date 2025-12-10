@@ -2,13 +2,9 @@
     import StatusIcon from "./icons/StatusIcon.svelte";
     import PlatformIcon from "./icons/PlatformIcon.svelte";
 
-    interface Props {
-        onback?: () => void;
-    }
+    export let onback: (() => void) | undefined = undefined;
 
-    let { onback }: Props = $props();
-
-    let copiedCommand = $state("");
+    let copiedCommand = "";
 
     function copyToClipboard(text: string, id: string) {
         navigator.clipboard.writeText(text);
