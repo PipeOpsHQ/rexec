@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount, onDestroy, createEventDispatcher } from "svelte";
+    import { get } from "svelte/store";
     import { security, hasPasscode, isLocked } from "$stores/security";
     import { isAuthenticated } from "$stores/auth";
     import { toast } from "$stores/toast";
@@ -21,7 +22,7 @@
     const ACTIVITY_DEBOUNCE = 1000; // Debounce activity updates
 
     function handleActivity() {
-        if (!$isAuthenticated) return;
+        if (!get(isAuthenticated)) return;
         
         // Debounce activity updates
         if (activityTimeout) {
@@ -33,7 +34,7 @@
     }
 
     function checkInactivity() {
-        if (!$isAuthenticated || !$hasPasscode) return;
+        if (!get(isAuthenticated) || !get(hasPasscode)) return;
         
         if (security.checkInactivity()) {
             security.lock();
@@ -42,14 +43,14 @@
 
     // Handle visibility change (tab hidden/shown)
     function handleVisibilityChange() {
-        if (!$isAuthenticated) return;
+        if (!get(isAuthenticated)) return;
         
         if (document.hidden) {
             // User switched away
             // Optional: Could lock immediately or start shorter timer
         } else {
             // User came back - check if we should be locked
-            if ($hasPasscode && security.checkInactivity()) {
+            if (get(hasPasscode) && security.checkInactivity()) {
                 security.lock();
             }
         }
@@ -69,7 +70,7 @@
 
         // Check if should prompt for passcode setup (after 30 seconds)
         setTimeout(() => {
-            if ($isAuthenticated && !$hasPasscode) {
+            if (get(isAuthenticated) && !get(hasPasscode)) {
                 const state = security.getState();
                 if (!state.passcodeSetupPromptDismissed) {
                     showSetupPrompt = true;
