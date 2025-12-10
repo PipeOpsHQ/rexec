@@ -523,7 +523,20 @@
       <div class="agents-docs">
         <h4>Quick Start</h4>
         <p>Install the rexec agent on any server:</p>
-        <code class="install-command">curl -sSL https://rexec.pipeops.io/install-agent.sh | bash</code>
+        <div class="install-command-wrapper">
+          <code class="install-command">curl -sSL https://rexec.pipeops.io/install-agent.sh | bash</code>
+          <button 
+            class="btn btn-sm copy-btn-inline" 
+            onclick={() => {
+              navigator.clipboard.writeText('curl -sSL https://rexec.pipeops.io/install-agent.sh | bash');
+              const btn = document.activeElement;
+              if (btn) btn.textContent = 'Copied!';
+              setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 2000);
+            }}
+          >
+            Copy
+          </button>
+        </div>
         <p class="docs-link">
           <a href="/agents">View full documentation →</a>
         </p>
@@ -1203,16 +1216,33 @@
     color: var(--text-secondary);
   }
 
+  .install-command-wrapper {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
   .install-command {
     display: block;
     padding: 12px;
+    padding-right: 60px;
     background: var(--bg);
     border: 1px solid var(--border);
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--accent);
     word-break: break-all;
-    margin-bottom: 12px;
+    margin-bottom: 0;
+  }
+
+  .copy-btn-inline {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    padding: 4px 8px;
+    font-size: 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
   }
 
   .docs-link a {

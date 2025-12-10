@@ -895,6 +895,51 @@
                         </span>
                     </div>
 
+                    <!-- Resource Stats -->
+                    {#if agent.stats || agent.system_info}
+                        <div class="container-resources">
+                            <div class="resource-item">
+                                <span class="resource-label">CPU</span>
+                                <span class="resource-value">
+                                    {agent.system_info?.num_cpu || 1} vCPU
+                                    {#if agent.stats?.cpu_percent}
+                                        <span class="resource-usage">({agent.stats.cpu_percent.toFixed(0)}%)</span>
+                                    {/if}
+                                </span>
+                            </div>
+                            <div class="resource-item">
+                                <span class="resource-label">Memory</span>
+                                <span class="resource-value">
+                                    {#if agent.stats?.memory_limit}
+                                        {formatMemory(agent.stats.memory_limit / 1024 / 1024)}
+                                        {#if agent.stats.memory}
+                                            <span class="resource-usage">({((agent.stats.memory / agent.stats.memory_limit) * 100).toFixed(0)}%)</span>
+                                        {/if}
+                                    {:else if agent.system_info?.memory?.total}
+                                        {formatMemory(agent.system_info.memory.total / 1024 / 1024)}
+                                    {:else}
+                                        --
+                                    {/if}
+                                </span>
+                            </div>
+                            <div class="resource-item">
+                                <span class="resource-label">Disk</span>
+                                <span class="resource-value">
+                                    {#if agent.stats?.disk_limit}
+                                        {formatStorage(agent.stats.disk_limit / 1024 / 1024)}
+                                        {#if agent.stats.disk_usage}
+                                            <span class="resource-usage">({((agent.stats.disk_usage / agent.stats.disk_limit) * 100).toFixed(0)}%)</span>
+                                        {/if}
+                                    {:else if agent.system_info?.disk?.total}
+                                        {formatStorage(agent.system_info.disk.total / 1024 / 1024)}
+                                    {:else}
+                                        --
+                                    {/if}
+                                </span>
+                            </div>
+                        </div>
+                    {/if}
+
                     <div class="container-meta">
                         <div class="meta-item">
                             <span class="meta-label">Connected</span>
@@ -906,6 +951,12 @@
                             <span class="meta-label">Shell</span>
                             <span class="meta-value">{agent.shell || '/bin/bash'}</span>
                         </div>
+                        {#if agent.system_info?.hostname}
+                            <div class="meta-item">
+                                <span class="meta-label">Hostname</span>
+                                <span class="meta-value">{agent.system_info.hostname}</span>
+                            </div>
+                        {/if}
                     </div>
 
                     <div class="container-actions">
@@ -1614,6 +1665,31 @@
         border: 1px solid var(--border-muted);
         font-family: var(--font-mono);
         font-size: 11px;
+    }
+
+    .resource-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+    }
+
+    .resource-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+
+    .resource-value {
+        color: var(--accent);
+        font-weight: 500;
+    }
+
+    .resource-usage {
+        color: var(--text-muted);
+        font-weight: 400;
+        font-size: 10px;
     }
 
     .resource-spec {

@@ -1,6 +1,31 @@
 import { writable, derived, get } from 'svelte/store';
 import { auth } from './auth';
 
+export interface AgentSystemInfo {
+  os: string;
+  arch: string;
+  num_cpu: number;
+  hostname: string;
+  memory: {
+    total: number;
+    available: number;
+    free: number;
+  };
+  disk: {
+    total: number;
+    free: number;
+    available: number;
+  };
+}
+
+export interface AgentStats {
+  cpu_percent: number;
+  memory: number;
+  memory_limit: number;
+  disk_usage: number;
+  disk_limit: number;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -13,6 +38,8 @@ export interface Agent {
   connected_at?: string;
   last_ping?: string;
   created_at: string;
+  system_info?: AgentSystemInfo;
+  stats?: AgentStats;
 }
 
 interface AgentsState {
@@ -48,8 +75,33 @@ function createAgentsStore() {
           headers: getAuthHeader(),
         });
         if (!res.ok) throw new Error('Failed to fetch agents');
-        const agents = await res.json();
-        update(s => ({ ...s, agents: agents || [], loading: false }));
+        const agentsList = await res.json();
+        
+        // For online agents, fetch their status to get system_info and stats
+        const enrichedAgents = await Promise.all(
+          (agentsList || []).map(async (agent: Agent) => {
+            if (agent.status === 'online') {
+              try {
+                const statusRes = await fetch(`${API_BASE}/agents/${agent.id}/status`, {
+                  headers: getAuthHeader(),
+                });
+                if (statusRes.ok) {
+                  const status = await statusRes.json();
+                  return {
+                    ...agent,
+                    system_info: status.system_info,
+                    stats: status.stats,
+                  };
+                }
+              } catch {
+                // Ignore status fetch errors
+              }
+            }
+            return agent;
+          })
+        );
+        
+        update(s => ({ ...s, agents: enrichedAgents, loading: false }));
       } catch (err: any) {
         update(s => ({ ...s, error: err.message, loading: false }));
       }

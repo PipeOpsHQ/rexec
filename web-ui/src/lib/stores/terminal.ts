@@ -874,7 +874,8 @@ function createTerminalStore() {
           } else if (msg.type === "stats") {
             // Handle stats updates
             try {
-              const statsData = JSON.parse(msg.data);
+              // Stats can come as string (from container) or object (from agent)
+              const statsData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
               updateSession(sessionId, (s) => ({
                 ...s,
                 stats: {

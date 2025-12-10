@@ -40,6 +40,9 @@ type AgentConnection struct {
 	conn        *websocket.Conn
 	sessions    map[string]*AgentSession
 	sessionsMu  sync.RWMutex
+	// System info from agent
+	SystemInfo  map[string]interface{} `json:"system_info,omitempty"`
+	Stats       map[string]interface{} `json:"stats,omitempty"`
 }
 
 type AgentSession struct {
@@ -329,6 +332,30 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 			}
 			agentConn.sessionsMu.RUnlock()
 
+		case "system_info":
+			// Store system info from agent
+			var sysInfo map[string]interface{}
+			if err := json.Unmarshal(msg.Data, &sysInfo); err == nil {
+				agentConn.SystemInfo = sysInfo
+				log.Printf("Agent %s system info: %v", agentConn.Name, sysInfo)
+			}
+
+		case "stats":
+			// Store and forward stats to connected user sessions
+			var stats map[string]interface{}
+			if err := json.Unmarshal(msg.Data, &stats); err == nil {
+				agentConn.Stats = stats
+				// Forward stats to all connected user sessions
+				agentConn.sessionsMu.RLock()
+				for _, session := range agentConn.sessions {
+					session.UserConn.WriteJSON(map[string]interface{}{
+						"type": "stats",
+						"data": stats,
+					})
+				}
+				agentConn.sessionsMu.RUnlock()
+			}
+
 		case "pong":
 			agentConn.LastPing = time.Now()
 		}
@@ -381,6 +408,14 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 	agentConn.sessionsMu.Lock()
 	agentConn.sessions[sessionID] = session
 	agentConn.sessionsMu.Unlock()
+
+	// Send initial stats if available
+	if agentConn.Stats != nil {
+		conn.WriteJSON(map[string]interface{}{
+			"type": "stats",
+			"data": agentConn.Stats,
+		})
+	}
 
 	// Tell agent to start shell
 	agentConn.conn.WriteJSON(map[string]interface{}{
@@ -480,12 +515,26 @@ func (h *AgentHandler) GetAgentStatus(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"status":       "online",
 		"connected_at": agent.ConnectedAt,
 		"last_ping":    agent.LastPing,
 		"sessions":     len(agent.sessions),
-	})
+		"os":           agent.OS,
+		"arch":         agent.Arch,
+	}
+
+	// Include system info if available
+	if agent.SystemInfo != nil {
+		response["system_info"] = agent.SystemInfo
+	}
+
+	// Include latest stats if available
+	if agent.Stats != nil {
+		response["stats"] = agent.Stats
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // verifyToken parses and validates a JWT token, returning the user ID

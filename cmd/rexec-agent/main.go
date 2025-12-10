@@ -518,7 +518,160 @@ func (a *Agent) connect() error {
 
 	log.Printf("%s✓ Connected to Rexec%s", Green, Reset)
 
+	// Send system info on connect
+	a.sendSystemInfo()
+
+	// Start periodic stats reporting
+	go a.reportStats()
+
 	return nil
+}
+
+// getSystemInfo collects machine information
+func (a *Agent) getSystemInfo() map[string]interface{} {
+	info := map[string]interface{}{
+		"os":       runtime.GOOS,
+		"arch":     runtime.GOARCH,
+		"num_cpu":  runtime.NumCPU(),
+		"hostname": "",
+		"memory":   map[string]uint64{},
+		"disk":     map[string]uint64{},
+	}
+
+	// Get hostname
+	if hostname, err := os.Hostname(); err == nil {
+		info["hostname"] = hostname
+	}
+
+	// Get memory info (Linux)
+	if runtime.GOOS == "linux" {
+		if data, err := os.ReadFile("/proc/meminfo"); err == nil {
+			lines := strings.Split(string(data), "\n")
+			memInfo := map[string]uint64{}
+			for _, line := range lines {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					var value uint64
+					fmt.Sscanf(fields[1], "%d", &value)
+					value *= 1024 // Convert from KB to bytes
+					switch fields[0] {
+					case "MemTotal:":
+						memInfo["total"] = value
+					case "MemAvailable:":
+						memInfo["available"] = value
+					case "MemFree:":
+						memInfo["free"] = value
+					}
+				}
+			}
+			info["memory"] = memInfo
+		}
+	}
+
+	// Get disk info
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs("/", &stat); err == nil {
+		info["disk"] = map[string]uint64{
+			"total":     stat.Blocks * uint64(stat.Bsize),
+			"free":      stat.Bfree * uint64(stat.Bsize),
+			"available": stat.Bavail * uint64(stat.Bsize),
+		}
+	}
+
+	return info
+}
+
+// sendSystemInfo sends machine info to the server
+func (a *Agent) sendSystemInfo() {
+	info := a.getSystemInfo()
+	a.sendMessage("system_info", info)
+}
+
+// reportStats periodically sends system stats
+func (a *Agent) reportStats() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for a.running {
+		select {
+		case <-ticker.C:
+			a.mu.Lock()
+			connected := a.conn != nil
+			a.mu.Unlock()
+
+			if !connected {
+				return
+			}
+
+			stats := a.collectStats()
+			a.sendMessage("stats", stats)
+		}
+	}
+}
+
+// collectStats gathers current CPU, memory, disk usage
+func (a *Agent) collectStats() map[string]interface{} {
+	stats := map[string]interface{}{
+		"cpu_percent":  0.0,
+		"memory":       uint64(0),
+		"memory_limit": uint64(0),
+		"disk_usage":   uint64(0),
+		"disk_limit":   uint64(0),
+	}
+
+	// Memory stats (Linux)
+	if runtime.GOOS == "linux" {
+		if data, err := os.ReadFile("/proc/meminfo"); err == nil {
+			lines := strings.Split(string(data), "\n")
+			var total, available uint64
+			for _, line := range lines {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					var value uint64
+					fmt.Sscanf(fields[1], "%d", &value)
+					value *= 1024
+					switch fields[0] {
+					case "MemTotal:":
+						total = value
+					case "MemAvailable:":
+						available = value
+					}
+				}
+			}
+			if total > 0 {
+				stats["memory"] = total - available
+				stats["memory_limit"] = total
+			}
+		}
+	}
+
+	// Disk stats
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs("/", &stat); err == nil {
+		total := stat.Blocks * uint64(stat.Bsize)
+		free := stat.Bfree * uint64(stat.Bsize)
+		stats["disk_usage"] = total - free
+		stats["disk_limit"] = total
+	}
+
+	// CPU usage (simplified - load average on Linux)
+	if runtime.GOOS == "linux" {
+		if data, err := os.ReadFile("/proc/loadavg"); err == nil {
+			fields := strings.Fields(string(data))
+			if len(fields) > 0 {
+				var load float64
+				fmt.Sscanf(fields[0], "%f", &load)
+				// Convert load average to approximate CPU percent
+				cpuPercent := (load / float64(runtime.NumCPU())) * 100
+				if cpuPercent > 100 {
+					cpuPercent = 100
+				}
+				stats["cpu_percent"] = cpuPercent
+			}
+		}
+	}
+
+	return stats
 }
 
 func (a *Agent) handleConnection() {

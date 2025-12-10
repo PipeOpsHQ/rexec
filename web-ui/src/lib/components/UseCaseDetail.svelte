@@ -565,6 +565,18 @@
                         {#if example.code}
                             <div class="code-block">
                                 <pre><code>{example.code}</code></pre>
+                                <button 
+                                    class="copy-btn" 
+                                    onclick={() => {
+                                        navigator.clipboard.writeText(example.code || '');
+                                        // Simple feedback mechanism without state variable for each item
+                                        const btn = document.activeElement;
+                                        if (btn) btn.textContent = 'Copied!';
+                                        setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 2000);
+                                    }}
+                                >
+                                    Copy
+                                </button>
                             </div>
                         {/if}
                     </div>
@@ -986,10 +998,12 @@
         border-radius: 8px;
         padding: 16px;
         overflow-x: auto;
+        position: relative;
     }
 
     .code-block pre {
         margin: 0;
+        padding-right: 60px;
     }
 
     .code-block code {
@@ -997,6 +1011,26 @@
         font-size: 12px;
         color: var(--text);
         line-height: 1.6;
+    }
+
+    .copy-btn {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: var(--text-secondary);
+        font-size: 10px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: var(--font-mono);
+    }
+
+    .copy-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--text);
     }
 
     /* Testimonial Section */
