@@ -163,8 +163,77 @@
         </section>
 
         <section class="docs-section">
-            <h2>Using the rexec CLI</h2>
-            <p>After installation, you can use the rexec CLI to manage your agent:</p>
+            <h2>rexec CLI Installation</h2>
+            <p>Install the rexec CLI to manage agents, terminals, and access the interactive TUI from your local machine.</p>
+            
+            <div class="install-method">
+                <h3>
+                    <PlatformIcon platform="macos" size={20} />
+                    macOS (Homebrew)
+                </h3>
+                <div class="code-block">
+                    <code>brew tap rexec/tap<br/>brew install rexec</code>
+                    <button 
+                        class="copy-btn" 
+                        onclick={() => copyToClipboard('brew tap rexec/tap && brew install rexec', 'brew')}
+                    >
+                        {copiedCommand === 'brew' ? 'Copied!' : 'Copy'}
+                    </button>
+                </div>
+            </div>
+
+            <div class="install-method">
+                <h3>
+                    <StatusIcon status="ready" size={20} />
+                    Direct Download (All Platforms)
+                </h3>
+                <div class="code-block">
+                    <code>curl -fsSL https://rexec.pipeops.io/install-cli.sh | bash</code>
+                    <button 
+                        class="copy-btn" 
+                        onclick={() => copyToClipboard('curl -fsSL https://rexec.pipeops.io/install-cli.sh | bash', 'cli-direct')}
+                    >
+                        {copiedCommand === 'cli-direct' ? 'Copied!' : 'Copy'}
+                    </button>
+                </div>
+            </div>
+
+            <div class="install-method">
+                <h3>
+                    <StatusIcon status="ready" size={20} />
+                    Go Install
+                </h3>
+                <div class="code-block">
+                    <code>go install github.com/rexec/rexec/cmd/rexec@latest</code>
+                    <button 
+                        class="copy-btn" 
+                        onclick={() => copyToClipboard('go install github.com/rexec/rexec/cmd/rexec@latest', 'go-install')}
+                    >
+                        {copiedCommand === 'go-install' ? 'Copied!' : 'Copy'}
+                    </button>
+                </div>
+            </div>
+
+            <div class="install-method">
+                <h3>
+                    <StatusIcon status="ready" size={20} />
+                    Build from Source
+                </h3>
+                <div class="code-block">
+                    <code>git clone https://github.com/rexec/rexec.git<br/>cd rexec<br/>make build-cli<br/>sudo mv rexec-cli /usr/local/bin/rexec</code>
+                    <button 
+                        class="copy-btn" 
+                        onclick={() => copyToClipboard('git clone https://github.com/rexec/rexec.git && cd rexec && make build-cli && sudo mv rexec-cli /usr/local/bin/rexec', 'source')}
+                    >
+                        {copiedCommand === 'source' ? 'Copied!' : 'Copy'}
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>CLI Commands</h2>
+            <p>After installation, you can use the rexec CLI to manage your agent and terminals:</p>
             
             <div class="cli-commands">
                 <div class="command-item">
