@@ -320,6 +320,9 @@ func runServer() {
 	// Initialize admin handler
 	adminHandler := handlers.NewAdminHandler(store, adminEventsHub)
 
+	// Initialize agent handler
+	agentHandler := handlers.NewAgentHandler(store)
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -498,6 +501,15 @@ func runServer() {
 			}
 		}
 
+		// Agent endpoints
+		agents := api.Group("/agents")
+		{
+			agents.POST("/register", agentHandler.RegisterAgent)
+			agents.GET("", agentHandler.ListAgents)
+			agents.GET("/:id/status", agentHandler.GetAgentStatus)
+			agents.DELETE("/:id", agentHandler.DeleteAgent)
+		}
+
 		// Admin routes
 		admin := api.Group("/admin")
 		admin.Use(middleware.AdminOnly(store))
@@ -536,6 +548,10 @@ func runServer() {
 
 	// WebSocket for Admin Events (NEW)
 	router.GET("/ws/admin/events", wsLimiter.Middleware(), middleware.AuthMiddleware(), middleware.AdminOnly(store), adminEventsHub.HandleWebSocket)
+
+	// WebSocket for Agent connections
+	router.GET("/ws/agent/:id", wsLimiter.Middleware(), agentHandler.HandleAgentWebSocket)
+	router.GET("/ws/agent/:id/terminal", wsLimiter.Middleware(), agentHandler.HandleUserWebSocket)
 
 	// Public recording access (no auth required for shared recordings)
 	router.GET("/r/:token", recordingHandler.GetRecordingByToken)

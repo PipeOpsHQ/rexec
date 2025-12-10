@@ -1,7 +1,10 @@
-.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install
+.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all
 
 # Variables
 BINARY_NAME=rexec
+CLI_NAME=rexec-cli
+TUI_NAME=rexec-tui
+AGENT_NAME=rexec-agent
 DOCKER_IMAGE=rexec-api
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
@@ -30,8 +33,25 @@ build:
 	@echo "Building $(BINARY_NAME)..."
 	$(GOBUILD) -ldflags "-X main.Version=$(VERSION)" -o bin/$(BINARY_NAME) ./cmd/rexec
 
-# Build everything (UI + Go binary)
-build-all: ui build
+# Build CLI tools
+cli:
+	@echo "Building $(CLI_NAME)..."
+	$(GOBUILD) -ldflags "-X main.Version=$(VERSION)" -o bin/$(CLI_NAME) ./cmd/rexec-cli
+
+tui:
+	@echo "Building $(TUI_NAME)..."
+	$(GOBUILD) -ldflags "-X main.Version=$(VERSION)" -o bin/$(TUI_NAME) ./cmd/rexec-tui
+
+agent:
+	@echo "Building $(AGENT_NAME)..."
+	$(GOBUILD) -ldflags "-X main.Version=$(VERSION)" -o bin/$(AGENT_NAME) ./cmd/rexec-agent
+
+# Build all CLI tools
+cli-all: cli tui agent
+	@echo "All CLI tools built!"
+
+# Build everything (UI + Go binary + CLI tools)
+build-all: ui build cli-all
 	@echo "Build complete!"
 
 # Run the application
@@ -129,11 +149,17 @@ help:
 	@echo "Rexec - Terminal as a Service"
 	@echo ""
 	@echo "Usage:"
-	@echo "  make build        - Build the Go binary"
-	@echo "  make build-all    - Build UI + Go binary"
+	@echo "  make build        - Build the Go server binary"
+	@echo "  make build-all    - Build UI + server + CLI tools"
 	@echo "  make run          - Build and run the application"
 	@echo "  make run-all      - Build UI + Go and run"
 	@echo "  make dev          - Run with hot reload (requires air)"
+	@echo ""
+	@echo "  make cli          - Build the rexec-cli tool"
+	@echo "  make tui          - Build the rexec-tui dashboard"
+	@echo "  make agent        - Build the rexec-agent"
+	@echo "  make cli-all      - Build all CLI tools"
+	@echo ""
 	@echo "  make ui           - Build the Svelte web UI"
 	@echo "  make ui-dev       - Run web UI dev server (port 3000)"
 	@echo "  make ui-install   - Install web UI dependencies"
