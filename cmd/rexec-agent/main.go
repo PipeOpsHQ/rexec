@@ -552,10 +552,11 @@ func (a *Agent) handleConnection() {
 
 		case "shell_input":
 			var input struct {
-				Data []byte `json:"data"`
+				SessionID string `json:"session_id"`
+				Data      []byte `json:"data"`
 			}
 			if err := json.Unmarshal(msg.Data, &input); err == nil {
-				if a.ptmx != nil {
+				if a.ptmx != nil && len(input.Data) > 0 {
 					a.ptmx.Write(input.Data)
 				}
 			}
