@@ -234,19 +234,19 @@ function createCustomKeyHandler(term: Terminal) {
 
 // Calculate responsive font size based on screen dimensions
 function getResponsiveFontSize(): number {
-  if (typeof window === "undefined") return 14;
+  if (typeof window === "undefined") return 12;
 
   const width = window.innerWidth;
 
-  // Scale font size based on screen size - increased for better readability
-  // Small screens (< 768px): 13px
-  // Medium screens (768-1200px): 14px
-  // Large screens (1200-1600px): 15px
-  // Extra large (> 1600px): 16px
-  if (width < 768) return 13;
-  if (width < 1200) return 14;
-  if (width < 1600) return 15;
-  return 16;
+  // Scale font size based on screen size - balanced for terminal readability
+  // Small screens (< 768px): 11px
+  // Medium screens (768-1200px): 12px
+  // Large screens (1200-1600px): 13px
+  // Extra large (> 1600px): 14px
+  if (width < 768) return 11;
+  if (width < 1200) return 12;
+  if (width < 1600) return 13;
+  return 14;
 }
 
 // Terminal configuration - Production-grade like Google Cloud Shell

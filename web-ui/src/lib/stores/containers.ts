@@ -42,7 +42,19 @@ export interface Container {
   ip_address?: string;
   resources?: ContainerResources;
   portForwards?: PortForward[]; // New field for port forwards
-  session_type?: string; // Session type: container, gpu, ssh, custom
+  session_type?: string; // Session type: container, agent, gpu, ssh, custom
+  // Agent-specific fields
+  os?: string;
+  arch?: string;
+  shell?: string;
+  hostname?: string;
+  stats?: {
+    cpu_percent?: number;
+    memory?: number;
+    memory_limit?: number;
+    disk_usage?: number;
+    disk_limit?: number;
+  };
 }
 
 export interface CreatingContainer {

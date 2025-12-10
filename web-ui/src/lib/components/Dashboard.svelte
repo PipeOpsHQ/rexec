@@ -11,7 +11,6 @@
     import { auth } from "$stores/auth";
     import { terminal, connectedContainerIds } from "$stores/terminal";
     import { toast } from "$stores/toast";
-    import { agents, type Agent } from "$stores/agents";
     import { formatRelativeTime, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import ConfirmModal from "./ConfirmModal.svelte";
     import TerminalSettingsModal from "./TerminalSettingsModal.svelte";
@@ -87,19 +86,6 @@
     
     // Track the last known status to detect WebSocket updates
     let lastKnownStatus: Record<string, string> = {};
-
-    // Fetch agents on mount and periodically
-    onMount(() => {
-        agents.fetchAgents();
-        // Refresh agents every 30 seconds to get updated status
-        const interval = setInterval(() => {
-            agents.fetchAgents();
-        }, 30000);
-        return () => clearInterval(interval);
-    });
-
-    // Get online agents
-    $: onlineAgents = $agents.agents.filter(a => a.status === 'online');
 
     function setLoading(id: string, state: 'starting' | 'stopping' | 'deleting' | null) {
         loadingStatesStore.update(states => {
@@ -557,8 +543,10 @@
             {/if}
             {#each containerList as container (container.id)}
                 {@const containerConnected = connectedIds.has(container.id)}
+                {@const isAgent = container.session_type === 'agent'}
                 <div
                     class="container-card"
+                    class:agent-card={isAgent}
                     class:active={hasActiveSession(container.id)}
                     class:connected={containerConnected}
                     class:loading={isContainerLoading(container.id)}
@@ -585,13 +573,25 @@
 
                     <div class="container-header">
                         <span class="container-icon">
-                            <PlatformIcon platform={getDistro(container.image)} size={32} />
+                            {#if isAgent}
+                                <PlatformIcon platform={container.os === 'darwin' ? 'macos' : container.os === 'windows' ? 'windows' : 'linux'} size={32} />
+                            {:else}
+                                <PlatformIcon platform={getDistro(container.image)} size={32} />
+                            {/if}
                         </span>
                         <div class="container-info">
                             <h2 class="container-name">{container.name}</h2>
                             <div class="container-meta-row">
                                 <span class="container-image">{container.image}</span>
-                                {#if container.role}
+                                {#if isAgent}
+                                    <span class="environment-badge agent-env" title="Connected via Agent">
+                                        <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="2" y="3" width="20" height="14" rx="2" />
+                                            <path d="M8 21h8M12 17v4" />
+                                        </svg>
+                                        <span class="badge-text">Agent</span>
+                                    </span>
+                                {:else if container.role}
                                     <span class="environment-badge" title="Environment: {container.role}">
                                         <PlatformIcon platform={container.role} size={14} />
                                         <span class="badge-text">{container.role}</span>
@@ -604,14 +604,14 @@
                                 container.status,
                             )}"
                         >
-                            <span class="status-dot"></span>
+                            <span class="status-dot" class:status-dot-pulse={isAgent && container.status === 'running'}></span>
                             {container.status}
                         </span>
                     </div>
 
                     <div class="container-meta">
                         <div class="meta-item">
-                            <span class="meta-label">Created</span>
+                            <span class="meta-label">{isAgent ? 'Connected' : 'Created'}</span>
                             <span class="meta-value"
                                 >{formatRelativeTime(
                                     container.created_at,
@@ -662,7 +662,7 @@
                                 >
                                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                                 </svg>
-                                                                {formatCPU(container.resources.cpu_shares)}
+                                {formatCPU(container.resources.cpu_shares)}
                             </span>
                             <span class="resource-divider">/</span>
                             <span class="resource-spec">
@@ -862,118 +862,6 @@
                                 </button>
                             </div>
                         {/if}
-                    </div>
-                </div>
-            {/each}
-
-            <!-- Online Agents Section -->
-            {#each onlineAgents as agent (agent.id)}
-                <div
-                    class="container-card agent-card"
-                    class:connected={true}
-                >
-                    <div class="container-header">
-                        <span class="container-icon">
-                            <PlatformIcon platform={agent.os === 'darwin' ? 'macos' : agent.os === 'windows' ? 'windows' : 'linux'} size={32} />
-                        </span>
-                        <div class="container-info">
-                            <h2 class="container-name">{agent.name}</h2>
-                            <div class="container-meta-row">
-                                <span class="container-image">{agent.os}/{agent.arch}</span>
-                                <span class="environment-badge agent-env" title="Connected via Agent">
-                                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="2" y="3" width="20" height="14" rx="2" />
-                                        <path d="M8 21h8M12 17v4" />
-                                    </svg>
-                                    <span class="badge-text">Agent</span>
-                                </span>
-                            </div>
-                        </div>
-                        <span class="container-status status-running">
-                            <span class="status-dot status-dot-pulse"></span>
-                            running
-                        </span>
-                    </div>
-
-                    <!-- Resource Stats - same format as containers -->
-                    <div class="container-resources">
-                        <span class="resource-spec">
-                            <svg class="resource-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="4" y="4" width="16" height="16" rx="2"/>
-                                <path d="M9 9h6M9 13h6M9 17h6"/>
-                            </svg>
-                            {agent.system_info?.num_cpu || 1} vCPU
-                        </span>
-                        <span class="resource-divider">·</span>
-                        <span class="resource-spec">
-                            <svg class="resource-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M6 19v-3M10 19v-6M14 19v-9M18 19v-12"/>
-                            </svg>
-                            {#if agent.stats?.memory_limit}
-                                {formatMemory(agent.stats.memory_limit / 1024 / 1024)}
-                            {:else if agent.system_info?.memory?.total}
-                                {formatMemory(agent.system_info.memory.total / 1024 / 1024)}
-                            {:else}
-                                --
-                            {/if}
-                        </span>
-                        <span class="resource-divider">·</span>
-                        <span class="resource-spec">
-                            <svg class="resource-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                            </svg>
-                            {#if agent.stats?.disk_limit}
-                                {formatStorage(agent.stats.disk_limit / 1024 / 1024)}
-                            {:else if agent.system_info?.disk?.total}
-                                {formatStorage(agent.system_info.disk.total / 1024 / 1024)}
-                            {:else}
-                                --
-                            {/if}
-                        </span>
-                    </div>
-
-                    <div class="container-meta">
-                        <div class="meta-item">
-                            <span class="meta-label">Connected</span>
-                            <span class="meta-value">
-                                {agent.connected_at ? formatRelativeTime(agent.connected_at) : 'Just now'}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="container-actions">
-                        <button
-                            class="btn btn-primary btn-sm flex-1"
-                            onclick={() => dispatch('connect', { id: `agent:${agent.id}`, name: agent.name })}
-                        >
-                            <svg
-                                class="icon"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                            Connect
-                        </button>
-                        <button
-                            class="btn btn-danger btn-sm"
-                            title="Disconnect Agent"
-                            onclick={() => agents.deleteAgent(agent.id)}
-                        >
-                            <svg
-                                class="icon"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <path d="M18 6L6 18M6 6l12 12" />
-                            </svg>
-                        </button>
                     </div>
                 </div>
             {/each}
