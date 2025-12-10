@@ -33,6 +33,7 @@
     import Billing from "$components/Billing.svelte";
     import ScreenLock from "$components/ScreenLock.svelte";
     import AgentDocs from "$components/AgentDocs.svelte";
+    import CLIDocs from "$components/CLIDocs.svelte";
     import CLILogin from "$components/CLILogin.svelte";
 
     // App state
@@ -53,6 +54,7 @@
         | "promo"
         | "billing"
         | "agent-docs"
+        | "cli-docs"
         | "cli-login"
         | "404" = "landing";
     let isLoading = true;
@@ -390,6 +392,12 @@
             return;
         }
 
+        // Check for /docs/cli route
+        if (path === "/docs/cli") {
+            currentView = "cli-docs";
+            return;
+        }
+
         // Check for /cli-login route (CLI login with callback)
         if (path === "/cli-login") {
             const callback = params.get("callback");
@@ -477,6 +485,7 @@
             "/promo",
             "/agents",
             "/docs/agent",
+            "/docs/cli",
         ];
         const isKnownPath =
             knownPaths.includes(path) ||
@@ -617,6 +626,7 @@
         currentView !== "use-case-detail" &&
         currentView !== "marketplace" &&
         currentView !== "agent-docs" &&
+        currentView !== "cli-docs" &&
         currentView !== "join" &&
         currentView !== "pricing" &&
         currentView !== "404"
@@ -657,6 +667,11 @@
     function goToAgents() {
         currentView = "agent-docs";
         window.history.pushState({}, "", "/agents");
+    }
+
+    function goToCLI() {
+        currentView = "cli-docs";
+        window.history.pushState({}, "", "/docs/cli");
     }
 
     function goToBilling() {
@@ -716,6 +731,8 @@
             currentView = $isAuthenticated ? "snippets" : "landing";
         } else if (path === "/agents" || path === "/docs/agent") {
             currentView = "agent-docs";
+        } else if (path === "/docs/cli") {
+            currentView = "cli-docs";
         } else if (path === "/marketplace") {
             currentView = "marketplace";
         }
@@ -739,6 +756,7 @@
             on:snippets={goToSnippets}
             on:billing={goToBilling}
             on:agents={goToAgents}
+            on:cli={goToCLI}
             on:guest={openGuestModal}
             on:pricing={() => {
                 currentView = "pricing";
@@ -826,6 +844,12 @@
                 />
             {:else if currentView === "agent-docs"}
                 <AgentDocs 
+                    onback={() => {
+                        window.history.back();
+                    }}
+                />
+            {:else if currentView === "cli-docs"}
+                <CLIDocs 
                     onback={() => {
                         window.history.back();
                     }}

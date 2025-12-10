@@ -293,6 +293,24 @@
                             class:disabled={$isGuest}
                             disabled={$isGuest}
                             title={$isGuest
+                                ? "Sign in with PipeOps to access CLI Docs"
+                                : ""}
+                            on:click={() => {
+                                if (!$isGuest) {
+                                    showUserMenu = false;
+                                    dispatch("cli");
+                                }
+                            }}
+                        >
+                            <StatusIcon status="terminal" size={14} />
+                            CLI
+                            {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
+                        </button>
+                        <button
+                            class="user-menu-item"
+                            class:disabled={$isGuest}
+                            disabled={$isGuest}
+                            title={$isGuest
                                 ? "Sign in with PipeOps to access Agents"
                                 : ""}
                             on:click={() => {

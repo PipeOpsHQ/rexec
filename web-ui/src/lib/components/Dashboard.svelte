@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher, tick } from "svelte";
+    import { createEventDispatcher, tick, onMount } from "svelte";
     import { writable } from "svelte/store";
     import {
         containers,
@@ -11,6 +11,7 @@
     import { auth } from "$stores/auth";
     import { terminal, connectedContainerIds } from "$stores/terminal";
     import { toast } from "$stores/toast";
+    import { agents, type Agent } from "$stores/agents";
     import { formatRelativeTime, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import ConfirmModal from "./ConfirmModal.svelte";
     import TerminalSettingsModal from "./TerminalSettingsModal.svelte";
@@ -78,6 +79,19 @@
     
     // Track the last known status to detect WebSocket updates
     let lastKnownStatus: Record<string, string> = {};
+
+    // Fetch agents on mount and periodically
+    onMount(() => {
+        agents.fetchAgents();
+        // Refresh agents every 30 seconds to get updated status
+        const interval = setInterval(() => {
+            agents.fetchAgents();
+        }, 30000);
+        return () => clearInterval(interval);
+    });
+
+    // Get online agents
+    $: onlineAgents = $agents.agents.filter(a => a.status === 'online');
 
     function setLoading(id: string, state: 'starting' | 'stopping' | 'deleting' | null) {
         loadingStatesStore.update(states => {
@@ -835,6 +849,90 @@
                     </div>
                 </div>
             {/each}
+
+            <!-- Online Agents Section -->
+            {#each onlineAgents as agent (agent.id)}
+                <div
+                    class="container-card agent-card"
+                    class:connected={true}
+                >
+                    <div class="agent-badge">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" />
+                            <path d="M8 21h8M12 17v4" />
+                        </svg>
+                        Agent
+                    </div>
+                    <div class="container-header">
+                        <span class="container-icon">
+                            <PlatformIcon platform={agent.os === 'darwin' ? 'macos' : agent.os === 'windows' ? 'windows' : 'linux'} size={32} />
+                        </span>
+                        <div class="container-info">
+                            <h2 class="container-name">{agent.name}</h2>
+                            <div class="container-meta-row">
+                                <span class="container-image">{agent.os}/{agent.arch}</span>
+                                <span class="environment-badge agent-env" title="Connected Machine">
+                                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M12 16v-4M12 8h.01" />
+                                    </svg>
+                                    <span class="badge-text">BYOS</span>
+                                </span>
+                            </div>
+                        </div>
+                        <span class="container-status status-running">
+                            <span class="status-dot"></span>
+                            online
+                        </span>
+                    </div>
+
+                    <div class="container-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Connected</span>
+                            <span class="meta-value">
+                                {agent.connected_at ? formatRelativeTime(agent.connected_at) : 'Just now'}
+                            </span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Shell</span>
+                            <span class="meta-value">{agent.shell || '/bin/bash'}</span>
+                        </div>
+                    </div>
+
+                    <div class="container-actions">
+                        <button
+                            class="btn btn-primary btn-sm flex-1"
+                            on:click={() => dispatch('connect', { id: `agent:${agent.id}`, name: agent.name })}
+                        >
+                            <svg
+                                class="icon"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                            Connect
+                        </button>
+                        <button
+                            class="btn btn-danger btn-sm"
+                            title="Disconnect Agent"
+                            on:click={() => agents.deleteAgent(agent.id)}
+                        >
+                            <svg
+                                class="icon"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            {/each}
         </div>
     {/if}
 </div>
@@ -1122,6 +1220,55 @@
     .container-card.connected {
         border-color: #00d9ff;
         box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
+    }
+
+    /* Agent card styles */
+    .container-card.agent-card {
+        border-color: #a855f7;
+        background: linear-gradient(
+            135deg,
+            rgba(168, 85, 247, 0.05) 0%,
+            rgba(168, 85, 247, 0.02) 100%
+        );
+    }
+
+    .container-card.agent-card:hover {
+        border-color: #a855f7;
+        box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+    }
+
+    .agent-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: rgba(168, 85, 247, 0.2);
+        border: 1px solid rgba(168, 85, 247, 0.4);
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 500;
+        color: #a855f7;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .agent-badge .icon {
+        width: 12px;
+        height: 12px;
+    }
+
+    .agent-env {
+        background: rgba(168, 85, 247, 0.15);
+        border-color: rgba(168, 85, 247, 0.3);
+        color: #a855f7;
+    }
+
+    .badge-icon {
+        width: 12px;
+        height: 12px;
     }
 
 
