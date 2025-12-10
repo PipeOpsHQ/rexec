@@ -1,9 +1,10 @@
+import { mount } from 'svelte';
 import App from './App.svelte';
 import './styles/global.css';
 import { registerSW } from 'virtual:pwa-register';
 import { initInstallPrompt } from './lib/stores/pwa';
 
-const app = new App({
+const app = mount(App, {
   target: document.getElementById('app')!,
 });
 
