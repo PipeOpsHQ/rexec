@@ -777,7 +777,17 @@
                     }}
                 />
             {:else if currentView === "settings"}
-                <Settings on:back={goToDashboard} />
+                <Settings 
+                    on:back={goToDashboard} 
+                    on:connectAgent={(e) => {
+                        const { agentId, agentName } = e.detail;
+                        // Create a terminal session for the agent
+                        terminal.createAgentSession(agentId, agentName);
+                        currentView = "dashboard";
+                        window.history.pushState({}, "", "/");
+                        toast.success(`Connecting to ${agentName}...`);
+                    }}
+                />
             {:else if currentView === "sshkeys"}
                 <SSHKeys
                     on:back={goToDashboard}

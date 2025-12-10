@@ -52,6 +52,9 @@ export interface TerminalSession {
   isSettingUp: boolean;
   setupMessage: string;
   hasConnectedOnce: boolean; // Track if session has ever successfully connected
+  // Agent session (external machine)
+  isAgentSession: boolean;
+  agentId: string | null;
   // Collaboration mode
   isCollabSession: boolean;
   collabMode: "view" | "control" | null; // null if not a collab session
@@ -501,6 +504,8 @@ function createTerminalStore() {
         isSettingUp: false,
         setupMessage: "",
         hasConnectedOnce: false,
+        isAgentSession: false,
+        agentId: null,
         isCollabSession: false,
         collabMode: null,
         collabRole: null,
@@ -563,6 +568,25 @@ function createTerminalStore() {
       return sessionId;
     },
 
+    // Create an agent session (external machine connected via agent)
+    createAgentSession(agentId: string, name: string): string | null {
+      const authToken = get(token);
+      if (!authToken) return null;
+
+      // Use agentId as the containerId for consistency
+      const sessionId = this.createNewTab(`agent:${agentId}`, `🖥️ ${name}`);
+      if (!sessionId) return null;
+
+      // Mark as agent session
+      updateSession(sessionId, (s) => ({
+        ...s,
+        isAgentSession: true,
+        agentId: agentId,
+      }));
+
+      return sessionId;
+    },
+
     // Update browser URL for terminal routing
     updateUrl(containerId: string) {
       const newUrl = `/${containerId}`;
@@ -600,7 +624,13 @@ function createTerminalStore() {
       if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
       if (session.pingInterval) clearInterval(session.pingInterval);
 
-      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${sessionId}`;
+      // Build WebSocket URL - different endpoint for agent sessions
+      let wsUrl: string;
+      if (session.isAgentSession && session.agentId) {
+        wsUrl = `${getWsUrl()}/ws/agent/${session.agentId}/terminal?token=${authToken}&id=${sessionId}`;
+      } else {
+        wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${sessionId}`;
+      }
       const ws = new WebSocket(wsUrl);
 
       updateSession(sessionId, (s) => ({ ...s, ws, status: "connecting" }));
@@ -1921,7 +1951,12 @@ function createTerminalStore() {
 
       // Create independent WebSocket connection for this pane with unique ID
       // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
-      const wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${paneId}&newSession=true`;
+      let wsUrl: string;
+      if (session.isAgentSession && session.agentId) {
+        wsUrl = `${getWsUrl()}/ws/agent/${session.agentId}/terminal?token=${authToken}&id=${paneId}&newSession=true`;
+      } else {
+        wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${paneId}&newSession=true`;
+      }
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
