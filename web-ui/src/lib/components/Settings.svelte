@@ -491,7 +491,7 @@
         <p>Install the rexec agent on any server:</p>
         <code class="install-command">curl -sSL https://rexec.pipeops.io/install-agent.sh | bash</code>
         <p class="docs-link">
-          <a href="/docs/agents" target="_blank">View full documentation →</a>
+          <a href="/agents">View full documentation →</a>
         </p>
       </div>
     </section>

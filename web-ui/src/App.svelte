@@ -363,6 +363,16 @@
             return;
         }
 
+        // Check for /settings route
+        if (path === "/settings") {
+            if (!$isAuthenticated) {
+                currentView = "landing";
+                return;
+            }
+            currentView = "settings";
+            return;
+        }
+
         // Check for /docs/agent or /agents route
         if (path === "/docs/agent" || path === "/agents") {
             currentView = "agent-docs";
