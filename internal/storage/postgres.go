@@ -333,6 +333,22 @@ func (s *PostgresStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_collab_sessions_share_code ON collab_sessions(share_code);
 	CREATE INDEX IF NOT EXISTS idx_collab_sessions_container ON collab_sessions(container_id);
 	CREATE INDEX IF NOT EXISTS idx_collab_participants_session ON collab_participants(session_id);
+
+	-- Agents table for BYOS (Bring Your Own Server)
+	CREATE TABLE IF NOT EXISTS agents (
+		id VARCHAR(36) PRIMARY KEY,
+		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name VARCHAR(255) NOT NULL,
+		description TEXT,
+		os VARCHAR(50),
+		arch VARCHAR(50),
+		shell VARCHAR(255),
+		tags TEXT[],
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+	
+	CREATE INDEX IF NOT EXISTS idx_agents_user_id ON agents(user_id);
 	`
 
 	_, err := s.db.Exec(collabTables)
