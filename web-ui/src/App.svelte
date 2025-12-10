@@ -36,6 +36,7 @@
     import CLIDocs from "$components/CLIDocs.svelte";
     import CLILogin from "$components/CLILogin.svelte";
     import Account from "$components/Account.svelte";
+    import AccountLayout from "$components/AccountLayout.svelte";
 
     // App state
     let currentView:
@@ -58,7 +59,12 @@
         | "cli-docs"
         | "cli-login"
         | "account"
+        | "account-settings"
+        | "account-ssh"
+        | "account-billing"
+        | "account-snippets"
         | "404" = "landing";
+    let accountSection: string | null = null; // Track which account sub-section we're in
     let isLoading = true;
     let isInitialized = false; // Prevents reactive statements from firing before token validation
     let joinCode = ""; // For /join/:code route
@@ -362,29 +368,45 @@
             return;
         }
 
-        // Check for /snippets route
-        if (path === "/snippets") {
-            if (!$isAuthenticated) {
-                currentView = "landing";
-                return;
-            }
-            currentView = "snippets";
-            return;
-        }
-
         // Check for /marketplace route
         if (path === "/marketplace") {
             currentView = "marketplace";
             return;
         }
 
-        // Check for /settings route
+        // Check for /settings route - redirect to /account/settings
         if (path === "/settings") {
             if (!$isAuthenticated) {
                 currentView = "landing";
                 return;
             }
-            currentView = "settings";
+            window.history.replaceState({}, "", "/account/settings");
+            currentView = "account-settings";
+            accountSection = "settings";
+            return;
+        }
+
+        // Check for /sshkeys route - redirect to /account/ssh
+        if (path === "/sshkeys") {
+            if (!$isAuthenticated) {
+                currentView = "landing";
+                return;
+            }
+            window.history.replaceState({}, "", "/account/ssh");
+            currentView = "account-ssh";
+            accountSection = "ssh";
+            return;
+        }
+
+        // Check for /snippets route - redirect to /account/snippets
+        if (path === "/snippets") {
+            if (!$isAuthenticated) {
+                currentView = "landing";
+                return;
+            }
+            window.history.replaceState({}, "", "/account/snippets");
+            currentView = "account-snippets";
+            accountSection = "snippets";
             return;
         }
 
@@ -400,13 +422,33 @@
             return;
         }
 
-        // Check for /account route
-        if (path === "/account" || path === "/profile") {
+        // Check for /account routes
+        if (path.startsWith("/account")) {
             if (!$isAuthenticated) {
                 currentView = "landing";
                 return;
             }
-            currentView = "account";
+
+            // Handle account sub-routes
+            if (path === "/account/settings") {
+                currentView = "account-settings";
+                accountSection = "settings";
+            } else if (path === "/account/ssh" || path === "/account/sshkeys") {
+                currentView = "account-ssh";
+                accountSection = "ssh";
+            } else if (path === "/account/billing") {
+                currentView = "account-billing";
+                accountSection = "billing";
+            } else if (path === "/account/snippets") {
+                currentView = "account-snippets";
+                accountSection = "snippets";
+            } else if (path === "/account" || path === "/profile") {
+                currentView = "account";
+                accountSection = null;
+            } else {
+                // Unknown account sub-route
+                currentView = "404";
+            }
             return;
         }
 
@@ -499,6 +541,11 @@
             "/docs/agent",
             "/docs/cli",
             "/account",
+            "/account/settings",
+            "/account/ssh",
+            "/account/sshkeys",
+            "/account/billing",
+            "/account/snippets",
             "/profile",
         ];
         const isKnownPath =
@@ -663,15 +710,21 @@
     }
 
     function goToSettings() {
-        currentView = "settings";
+        currentView = "account-settings";
+        accountSection = "settings";
+        window.history.pushState({}, "", "/account/settings");
     }
 
     function goToSSHKeys() {
-        currentView = "sshkeys";
+        currentView = "account-ssh";
+        accountSection = "ssh";
+        window.history.pushState({}, "", "/account/ssh");
     }
 
     function goToSnippets() {
-        currentView = "snippets";
+        currentView = "account-snippets";
+        accountSection = "snippets";
+        window.history.pushState({}, "", "/account/snippets");
     }
 
     function goToMarketplace() {
@@ -748,12 +801,55 @@
                 currentView = "admin"; // Let the view render (or show access denied)
             }
         } else if (path === "/snippets") {
-            currentView = $isAuthenticated ? "snippets" : "landing";
+            if ($isAuthenticated) {
+                window.history.replaceState({}, "", "/account/snippets");
+                currentView = "account-snippets";
+                accountSection = "snippets";
+            } else {
+                currentView = "landing";
+            }
+        } else if (path === "/settings") {
+            if ($isAuthenticated) {
+                window.history.replaceState({}, "", "/account/settings");
+                currentView = "account-settings";
+                accountSection = "settings";
+            } else {
+                currentView = "landing";
+            }
+        } else if (path === "/sshkeys") {
+            if ($isAuthenticated) {
+                window.history.replaceState({}, "", "/account/ssh");
+                currentView = "account-ssh";
+                accountSection = "ssh";
+            } else {
+                currentView = "landing";
+            }
         } else if (path === "/agents" || path === "/docs/agent") {
             currentView = "agent-docs";
         } else if (path === "/docs/cli") {
             currentView = "cli-docs";
-        } else if (path === "/account" || path === "/profile") {
+        } else if (path.startsWith("/account")) {
+            if ($isAuthenticated) {
+                if (path === "/account/settings") {
+                    currentView = "account-settings";
+                    accountSection = "settings";
+                } else if (path === "/account/ssh" || path === "/account/sshkeys") {
+                    currentView = "account-ssh";
+                    accountSection = "ssh";
+                } else if (path === "/account/billing") {
+                    currentView = "account-billing";
+                    accountSection = "billing";
+                } else if (path === "/account/snippets") {
+                    currentView = "account-snippets";
+                    accountSection = "snippets";
+                } else {
+                    currentView = "account";
+                    accountSection = null;
+                }
+            } else {
+                currentView = "landing";
+            }
+        } else if (path === "/profile") {
             currentView = $isAuthenticated ? "account" : "landing";
         } else if (path === "/marketplace") {
             currentView = "marketplace";
@@ -886,15 +982,31 @@
             {:else if currentView === "cli-login"}
                 <CLILogin />
             {:else if currentView === "account"}
-                <Account 
+                <Account
                     on:navigate={(e) => {
                         // Handle internal navigation from Account page
                         const view = e.detail.view;
                         if (view === 'dashboard') goToDashboard();
-                        else if (view === 'settings') goToSettings();
-                        else if (view === 'sshkeys') goToSSHKeys();
-                        else if (view === 'billing') goToBilling();
-                        else if (view === 'snippets') goToSnippets();
+                        else if (view === 'settings') {
+                            currentView = "account-settings";
+                            accountSection = "settings";
+                            window.history.pushState({}, "", "/account/settings");
+                        }
+                        else if (view === 'sshkeys') {
+                            currentView = "account-ssh";
+                            accountSection = "ssh";
+                            window.history.pushState({}, "", "/account/ssh");
+                        }
+                        else if (view === 'billing') {
+                            currentView = "account-billing";
+                            accountSection = "billing";
+                            window.history.pushState({}, "", "/account/billing");
+                        }
+                        else if (view === 'snippets') {
+                            currentView = "account-snippets";
+                            accountSection = "snippets";
+                            window.history.pushState({}, "", "/account/snippets");
+                        }
                         else if (view === 'pricing') {
                             currentView = "pricing";
                             window.history.pushState({}, "", "/pricing");
@@ -905,6 +1017,86 @@
                     }}
                     on:logout={() => auth.logout()}
                 />
+            {:else if currentView === "account-settings"}
+                <AccountLayout section="settings" on:navigate={(e) => {
+                    const view = e.detail.view;
+                    if (view === 'dashboard') goToDashboard();
+                }}>
+                    <Settings
+                        on:back={() => {
+                            currentView = "account";
+                            accountSection = null;
+                            window.history.pushState({}, "", "/account");
+                        }}
+                        on:connectAgent={(e) => {
+                            const { agentId, agentName } = e.detail;
+                            terminal.createAgentSession(agentId, agentName);
+                            currentView = "dashboard";
+                            window.history.pushState({}, "", "/");
+                            toast.success(`Connecting to ${agentName}...`);
+                        }}
+                    />
+                </AccountLayout>
+            {:else if currentView === "account-ssh"}
+                <AccountLayout section="ssh" on:navigate={(e) => {
+                    const view = e.detail.view;
+                    if (view === 'dashboard') goToDashboard();
+                }}>
+                    <SSHKeys
+                        on:back={() => {
+                            currentView = "account";
+                            accountSection = null;
+                            window.history.pushState({}, "", "/account");
+                        }}
+                        on:run={(e) => {
+                            const command = e.detail.command;
+                            const activeSessionId = terminal.getState().activeSessionId;
+
+                            if (activeSessionId) {
+                                currentView = "dashboard";
+                                window.history.pushState({}, "", "/");
+                                setTimeout(() => {
+                                    terminal.sendInput(activeSessionId, command + "\n");
+                                    toast.success("Running SSH command...");
+                                }, 50);
+                            } else {
+                                toast.error("No active terminal. Please create one first.");
+                                currentView = "dashboard";
+                                window.history.pushState({}, "", "/");
+                            }
+                        }}
+                    />
+                </AccountLayout>
+            {:else if currentView === "account-billing"}
+                <AccountLayout section="billing" on:navigate={(e) => {
+                    const view = e.detail.view;
+                    if (view === 'dashboard') goToDashboard();
+                }}>
+                    <Billing
+                        on:back={() => {
+                            currentView = "account";
+                            accountSection = null;
+                            window.history.pushState({}, "", "/account");
+                        }}
+                        on:pricing={() => {
+                            currentView = "pricing";
+                            window.history.pushState({}, "", "/pricing");
+                        }}
+                    />
+                </AccountLayout>
+            {:else if currentView === "account-snippets"}
+                <AccountLayout section="snippets" on:navigate={(e) => {
+                    const view = e.detail.view;
+                    if (view === 'dashboard') goToDashboard();
+                }}>
+                    <SnippetsPage
+                        on:back={() => {
+                            currentView = "account";
+                            accountSection = null;
+                            window.history.pushState({}, "", "/account");
+                        }}
+                    />
+                </AccountLayout>
             {:else if currentView === "join"}
                 <JoinSession
                     code={joinCode}
