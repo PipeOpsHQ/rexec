@@ -574,7 +574,7 @@ function createTerminalStore() {
       if (!authToken) return null;
 
       // Use agentId as the containerId for consistency
-      const sessionId = this.createNewTab(`agent:${agentId}`, `🖥️ ${name}`);
+      const sessionId = this.createNewTab(`agent:${agentId}`, `[Agent] ${name}`);
       if (!sessionId) return null;
 
       // Mark as agent session

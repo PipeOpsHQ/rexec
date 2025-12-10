@@ -239,7 +239,9 @@
                                             <StatusIcon status="play" size={14} />
                                         </button>
                                     </div>
-                                    <span class="expand-icon" class:rotated={expandedSnippet === snippet.id}>▼</span>
+                                    <span class="expand-icon" class:rotated={expandedSnippet === snippet.id}>
+                                        <StatusIcon status="chevron-down" size={14} />
+                                    </span>
                                 </div>
                             </div>
                             

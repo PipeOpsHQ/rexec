@@ -20,6 +20,7 @@
         snippets: void;
         billing: void;
         agents: void;
+        cli: void;
         guest: void;
         pricing: void;
         guides: void;
@@ -191,11 +192,14 @@
                                 class:danger={timeRemaining.includes("s") &&
                                     !timeRemaining.includes("m")}
                             >
-                                ⏱ {timeRemaining}
+                                <StatusIcon status="clock" size={10} />
+                                {timeRemaining}
                             </span>
                         {/if}
                     {/if}
-                    <span class="dropdown-arrow">▼</span>
+                    <span class="dropdown-arrow">
+                        <StatusIcon status="chevron-down" size={10} />
+                    </span>
                 </button>
 
                 {#if showUserMenu}
@@ -221,18 +225,8 @@
                         </div>
 
                         <div class="user-menu-divider"></div>
-                        
-                        <button
-                            class="user-menu-item"
-                            onclick={() => {
-                                showUserMenu = false;
-                                dispatch("pricing");
-                            }}
-                        >
-                            <StatusIcon status="pricing" size={14} />
-                            Pricing
-                        </button>
 
+                        <!-- Navigation -->
                         {#if !$isGuest}
                             <button
                                 class="user-menu-item"
@@ -246,19 +240,10 @@
                             </button>
                         {/if}
 
-                        {#if $isAdmin}
-                            <button
-                                class="user-menu-item"
-                                onclick={() => {
-                                    showUserMenu = false;
-                                    dispatch("admin");
-                                }}
-                            >
-                                <StatusIcon status="shield" size={14} />
-                                Admin
-                            </button>
-                        {/if}
+                        <div class="user-menu-divider"></div>
 
+                        <!-- Account Section -->
+                        <div class="user-menu-section-label">Account</div>
                         <button
                             class="user-menu-item"
                             class:disabled={$isGuest}
@@ -300,7 +285,45 @@
                             class:disabled={$isGuest}
                             disabled={$isGuest}
                             title={$isGuest
-                                ? "Sign in with PipeOps to access CLI Docs"
+                                ? "Sign in with PipeOps to access Billing"
+                                : ""}
+                            onclick={() => {
+                                if (!$isGuest) {
+                                    showUserMenu = false;
+                                    dispatch("billing");
+                                }
+                            }}
+                        >
+                            <StatusIcon status="invoice" size={14} />
+                            Billing
+                            {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
+                        </button>
+
+                        <div class="user-menu-divider"></div>
+
+                        <!-- Tools Section -->
+                        <div class="user-menu-section-label">Tools</div>
+                        <button
+                            class="user-menu-item"
+                            class:disabled={$isGuest}
+                            disabled={$isGuest}
+                            onclick={() => {
+                                if (!$isGuest) {
+                                    showUserMenu = false;
+                                    dispatch("snippets");
+                                }
+                            }}
+                        >
+                            <StatusIcon status="script" size={14} />
+                            Snippets
+                            {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
+                        </button>
+                        <button
+                            class="user-menu-item"
+                            class:disabled={$isGuest}
+                            disabled={$isGuest}
+                            title={$isGuest
+                                ? "Sign in with PipeOps to access CLI"
                                 : ""}
                             onclick={() => {
                                 if (!$isGuest) {
@@ -331,38 +354,36 @@
                             Agents
                             {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
                         </button>
+
+                        <div class="user-menu-divider"></div>
+
+                        <!-- Explore Section -->
+                        <div class="user-menu-section-label">Explore</div>
                         <button
                             class="user-menu-item"
-                            class:disabled={$isGuest}
-                            disabled={$isGuest}
                             onclick={() => {
-                                if (!$isGuest) {
-                                    showUserMenu = false;
-                                    dispatch("snippets");
-                                }
+                                showUserMenu = false;
+                                dispatch("pricing");
                             }}
                         >
-                            <StatusIcon status="script" size={14} />
-                            Snippets
+                            <StatusIcon status="pricing" size={14} />
+                            Pricing
                         </button>
-                        <button
-                            class="user-menu-item"
-                            class:disabled={$isGuest}
-                            disabled={$isGuest}
-                            title={$isGuest
-                                ? "Sign in with PipeOps to access Billing"
-                                : ""}
-                            onclick={() => {
-                                if (!$isGuest) {
+
+                        {#if $isAdmin}
+                            <div class="user-menu-divider"></div>
+                            <button
+                                class="user-menu-item"
+                                onclick={() => {
                                     showUserMenu = false;
-                                    dispatch("billing");
-                                }
-                            }}
-                        >
-                            <StatusIcon status="invoice" size={14} />
-                            Billing
-                            {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
-                        </button>
+                                    dispatch("admin");
+                                }}
+                            >
+                                <StatusIcon status="shield" size={14} />
+                                Admin
+                            </button>
+                        {/if}
+
                         {#if $isGuest}
                             <div class="user-menu-divider"></div>
                             <button
@@ -816,6 +837,15 @@
 
     .user-menu-item.danger:hover {
         background: rgba(255, 0, 60, 0.1);
+    }
+
+    .user-menu-section-label {
+        padding: 8px 16px 4px;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
     }
 
     .user-menu-item.disabled {

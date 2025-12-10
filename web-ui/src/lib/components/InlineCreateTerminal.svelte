@@ -673,7 +673,9 @@
                     class="resource-toggle"
                     onclick={() => (showResources = !showResources)}
                 >
-                    <span class="toggle-icon">{showResources ? "▼" : "▶"}</span>
+                    <span class="toggle-icon">
+                        <StatusIcon status={showResources ? "chevron-down" : "chevron-right"} size={12} />
+                    </span>
                     <h4>Resources</h4>
                     <span class="resource-preview">
                         {formatMemory(memoryMB)} / {formatCPU(cpuShares)} / {formatStorage(
