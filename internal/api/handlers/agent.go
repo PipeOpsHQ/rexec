@@ -421,6 +421,16 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 			}
 
 			switch msg.Type {
+			case "input":
+				// Forward text input to agent as shell_input
+				agentConn.conn.WriteJSON(map[string]interface{}{
+					"type": "shell_input",
+					"data": map[string]interface{}{
+						"session_id": sessionID,
+						"data":       []byte(msg.Data),
+					},
+				})
+
 			case "resize":
 				agentConn.conn.WriteJSON(map[string]interface{}{
 					"type": "shell_resize",

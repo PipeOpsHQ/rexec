@@ -499,6 +499,32 @@
             return;
         }
 
+        // Handle agent URL routing (/agent:agentId)
+        const agentMatch = path.match(/^\/agent:([a-f0-9-]{36})$/i);
+        if (agentMatch && $isAuthenticated) {
+            const agentId = agentMatch[1];
+            // Create agent terminal session - fetch agent info first
+            try {
+                const response = await fetch(`/api/agents/${agentId}/status`);
+                if (response.ok) {
+                    const status = await response.json();
+                    if (status.status === "online") {
+                        terminal.setViewMode("docked");
+                        terminal.createAgentSession(agentId, `Agent ${agentId.slice(0, 8)}`);
+                        currentView = "dashboard";
+                    } else {
+                        toast.error("Agent is offline");
+                        currentView = "dashboard";
+                    }
+                } else {
+                    currentView = "404";
+                }
+            } catch {
+                currentView = "404";
+            }
+            return;
+        }
+
         // Handle path-based routing (/terminal/containerId)
         const match = path.match(
             /^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i,
@@ -553,6 +579,7 @@
             path.startsWith("/use-cases/") ||
             path.startsWith("/join/") ||
             path.startsWith("/terminal/") ||
+            path.startsWith("/agent:") ||
             path.match(/^\/[a-f0-9]{64}$/i) ||
             path.match(/^\/[a-f0-9-]{36}$/i);
 
