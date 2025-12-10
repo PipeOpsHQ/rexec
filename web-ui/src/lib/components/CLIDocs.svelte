@@ -18,7 +18,7 @@
 </script>
 
 <div class="docs-page">
-    <button class="back-btn" on:click={handleBack}>
+    <button class="back-btn" onclick={handleBack}>
         <span class="back-icon">←</span>
         <span>Back</span>
     </button>
@@ -74,7 +74,7 @@
                     <code>curl -fsSL https://rexec.pipeops.io/install-cli.sh | bash</code>
                     <button 
                         class="copy-btn" 
-                        on:click={() => copyToClipboard('curl -fsSL https://rexec.pipeops.io/install-cli.sh | bash', 'cli-direct')}
+                        onclick={() => copyToClipboard('curl -fsSL https://rexec.pipeops.io/install-cli.sh | bash', 'cli-direct')}
                     >
                         {copiedCommand === 'cli-direct' ? 'Copied!' : 'Copy'}
                     </button>
@@ -90,7 +90,7 @@
                     <code>brew tap rexec/tap<br/>brew install rexec</code>
                     <button 
                         class="copy-btn" 
-                        on:click={() => copyToClipboard('brew tap rexec/tap && brew install rexec', 'brew')}
+                        onclick={() => copyToClipboard('brew tap rexec/tap && brew install rexec', 'brew')}
                     >
                         {copiedCommand === 'brew' ? 'Copied!' : 'Copy'}
                     </button>
@@ -106,7 +106,7 @@
                     <code>go install github.com/rexec/rexec/cmd/rexec-cli@latest</code>
                     <button 
                         class="copy-btn" 
-                        on:click={() => copyToClipboard('go install github.com/rexec/rexec/cmd/rexec-cli@latest', 'go-install')}
+                        onclick={() => copyToClipboard('go install github.com/rexec/rexec/cmd/rexec-cli@latest', 'go-install')}
                     >
                         {copiedCommand === 'go-install' ? 'Copied!' : 'Copy'}
                     </button>

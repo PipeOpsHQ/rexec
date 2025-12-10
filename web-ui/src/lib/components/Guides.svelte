@@ -91,7 +91,7 @@
     <section class="cta-section">
         <h2>Ready to feel the speed?</h2>
         <p>Start a terminal and type `ls` before the setup finishes.</p>
-        <button class="btn btn-primary btn-lg" on:click={handleTryNow}>
+        <button class="btn btn-primary btn-lg" onclick={handleTryNow}>
             <StatusIcon status="rocket" size={16} />
             <span>Launch Terminal</span>
         </button>
@@ -103,7 +103,7 @@
             <p>Master the platform with our comprehensive guides.</p>
         </div>
         <div class="docs-grid">
-            <button class="doc-card" on:click={() => dispatch('navigate', { view: 'docs/cli' })}>
+            <button class="doc-card" onclick={() => dispatch('navigate', { view: 'docs/cli' })}>
                 <div class="doc-icon">
                     <StatusIcon status="cli" size={32} />
                 </div>
@@ -113,7 +113,7 @@
                     <span class="link-text">View Documentation →</span>
                 </div>
             </button>
-            <button class="doc-card" on:click={() => dispatch('navigate', { view: 'docs/agent' })}>
+            <button class="doc-card" onclick={() => dispatch('navigate', { view: 'docs/agent' })}>
                 <div class="doc-icon">
                     <StatusIcon status="server" size={32} />
                 </div>

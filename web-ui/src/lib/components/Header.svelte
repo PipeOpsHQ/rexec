@@ -137,20 +137,20 @@
     }
 </script>
 
-<svelte:window on:click={closeUserMenu} />
+<svelte:window onclick={closeUserMenu} />
 
 <header class="header">
-    <button class="mobile-menu-btn" on:click={toggleMobileMenu}>
+    <button class="mobile-menu-btn" onclick={toggleMobileMenu}>
         <StatusIcon status="menu" size={20} />
     </button>
 
-    <button class="logo" on:click={() => dispatch("home")}>
+    <button class="logo" onclick={() => dispatch("home")}>
         <span class="logo-icon">R</span>
         <span class="logo-text">Rexec</span>
     </button>
 
     <nav class="nav-links">
-        <button class="nav-link" on:click={() => dispatch("pricing")}>
+        <button class="nav-link" onclick={() => dispatch("pricing")}>
             <StatusIcon status="pricing" size={14} />
             <span>Pricing</span>
         </button>
@@ -173,7 +173,7 @@
             <div class="user-menu-container">
                 <button
                     class="user-badge"
-                    on:click={(e) => { e.stopPropagation(); toggleUserMenu(); }}
+                    onclick={(e) => { e.stopPropagation(); toggleUserMenu(); }}
                 >
                     <span class="user-avatar">
                         {$auth.user?.name?.charAt(0).toUpperCase() || "U"}
@@ -202,7 +202,7 @@
                     <div class="user-menu">
                         <div 
                             class="user-menu-header clickable"
-                            on:click={() => {
+                            onclick={() => {
                                 showUserMenu = false;
                                 dispatch("account");
                             }}
@@ -224,7 +224,7 @@
                         
                         <button
                             class="user-menu-item"
-                            on:click={() => {
+                            onclick={() => {
                                 showUserMenu = false;
                                 dispatch("pricing");
                             }}
@@ -236,7 +236,7 @@
                         {#if !$isGuest}
                             <button
                                 class="user-menu-item"
-                                on:click={() => {
+                                onclick={() => {
                                     showUserMenu = false;
                                     dispatch("home");
                                 }}
@@ -249,7 +249,7 @@
                         {#if $isAdmin}
                             <button
                                 class="user-menu-item"
-                                on:click={() => {
+                                onclick={() => {
                                     showUserMenu = false;
                                     dispatch("admin");
                                 }}
@@ -266,7 +266,7 @@
                             title={$isGuest
                                 ? "Sign in with PipeOps to access Settings"
                                 : ""}
-                            on:click={() => {
+                            onclick={() => {
                                 if (!$isGuest) {
                                     showUserMenu = false;
                                     dispatch("settings");
@@ -284,7 +284,7 @@
                             title={$isGuest
                                 ? "Sign in with PipeOps to manage SSH Keys"
                                 : ""}
-                            on:click={() => {
+                            onclick={() => {
                                 if (!$isGuest) {
                                     showUserMenu = false;
                                     dispatch("sshkeys");
@@ -302,7 +302,7 @@
                             title={$isGuest
                                 ? "Sign in with PipeOps to access CLI Docs"
                                 : ""}
-                            on:click={() => {
+                            onclick={() => {
                                 if (!$isGuest) {
                                     showUserMenu = false;
                                     dispatch("cli");
@@ -320,7 +320,7 @@
                             title={$isGuest
                                 ? "Sign in with PipeOps to access Agents"
                                 : ""}
-                            on:click={() => {
+                            onclick={() => {
                                 if (!$isGuest) {
                                     showUserMenu = false;
                                     dispatch("agents");
@@ -335,7 +335,7 @@
                             class="user-menu-item"
                             class:disabled={$isGuest}
                             disabled={$isGuest}
-                            on:click={() => {
+                            onclick={() => {
                                 if (!$isGuest) {
                                     showUserMenu = false;
                                     dispatch("snippets");
@@ -352,7 +352,7 @@
                             title={$isGuest
                                 ? "Sign in with PipeOps to access Billing"
                                 : ""}
-                            on:click={() => {
+                            onclick={() => {
                                 if (!$isGuest) {
                                     showUserMenu = false;
                                     dispatch("billing");
@@ -367,7 +367,7 @@
                             <div class="user-menu-divider"></div>
                             <button
                                 class="user-menu-item accent"
-                                on:click={handleOAuthLogin}
+                                onclick={handleOAuthLogin}
                                 disabled={isOAuthLoading}
                             >
                                 {#if isOAuthLoading}
@@ -384,7 +384,7 @@
 
                         <button
                             class="user-menu-item danger"
-                            on:click={handleLogout}
+                            onclick={handleLogout}
                         >
                             <StatusIcon status="logout" size={14} />
                             Sign Out
@@ -395,13 +395,13 @@
         {:else}
             <button
                 class="btn btn-secondary btn-sm"
-                on:click={handleGuestClick}
+                onclick={handleGuestClick}
             >
                 Try as Guest
             </button>
             <button
                 class="btn btn-primary btn-sm"
-                on:click={handleOAuthLogin}
+                onclick={handleOAuthLogin}
                 disabled={isOAuthLoading}
             >
                 {#if isOAuthLoading}
@@ -416,23 +416,23 @@
 </header>
 
 {#if showMobileMenu}
-    <div class="mobile-menu-overlay" on:click={closeMobileMenu}>
-        <div class="mobile-menu-content" on:click={(e) => e.stopPropagation()}>
+    <div class="mobile-menu-overlay" onclick={closeMobileMenu}>
+        <div class="mobile-menu-content" onclick={(e) => e.stopPropagation()}>
             <div class="mobile-menu-header">
                 <span class="logo-text">Menu</span>
-                <button class="close-btn" on:click={closeMobileMenu}>
+                <button class="close-btn" onclick={closeMobileMenu}>
                     <StatusIcon status="close" size={20} />
                 </button>
             </div>
             <div class="mobile-nav-links">
-                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("pricing"); }}>
+                <button class="mobile-nav-link" onclick={() => { closeMobileMenu(); dispatch("pricing"); }}>
                     <StatusIcon status="pricing" size={16} /> Pricing
                 </button>
-                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("home"); }}>
+                <button class="mobile-nav-link" onclick={() => { closeMobileMenu(); dispatch("home"); }}>
                     <StatusIcon status="chart" size={16} /> Dashboard
                 </button>
                 <div class="user-menu-divider"></div>
-                <button class="mobile-nav-link" on:click={() => { closeMobileMenu(); dispatch("create"); }}>
+                <button class="mobile-nav-link" onclick={() => { closeMobileMenu(); dispatch("create"); }}>
                     <StatusIcon status="plus" size={16} /> New Terminal
                 </button>
             </div>

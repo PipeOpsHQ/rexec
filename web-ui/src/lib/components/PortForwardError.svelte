@@ -76,14 +76,14 @@
             <p>{message}</p>
             
             <div class="actions">
-                <button class="btn btn-primary" on:click={retry}>
+                <button class="btn btn-primary" onclick={retry}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M23 4v6h-6M1 20v-6h6"/>
                         <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
                     </svg>
                     Retry
                 </button>
-                <button class="btn btn-secondary" on:click={goToDashboard}>
+                <button class="btn btn-secondary" onclick={goToDashboard}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                         <polyline points="9 22 9 12 15 12 15 22"/>

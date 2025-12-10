@@ -316,7 +316,7 @@
 
 <div class="promo">
     <!-- Hero Section - Full Width -->
-    <section class="hero" class:loaded={heroLoaded} on:mousemove={handleTerminalMouseMove} on:mouseleave={handleTerminalMouseLeave}>
+    <section class="hero" class:loaded={heroLoaded} onmousemove={handleTerminalMouseMove} onmouseleave={handleTerminalMouseLeave}>
         <div class="hero-bg">
             <div class="grid-lines"></div>
             <div class="glow glow-1"></div>
@@ -350,12 +350,12 @@
                 </p>
 
                 <div class="hero-actions animate-fade-up" style="--delay: 0.4s">
-                    <button class="btn-hero btn-primary-hero" on:click={handleGuestClick}>
+                    <button class="btn-hero btn-primary-hero" onclick={handleGuestClick}>
                         <span class="btn-icon">▶</span>
                         Start Free Terminal
                         <span class="btn-shine"></span>
                     </button>
-                    <button class="btn-hero btn-secondary-hero" on:click={handleOAuthLogin} disabled={isOAuthLoading}>
+                    <button class="btn-hero btn-secondary-hero" onclick={handleOAuthLogin} disabled={isOAuthLoading}>
                         {#if isOAuthLoading}
                             <span class="spinner"></span>
                         {:else}
@@ -433,8 +433,8 @@
             <div class="comparison">
                 <div 
                     class="comparison-card old-way tilt-card"
-                    on:mousemove={handleCardTilt}
-                    on:mouseleave={handleCardReset}
+                    onmousemove={handleCardTilt}
+                    onmouseleave={handleCardReset}
                     role="article"
                 >
                     <div class="card-glow"></div>
@@ -455,8 +455,8 @@
                 
                 <div 
                     class="comparison-card new-way tilt-card"
-                    on:mousemove={handleCardTilt}
-                    on:mouseleave={handleCardReset}
+                    onmousemove={handleCardTilt}
+                    onmouseleave={handleCardReset}
                     role="article"
                 >
                     <div class="card-glow"></div>
@@ -492,7 +492,7 @@
                         </div>
                         <h3>{useCase.title}</h3>
                         <p>{useCase.description}</p>
-                        <button class="usecase-link" on:click={() => navigateTo(`use-cases/${useCase.slug}`)}>
+                        <button class="usecase-link" onclick={() => navigateTo(`use-cases/${useCase.slug}`)}>
                             Learn more →
                         </button>
                     </div>
@@ -575,22 +575,22 @@
             <p>Start with our free tier. No credit card required.</p>
             
             <div class="cta-actions">
-                <button class="btn-hero btn-primary-hero btn-large" on:click={handleGuestClick}>
+                <button class="btn-hero btn-primary-hero btn-large" onclick={handleGuestClick}>
                     <span class="btn-icon">▶</span>
                     Launch Your First Terminal
                 </button>
             </div>
 
             <div class="cta-links">
-                <button class="cta-link" on:click={() => navigateTo('pricing')}>
+                <button class="cta-link" onclick={() => navigateTo('pricing')}>
                     View Pricing
                 </button>
                 <span class="link-dot"></span>
-                <button class="cta-link" on:click={() => navigateTo('guides')}>
+                <button class="cta-link" onclick={() => navigateTo('guides')}>
                     Read the Docs
                 </button>
                 <span class="link-dot"></span>
-                <button class="cta-link" on:click={() => navigateTo('use-cases')}>
+                <button class="cta-link" onclick={() => navigateTo('use-cases')}>
                     Explore Use Cases
                 </button>
             </div>

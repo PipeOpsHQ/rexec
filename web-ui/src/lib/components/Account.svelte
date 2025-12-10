@@ -46,7 +46,7 @@
             </div>
             
             <div class="profile-actions">
-                <button class="action-btn danger" on:click={handleLogout}>
+                <button class="action-btn danger" onclick={handleLogout}>
                     <StatusIcon status="logout" size={16} />
                     <span>Sign Out</span>
                 </button>
@@ -55,7 +55,7 @@
 
         <!-- Quick Links Grid -->
         <div class="links-grid">
-            <button class="link-card" on:click={() => navigate('dashboard')} disabled={$isGuest}>
+            <button class="link-card" onclick={() => navigate('dashboard')} disabled={$isGuest}>
                 <div class="icon-wrapper">
                     <StatusIcon status="chart" size={24} />
                 </div>
@@ -65,7 +65,7 @@
                 </div>
             </button>
 
-            <button class="link-card" on:click={() => navigate('settings')} disabled={$isGuest}>
+            <button class="link-card" onclick={() => navigate('settings')} disabled={$isGuest}>
                 <div class="icon-wrapper">
                     <StatusIcon status="settings" size={24} />
                 </div>
@@ -75,7 +75,7 @@
                 </div>
             </button>
 
-            <button class="link-card" on:click={() => navigate('sshkeys')} disabled={$isGuest}>
+            <button class="link-card" onclick={() => navigate('sshkeys')} disabled={$isGuest}>
                 <div class="icon-wrapper">
                     <StatusIcon status="key" size={24} />
                 </div>
@@ -85,7 +85,7 @@
                 </div>
             </button>
 
-            <button class="link-card" on:click={() => navigate('billing')} disabled={$isGuest}>
+            <button class="link-card" onclick={() => navigate('billing')} disabled={$isGuest}>
                 <div class="icon-wrapper">
                     <StatusIcon status="invoice" size={24} />
                 </div>
@@ -95,7 +95,7 @@
                 </div>
             </button>
             
-            <button class="link-card" on:click={() => navigate('snippets')} disabled={$isGuest}>
+            <button class="link-card" onclick={() => navigate('snippets')} disabled={$isGuest}>
                 <div class="icon-wrapper">
                     <StatusIcon status="script" size={24} />
                 </div>
@@ -105,7 +105,7 @@
                 </div>
             </button>
 
-            <button class="link-card" on:click={() => navigate('pricing')}>
+            <button class="link-card" onclick={() => navigate('pricing')}>
                 <div class="icon-wrapper">
                     <StatusIcon status="pricing" size={24} />
                 </div>
@@ -123,7 +123,7 @@
     </div>
 
     <div class="links-grid">
-        <button class="link-card" on:click={() => navigate('docs/cli')} disabled={$isGuest}>
+        <button class="link-card" onclick={() => navigate('docs/cli')} disabled={$isGuest}>
             <div class="icon-wrapper accent">
                 <StatusIcon status="cli" size={24} />
             </div>
@@ -133,7 +133,7 @@
             </div>
         </button>
 
-        <button class="link-card" on:click={() => navigate('docs/agent')} disabled={$isGuest}>
+        <button class="link-card" onclick={() => navigate('docs/agent')} disabled={$isGuest}>
             <div class="icon-wrapper accent">
                 <StatusIcon status="server" size={24} />
             </div>
@@ -144,7 +144,7 @@
         </button>
 
         {#if $isAdmin}
-            <button class="link-card" on:click={() => navigate('admin')}>
+            <button class="link-card" onclick={() => navigate('admin')}>
                 <div class="icon-wrapper danger">
                     <StatusIcon status="shield" size={24} />
                 </div>

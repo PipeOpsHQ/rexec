@@ -489,7 +489,7 @@
             {#if isDisconnected}
                 <button
                     class="toolbar-btn reconnect-btn"
-                    on:click={handleReconnect}
+                    onclick={handleReconnect}
                     title="Reconnect"
                 >
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
@@ -501,13 +501,13 @@
             
             <!-- Primary Actions (Icons Only) - Only for owners -->
             {#if !isGuest}
-                <button class="toolbar-btn icon-btn" on:click={handleSplitHorizontal} title="Split Horizontal">
+                <button class="toolbar-btn icon-btn" onclick={handleSplitHorizontal} title="Split Horizontal">
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
                         <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1"/>
                     </svg>
                 </button>
-                <button class="toolbar-btn icon-btn" on:click={handleSplitVertical} title="Split Vertical">
+                <button class="toolbar-btn icon-btn" onclick={handleSplitVertical} title="Split Vertical">
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
                         <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1"/>
@@ -520,7 +520,7 @@
                 <button
                     class="toolbar-btn icon-btn"
                     class:recording={isRecording}
-                    on:click={handleRecording}
+                    onclick={handleRecording}
                     title={isRecording ? "Stop Recording" : "Start Recording"}
                 >
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
@@ -536,7 +536,7 @@
                 <button
                     class="toolbar-btn icon-btn collab-btn"
                     class:has-participants={hasActiveSharing}
-                    on:click={handleCollab}
+                    onclick={handleCollab}
                     title={hasActiveSharing ? `Collaborate (${$collab.participants.length} connected)` : "Collaborate"}
                 >
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
@@ -553,12 +553,12 @@
                 <input 
                     type="file" 
                     bind:this={fileInput} 
-                    on:change={handleFileUpload}
+                    onchange={handleFileUpload}
                     style="display: none;"
                 />
                 <button
                     class="toolbar-btn icon-btn upload-btn"
-                    on:click={handleUploadClick}
+                    onclick={handleUploadClick}
                     disabled={isUploading || !isConnected}
                     title="Upload File to Terminal"
                 >
@@ -576,7 +576,7 @@
             <!-- File Download - Available to all -->
             <button
                 class="toolbar-btn icon-btn download-btn"
-                on:click={handleDownloadClick}
+                onclick={handleDownloadClick}
                 disabled={!isConnected}
                 title="Download File from Terminal"
             >
@@ -590,7 +590,7 @@
             
             <!-- More Actions Dropdown -->
             <div class="more-dropdown">
-                <button bind:this={moreButtonEl} class="toolbar-btn icon-btn more-btn" on:click={toggleMoreMenu} title="More actions">
+                <button bind:this={moreButtonEl} class="toolbar-btn icon-btn more-btn" onclick={toggleMoreMenu} title="More actions">
                     <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
                     </svg>
@@ -599,10 +599,10 @@
                     <div 
                         class="more-menu" 
                         style="top: {menuPosition.top}px; right: {menuPosition.right}px;"
-                        on:mouseleave={() => showMoreMenu = false}
+                        onmouseleave={() => showMoreMenu = false}
                     >
                         {#if !isGuest}
-                            <button class="menu-item" on:click={() => { handleCopyLink(); showMoreMenu = false; }}>
+                            <button class="menu-item" onclick={() => { handleCopyLink(); showMoreMenu = false; }}>
                                 <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
                                     <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
@@ -610,7 +610,7 @@
                                 Copy Link
                             </button>
                         {/if}
-                        <button class="menu-item" on:click={() => { handleCopy(); showMoreMenu = false; }}>
+                        <button class="menu-item" onclick={() => { handleCopy(); showMoreMenu = false; }}>
                             <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                 <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
                                 <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
@@ -618,21 +618,21 @@
                             Copy Selection
                         </button>
                         {#if !isViewOnly}
-                            <button class="menu-item" on:click={() => { handlePaste(); showMoreMenu = false; }}>
+                            <button class="menu-item" onclick={() => { handlePaste(); showMoreMenu = false; }}>
                                 <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M3.5 2a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5H12a.5.5 0 0 1 0-1h.5A1.5 1.5 0 0 1 14 2.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-12A1.5 1.5 0 0 1 3.5 1H4a.5.5 0 0 1 0 1h-.5z"/>
                                     <path d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5z"/>
                                 </svg>
                                 Paste
                             </button>
-                            <button class="menu-item" on:click={() => { handleClear(); showMoreMenu = false; }}>
+                            <button class="menu-item" onclick={() => { handleClear(); showMoreMenu = false; }}>
                                 <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                     <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                                 </svg>
                                                             Clear Terminal
                                                         </button>
-                                                                                    <button class="menu-item" on:click={() => { handleReset(); showMoreMenu = false; }}>
+                                                                                    <button class="menu-item" onclick={() => { handleReset(); showMoreMenu = false; }}>
                                                                                         <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                                                                             <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
                                                                                             <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
@@ -642,14 +642,14 @@
                                                                                 {/if}
                                                                                 {#if !isGuest}
                                                                                     <div class="menu-divider"></div>
-                                                                                    <button class="menu-item" on:click={() => { dispatch('openSnippets', { containerId: session.containerId }); showMoreMenu = false; }}>
+                                                                                    <button class="menu-item" onclick={() => { dispatch('openSnippets', { containerId: session.containerId }); showMoreMenu = false; }}>
                                                                                         <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                                                                             <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
                                                                                             <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8zm0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
                                                                                         </svg>
                                                                                         Run Snippet
                                                                                     </button>
-                                                                                    <button class="menu-item" on:click={() => { handleRecordingsPanel(); showMoreMenu = false; }}>
+                                                                                    <button class="menu-item" onclick={() => { handleRecordingsPanel(); showMoreMenu = false; }}>
                                                                                         <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
                                                                                             <path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z"/>
                                                                                         </svg>
@@ -679,8 +679,8 @@
             <div
                 class="terminal-container"
                 bind:this={containerElement}
-                on:click={handleContainerClick}
-                on:keydown={() => {}}
+                onclick={handleContainerClick}
+                onkeydown={() => {}}
                 role="textbox"
                 aria-label="Terminal input area"
                 tabindex="0"
@@ -692,7 +692,7 @@
             {#each splitPanes as pane, index (pane.id)}
                 <div 
                     class="split-resizer"
-                    on:mousedown={(e) => handleSplitResizeStart(e, index)}
+                    onmousedown={(e) => handleSplitResizeStart(e, index)}
                     role="separator"
                     tabindex="-1"
                 ></div>
@@ -733,7 +733,7 @@
                 />
             </svg>
             <span>Disconnected</span>
-            <button class="reconnect-btn" on:click={handleReconnect}>
+            <button class="reconnect-btn" onclick={handleReconnect}>
                 <svg
                     class="reconnect-icon"
                     viewBox="0 0 16 16"
@@ -764,11 +764,11 @@
     
     <!-- Download Modal -->
     {#if showDownloadModal}
-        <div class="download-modal-overlay" on:click={() => showDownloadModal = false} on:keydown={(e) => e.key === 'Escape' && (showDownloadModal = false)} role="presentation">
-            <div class="download-modal" on:click={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div class="download-modal-overlay" onclick={() => showDownloadModal = false} onkeydown={(e) => e.key === 'Escape' && (showDownloadModal = false)} role="presentation">
+            <div class="download-modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
                 <div class="download-modal-header">
                     <h3>Download File</h3>
-                    <button class="close-btn" on:click={() => showDownloadModal = false}>×</button>
+                    <button class="close-btn" onclick={() => showDownloadModal = false}>×</button>
                 </div>
                 <div class="download-modal-body">
                     <label for="download-path">File Path</label>
@@ -777,13 +777,13 @@
                         id="download-path"
                         bind:value={downloadPath}
                         placeholder="/home/user/filename.txt"
-                        on:keydown={(e) => e.key === 'Enter' && handleDownload()}
+                        onkeydown={(e) => e.key === 'Enter' && handleDownload()}
                     />
                     <p class="download-hint">Enter the full path to the file you want to download</p>
                 </div>
                 <div class="download-modal-footer">
-                    <button class="btn-cancel" on:click={() => showDownloadModal = false}>Cancel</button>
-                    <button class="btn-download" on:click={handleDownload}>Download</button>
+                    <button class="btn-cancel" onclick={() => showDownloadModal = false}>Cancel</button>
+                    <button class="btn-download" onclick={handleDownload}>Download</button>
                 </div>
             </div>
         </div>

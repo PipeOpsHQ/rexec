@@ -142,7 +142,7 @@
         <p class="auth-description">Login to join this shared terminal session</p>
         
         <!-- PipeOps Login Button -->
-        <button class="btn btn-pipeops" on:click={() => auth.login()}>
+        <button class="btn btn-pipeops" onclick={() => auth.login()}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
@@ -159,14 +159,14 @@
             type="email"
             id="guest-email"
             bind:value={guestEmail}
-            on:keydown={handleKeydown}
+            onkeydown={handleKeydown}
             placeholder="you@example.com"
             disabled={isSubmittingGuest}
           />
         </div>
         <div class="actions">
-          <button class="btn btn-secondary" on:click={cancel} disabled={isSubmittingGuest}>Cancel</button>
-          <button class="btn btn-primary" on:click={handleGuestSubmit} disabled={isSubmittingGuest || !guestEmail.trim()}>
+          <button class="btn btn-secondary" onclick={cancel} disabled={isSubmittingGuest}>Cancel</button>
+          <button class="btn btn-primary" onclick={handleGuestSubmit} disabled={isSubmittingGuest || !guestEmail.trim()}>
             {isSubmittingGuest ? 'Connecting...' : 'Join as Guest'}
           </button>
         </div>
@@ -179,7 +179,7 @@
           <line x1="9" y1="9" x2="15" y2="15"/>
         </svg>
         <p>{error}</p>
-        <button class="btn btn-secondary" on:click={cancel}>Go Back</button>
+        <button class="btn btn-secondary" onclick={cancel}>Go Back</button>
       </div>
     {:else if sessionInfo}
       <div class="session-info">
@@ -218,8 +218,8 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-secondary" on:click={cancel}>Cancel</button>
-        <button class="btn btn-primary" on:click={joinTerminal}>
+        <button class="btn btn-secondary" onclick={cancel}>Cancel</button>
+        <button class="btn btn-primary" onclick={joinTerminal}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="4 17 10 11 4 5"/>
             <line x1="12" y1="19" x2="20" y2="19"/>

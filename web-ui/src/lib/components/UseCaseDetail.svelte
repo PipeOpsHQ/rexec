@@ -461,7 +461,7 @@
     <div class="use-case-detail" class:coming-soon={useCase.comingSoon}>
         <!-- Hero Section -->
         <section class="hero">
-            <button class="back-btn" on:click={handleBack}>
+            <button class="back-btn" onclick={handleBack}>
                 <StatusIcon status="arrow-left" size={16} />
                 <span>All Use Cases</span>
             </button>
@@ -482,7 +482,7 @@
                     <p class="description">{useCase.description}</p>
                     
                     {#if !useCase.comingSoon}
-                        <button class="btn btn-primary btn-lg cta-btn" on:click={handleTryNow}>
+                        <button class="btn btn-primary btn-lg cta-btn" onclick={handleTryNow}>
                             <StatusIcon status="rocket" size={16} />
                             <span>Try It Now</span>
                         </button>
@@ -597,7 +597,7 @@
                 <h2>Related Use Cases</h2>
                 <div class="related-grid">
                     {#each relatedCases as related}
-                        <button class="related-card" on:click={() => navigateToCase(related.slug)}>
+                        <button class="related-card" onclick={() => navigateToCase(related.slug)}>
                             <div class="related-icon">
                                 <StatusIcon status={related.icon} size={24} />
                             </div>
@@ -613,7 +613,7 @@
         <section class="cta-section">
             <h2>Ready to get started?</h2>
             <p>Launch your first terminal and experience the future of development.</p>
-            <button class="btn btn-primary btn-lg" on:click={handleTryNow}>
+            <button class="btn btn-primary btn-lg" onclick={handleTryNow}>
                 <StatusIcon status="rocket" size={16} />
                 <span>Launch Terminal</span>
             </button>
@@ -623,7 +623,7 @@
     <div class="not-found">
         <h1>Use Case Not Found</h1>
         <p>The requested use case doesn't exist.</p>
-        <button class="btn btn-primary" on:click={handleBack}>
+        <button class="btn btn-primary" onclick={handleBack}>
             <StatusIcon status="arrow-left" size={16} />
             Back to Use Cases
         </button>

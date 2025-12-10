@@ -284,20 +284,20 @@
 {#if isOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="panel-overlay" on:click={(e) => { if (e.target === e.currentTarget) close(); }}>
+  <div class="panel-overlay" onclick={(e) => { if (e.target === e.currentTarget) close(); }}>
     <div class="recording-panel" class:compact transition:slide={{ duration: 200 }}>
     <div class="panel-header">
       <div class="header-left">
         <span class="rec-icon">⏺</span>
         <span class="title">REC</span>
       </div>
-      <button class="close-btn" on:click={close}>×</button>
+      <button class="close-btn" onclick={close}>×</button>
     </div>
 
     {#if selectedRecording}
       <div class="player-section">
         <div class="player-bar">
-          <button class="back-btn" on:click={() => { stopPlayback(); selectedRecording = null; }}>←</button>
+          <button class="back-btn" onclick={() => { stopPlayback(); selectedRecording = null; }}>←</button>
           <span class="player-title">{selectedRecording.title || 'Recording'}</span>
           <span class="player-duration">{selectedRecording.duration}</span>
         </div>
@@ -308,25 +308,25 @@
           </div>
           <div class="control-buttons">
             {#if isPlaying}
-              <button class="ctrl-btn" on:click={togglePause} title={isPaused ? 'Resume' : 'Pause'}>
+              <button class="ctrl-btn" onclick={togglePause} title={isPaused ? 'Resume' : 'Pause'}>
                 {isPaused ? '▶' : '⏸'}
               </button>
-              <button class="ctrl-btn" on:click={stopPlayback} title="Stop">■</button>
+              <button class="ctrl-btn" onclick={stopPlayback} title="Stop">■</button>
             {:else}
-              <button class="ctrl-btn play" on:click={restartPlayback} title="Play">▶</button>
+              <button class="ctrl-btn play" onclick={restartPlayback} title="Play">▶</button>
             {/if}
           </div>
-          <button class="ctrl-btn download" on:click={() => downloadRecording(selectedRecording)} title="Download">
+          <button class="ctrl-btn download" onclick={() => downloadRecording(selectedRecording)} title="Download">
             ↓
           </button>
         </div>
       </div>
     {:else}
       <div class="tabs">
-        <button class="tab" class:active={currentTab === 'record'} on:click={() => currentTab = 'record'}>
+        <button class="tab" class:active={currentTab === 'record'} onclick={() => currentTab = 'record'}>
           Record
         </button>
-        <button class="tab" class:active={currentTab === 'library'} on:click={() => currentTab = 'library'}>
+        <button class="tab" class:active={currentTab === 'library'} onclick={() => currentTab = 'library'}>
           Library <span class="count">{recordingsList.length}</span>
         </button>
       </div>
@@ -340,7 +340,7 @@
                 <span>Recording</span>
                 <span class="elapsed">{Math.floor((activeRecording?.durationMs || 0) / 1000)}s</span>
               </div>
-              <button class="stop-btn" on:click={stopRecording}>■ Stop</button>
+              <button class="stop-btn" onclick={stopRecording}>■ Stop</button>
             </div>
           {:else}
             <div class="start-section">
@@ -351,7 +351,7 @@
                   placeholder="Recording title (optional)"
                   class="title-input"
                 />
-                <button class="start-btn" on:click={startRecording} disabled={isStarting}>
+                <button class="start-btn" onclick={startRecording} disabled={isStarting}>
                   {#if isStarting}
                     <span class="spinner-sm"></span>
                   {:else}
@@ -373,7 +373,7 @@
             {:else}
               {#each recordingsList as recording}
                 <div class="recording-item">
-                  <div class="rec-info" on:click={() => playRecording(recording)}>
+                  <div class="rec-info" onclick={() => playRecording(recording)}>
                     <span class="rec-title">{recording.title || 'Untitled'}</span>
                     <span class="rec-meta">{recording.duration} • {recordings.formatSize(recording.sizeBytes)}</span>
                   </div>
@@ -381,7 +381,7 @@
                     <button 
                       class="icon-btn" 
                       class:active={recording.isPublic}
-                      on:click={() => togglePublic(recording)}
+                      onclick={() => togglePublic(recording)}
                       title={recording.isPublic ? 'Public' : 'Private'}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -396,14 +396,14 @@
                       </svg>
                     </button>
                     {#if recording.isPublic}
-                      <button class="icon-btn" on:click={() => copyShareLink(recording)} title="Copy link">
+                      <button class="icon-btn" onclick={() => copyShareLink(recording)} title="Copy link">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                         </svg>
                       </button>
                     {/if}
-                    <button class="icon-btn delete" on:click={() => deleteRecording(recording)} title="Delete">
+                    <button class="icon-btn delete" onclick={() => deleteRecording(recording)} title="Delete">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"/>
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>

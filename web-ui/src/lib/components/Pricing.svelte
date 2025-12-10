@@ -111,13 +111,13 @@
 
 {#if isOpen || mode === 'page'}
   <div class={mode === 'modal' ? 'pricing-overlay' : 'pricing-page-wrapper'} 
-       on:click={mode === 'modal' ? (e) => e.target === e.currentTarget && close() : undefined} 
-       on:keydown={mode === 'modal' ? (e) => e.key === 'Escape' && close() : undefined} 
+       onclick={mode === 'modal' ? (e) => e.target === e.currentTarget && close() : undefined} 
+       onkeydown={mode === 'modal' ? (e) => e.key === 'Escape' && close() : undefined} 
        role={mode === 'modal' ? "presentation" : undefined}
   >
     <div class={mode === 'modal' ? 'pricing-modal' : 'pricing-page-container'} role={mode === 'modal' ? "dialog" : undefined}>
       {#if mode === 'modal'}
-        <button class="close-btn" on:click={close}>×</button>
+        <button class="close-btn" onclick={close}>×</button>
       {/if}
       
       <div class="pricing-header">
@@ -155,7 +155,7 @@
               class:current={plan.current}
               class:accent={plan.accent}
               disabled={plan.current}
-              on:click={() => {
+              onclick={() => {
                   if (mode === 'page') {
                       // Redirect to landing to start
                       window.location.href = '/';

@@ -62,7 +62,7 @@
 {#if isOpen}
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="panel-overlay" on:click={(e) => { if (e.target === e.currentTarget) close(); }} transition:fade={{ duration: 150 }}>
+  <div class="panel-overlay" onclick={(e) => { if (e.target === e.currentTarget) close(); }} transition:fade={{ duration: 150 }}>
     <div class="collab-panel" class:compact transition:slide={{ duration: 200, axis: 'x' }}>
       <div class="panel-header">
         <div class="header-left">
@@ -76,7 +76,7 @@
           </span>
           <span class="title">Live Collaboration</span>
         </div>
-        <button class="close-btn" on:click={close}>
+        <button class="close-btn" onclick={close}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -104,7 +104,7 @@
                 <button 
                   class="mode-card" 
                   class:selected={mode === 'view'} 
-                  on:click={() => mode = 'view'}
+                  onclick={() => mode = 'view'}
                 >
                   <div class="card-header">
                     <span class="card-icon view">
@@ -121,7 +121,7 @@
                 <button 
                   class="mode-card" 
                   class:selected={mode === 'control'} 
-                  on:click={() => mode = 'control'}
+                  onclick={() => mode = 'control'}
                 >
                   <div class="card-header">
                     <span class="card-icon control">
@@ -145,7 +145,7 @@
             </div>
 
             <div class="actions">
-              <button class="btn-primary start-btn" on:click={startSession} disabled={isStarting}>
+              <button class="btn-primary start-btn" onclick={startSession} disabled={isStarting}>
                 {#if isStarting}
                   <span class="spinner"></span> Starting...
                 {:else}
@@ -171,8 +171,8 @@
             <div class="section share-section">
               <span class="section-label">Share Link</span>
               <div class="share-box">
-                <input class="share-input" readonly value={shareUrl} on:click={(e) => e.currentTarget.select()} />
-                <button class="copy-btn" on:click={copyLink} class:copied={copied}>
+                <input class="share-input" readonly value={shareUrl} onclick={(e) => e.currentTarget.select()} />
+                <button class="copy-btn" onclick={copyLink} class:copied={copied}>
                   {#if copied}
                     <span>✓ Copied</span>
                   {:else}
@@ -246,7 +246,7 @@
             </div>
 
             <div class="danger-zone">
-              <button class="btn-danger" on:click={endSession}>
+              <button class="btn-danger" onclick={endSession}>
                 End Session
               </button>
             </div>

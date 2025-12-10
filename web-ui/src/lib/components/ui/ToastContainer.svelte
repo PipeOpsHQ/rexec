@@ -27,10 +27,10 @@
             animate:flip={{ duration: 200 }}
             in:fly={{ x: 100, duration: 200 }}
             out:fade={{ duration: 150 }}
-            on:click={() => toast.dismiss(t.id)}
+            onclick={() => toast.dismiss(t.id)}
             role="button"
             tabindex="0"
-            on:keydown={(e) => e.key === "Enter" && toast.dismiss(t.id)}
+            onkeydown={(e) => e.key === "Enter" && toast.dismiss(t.id)}
         >
             <span class="toast-icon" class:spinning={t.type === "loading"}>
                 <StatusIcon status={getIconType(t.type)} size={14} />

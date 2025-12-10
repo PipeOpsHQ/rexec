@@ -235,7 +235,7 @@
 
 <div class="ssh-keys">
     <div class="ssh-keys-header">
-        <button class="back-btn" on:click={() => dispatch("back")}>
+        <button class="back-btn" onclick={() => dispatch("back")}>
             ← Back
         </button>
         <h1>SSH Keys</h1>
@@ -250,7 +250,7 @@
             </p>
             <button
                 class="btn btn-primary"
-                on:click={openModal}
+                onclick={openModal}
                 disabled={$isGuest}
                 title={$isGuest ? "Sign in with PipeOps to manage SSH" : ""}
             >
@@ -273,7 +273,7 @@
                 </p>
                 <button
                     class="btn btn-primary"
-                    on:click={handleOAuthLogin}
+                    onclick={handleOAuthLogin}
                     disabled={isOAuthLoading}
                 >
                     {#if isOAuthLoading}
@@ -291,7 +291,7 @@
                 <p>
                     Add a remote server to quickly SSH into it from your Rexec terminal.
                 </p>
-                <button class="btn btn-primary" on:click={openModal}>
+                <button class="btn btn-primary" onclick={openModal}>
                     + Add Your First Connection
                 </button>
             </div>
@@ -313,21 +313,21 @@
                         <div class="actions">
                             <button
                                 class="btn btn-secondary btn-sm"
-                                on:click={() => runHost(host)}
+                                onclick={() => runHost(host)}
                                 title="Run in Terminal"
                             >
                                 <StatusIcon status="terminal" size={14} /> Run
                             </button>
                             <button
                                 class="btn btn-secondary btn-sm"
-                                on:click={() => copyToClipboard(host.ssh_command)}
+                                onclick={() => copyToClipboard(host.ssh_command)}
                                 title="Copy SSH Command"
                             >
                                 Copy
                             </button>
                             <button
                                 class="btn btn-danger btn-sm"
-                                on:click={() => deleteKey(host.id, host.name, "host")}
+                                onclick={() => deleteKey(host.id, host.name, "host")}
                             >
                                 Delete
                             </button>
@@ -341,16 +341,16 @@
 
 <!-- Add Modal -->
 {#if showAddModal}
-    <div class="modal-overlay" on:click={closeModal} role="presentation">
+    <div class="modal-overlay" onclick={closeModal} role="presentation">
         <div
             class="modal"
-            on:click={(e) => e.stopPropagation()}
+            onclick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
         >
             <div class="modal-header">
                 <h2>Add Remote Connection</h2>
-                <button class="modal-close" on:click={closeModal}>×</button>
+                <button class="modal-close" onclick={closeModal}>×</button>
             </div>
 
             <div class="modal-body">
@@ -408,14 +408,14 @@
             <div class="modal-footer">
                 <button
                     class="btn btn-secondary"
-                    on:click={closeModal}
+                    onclick={closeModal}
                     disabled={isAdding}
                 >
                     Cancel
                 </button>
                 <button
                     class="btn btn-primary"
-                    on:click={addHost}
+                    onclick={addHost}
                     disabled={isAdding}
                 >
                     {isAdding ? "Adding..." : "Add"}

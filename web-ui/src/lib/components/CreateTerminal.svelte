@@ -22,7 +22,7 @@
 </script>
 
 <div class="create-page">
-    <button class="back-btn" on:click={handleCancel}>
+    <button class="back-btn" onclick={handleCancel}>
         <span class="back-icon">←</span>
         <span>Back to Dashboard</span>
     </button>

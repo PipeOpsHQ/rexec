@@ -121,7 +121,7 @@
     <div class="marketplace-container">
         <!-- Header -->
         <header class="marketplace-header">
-            <button class="back-btn" on:click={() => dispatch("back")}>
+            <button class="back-btn" onclick={() => dispatch("back")}>
                 <span class="back-icon">←</span>
                 <span>Back</span>
             </button>
@@ -144,10 +144,10 @@
                     class="search-input"
                     placeholder="Search snippets..."
                     bind:value={searchQuery}
-                    on:keydown={(e) => e.key === 'Enter' && handleSearch()}
+                    onkeydown={(e) => e.key === 'Enter' && handleSearch()}
                 />
                 {#if searchQuery}
-                    <button class="search-clear" on:click={() => { searchQuery = ''; loadSnippets(); }}>×</button>
+                    <button class="search-clear" onclick={() => { searchQuery = ''; loadSnippets(); }}>×</button>
                 {/if}
             </div>
 
@@ -157,14 +157,14 @@
                         <button 
                             class="pill" 
                             class:active={selectedCategory === cat.value}
-                            on:click={() => { selectedCategory = cat.value; loadSnippets(); }}
+                            onclick={() => { selectedCategory = cat.value; loadSnippets(); }}
                         >
                             {cat.label}
                         </button>
                     {/each}
                 </div>
                 <div class="sort-dropdown">
-                    <select bind:value={sortBy} on:change={loadSnippets}>
+                    <select bind:value={sortBy} onchange={loadSnippets}>
                         <option value="popular">Popular</option>
                         <option value="recent">Recent</option>
                         <option value="name">A-Z</option>
@@ -192,7 +192,7 @@
                 <div class="snippet-list">
                     {#each snippets as snippet (snippet.id)}
                         <article class="snippet-card" class:expanded={expandedSnippet === snippet.id}>
-                            <div class="card-main" on:click={() => toggleExpand(snippet.id)}>
+                            <div class="card-main" onclick={() => toggleExpand(snippet.id)}>
                                 <div class="card-left">
                                     <span class="card-icon">
                                         <StatusIcon status={snippet.icon || getIconForCategory(snippet.category || '')} size={24} />
@@ -218,7 +218,7 @@
                                         {#if snippet.requires_install && snippet.install_command}
                                             <button 
                                                 class="action-btn"
-                                                on:click={(e) => { e.stopPropagation(); runInstall(snippet); }}
+                                                onclick={(e) => { e.stopPropagation(); runInstall(snippet); }}
                                                 title="Copy install command"
                                             >
                                                 <StatusIcon status="download" size={14} />
@@ -226,14 +226,14 @@
                                         {/if}
                                         <button 
                                             class="action-btn"
-                                            on:click={(e) => { e.stopPropagation(); copyToClipboard(snippet.content); }}
+                                            onclick={(e) => { e.stopPropagation(); copyToClipboard(snippet.content); }}
                                             title="Copy to clipboard"
                                         >
                                             <StatusIcon status="copy" size={14} />
                                         </button>
                                         <button 
                                             class="action-btn primary"
-                                            on:click={(e) => { e.stopPropagation(); useSnippet(snippet); }}
+                                            onclick={(e) => { e.stopPropagation(); useSnippet(snippet); }}
                                             title="Use snippet"
                                         >
                                             <StatusIcon status="play" size={14} />
@@ -259,7 +259,7 @@
                                                 <code>{snippet.install_command}</code>
                                                 <button 
                                                     class="copy-btn"
-                                                    on:click={() => copyToClipboard(snippet.install_command || '')}
+                                                    onclick={() => copyToClipboard(snippet.install_command || '')}
                                                 >
                                                     Copy
                                                 </button>
@@ -277,7 +277,7 @@
                                             <span class="code-title">{snippet.name}</span>
                                             <button 
                                                 class="code-copy"
-                                                on:click={() => copyToClipboard(snippet.content)}
+                                                onclick={() => copyToClipboard(snippet.content)}
                                             >
                                                 Copy
                                             </button>

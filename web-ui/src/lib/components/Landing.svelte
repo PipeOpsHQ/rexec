@@ -59,12 +59,12 @@
         </p>
 
         <div class="landing-actions">
-            <button class="btn btn-primary btn-lg" on:click={handleGuestClick}>
+            <button class="btn btn-primary btn-lg" onclick={handleGuestClick}>
                 Try Now — No Sign Up
             </button>
             <button
                 class="btn btn-secondary btn-lg"
-                on:click={handleOAuthLogin}
+                onclick={handleOAuthLogin}
                 disabled={isOAuthLoading}
             >
                 {#if isOAuthLoading}
@@ -77,11 +77,11 @@
         </div>
 
         <div class="landing-links">
-            <button class="link-btn" on:click={() => navigateTo('use-cases')}>
+            <button class="link-btn" onclick={() => navigateTo('use-cases')}>
                 <StatusIcon status="bolt" size={14} /> Use Cases
             </button>
             <span class="divider"></span>
-            <button class="link-btn" on:click={() => navigateTo('guides')}>
+            <button class="link-btn" onclick={() => navigateTo('guides')}>
                 <StatusIcon status="book" size={14} /> Product Guide
             </button>
         </div>

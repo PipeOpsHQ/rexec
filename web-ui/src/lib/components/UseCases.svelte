@@ -219,7 +219,7 @@
                 class="case-card" 
                 class:coming-soon={useCase.comingSoon}
                 style="animation-delay: {i * 50}ms"
-                on:click={() => navigateToCase(useCase.slug)}
+                onclick={() => navigateToCase(useCase.slug)}
             >
                 <div class="case-icon">
                     <StatusIcon status={useCase.icon} size={32} />
@@ -244,7 +244,7 @@
     <section class="cta-section">
         <h2>Ready to explore?</h2>
         <p>Start your first session and see what's possible.</p>
-        <button class="btn btn-primary btn-lg" on:click={handleTryNow}>
+        <button class="btn btn-primary btn-lg" onclick={handleTryNow}>
             <StatusIcon status="rocket" size={16} />
             <span>Launch Terminal</span>
         </button>

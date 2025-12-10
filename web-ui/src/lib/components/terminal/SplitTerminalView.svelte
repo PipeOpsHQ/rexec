@@ -42,8 +42,8 @@
 <div 
     class="split-pane" 
     class:active={isActive}
-    on:click={handleClick}
-    on:keydown={() => {}}
+    onclick={handleClick}
+    onkeydown={() => {}}
     role="textbox"
     tabindex="0"
 >
@@ -52,7 +52,7 @@
             <span class="status-dot" class:connected={isConnected}></span>
             Session {pane.id.slice(-4)}
         </span>
-        <button class="close-pane" on:click={(e) => { e.stopPropagation(); handleClose(); }} title="Close split">
+        <button class="close-pane" onclick={(e) => { e.stopPropagation(); handleClose(); }} title="Close split">
             ×
         </button>
     </div>
