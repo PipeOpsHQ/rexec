@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { isAuthenticated, token } from "../stores/auth";
-    import { login as pipeopsLogin } from "../api";
+    import { login as pipeopsLogin } from "../utils/api";
 
     let callback = "";
     let isLoggingIn = false;
