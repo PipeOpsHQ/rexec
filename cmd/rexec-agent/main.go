@@ -780,7 +780,7 @@ func (a *Agent) handleConnection() {
 }
 
 // startShellSession starts a shell session with the given ID
-// If newSession is true, creates a new tmux window instead of sharing main session
+// Each session gets its own independent shell/PTY
 func (a *Agent) startShellSession(sessionID string, newSession bool) {
 	a.mu.Lock()
 	if a.sessions == nil {
@@ -800,50 +800,8 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 	}
 	a.mu.Unlock()
 
-	// Use tmux for resumable sessions
-	tmuxSessionName := "rexec-agent"
-	
-	// Check if tmux is available, install if not
-	tmuxPath, err := exec.LookPath("tmux")
-	if err != nil {
-		log.Printf("%sInstalling tmux...%s", Yellow, Reset)
-		if a.installTmux() {
-			tmuxPath, err = exec.LookPath("tmux")
-		}
-		if err != nil {
-			log.Printf("%sFailed to install tmux, using plain shell%s", Yellow, Reset)
-			a.startPlainShellSession(sessionID)
-			return
-		}
-	}
-
-	// Check if tmux session already exists
-	checkCmd := exec.Command(tmuxPath, "has-session", "-t", tmuxSessionName)
-	tmuxSessionExists := checkCmd.Run() == nil
-
-	var cmd *exec.Cmd
-	if newSession {
-		// Create a new tmux window for split panes
-		if tmuxSessionExists {
-			// Create new window in existing session
-			windowName := fmt.Sprintf("split-%s", sessionID[:8])
-			cmd = exec.Command(tmuxPath, "new-window", "-t", tmuxSessionName, "-n", windowName)
-			cmd.Run() // Create the window first
-			cmd = exec.Command(tmuxPath, "attach-session", "-t", fmt.Sprintf("%s:%s", tmuxSessionName, windowName))
-		} else {
-			// Create new session with unique name for this split
-			splitSessionName := fmt.Sprintf("rexec-split-%s", sessionID[:8])
-			cmd = exec.Command(tmuxPath, "new-session", "-s", splitSessionName)
-		}
-	} else {
-		// Main session - attach or create main tmux session
-		if tmuxSessionExists {
-			cmd = exec.Command(tmuxPath, "attach-session", "-t", tmuxSessionName)
-		} else {
-			cmd = exec.Command(tmuxPath, "new-session", "-s", tmuxSessionName)
-		}
-	}
-
+	// Start a plain shell - no tmux, just direct PTY
+	cmd := exec.Command(a.config.Shell, "-l")
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
 		"REXEC_AGENT=1",
@@ -851,7 +809,7 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 
 	ptmx, err := pty.Start(cmd)
 	if err != nil {
-		a.startPlainShellSession(sessionID)
+		a.sendMessage("shell_error", map[string]string{"session_id": sessionID, "error": err.Error()})
 		return
 	}
 
@@ -891,6 +849,7 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 		a.cleanupSession(sessionID)
 	}()
 
+	// Wait for shell to exit
 	cmd.Wait()
 }
 
@@ -915,59 +874,6 @@ func (a *Agent) cleanupSession(sessionID string) {
 	}
 }
 
-// startPlainShellSession starts a plain shell for a session (fallback)
-func (a *Agent) startPlainShellSession(sessionID string) {
-	cmd := exec.Command(a.config.Shell, "-l")
-	cmd.Env = append(os.Environ(),
-		"TERM=xterm-256color",
-		"REXEC_AGENT=1",
-	)
-
-	ptmx, err := pty.Start(cmd)
-	if err != nil {
-		a.sendMessage("shell_error", map[string]string{"session_id": sessionID, "error": err.Error()})
-		return
-	}
-
-	session := &ShellSession{
-		ID:     sessionID,
-		Cmd:    cmd,
-		Ptmx:   ptmx,
-		IsMain: true,
-	}
-
-	a.mu.Lock()
-	if a.sessions == nil {
-		a.sessions = make(map[string]*ShellSession)
-	}
-	a.sessions[sessionID] = session
-	a.mainCmd = cmd
-	a.mainPtmx = ptmx
-	a.mu.Unlock()
-
-	a.sendMessage("shell_started", map[string]string{"session_id": sessionID})
-
-	go func() {
-		buf := make([]byte, 8192)
-		for {
-			n, err := ptmx.Read(buf)
-			if err != nil {
-				break
-			}
-
-			a.sendMessage("shell_output", map[string]interface{}{
-				"session_id": sessionID,
-				"data":       buf[:n],
-			})
-		}
-
-		a.sendMessage("shell_stopped", map[string]string{"session_id": sessionID})
-		a.cleanupSession(sessionID)
-	}()
-
-	cmd.Wait()
-}
-
 // Legacy startShell for backwards compatibility
 func (a *Agent) startShell() {
 	a.startShellSession("main", false)
@@ -990,45 +896,6 @@ func (a *Agent) stopShell() {
 
 	a.mainPtmx = nil
 	a.mainCmd = nil
-}
-
-// installTmux attempts to install tmux using the system package manager
-func (a *Agent) installTmux() bool {
-	var installCmd *exec.Cmd
-
-	// Detect package manager and install tmux
-	if _, err := exec.LookPath("apt-get"); err == nil {
-		// Debian/Ubuntu
-		installCmd = exec.Command("sh", "-c", "apt-get update -qq && apt-get install -y -qq tmux")
-	} else if _, err := exec.LookPath("yum"); err == nil {
-		// RHEL/CentOS
-		installCmd = exec.Command("yum", "install", "-y", "-q", "tmux")
-	} else if _, err := exec.LookPath("dnf"); err == nil {
-		// Fedora
-		installCmd = exec.Command("dnf", "install", "-y", "-q", "tmux")
-	} else if _, err := exec.LookPath("pacman"); err == nil {
-		// Arch Linux
-		installCmd = exec.Command("pacman", "-S", "--noconfirm", "--quiet", "tmux")
-	} else if _, err := exec.LookPath("apk"); err == nil {
-		// Alpine
-		installCmd = exec.Command("apk", "add", "--quiet", "tmux")
-	} else if _, err := exec.LookPath("brew"); err == nil {
-		// macOS Homebrew
-		installCmd = exec.Command("brew", "install", "tmux")
-	} else {
-		return false
-	}
-
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-
-	if err := installCmd.Run(); err != nil {
-		log.Printf("%sFailed to install tmux: %v%s", Red, err, Reset)
-		return false
-	}
-
-	log.Printf("%s✓ tmux installed successfully%s", Green, Reset)
-	return true
 }
 
 func (a *Agent) execCommand(command string) {
