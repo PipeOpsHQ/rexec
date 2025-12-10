@@ -604,12 +604,19 @@ func (a *Agent) startShell() {
 	// Check if tmux session exists, attach to it; otherwise create new one
 	sessionName := "rexec-agent"
 	
-	// Check if tmux is available
+	// Check if tmux is available, install if not
 	tmuxPath, err := exec.LookPath("tmux")
 	if err != nil {
-		// Fallback to plain shell if tmux not available
-		a.startPlainShell()
-		return
+		// Try to install tmux
+		log.Printf("%sInstalling tmux...%s", Yellow, Reset)
+		if a.installTmux() {
+			tmuxPath, err = exec.LookPath("tmux")
+		}
+		if err != nil {
+			log.Printf("%sFailed to install tmux, using plain shell%s", Yellow, Reset)
+			a.startPlainShell()
+			return
+		}
 	}
 
 	// Check if session already exists
@@ -723,6 +730,45 @@ func (a *Agent) stopShell() {
 		a.cmd.Process.Kill()
 		a.cmd = nil
 	}
+}
+
+// installTmux attempts to install tmux using the system package manager
+func (a *Agent) installTmux() bool {
+	var installCmd *exec.Cmd
+
+	// Detect package manager and install tmux
+	if _, err := exec.LookPath("apt-get"); err == nil {
+		// Debian/Ubuntu
+		installCmd = exec.Command("sh", "-c", "apt-get update -qq && apt-get install -y -qq tmux")
+	} else if _, err := exec.LookPath("yum"); err == nil {
+		// RHEL/CentOS
+		installCmd = exec.Command("yum", "install", "-y", "-q", "tmux")
+	} else if _, err := exec.LookPath("dnf"); err == nil {
+		// Fedora
+		installCmd = exec.Command("dnf", "install", "-y", "-q", "tmux")
+	} else if _, err := exec.LookPath("pacman"); err == nil {
+		// Arch Linux
+		installCmd = exec.Command("pacman", "-S", "--noconfirm", "--quiet", "tmux")
+	} else if _, err := exec.LookPath("apk"); err == nil {
+		// Alpine
+		installCmd = exec.Command("apk", "add", "--quiet", "tmux")
+	} else if _, err := exec.LookPath("brew"); err == nil {
+		// macOS Homebrew
+		installCmd = exec.Command("brew", "install", "tmux")
+	} else {
+		return false
+	}
+
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+
+	if err := installCmd.Run(); err != nil {
+		log.Printf("%sFailed to install tmux: %v%s", Red, err, Reset)
+		return false
+	}
+
+	log.Printf("%s✓ tmux installed successfully%s", Green, Reset)
+	return true
 }
 
 func (a *Agent) execCommand(command string) {
