@@ -26,13 +26,25 @@ function loadPersistedSecurity(): SecurityState {
     const stored = localStorage.getItem("rexec_security");
     if (stored) {
       const parsed = JSON.parse(stored);
+      const hasPasscode = !!parsed.passcodeHash;
+      const wasLocked = parsed.isLocked === true;
+      const lastActivity = parsed.lastActivity || Date.now();
+      const lockAfterMinutes = parsed.lockAfterMinutes || 5;
+      
+      // Calculate if should be locked based on:
+      // 1. Was already locked before reload
+      // 2. Or has passcode and was inactive too long
+      const elapsed = Date.now() - lastActivity;
+      const timeoutMs = lockAfterMinutes * 60 * 1000;
+      const shouldBeLocked = hasPasscode && (wasLocked || elapsed >= timeoutMs);
+      
       return {
         ...initialState,
         passcodeHash: parsed.passcodeHash || null,
-        lockAfterMinutes: parsed.lockAfterMinutes || 5,
+        lockAfterMinutes: lockAfterMinutes,
         passcodeSetupPromptDismissed: parsed.passcodeSetupPromptDismissed || false,
-        lastActivity: Date.now(), // Reset on load
-        isLocked: false, // Never start locked
+        lastActivity: wasLocked ? lastActivity : Date.now(), // Keep old lastActivity if was locked
+        isLocked: shouldBeLocked,
       };
     }
   } catch (e) {
@@ -65,6 +77,8 @@ function createSecurityStore() {
         passcodeHash: state.passcodeHash,
         lockAfterMinutes: state.lockAfterMinutes,
         passcodeSetupPromptDismissed: state.passcodeSetupPromptDismissed,
+        isLocked: state.isLocked,
+        lastActivity: state.lastActivity,
       })
     );
   }
@@ -100,21 +114,41 @@ function createSecurityStore() {
 
     // Lock the screen
     lock() {
-      update((state) => ({ ...state, isLocked: true }));
+      update((state) => {
+        const newState = { ...state, isLocked: true };
+        persist(newState);
+        return newState;
+      });
     },
 
     // Unlock the screen
     unlock() {
-      update((state) => ({
-        ...state,
-        isLocked: false,
-        lastActivity: Date.now(),
-      }));
+      update((state) => {
+        const newState = {
+          ...state,
+          isLocked: false,
+          lastActivity: Date.now(),
+        };
+        persist(newState);
+        return newState;
+      });
     },
 
     // Update last activity
     updateActivity() {
-      update((state) => ({ ...state, lastActivity: Date.now() }));
+      update((state) => {
+        const newState = { ...state, lastActivity: Date.now() };
+        // Throttle persist to avoid too many writes
+        if (typeof window !== "undefined") {
+          const lastPersist = (window as any).__rexec_last_activity_persist || 0;
+          const now = Date.now();
+          if (now - lastPersist > 30000) { // Only persist every 30 seconds
+            persist(newState);
+            (window as any).__rexec_last_activity_persist = now;
+          }
+        }
+        return newState;
+      });
     },
 
     // Set lock timeout
