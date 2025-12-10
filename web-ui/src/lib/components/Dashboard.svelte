@@ -535,9 +535,15 @@
                         </span>
                         <div class="container-info">
                             <h2 class="container-name">{container.name}</h2>
-                            <span class="container-image"
-                                >{container.image}</span
-                            >
+                            <div class="container-meta-row">
+                                <span class="container-image">{container.image}</span>
+                                {#if container.role}
+                                    <span class="environment-badge" title="Environment: {container.role}">
+                                        <PlatformIcon platform={container.role} size={14} />
+                                        <span class="badge-text">{container.role}</span>
+                                    </span>
+                                {/if}
+                            </div>
                         </div>
                         <span
                             class="container-status {getStatusClass(
@@ -1170,6 +1176,35 @@
     .container-image {
         font-size: 11px;
         color: #999999;
+    }
+
+    .container-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .environment-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 212, 255, 0.05));
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--accent);
+        text-transform: capitalize;
+        letter-spacing: 0.3px;
+    }
+
+    .environment-badge .badge-text {
+        max-width: 80px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .container-status {

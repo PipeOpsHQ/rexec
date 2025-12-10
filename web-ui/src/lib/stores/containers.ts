@@ -28,6 +28,7 @@ export interface Container {
   user_id: string;
   name: string;
   image: string;
+  role?: string; // Role/environment: devops, node, python, go, etc.
   status:
   | "running"
   | "stopped"
@@ -41,6 +42,7 @@ export interface Container {
   ip_address?: string;
   resources?: ContainerResources;
   portForwards?: PortForward[]; // New field for port forwards
+  session_type?: string; // Session type: container, gpu, ssh, custom
 }
 
 export interface CreatingContainer {
