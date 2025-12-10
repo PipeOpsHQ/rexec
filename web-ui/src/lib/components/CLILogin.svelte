@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { isAuthenticated, token, authStore } from "../stores/auth";
+    import { isAuthenticated, token, auth } from "../stores/auth";
 
     let callback = "";
     let isLoggingIn = false;
@@ -26,7 +26,7 @@
         isLoggingIn = true;
         error = "";
         try {
-            await authStore.oauthLogin();
+            auth.oauthLogin();
             // After successful login, check if we need to redirect
             if (callback && $token) {
                 redirectWithToken($token);
