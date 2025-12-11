@@ -5,6 +5,7 @@
   import { security, hasPasscode } from '$stores/security';
   import { agents, type Agent } from '$stores/agents';
   import { toast } from '$stores/toast';
+  import { theme as themeStore } from '$stores/theme';
 
   const dispatch = createEventDispatcher<{
     back: void;
@@ -12,7 +13,6 @@
   }>();
 
   // Settings state
-  let theme = 'dark';
   let fontSize = 14;
   let cursorBlink = true;
   let cursorStyle: 'bar' | 'block' | 'underline' = 'bar';
@@ -618,9 +618,14 @@
           <span class="setting-description">Color scheme for the interface</span>
         </div>
         <div class="setting-value">
-          <select id="theme" bind:value={theme} class="select-sm">
+          <select 
+            id="theme" 
+            value={$themeStore} 
+            onchange={(e) => themeStore.setTheme((e.target as HTMLSelectElement).value as 'dark' | 'light')} 
+            class="select-sm"
+          >
             <option value="dark">Dark</option>
-            <option value="light" disabled>Light (Coming Soon)</option>
+            <option value="light">Light</option>
           </select>
         </div>
       </div>

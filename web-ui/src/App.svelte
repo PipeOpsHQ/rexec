@@ -10,6 +10,7 @@
     import { terminal, hasSessions } from "$stores/terminal";
     import { toast } from "$stores/toast";
     import { collab } from "$stores/collab";
+    import { theme } from "$stores/theme";
 
     // Components
     import Header from "$components/Header.svelte";
@@ -629,6 +630,11 @@
         // Listen for OAuth messages from popup window
         window.addEventListener("message", handleOAuthMessage);
 
+        // Subscribe to theme changes and update terminal themes
+        const unsubscribeTheme = theme.subscribe((currentTheme) => {
+            terminal.updateTheme(currentTheme === 'dark');
+        });
+
         // Subscribe to collab session events - close terminal when session ends
         const unsubscribeCollab = collab.onMessage((msg) => {
             if (msg.type === "ended" || msg.type === "expired") {
@@ -731,6 +737,7 @@
         return () => {
             window.removeEventListener("message", handleOAuthMessage);
             unsubscribeCollab();
+            unsubscribeTheme();
             stopAutoRefresh(); // Stop polling when component unmounts
         };
     });

@@ -39,6 +39,38 @@
     --shadow-soft: 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
+/* Light mode theme */
+[data-theme="light"] {
+    --bg: #f5f5f5;
+    --bg-grid: radial-gradient(circle, #e0e0e0 1px, transparent 1px);
+    --bg-card: #ffffff;
+    --bg-card-secondary: #fafafa;
+    --bg-card-hover: #f0f0f0;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f0f0;
+    --border: #d0d0d0;
+    --border-muted: #e0e0e0;
+    --border-active: #00c832;
+    --text: #1a1a1a;
+    --text-secondary: #555555;
+    --text-muted: #777777;
+    --accent: #00a830;
+    --accent-dim: rgba(0, 168, 48, 0.1);
+    --accent-glow: 0 0 10px rgba(0, 168, 48, 0.3);
+    --green: #00a830;
+    --red: #dc2626;
+    --yellow: #ca8a04;
+    --danger: #dc2626;
+    --warning: #ca8a04;
+    --glass: rgba(255, 255, 255, 0.95);
+    --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Disable scanline effect in light mode */
+[data-theme="light"] body::after {
+    display: none;
+}
+
 body {
     font-family: var(--font-mono);
     background-color: var(--bg);

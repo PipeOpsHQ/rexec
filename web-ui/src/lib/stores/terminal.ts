@@ -6,6 +6,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { token } from "./auth";
 import { toast } from "./toast";
+import { theme } from "./theme";
 
 // Types
 export type SessionStatus =
@@ -263,6 +264,65 @@ const MIN_FONT_SIZE = 8;
 const MAX_FONT_SIZE = 24;
 const ZOOM_STEP = 1;
 
+// Terminal themes for dark and light mode
+const DARK_TERMINAL_THEME = {
+  background: "#0a0a0a",
+  foreground: "#e0e0e0",
+  cursor: "#00ff41",
+  cursorAccent: "#0a0a0a",
+  selectionBackground: "rgba(0, 255, 65, 0.3)",
+  selectionForeground: "#ffffff",
+  selectionInactiveBackground: "rgba(0, 255, 65, 0.15)",
+  black: "#0a0a0a",
+  red: "#ff003c",
+  green: "#00ff41",
+  yellow: "#fcee0a",
+  blue: "#00a0dc",
+  magenta: "#ff00ff",
+  cyan: "#00ffff",
+  white: "#e0e0e0",
+  brightBlack: "#666666",
+  brightRed: "#ff5555",
+  brightGreen: "#55ff55",
+  brightYellow: "#ffff55",
+  brightBlue: "#5555ff",
+  brightMagenta: "#ff55ff",
+  brightCyan: "#55ffff",
+  brightWhite: "#ffffff",
+};
+
+const LIGHT_TERMINAL_THEME = {
+  background: "#ffffff",
+  foreground: "#1a1a1a",
+  cursor: "#00a830",
+  cursorAccent: "#ffffff",
+  selectionBackground: "rgba(0, 168, 48, 0.3)",
+  selectionForeground: "#1a1a1a",
+  selectionInactiveBackground: "rgba(0, 168, 48, 0.15)",
+  black: "#1a1a1a",
+  red: "#dc2626",
+  green: "#00a830",
+  yellow: "#ca8a04",
+  blue: "#2563eb",
+  magenta: "#9333ea",
+  cyan: "#0891b2",
+  white: "#e5e5e5",
+  brightBlack: "#737373",
+  brightRed: "#ef4444",
+  brightGreen: "#22c55e",
+  brightYellow: "#eab308",
+  brightBlue: "#3b82f6",
+  brightMagenta: "#a855f7",
+  brightCyan: "#06b6d4",
+  brightWhite: "#ffffff",
+};
+
+// Get current terminal theme based on app theme
+function getCurrentTerminalTheme() {
+  const currentTheme = get(theme);
+  return currentTheme === 'light' ? LIGHT_TERMINAL_THEME : DARK_TERMINAL_THEME;
+}
+
 // Terminal configuration - Production-grade like Google Cloud Shell
 const TERMINAL_OPTIONS = {
   cursorBlink: true,
@@ -275,31 +335,7 @@ const TERMINAL_OPTIONS = {
   fontWeightBold: "600" as const,
   letterSpacing: 0,
   lineHeight: 1.2,
-  theme: {
-    background: "#0a0a0a",
-    foreground: "#e0e0e0",
-    cursor: "#00ff41",
-    cursorAccent: "#0a0a0a",
-    selectionBackground: "rgba(0, 255, 65, 0.3)",
-    selectionForeground: "#ffffff",
-    selectionInactiveBackground: "rgba(0, 255, 65, 0.15)",
-    black: "#0a0a0a",
-    red: "#ff003c",
-    green: "#00ff41",
-    yellow: "#fcee0a",
-    blue: "#00a0dc",
-    magenta: "#ff00ff",
-    cyan: "#00ffff",
-    white: "#e0e0e0",
-    brightBlack: "#666666",
-    brightRed: "#ff5555",
-    brightGreen: "#55ff55",
-    brightYellow: "#ffff55",
-    brightBlue: "#5555ff",
-    brightMagenta: "#ff55ff",
-    brightCyan: "#55ffff",
-    brightWhite: "#ffffff",
-  },
+  theme: getCurrentTerminalTheme(),
   allowProposedApi: true,
   scrollback: 100000, // 100K lines - handles heavy output like builds/logs
   fastScrollModifier: "alt" as const,
@@ -1494,6 +1530,22 @@ function createTerminalStore() {
     // Get current font size
     getFontSize(): number {
       return currentFontSize;
+    },
+
+    // Update terminal theme (called when app theme changes)
+    updateTheme(isDarkMode: boolean) {
+      const newTheme = isDarkMode ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
+      const state = getState();
+      
+      // Update all terminal sessions
+      state.sessions.forEach((session) => {
+        session.terminal.options.theme = newTheme;
+        
+        // Update split panes as well
+        session.splitPanes.forEach((pane) => {
+          pane.terminal.options.theme = newTheme;
+        });
+      });
     },
 
     // Attach terminal to DOM element

@@ -9,6 +9,7 @@
     } from "$stores/auth";
     import { terminal, sessionCount } from "$stores/terminal";
     import { toast } from "$stores/toast";
+    import { theme } from "$stores/theme";
     import StatusIcon from "./icons/StatusIcon.svelte";
     import InstallButton from "./InstallButton.svelte";
 
@@ -162,6 +163,17 @@
     </nav>
 
     <nav class="nav-actions">
+        <button
+            class="theme-toggle"
+            onclick={() => theme.toggle()}
+            title={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+            {#if $theme === 'dark'}
+                <StatusIcon status="sun" size={16} />
+            {:else}
+                <StatusIcon status="moon" size={16} />
+            {/if}
+        </button>
         <InstallButton />
         {#if $isAuthenticated}
             {#if $sessionCount > 0}
@@ -462,6 +474,25 @@
 {/if}
 
 <style>
+    .theme-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .theme-toggle:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+    }
+
     .mobile-menu-btn {
         display: none;
         background: none;
@@ -573,7 +604,7 @@
         align-items: center;
         padding: 12px 20px;
         border-bottom: 1px solid var(--border);
-        background: rgba(5, 5, 5, 0.95);
+        background: var(--glass);
         backdrop-filter: blur(5px);
         position: sticky;
         top: 0;
