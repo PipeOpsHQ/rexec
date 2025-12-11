@@ -516,6 +516,7 @@ func runServer() {
 			mfa.POST("/verify", authHandler.VerifyMFA)
 			mfa.POST("/disable", authHandler.DisableMFA)
 			mfa.POST("/validate", authHandler.ValidateMFA)
+			mfa.POST("/complete-login", authHandler.CompleteMFALogin)
 		}
 
 		// Audit Logs

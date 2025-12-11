@@ -416,6 +416,20 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 		}
 	}
 
+	// Check if MFA is enabled for this user
+	if user.MFAEnabled {
+		// Generate a temporary MFA token (short-lived, only for MFA validation)
+		mfaToken, err := h.generateMFAToken(user)
+		if err != nil {
+			log.Printf("Failed to generate MFA token for OAuth user: %v", err)
+			c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("token", "Failed to generate token")))
+			return
+		}
+		// Render MFA page that asks for code
+		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(renderMFAPage(mfaToken, user)))
+		return
+	}
+
 	// Generate JWT token
 	authToken, err := h.generateToken(user)
 	if err != nil {
@@ -455,6 +469,21 @@ func (h *AuthHandler) generateToken(user *models.User) (string, error) {
 		"guest":               isGuest,
 		"exp":                 time.Now().Add(expiry).Unix(),
 		"iat":                 time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(h.jwtSecret)
+}
+
+// generateMFAToken creates a short-lived token for MFA validation
+func (h *AuthHandler) generateMFAToken(user *models.User) (string, error) {
+	// MFA tokens are valid for 5 minutes only
+	claims := jwt.MapClaims{
+		"user_id":      user.ID,
+		"email":        user.Email,
+		"mfa_pending":  true,
+		"exp":          time.Now().Add(5 * time.Minute).Unix(),
+		"iat":          time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -883,6 +912,290 @@ func renderOAuthSuccessPage(token string, user *models.User) string {
                     window.location.href = window.location.origin + appURL;
                 }
             }, 2000);
+        }
+    </script>
+</body>
+</html>`
+}
+
+// renderMFAPage returns HTML that prompts for MFA code
+func renderMFAPage(mfaToken string, user *models.User) string {
+	appURL := getAppURL()
+
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Factor Authentication - Rexec</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+        .bg-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .container {
+            position: relative;
+            max-width: 440px;
+            width: 100%;
+            text-align: center;
+            background: linear-gradient(145deg, rgba(26, 26, 26, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+            padding: 48px 44px;
+            border-radius: 20px;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.1);
+            backdrop-filter: blur(20px);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 36px;
+        }
+        .logo-icon svg {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+        }
+        .logo-text {
+            font-size: 26px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+        .icon-container {
+            width: 88px;
+            height: 88px;
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 28px;
+            color: white;
+        }
+        .icon-container svg {
+            width: 44px;
+            height: 44px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+        p {
+            font-size: 15px;
+            color: #888;
+            margin-bottom: 24px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 24px;
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+            letter-spacing: 8px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            color: #fff;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            border-color: #8b5cf6;
+        }
+        input::placeholder {
+            letter-spacing: normal;
+            font-size: 16px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 12px;
+            display: none;
+        }
+        .error.show {
+            display: block;
+        }
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        .spinner.show {
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow"></div>
+    <div class="container">
+        <div class="logo">
+            <div class="logo-icon">
+                <svg width="44" height="44" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="256" height="256" rx="64" fill="#0A0A0A"/>
+                    <g transform="translate(128, 128)">
+                        <path d="M0 -80 L70 -40 L70 40 L0 80 L-70 40 L-70 -40 Z" fill="#0A0A0A" stroke="#00FF41" stroke-width="12"/>
+                        <g transform="translate(-40, -40) scale(2.2)">
+                            <path d="M5 10L15 20L5 30" stroke="#00FF41" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="18" y1="30" x2="32" y2="30" stroke="#00FF41" stroke-width="5" stroke-linecap="round"/>
+                        </g>
+                    </g>
+                </svg>
+            </div>
+            <span class="logo-text">Rexec</span>
+        </div>
+        <div class="icon-container">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+        </div>
+        <h1>Two-Factor Authentication</h1>
+        <p>Enter the 6-digit code from your authenticator app</p>
+        <div class="input-group">
+            <input type="text" id="mfa-code" maxlength="6" placeholder="000000" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*">
+        </div>
+        <button class="btn" id="verify-btn" onclick="verifyMFA()">
+            <span id="btn-text">Verify</span>
+            <div class="spinner" id="spinner"></div>
+        </button>
+        <p class="error" id="error-msg"></p>
+    </div>
+    <script>
+        const mfaToken = "` + mfaToken + `";
+        const appURL = "` + appURL + `";
+        const input = document.getElementById('mfa-code');
+        const btn = document.getElementById('verify-btn');
+        const btnText = document.getElementById('btn-text');
+        const spinner = document.getElementById('spinner');
+        const errorMsg = document.getElementById('error-msg');
+
+        input.focus();
+
+        // Auto-submit when 6 digits entered
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '');
+            if (e.target.value.length === 6) {
+                verifyMFA();
+            }
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && input.value.length === 6) {
+                verifyMFA();
+            }
+        });
+
+        async function verifyMFA() {
+            const code = input.value;
+            if (code.length !== 6) {
+                showError('Please enter a 6-digit code');
+                return;
+            }
+
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            spinner.classList.add('show');
+            errorMsg.classList.remove('show');
+
+            try {
+                const res = await fetch('/api/mfa/complete-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + mfaToken
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Verification failed');
+                }
+
+                // Success - store token and redirect
+                const authData = {
+                    token: data.token,
+                    user: data.user
+                };
+
+                if (window.opener) {
+                    window.opener.postMessage({ type: 'oauth_success', data: authData }, window.location.origin);
+                    setTimeout(() => window.close(), 500);
+                } else {
+                    localStorage.setItem('rexec_token', authData.token);
+                    localStorage.setItem('rexec_user', JSON.stringify(authData.user));
+                    if (appURL.startsWith('http')) {
+                        window.location.href = appURL;
+                    } else {
+                        window.location.href = window.location.origin + appURL;
+                    }
+                }
+            } catch (err) {
+                showError(err.message);
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                spinner.classList.remove('show');
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('show');
         }
     </script>
 </body>
@@ -1322,6 +1635,85 @@ func (h *AuthHandler) ValidateMFA(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"valid": true})
+}
+
+// CompleteMFALogin validates MFA code and returns full auth token
+func (h *AuthHandler) CompleteMFALogin(c *gin.Context) {
+	// Get user ID from the MFA token
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// Check if this is an MFA pending token
+	mfaPending := c.GetBool("mfa_pending")
+	if !mfaPending {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid token type"})
+		return
+	}
+
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Get user
+	user, err := h.store.GetUserByID(ctx, userID)
+	if err != nil || user == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	// Get MFA secret
+	secret, err := h.store.GetUserMFASecret(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify"})
+		return
+	}
+
+	if secret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "MFA not enabled"})
+		return
+	}
+
+	if !h.mfaService.Validate(req.Code, secret) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
+		return
+	}
+
+	// MFA verified - generate full auth token
+	authToken, err := h.generateToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+
+	// Build user response
+	name := user.Username
+	if user.FirstName != "" || user.LastName != "" {
+		name = strings.TrimSpace(user.FirstName + " " + user.LastName)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": authToken,
+		"user": gin.H{
+			"id":         user.ID,
+			"email":      user.Email,
+			"username":   user.Username,
+			"name":       name,
+			"avatar":     user.Avatar,
+			"tier":       user.Tier,
+			"is_admin":   user.IsAdmin,
+			"mfa_enabled": user.MFAEnabled,
+		},
+	})
 }
 
 // GetAuditLogs returns the audit logs for the current user

@@ -121,11 +121,30 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService) g
 		// Extract claims and set user info in context
 		userID, userID_ok := claims["user_id"].(string)
 		email, email_ok := claims["email"].(string)
+		exp, exp_ok := claims["exp"].(float64)
+
+		// Check if this is an MFA pending token
+		mfaPending, _ := claims["mfa_pending"].(bool)
+		if mfaPending {
+			// MFA pending tokens only have user_id, email, exp, and mfa_pending
+			if !userID_ok || !email_ok || !exp_ok {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid MFA token claims"})
+				c.Abort()
+				return
+			}
+			c.Set("userID", userID)
+			c.Set("email", email)
+			c.Set("tokenExp", int64(exp))
+			c.Set("mfa_pending", true)
+			c.Next()
+			return
+		}
+
+		// Regular token - needs all claims
 		username, username_ok := claims["username"].(string)
 		tier, tier_ok := claims["tier"].(string)
 		guest, guest_ok := claims["guest"].(bool)
 		subActive, subActive_ok := claims["subscription_active"].(bool)
-		exp, exp_ok := claims["exp"].(float64)
 
 		if !userID_ok || !email_ok || !username_ok || !tier_ok || !guest_ok || !subActive_ok || !exp_ok {
 			store.CreateAuditLog(context.Background(), &models.AuditLog{
