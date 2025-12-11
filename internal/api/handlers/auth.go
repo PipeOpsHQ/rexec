@@ -1696,23 +1696,30 @@ func (h *AuthHandler) CompleteMFALogin(c *gin.Context) {
 		return
 	}
 
-	// Build user response
+	// Build user response with all fields expected by frontend
 	name := user.Username
 	if user.FirstName != "" || user.LastName != "" {
 		name = strings.TrimSpace(user.FirstName + " " + user.LastName)
 	}
 
+	isGuest := user.Tier == "guest"
+
 	c.JSON(http.StatusOK, gin.H{
 		"token": authToken,
 		"user": gin.H{
-			"id":         user.ID,
-			"email":      user.Email,
-			"username":   user.Username,
-			"name":       name,
-			"avatar":     user.Avatar,
-			"tier":       user.Tier,
-			"is_admin":   user.IsAdmin,
-			"mfa_enabled": user.MFAEnabled,
+			"id":                  user.ID,
+			"email":               user.Email,
+			"username":            user.Username,
+			"name":                name,
+			"first_name":          user.FirstName,
+			"last_name":           user.LastName,
+			"avatar":              user.Avatar,
+			"tier":                user.Tier,
+			"isGuest":             isGuest,
+			"isAdmin":             user.IsAdmin,
+			"verified":            user.Verified,
+			"subscription_active": user.SubscriptionActive,
+			"mfa_enabled":         user.MFAEnabled,
 		},
 	})
 }
