@@ -16,9 +16,11 @@ import (
 	"github.com/rexec/rexec/internal/api/handlers"
 	admin_events "github.com/rexec/rexec/internal/api/handlers/admin_events"
 	"github.com/rexec/rexec/internal/api/middleware"
+	"github.com/rexec/rexec/internal/auth"
 	"github.com/rexec/rexec/internal/billing"
 	"github.com/rexec/rexec/internal/container"
 	"github.com/rexec/rexec/internal/crypto"
+	"github.com/rexec/rexec/internal/pubsub"
 	"github.com/rexec/rexec/internal/storage"
 )
 
@@ -289,8 +291,29 @@ func runServer() {
 		log.Println("⚠️  Stripe not configured (billing disabled)")
 	}
 
+	// Initialize MFA service
+	mfaService := auth.NewMFAService("Rexec")
+
 	// --- Initialize AdminEventsHub FIRST ---
 	adminEventsHub := admin_events.NewAdminEventsHub(store, containerManager)
+
+	// --- Initialize Redis Pub/Sub for horizontal scaling ---
+	var pubsubHub *pubsub.Hub
+	var wsManager *pubsub.WSManager
+	if os.Getenv("REDIS_URL") != "" {
+		var err error
+		pubsubHub, err = pubsub.NewHub()
+		if err != nil {
+			log.Printf("⚠️  Redis pub/sub failed to initialize: %v (running in single-instance mode)", err)
+		} else {
+			pubsubHub.Start()
+			defer pubsubHub.Stop()
+			wsManager = pubsub.NewWSManager(pubsubHub)
+			log.Println("✅ Redis pub/sub enabled for horizontal scaling")
+		}
+	} else {
+		log.Println("⚠️  REDIS_URL not configured (running in single-instance mode)")
+	}
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(store, adminEventsHub)
@@ -332,6 +355,14 @@ func runServer() {
 	// Connect agent handler to events hub for including agents in WebSocket list
 	containerEventsHub.SetAgentHandler(agentHandler)
 
+	// Connect Redis pub/sub for horizontal scaling
+	if pubsubHub != nil {
+		agentHandler.SetPubSubHub(pubsubHub)
+		containerEventsHub.SetPubSubHub(pubsubHub)
+		log.Println("✅ Handlers connected to Redis pub/sub")
+	}
+	_ = wsManager // Will be used for WebSocket management
+
 	// Setup Gin router
 	router := gin.Default()
 
@@ -365,6 +396,9 @@ func runServer() {
 		}
 		c.Next()
 	})
+
+	// Security Headers
+	router.Use(middleware.SecurityHeaders())
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -405,7 +439,7 @@ func runServer() {
 
 	// API routes (protected) - with rate limiting
 	api := router.Group("/api")
-	api.Use(middleware.AuthMiddleware())
+	api.Use(middleware.AuthMiddleware(store, mfaService))
 	api.Use(apiLimiter.Middleware())
 	{
 		// Container management - stricter rate limiting for mutations
@@ -441,6 +475,18 @@ func runServer() {
 		// User profile
 		api.GET("/profile", authHandler.GetProfile)
 		api.PUT("/profile", authHandler.UpdateProfile)
+
+		// MFA
+		mfa := api.Group("/mfa")
+		{
+			mfa.GET("/setup", authHandler.SetupMFA)
+			mfa.POST("/verify", authHandler.VerifyMFA)
+			mfa.POST("/disable", authHandler.DisableMFA)
+			mfa.POST("/validate", authHandler.ValidateMFA)
+		}
+
+		// Audit Logs
+		api.GET("/audit-logs", authHandler.GetAuditLogs)
 
 		// SSH key management
 		ssh := api.Group("/ssh")
@@ -547,13 +593,13 @@ func runServer() {
 	}
 
 	// WebSocket terminal endpoint - with rate limiting
-	router.GET("/ws/terminal/:containerId", wsLimiter.Middleware(), middleware.AuthMiddleware(), terminalHandler.HandleWebSocket)
+	router.GET("/ws/terminal/:containerId", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), terminalHandler.HandleWebSocket)
 
 	// WebSocket collaboration endpoint
-	router.GET("/ws/collab/:code", wsLimiter.Middleware(), middleware.AuthMiddleware(), collabHandler.HandleCollabWebSocket)
+	router.GET("/ws/collab/:code", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), collabHandler.HandleCollabWebSocket)
 
 	// WebSocket for Port Forwarding
-	router.GET("/ws/port-forward/:forwardId", wsLimiter.Middleware(), middleware.AuthMiddleware(), portForwardHandler.HandlePortForwardWebSocket)
+	router.GET("/ws/port-forward/:forwardId", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), portForwardHandler.HandlePortForwardWebSocket)
 
 	// HTTP Proxy for Port Forwarding (public access via UUID path)
 	// Supports all HTTP methods for full web app proxying
@@ -564,7 +610,7 @@ func runServer() {
 	}
 
 	// WebSocket for Admin Events (NEW)
-	router.GET("/ws/admin/events", wsLimiter.Middleware(), middleware.AuthMiddleware(), middleware.AdminOnly(store), adminEventsHub.HandleWebSocket)
+	router.GET("/ws/admin/events", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), middleware.AdminOnly(store), adminEventsHub.HandleWebSocket)
 
 	// WebSocket for Agent connections
 	router.GET("/ws/agent/:id", wsLimiter.Middleware(), agentHandler.HandleAgentWebSocket)

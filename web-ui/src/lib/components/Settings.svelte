@@ -35,22 +35,11 @@
   let showInstallScript = false;
   let copiedScript = false;
 
-  let agentRefreshInterval: ReturnType<typeof setInterval>;
-
   onMount(() => {
     if (!$isGuest) {
+      // Initial fetch of registered agents
       agents.fetchAgents();
-      // Auto-refresh agents every 10 seconds to show online status
-      agentRefreshInterval = setInterval(() => {
-        agents.fetchAgents();
-      }, 10000);
     }
-    
-    return () => {
-      if (agentRefreshInterval) {
-        clearInterval(agentRefreshInterval);
-      }
-    };
   });
 
   async function handleCreateAgent() {

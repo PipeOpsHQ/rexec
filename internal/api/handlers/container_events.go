@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rexec/rexec/internal/container"
 	"github.com/rexec/rexec/internal/models"
+	"github.com/rexec/rexec/internal/pubsub"
 	"github.com/rexec/rexec/internal/storage"
 )
 
@@ -33,6 +34,9 @@ type ContainerEventsHub struct {
 
 	// Upgrader for WebSocket
 	upgrader websocket.Upgrader
+
+	// Redis Pub/Sub for horizontal scaling
+	pubsubHub *pubsub.Hub
 	
 	// Agent handler for getting online agents (set after creation to avoid circular deps)
 	agentHandler interface {
@@ -63,6 +67,43 @@ func (h *ContainerEventsHub) SetAgentHandler(ah interface {
 	GetOnlineAgentsForUser(userID string) []gin.H
 }) {
 	h.agentHandler = ah
+}
+
+// SetPubSubHub sets the redis hub for horizontal scaling
+func (h *ContainerEventsHub) SetPubSubHub(hub *pubsub.Hub) {
+	h.pubsubHub = hub
+	if h.pubsubHub != nil {
+		h.pubsubHub.Subscribe(pubsub.ChannelContainerEvents, h.handleContainerEventMessage)
+		h.pubsubHub.Subscribe(pubsub.ChannelAgentEvents, h.handleAgentEventMessage)
+	}
+}
+
+// handleContainerEventMessage handles container events from other instances
+func (h *ContainerEventsHub) handleContainerEventMessage(msg pubsub.Message) {
+	var payload map[string]interface{}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		log.Printf("[ContainerEvents] Failed to unmarshal pubsub message: %v", err)
+		return
+	}
+
+	userID, _ := payload["user_id"].(string)
+	eventType, _ := payload["event"].(string)
+	data := payload["data"]
+
+	if userID != "" && eventType != "" {
+		// Broadcast to local connections for this user
+		h.broadcastLocal(userID, ContainerEvent{
+			Type:      eventType,
+			Container: data,
+			Timestamp: msg.Timestamp,
+		})
+	}
+}
+
+// handleAgentEventMessage handles agent events from other instances
+func (h *ContainerEventsHub) handleAgentEventMessage(msg pubsub.Message) {
+	// Re-use container event logic as the structure is similar
+	h.handleContainerEventMessage(msg)
 }
 
 // HandleWebSocket handles WebSocket connections for container events
@@ -250,13 +291,13 @@ func (h *ContainerEventsHub) sendToConnection(conn *websocket.Conn, event Contai
 	}
 }
 
-// BroadcastToUser sends an event to all connections for a user
-func (h *ContainerEventsHub) BroadcastToUser(userID string, event ContainerEvent) {
+// broadcastLocal sends an event to all LOCAL connections for a user
+func (h *ContainerEventsHub) broadcastLocal(userID string, event ContainerEvent) {
 	h.mu.RLock()
 	conns, ok := h.connections[userID]
 	if !ok {
 		h.mu.RUnlock()
-		log.Printf("[ContainerEvents] No connections for user %s, skipping broadcast of %s event", userID, event.Type)
+		// No local connections, but might have remote ones, so don't log as error/skip
 		return
 	}
 
@@ -273,12 +314,35 @@ func (h *ContainerEventsHub) BroadcastToUser(userID string, event ContainerEvent
 		return
 	}
 
-	log.Printf("[ContainerEvents] Broadcasting %s event to %d connections for user %s", event.Type, len(connList), userID)
-
 	for _, conn := range connList {
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
 			log.Printf("[ContainerEvents] Failed to broadcast to user %s: %v", userID, err)
 		}
+	}
+}
+
+// BroadcastToUser sends an event to all connections for a user (local and remote)
+func (h *ContainerEventsHub) BroadcastToUser(userID string, event ContainerEvent) {
+	// 1. Send to local connections
+	h.broadcastLocal(userID, event)
+
+	// 2. Publish to Redis for remote connections
+	if h.pubsubHub != nil {
+		// Determine channel based on event type (agent events go to agent channel)
+		channel := pubsub.ChannelContainerEvents
+		if event.Type == "agent_connected" || event.Type == "agent_disconnected" {
+			channel = pubsub.ChannelAgentEvents
+		}
+		
+		// Payload matches what PublishContainerEvent expects
+		payload := map[string]interface{}{
+			"user_id": userID,
+			"event":   event.Type,
+			"data":    event.Container,
+		}
+		
+		// Use raw Publish to control message structure matching handleContainerEventMessage expectations
+		h.pubsubHub.Publish(channel, event.Type, payload)
 	}
 }
 

@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,17 +15,21 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/rexec/rexec/internal/pubsub"
 	"github.com/rexec/rexec/internal/storage"
 )
 
 // AgentHandler handles external agent connections
 type AgentHandler struct {
-	store       *storage.PostgresStore
-	agents      map[string]*AgentConnection
-	agentsMu    sync.RWMutex
-	upgrader    websocket.Upgrader
-	jwtSecret   []byte
-	eventsHub   *ContainerEventsHub // For broadcasting agent connect/disconnect
+	store            *storage.PostgresStore
+	agents           map[string]*AgentConnection
+	agentsMu         sync.RWMutex
+	upgrader         websocket.Upgrader
+	jwtSecret        []byte
+	eventsHub        *ContainerEventsHub      // For broadcasting agent connect/disconnect
+	pubsubHub        *pubsub.Hub              // For horizontal scaling
+	remoteSessions   map[string]*AgentSession // Sessions connected to remote agents
+	remoteSessionsMu sync.RWMutex
 }
 
 type AgentConnection struct {
@@ -42,12 +48,13 @@ type AgentConnection struct {
 	sessions    map[string]*AgentSession
 	sessionsMu  sync.RWMutex
 	// System info from agent
-	SystemInfo  map[string]interface{} `json:"system_info,omitempty"`
-	Stats       map[string]interface{} `json:"stats,omitempty"`
+	SystemInfo map[string]interface{} `json:"system_info,omitempty"`
+	Stats      map[string]interface{} `json:"stats,omitempty"`
 }
 
 type AgentSession struct {
 	ID        string
+	AgentID   string // Added for remote session tracking
 	UserConn  *websocket.Conn
 	CreatedAt time.Time
 }
@@ -58,17 +65,44 @@ func NewAgentHandler(store *storage.PostgresStore) *AgentHandler {
 	if secret == "" {
 		secret = "rexec-dev-secret-change-in-production"
 	}
-	
+
 	return &AgentHandler{
-		store:     store,
-		agents:    make(map[string]*AgentConnection),
-		jwtSecret: []byte(secret),
+		store:          store,
+		agents:         make(map[string]*AgentConnection),
+		remoteSessions: make(map[string]*AgentSession),
+		jwtSecret:      []byte(secret),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return true
+				// Prevent Cross-Site WebSocket Hijacking (CSWSH)
+				origin := r.Header.Get("Origin")
+
+				// Allow non-browser clients (empty origin) by default
+				// Set BLOCK_EMPTY_ORIGIN=true to block them (requires agents/CLI to send Origin)
+				if origin == "" {
+					return os.Getenv("BLOCK_EMPTY_ORIGIN") != "true"
+				}
+
+				allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+				if allowedOriginsStr == "" {
+					// Default to allowing all origins if not configured (e.g., in development)
+					return true
+				}
+
+				allowedOrigins := strings.Split(allowedOriginsStr, ",")
+				for _, ao := range allowedOrigins {
+					if strings.TrimSpace(ao) == origin {
+						return true
+					}
+				}
+				log.Printf("WebSocket connection from disallowed origin: %s", origin)
+				return false
 			},
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
+			// Optimized buffers for lower memory footprint per connection
+			// 32KB to support large pastes/vibe coding
+			ReadBufferSize:  32 * 1024,
+			WriteBufferSize: 32 * 1024,
+			// Enable compression to save bandwidth at the cost of slight CPU
+			EnableCompression: true,
 		},
 	}
 }
@@ -76,6 +110,97 @@ func NewAgentHandler(store *storage.PostgresStore) *AgentHandler {
 // SetEventsHub sets the container events hub for agent notifications
 func (h *AgentHandler) SetEventsHub(hub *ContainerEventsHub) {
 	h.eventsHub = hub
+}
+
+// SetPubSubHub sets the redis hub for horizontal scaling
+func (h *AgentHandler) SetPubSubHub(hub *pubsub.Hub) {
+	h.pubsubHub = hub
+	// Subscribe to terminal proxy channel
+	if h.pubsubHub != nil {
+		h.pubsubHub.Subscribe(pubsub.ChannelTerminalProxy, h.handleTerminalProxyMessage)
+	}
+}
+
+// handleTerminalProxyMessage handles cross-instance terminal messages
+func (h *AgentHandler) handleTerminalProxyMessage(msg pubsub.Message) {
+	var proxyMsg pubsub.TerminalProxyMessage
+	if err := json.Unmarshal(msg.Payload, &proxyMsg); err != nil {
+		log.Printf("Failed to unmarshal proxy message: %v", err)
+		return
+	}
+
+	// 1. If this message is input/resize intended for a LOCAL AGENT
+	if proxyMsg.Type == "input" || proxyMsg.Type == "resize" || proxyMsg.Type == "start_session" || proxyMsg.Type == "stop_session" {
+		h.agentsMu.RLock()
+		agentConn, ok := h.agents[proxyMsg.AgentID]
+		h.agentsMu.RUnlock()
+
+		if ok && agentConn.conn != nil {
+			// Found local agent, forward message
+			switch proxyMsg.Type {
+			case "input":
+				agentConn.conn.WriteJSON(map[string]interface{}{
+					"type": "shell_input",
+					"data": map[string]interface{}{
+						"session_id": proxyMsg.SessionID,
+						"data":       proxyMsg.Data, // Already bytes
+					},
+				})
+			case "resize":
+				agentConn.conn.WriteJSON(map[string]interface{}{
+					"type": "shell_resize",
+					"data": map[string]interface{}{
+						"cols": proxyMsg.Cols,
+						"rows": proxyMsg.Rows,
+					},
+				})
+			case "start_session":
+				agentConn.conn.WriteJSON(map[string]interface{}{
+					"type": "shell_start",
+					"data": map[string]string{
+						"session_id": proxyMsg.SessionID,
+					},
+				})
+			case "stop_session":
+				// Handle stop?
+			}
+		}
+		return
+	}
+
+	// 2. If this message is output intended for a REMOTE SESSION (user connected to this instance)
+	if proxyMsg.Type == "output" || proxyMsg.Type == "status" {
+		// If SessionID is "broadcast", send to all sessions for this AgentID
+		if proxyMsg.SessionID == "broadcast" {
+			h.remoteSessionsMu.RLock()
+			for _, session := range h.remoteSessions {
+				if session.AgentID == proxyMsg.AgentID && session.UserConn != nil {
+					// Forward to this session
+					if proxyMsg.Type == "output" {
+						session.UserConn.WriteJSON(map[string]interface{}{
+							"type": "output",
+							"data": string(proxyMsg.Data),
+						})
+					}
+				}
+			}
+			h.remoteSessionsMu.RUnlock()
+			return
+		}
+
+		h.remoteSessionsMu.RLock()
+		session, ok := h.remoteSessions[proxyMsg.SessionID]
+		h.remoteSessionsMu.RUnlock()
+
+		if ok && session.UserConn != nil {
+			if proxyMsg.Type == "output" {
+				session.UserConn.WriteJSON(map[string]interface{}{
+					"type": "output",
+					"data": string(proxyMsg.Data),
+				})
+			}
+		}
+	}
 }
 
 // RegisterAgent handles agent registration
@@ -170,7 +295,7 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	agentID := c.Param("id")
 
 	ctx := context.Background()
-	
+
 	// Verify ownership
 	agent, err := h.store.GetAgent(ctx, agentID)
 	if err != nil || agent == nil {
@@ -255,6 +380,13 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 
 	log.Printf("Agent connected: %s (%s)", agent.Name, agentID)
 
+	// Register agent location in Redis
+	if h.pubsubHub != nil {
+		if err := h.pubsubHub.RegisterAgentLocation(agentID, userID); err != nil {
+			log.Printf("Failed to register agent location: %v", err)
+		}
+	}
+
 	// Broadcast agent connected event via WebSocket
 	if h.eventsHub != nil {
 		h.eventsHub.NotifyAgentConnected(agent.UserID, h.buildAgentData(agentConn))
@@ -268,6 +400,11 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 		conn.Close()
 		log.Printf("Agent disconnected: %s (%s)", agent.Name, agentID)
 
+		// Unregister agent location
+		if h.pubsubHub != nil {
+			h.pubsubHub.UnregisterAgentLocation(agentID, userID)
+		}
+
 		// Broadcast agent disconnected event via WebSocket
 		if h.eventsHub != nil {
 			h.eventsHub.NotifyAgentDisconnected(agent.UserID, agentID)
@@ -277,6 +414,10 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	// Set up ping/pong
 	conn.SetPongHandler(func(string) error {
 		agentConn.LastPing = time.Now()
+		if h.pubsubHub != nil {
+			// Refresh TTL
+			h.pubsubHub.RefreshAgentLocation(agentID)
+		}
 		return nil
 	})
 
@@ -323,11 +464,19 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 					"type": "output",
 					"data": string(outputData.Data),
 				}
+
+				// 1. Write to local sessions
 				agentConn.sessionsMu.RLock()
 				for _, session := range agentConn.sessions {
 					session.UserConn.WriteJSON(outputMsg)
 				}
 				agentConn.sessionsMu.RUnlock()
+
+				// 2. Publish to Redis for remote sessions (if any)
+				if h.pubsubHub != nil {
+					// Use "broadcast" session ID to reach all sessions for this agent
+					h.pubsubHub.ProxyTerminalData(agentID, "broadcast", "output", outputData.Data, 0, 0)
+				}
 			} else {
 				log.Printf("Failed to unmarshal shell_output: %v", err)
 			}
@@ -390,20 +539,30 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Check if agent is online
+	// Check if agent is online locally
 	h.agentsMu.RLock()
-	agentConn, ok := h.agents[agentID]
+	agentConn, isLocal := h.agents[agentID]
 	h.agentsMu.RUnlock()
 
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not online"})
-		return
-	}
+	var isRemote bool
+	if !isLocal {
+		// Check Redis for remote agent
+		if h.pubsubHub != nil {
+			if _, found := h.pubsubHub.GetAgentLocation(agentID); found {
+				isRemote = true
+			}
+		}
 
-	// Verify ownership
-	if agentConn.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
-		return
+		if !isRemote {
+			c.JSON(http.StatusNotFound, gin.H{"error": "agent not online"})
+			return
+		}
+	} else {
+		// Local agent - verify ownership
+		if agentConn.UserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+			return
+		}
 	}
 
 	// Upgrade to WebSocket
@@ -416,116 +575,182 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 	sessionID := uuid.New().String()
 	session := &AgentSession{
 		ID:        sessionID,
+		AgentID:   agentID,
 		UserConn:  conn,
 		CreatedAt: time.Now(),
 	}
 
-	// Add session
-	agentConn.sessionsMu.Lock()
-	agentConn.sessions[sessionID] = session
-	agentConn.sessionsMu.Unlock()
-
-	// Send initial stats if available
-	if agentConn.Stats != nil {
-		conn.WriteJSON(map[string]interface{}{
-			"type": "stats",
-			"data": agentConn.Stats,
-		})
-	}
-
-	// Check if this is a new session request (for split panes)
-	newSession := c.Query("newSession") == "true"
-
-	// Tell agent to start shell
-	agentConn.conn.WriteJSON(map[string]interface{}{
-		"type": "shell_start",
-		"data": map[string]interface{}{
-			"session_id":  sessionID,
-			"new_session": newSession, // If true, create new tmux window instead of sharing
-		},
-	})
-
-	defer func() {
+	// === LOCAL AGENT HANDLING ===
+	if isLocal {
+		// Add session
 		agentConn.sessionsMu.Lock()
-		delete(agentConn.sessions, sessionID)
+		agentConn.sessions[sessionID] = session
 		agentConn.sessionsMu.Unlock()
-		conn.Close()
 
-		// Tell agent to stop shell if no more sessions
-		agentConn.sessionsMu.RLock()
-		if len(agentConn.sessions) == 0 {
-			agentConn.conn.WriteJSON(map[string]interface{}{
-				"type": "shell_stop",
+		// Send initial stats if available
+		if agentConn.Stats != nil {
+			conn.WriteJSON(map[string]interface{}{
+				"type": "stats",
+				"data": agentConn.Stats,
 			})
 		}
-		agentConn.sessionsMu.RUnlock()
-	}()
 
-	// Read messages from user and forward to agent
-	for {
-		messageType, message, err := conn.ReadMessage()
-		if err != nil {
-			break
-		}
+		// Check if this is a new session request (for split panes)
+		newSession := c.Query("newSession") == "true"
 
-		if messageType == websocket.BinaryMessage {
-			// Forward input to agent
-			agentConn.conn.WriteJSON(map[string]interface{}{
-				"type": "shell_input",
-				"data": map[string]interface{}{
-					"session_id": sessionID,
-					"data":       message,
-				},
-			})
-		} else {
-			// Parse JSON message
-			var msg struct {
-				Type string          `json:"type"`
-				Data json.RawMessage `json:"data"`
+		// Tell agent to start shell
+		agentConn.conn.WriteJSON(map[string]interface{}{
+			"type": "shell_start",
+			"data": map[string]interface{}{
+				"session_id":  sessionID,
+				"new_session": newSession,
+			},
+		})
+
+		defer func() {
+			agentConn.sessionsMu.Lock()
+			delete(agentConn.sessions, sessionID)
+			agentConn.sessionsMu.Unlock()
+			conn.Close()
+
+			// Tell agent to stop shell if no more sessions
+			agentConn.sessionsMu.RLock()
+			if len(agentConn.sessions) == 0 {
+				agentConn.conn.WriteJSON(map[string]interface{}{
+					"type": "shell_stop",
+				})
+			}
+			agentConn.sessionsMu.RUnlock()
+		}()
+
+		// Read messages from user and forward to agent
+		for {
+			messageType, message, err := conn.ReadMessage()
+			if err != nil {
+				break
 			}
 
-			if err := json.Unmarshal(message, &msg); err != nil {
-				continue
-			}
-
-			switch msg.Type {
-			case "input":
-				// Forward text input to agent as shell_input
-				// msg.Data is a JSON-encoded string, need to unmarshal it first
-				var inputStr string
-				if err := json.Unmarshal(msg.Data, &inputStr); err != nil {
-					continue
-				}
+			if messageType == websocket.BinaryMessage {
+				// Forward input to agent
 				agentConn.conn.WriteJSON(map[string]interface{}{
 					"type": "shell_input",
 					"data": map[string]interface{}{
 						"session_id": sessionID,
-						"data":       []byte(inputStr),
+						"data":       message,
 					},
 				})
-
-			case "resize":
-				// Frontend sends cols/rows at top level, extract and forward
-				var resizeMsg struct {
-					Cols int `json:"cols"`
-					Rows int `json:"rows"`
+			} else {
+				// Parse JSON message
+				var msg struct {
+					Type string          `json:"type"`
+					Data json.RawMessage `json:"data"`
 				}
-				// Re-unmarshal the original message to get cols/rows
-				if err := json.Unmarshal(message, &resizeMsg); err == nil && resizeMsg.Cols > 0 && resizeMsg.Rows > 0 {
+
+				if err := json.Unmarshal(message, &msg); err != nil {
+					continue
+				}
+
+				switch msg.Type {
+				case "input":
+					var inputStr string
+					if err := json.Unmarshal(msg.Data, &inputStr); err != nil {
+						continue
+					}
 					agentConn.conn.WriteJSON(map[string]interface{}{
-						"type": "shell_resize",
-						"data": map[string]int{
-							"cols": resizeMsg.Cols,
-							"rows": resizeMsg.Rows,
+						"type": "shell_input",
+						"data": map[string]interface{}{
+							"session_id": sessionID,
+							"data":       []byte(inputStr),
 						},
 					})
+
+				case "resize":
+					var resizeMsg struct {
+						Cols int `json:"cols"`
+						Rows int `json:"rows"`
+					}
+					if err := json.Unmarshal(message, &resizeMsg); err == nil && resizeMsg.Cols > 0 && resizeMsg.Rows > 0 {
+						agentConn.conn.WriteJSON(map[string]interface{}{
+							"type": "shell_resize",
+							"data": map[string]int{
+								"cols": resizeMsg.Cols,
+								"rows": resizeMsg.Rows,
+							},
+						})
+					}
+
+				case "exec":
+					agentConn.conn.WriteJSON(map[string]interface{}{
+						"type": "exec",
+						"data": msg.Data,
+					})
+				}
+			}
+		}
+		return
+	}
+
+	// === REMOTE AGENT HANDLING ===
+	if isRemote {
+		// Register remote session
+		h.remoteSessionsMu.Lock()
+		h.remoteSessions[sessionID] = session
+		h.remoteSessionsMu.Unlock()
+
+		// Notify remote agent to start shell via Redis
+		if h.pubsubHub != nil {
+			h.pubsubHub.ProxyTerminalData(agentID, sessionID, "start_session", nil, 0, 0)
+		}
+
+		defer func() {
+			h.remoteSessionsMu.Lock()
+			delete(h.remoteSessions, sessionID)
+			h.remoteSessionsMu.Unlock()
+			conn.Close()
+
+			if h.pubsubHub != nil {
+				h.pubsubHub.ProxyTerminalData(agentID, sessionID, "stop_session", nil, 0, 0)
+			}
+		}()
+
+		// Forward user messages to Redis
+		for {
+			messageType, message, err := conn.ReadMessage()
+			if err != nil {
+				break
+			}
+
+			if h.pubsubHub == nil {
+				break
+			}
+
+			if messageType == websocket.BinaryMessage {
+				h.pubsubHub.ProxyTerminalData(agentID, sessionID, "input", message, 0, 0)
+			} else {
+				var msg struct {
+					Type string          `json:"type"`
+					Data json.RawMessage `json:"data"`
+				}
+				if err := json.Unmarshal(message, &msg); err != nil {
+					continue
 				}
 
-			case "exec":
-				agentConn.conn.WriteJSON(map[string]interface{}{
-					"type": "exec",
-					"data": msg.Data,
-				})
+				switch msg.Type {
+				case "input":
+					var inputStr string
+					if err := json.Unmarshal(msg.Data, &inputStr); err == nil {
+						h.pubsubHub.ProxyTerminalData(agentID, sessionID, "input", []byte(inputStr), 0, 0)
+					}
+				case "resize":
+					var resizeMsg struct {
+						Cols int `json:"cols"`
+						Rows int `json:"rows"`
+					}
+					// Parse the top-level message again to get cols/rows
+					if err := json.Unmarshal(message, &resizeMsg); err == nil {
+						h.pubsubHub.ProxyTerminalData(agentID, sessionID, "resize", nil, resizeMsg.Cols, resizeMsg.Rows)
+					}
+				}
 			}
 		}
 	}
@@ -575,6 +800,13 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 	defer h.agentsMu.RUnlock()
 
 	agents := make([]gin.H, 0)
+	// Create a slice of agents to sort
+	type sortableAgent struct {
+		Agent *AgentConnection
+		Data  gin.H
+	}
+	var sortedAgents []sortableAgent
+
 	for _, agent := range h.agents {
 		if agent.UserID == userID && agent.Status == "online" {
 			agentData := gin.H{
@@ -627,8 +859,20 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 			}
 
 			agentData["resources"] = resources
-			agents = append(agents, agentData)
+			sortedAgents = append(sortedAgents, sortableAgent{Agent: agent, Data: agentData})
 		}
+	}
+
+	// Sort agents by ConnectedAt descending (newest first), then by Name
+	sort.Slice(sortedAgents, func(i, j int) bool {
+		if sortedAgents[i].Agent.ConnectedAt.Equal(sortedAgents[j].Agent.ConnectedAt) {
+			return sortedAgents[i].Agent.Name < sortedAgents[j].Agent.Name
+		}
+		return sortedAgents[i].Agent.ConnectedAt.After(sortedAgents[j].Agent.ConnectedAt)
+	})
+
+	for _, sa := range sortedAgents {
+		agents = append(agents, sa.Data)
 	}
 
 	return agents

@@ -510,13 +510,24 @@ func (a *Agent) connect() error {
 	dialer := websocket.DefaultDialer
 	dialer.HandshakeTimeout = 30 * time.Second
 
-	conn, _, err := dialer.Dial(wsURL, http.Header{
+	conn, resp, err := dialer.Dial(wsURL, http.Header{
 		"X-Agent-Name":  []string{a.config.Name},
 		"X-Agent-OS":    []string{runtime.GOOS},
 		"X-Agent-Arch":  []string{runtime.GOARCH},
 		"X-Agent-Shell": []string{a.config.Shell},
 	})
 	if err != nil {
+		if resp != nil {
+			// If we get a 4xx error (Unauthorized, Forbidden, Not Found), stop the agent
+			// This happens when the agent is deleted from the server or token is invalid
+			if resp.StatusCode == http.StatusUnauthorized || 
+			   resp.StatusCode == http.StatusForbidden || 
+			   resp.StatusCode == http.StatusNotFound {
+				log.Printf("%sFatal Error: Server rejected connection (Status %d). Stopping agent.%s", Red, resp.StatusCode, Reset)
+				a.running = false
+				return nil // Return nil to stop the retry loop naturally
+			}
+		}
 		return err
 	}
 

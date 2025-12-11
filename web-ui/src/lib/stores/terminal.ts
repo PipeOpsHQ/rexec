@@ -105,7 +105,7 @@ const INPUT_THROTTLE_MS = 0; // No throttle - send immediately for responsivenes
 const OUTPUT_FLUSH_INTERVAL = 8; // ~120fps for smooth output
 const OUTPUT_IMMEDIATE_THRESHOLD = 256; // Immediately write small outputs
 const OUTPUT_MAX_BUFFER = 32 * 1024; // 32KB max buffer before force flush
-const CHUNK_SIZE = 8192; // 8KB chunks for large pastes
+const CHUNK_SIZE = 32768; // 32KB chunks for large pastes (vibe coding support)
 const CHUNK_DELAY = 5; // 5ms between chunks - faster paste
 
 const REXEC_BANNER =
@@ -234,27 +234,32 @@ function createCustomKeyHandler(term: Terminal) {
 
 // Calculate responsive font size based on screen dimensions
 function getResponsiveFontSize(): number {
-  if (typeof window === "undefined") return 12;
+  if (typeof window === "undefined") return 11;
 
   const width = window.innerWidth;
 
-  // Scale font size based on screen size - balanced for terminal readability
-  // Small screens (< 768px): 11px
-  // Medium screens (768-1200px): 12px
-  // Large screens (1200-1600px): 13px
-  // Extra large (> 1600px): 14px
-  if (width < 768) return 11;
-  if (width < 1200) return 12;
-  if (width < 1600) return 13;
-  return 14;
+  // Scale font size based on screen size - compact for better fit
+  // Small screens (< 768px): 10px
+  // Medium screens (768-1200px): 11px
+  // Large screens (1200-1600px): 12px
+  // Extra large (> 1600px): 12px
+  if (width < 768) return 10;
+  if (width < 1200) return 11;
+  return 12;
 }
+
+// Current zoom level (persisted font size)
+let currentFontSize = getResponsiveFontSize();
+const MIN_FONT_SIZE = 8;
+const MAX_FONT_SIZE = 24;
+const ZOOM_STEP = 1;
 
 // Terminal configuration - Production-grade like Google Cloud Shell
 const TERMINAL_OPTIONS = {
   cursorBlink: true,
   cursorStyle: "bar" as const,
   cursorWidth: 2,
-  fontSize: getResponsiveFontSize(),
+  fontSize: currentFontSize,
   fontFamily:
     '"JetBrains Mono", "Fira Code", "SF Mono", Menlo, Monaco, "Courier New", monospace',
   fontWeight: "400" as const,
@@ -1005,7 +1010,7 @@ function createTerminalStore() {
       // Handle terminal input with chunking for large pastes
       let inputQueue: string[] = [];
       let isProcessingQueue = false;
-      const CHUNK_SIZE = 4096; // 4KB chunks for large pastes
+      const CHUNK_SIZE = 32768; // 32KB chunks for large pastes
       const CHUNK_DELAY = 10; // 10ms between chunks
 
       const processInputQueue = async () => {
@@ -1440,20 +1445,46 @@ function createTerminalStore() {
     // Update font size for all terminals (called on window resize)
     updateFontSize() {
       const newFontSize = getResponsiveFontSize();
+      this.setFontSize(newFontSize);
+    },
+
+    // Set specific font size for all terminals
+    setFontSize(newFontSize: number) {
+      currentFontSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, newFontSize));
       const state = getState();
       state.sessions.forEach((session) => {
         try {
-          session.terminal.options.fontSize = newFontSize;
+          session.terminal.options.fontSize = currentFontSize;
           session.fitAddon.fit();
           // Also update split panes
           session.splitPanes.forEach((pane) => {
-            pane.terminal.options.fontSize = newFontSize;
+            pane.terminal.options.fontSize = currentFontSize;
             pane.fitAddon.fit();
           });
         } catch (e) {
           console.error("Failed to update font size:", e);
         }
       });
+    },
+
+    // Zoom in (increase font size)
+    zoomIn() {
+      this.setFontSize(currentFontSize + ZOOM_STEP);
+    },
+
+    // Zoom out (decrease font size)
+    zoomOut() {
+      this.setFontSize(currentFontSize - ZOOM_STEP);
+    },
+
+    // Reset zoom to default
+    resetZoom() {
+      this.setFontSize(getResponsiveFontSize());
+    },
+
+    // Get current font size
+    getFontSize(): number {
+      return currentFontSize;
     },
 
     // Attach terminal to DOM element
@@ -1489,7 +1520,7 @@ function createTerminalStore() {
         const text = e.clipboardData?.getData("text");
         if (text && session.ws?.readyState === WebSocket.OPEN) {
           // Use the chunking logic for large pastes
-          const CHUNK_SIZE = 4096;
+          const CHUNK_SIZE = 32768;
           if (text.length > CHUNK_SIZE) {
             e.preventDefault();
             // Send in chunks with small delays
@@ -1588,7 +1619,7 @@ function createTerminalStore() {
 
         const text = e.clipboardData?.getData("text");
         if (text && session.ws?.readyState === WebSocket.OPEN) {
-          const CHUNK_SIZE = 4096;
+          const CHUNK_SIZE = 32768;
           if (text.length > CHUNK_SIZE) {
             e.preventDefault();
             const chunks: string[] = [];
@@ -2346,6 +2377,28 @@ if (typeof window !== "undefined") {
     resizeTimeout = setTimeout(() => {
       terminal.updateFontSize();
     }, 150);
+  });
+
+  // Setup keyboard shortcuts for zoom (Cmd/Ctrl + Plus/Minus)
+  window.addEventListener("keydown", (e: KeyboardEvent) => {
+    const isMod = e.metaKey || e.ctrlKey;
+    if (!isMod) return;
+
+    // Zoom in: Cmd/Ctrl + Plus or Cmd/Ctrl + =
+    if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      terminal.zoomIn();
+    }
+    // Zoom out: Cmd/Ctrl + Minus
+    else if (e.key === "-") {
+      e.preventDefault();
+      terminal.zoomOut();
+    }
+    // Reset zoom: Cmd/Ctrl + 0
+    else if (e.key === "0") {
+      e.preventDefault();
+      terminal.resetZoom();
+    }
   });
 }
 

@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -23,11 +24,32 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  128 * 1024, // 128KB - handles large paste operations
-	WriteBufferSize: 128 * 1024, // 128KB - handles large output bursts
+	ReadBufferSize:  32 * 1024, // 32KB - Better for large pastes/vibe coding
+	WriteBufferSize: 32 * 1024, // 32KB - Better for large output bursts
 	CheckOrigin: func(r *http.Request) bool {
-		// In production, you should validate the origin
-		return true
+		// Prevent Cross-Site WebSocket Hijacking (CSWSH)
+		origin := r.Header.Get("Origin")
+
+		// Allow requests with no origin (e.g. from non-browser clients) by default
+		// Set BLOCK_EMPTY_ORIGIN=true to block them
+		if origin == "" {
+			return os.Getenv("BLOCK_EMPTY_ORIGIN") != "true"
+		}
+
+		allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+		if allowedOriginsStr == "" {
+			// Default to allowing all origins if not configured (e.g., in development)
+			return true
+		}
+
+		allowedOrigins := strings.Split(allowedOriginsStr, ",")
+		for _, ao := range allowedOrigins {
+			if strings.TrimSpace(ao) == origin {
+				return true
+			}
+		}
+		log.Printf("WebSocket connection from disallowed origin: %s", origin)
+		return false
 	},
 	HandshakeTimeout:  10 * time.Second,
 	EnableCompression: true, // Enable per-message compression for large data
@@ -361,7 +383,8 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// Configure WebSocket for large data handling
-	conn.SetReadLimit(1024 * 1024) // 1MB max message size for large pastes
+	// Allow up to 32MB messages for "vibe coding" (large AI-generated pastes)
+	conn.SetReadLimit(32 * 1024 * 1024) 
 	conn.SetPongHandler(func(string) error {
 		conn.SetReadDeadline(time.Now().Add(120 * time.Second)) // Longer timeout for stability
 		return nil

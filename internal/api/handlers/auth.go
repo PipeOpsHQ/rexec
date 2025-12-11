@@ -29,6 +29,7 @@ type AuthHandler struct {
 	jwtSecret      []byte
 	store          *storage.PostgresStore
 	oauthService   *auth.PKCEOAuthService
+	mfaService     *auth.MFAService
 	adminEventsHub *admin_events.AdminEventsHub
 }
 
@@ -42,6 +43,7 @@ func NewAuthHandler(store *storage.PostgresStore, adminEventsHub *admin_events.A
 		jwtSecret:      []byte(secret),
 		store:          store,
 		oauthService:   auth.NewPKCEOAuthService(),
+		mfaService:     auth.NewMFAService("Rexec"),
 		adminEventsHub: adminEventsHub,
 	}
 }
@@ -508,8 +510,10 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"verified":   user.Verified,
 		"tier":       user.Tier,
 		"created_at": user.CreatedAt,
-		"updated_at": user.UpdatedAt,
-		"is_admin":   user.IsAdmin,
+		"updated_at":  user.UpdatedAt,
+		"is_admin":    user.IsAdmin,
+		"mfa_enabled": user.MFAEnabled,
+		"allowed_ips": user.AllowedIPs,
 	}
 
 	// For guest users, include expiration time from token
@@ -551,7 +555,8 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	var req struct {
-		Username string `json:"username"`
+		Username   string   `json:"username"`
+		AllowedIPs []string `json:"allowed_ips"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
@@ -576,6 +581,13 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	user.Username = req.Username
+	// Only update AllowedIPs if provided (or allow clearing if empty list is sent explicitly? JSON zero value is nil/empty)
+	// If the user sends [], it clears the list. If they don't send the field, it might be nil.
+	// But `req.AllowedIPs` will be nil if missing.
+	// Let's assume if it's not nil, update it.
+	if req.AllowedIPs != nil {
+		user.AllowedIPs = req.AllowedIPs
+	}
 	user.UpdatedAt = time.Now()
 
 	if err := h.store.UpdateUser(ctx, user); err != nil {
@@ -1131,4 +1143,209 @@ func userToJSON(user *models.User) string {
 	}
 
 	return `{"id":"` + user.ID + `","email":"` + email + `","username":"` + username + `","name":"` + name + `","first_name":"` + firstName + `","last_name":"` + lastName + `","avatar":"` + avatar + `","verified":` + verified + `,"subscription_active":` + subscriptionActive + `,"tier":"` + tier + `","isGuest":` + isGuest + `}`
+}
+
+// SetupMFA initiates MFA setup for a user
+func (h *AuthHandler) SetupMFA(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// Generate secret
+	secret, err := auth.GenerateRandomSecret()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate secret"})
+		return
+	}
+
+	userEmail := c.GetString("email")
+	if userEmail == "" {
+		// Fallback to fetching user if email not in context
+		ctx := context.Background()
+		user, err := h.store.GetUserByID(ctx, userID)
+		if err == nil && user != nil {
+			userEmail = user.Email
+		} else {
+			userEmail = "user"
+		}
+	}
+
+	// Get OTP URL for QR code
+	otpURL := h.mfaService.GetOTPURL(userEmail, secret)
+
+	c.JSON(http.StatusOK, gin.H{
+		"secret":  secret,
+		"otp_url": otpURL,
+	})
+}
+
+// VerifyMFA verifies the code and enables MFA
+func (h *AuthHandler) VerifyMFA(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Secret string `json:"secret" binding:"required"`
+		Code   string `json:"code" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Validate code
+	if !h.mfaService.Validate(req.Code, req.Secret) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid code"})
+		return
+	}
+
+	ctx := context.Background()
+	
+	// Enable MFA for user
+	if err := h.store.EnableMFA(ctx, userID, req.Secret); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enable MFA"})
+		return
+	}
+
+	// Log audit event
+	h.store.CreateAuditLog(ctx, &models.AuditLog{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Action:    "mfa_enabled",
+		IPAddress: c.ClientIP(),
+		UserAgent: c.Request.UserAgent(),
+		CreatedAt: time.Now(),
+	})
+
+	c.JSON(http.StatusOK, gin.H{"message": "MFA enabled successfully"})
+}
+
+// DisableMFA disables MFA for a user
+func (h *AuthHandler) DisableMFA(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Get current secret to validate
+	secret, err := h.store.GetUserMFASecret(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify"})
+		return
+	}
+
+	if secret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "MFA not enabled"})
+		return
+	}
+
+	// Validate code
+	if !h.mfaService.Validate(req.Code, secret) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
+		return
+	}
+
+	// Disable MFA
+	if err := h.store.DisableMFA(ctx, userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to disable MFA"})
+		return
+	}
+
+	// Log audit event
+	h.store.CreateAuditLog(ctx, &models.AuditLog{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Action:    "mfa_disabled",
+		IPAddress: c.ClientIP(),
+		UserAgent: c.Request.UserAgent(),
+		CreatedAt: time.Now(),
+	})
+
+	c.JSON(http.StatusOK, gin.H{"message": "MFA disabled successfully"})
+}
+
+// ValidateMFA validates an MFA code for session elevation or login
+func (h *AuthHandler) ValidateMFA(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Get secret
+	secret, err := h.store.GetUserMFASecret(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify"})
+		return
+	}
+
+	if secret == "" {
+		// MFA not enabled, so technically valid, or error?
+		// For validation endpoint, we expect it to be enabled.
+		c.JSON(http.StatusBadRequest, gin.H{"error": "MFA not enabled"})
+		return
+	}
+
+	if !h.mfaService.Validate(req.Code, secret) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"valid": true})
+}
+
+// GetAuditLogs returns the audit logs for the current user
+func (h *AuthHandler) GetAuditLogs(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// Pagination
+	limit := 50
+	offset := 0
+	// TODO: Add proper pagination params parsing if needed
+
+	ctx := context.Background()
+	logs, err := h.store.GetAuditLogsByUserID(ctx, userID, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch audit logs"})
+		return
+	}
+
+	if logs == nil {
+		logs = []*models.AuditLog{}
+	}
+
+	c.JSON(http.StatusOK, logs)
 }

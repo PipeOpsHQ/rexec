@@ -233,3 +233,22 @@ help:
 	@echo "  make fmt          - Format the code"
 	@echo "  make logs         - Show docker-compose logs"
 	@echo "  make help         - Show this help message"
+
+# Security scan
+security:
+	@echo "Scanning for security vulnerabilities..."
+	@if command -v gosec >/dev/null 2>&1; then \ 
+		gosec ./...; \ 
+	else \ 
+		echo "gosec not found, installing..."; \ 
+		go install github.com/securego/gosec/v2/cmd/gosec@latest; \ 
+		gosec ./...; \ 
+	fi
+	@echo "Checking for known vulnerabilities..."
+	@if command -v govulncheck >/dev/null 2>&1; then \ 
+		govulncheck ./...; \ 
+	else \ 
+		echo "govulncheck not found, installing..."; \ 
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \ 
+		govulncheck ./...; \ 
+	fi

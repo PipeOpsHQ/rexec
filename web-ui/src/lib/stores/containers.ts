@@ -1048,6 +1048,10 @@ function handleContainerEvent(event: {
           ...state.containers.filter((c) => c.id !== containerData.id),
         ],
       }));
+      // Dispatch event for agents store
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('container-agent-connected', { detail: containerData }));
+      }
       break;
 
     case "agent_disconnected":
@@ -1056,6 +1060,10 @@ function handleContainerEvent(event: {
         ...state,
         containers: state.containers.filter((c) => c.id !== containerData.id),
       }));
+      // Dispatch event for agents store
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('container-agent-disconnected', { detail: containerData }));
+      }
       break;
 
     default:

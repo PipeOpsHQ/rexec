@@ -258,6 +258,34 @@
         }
     }
 
+    // Helper to connect to an agent
+    async function connectToAgent(agentId: string) {
+        try {
+            const authToken = get(token);
+            const response = await fetch(`/api/agents/${agentId}/status`, {
+                headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+            });
+            if (response.ok) {
+                const status = await response.json();
+                if (status.status === "online") {
+                    terminal.setViewMode("docked");
+                    terminal.createAgentSession(agentId, `Agent ${agentId.slice(0, 8)}`);
+                    currentView = "dashboard";
+                } else {
+                    toast.error("Agent is offline");
+                    currentView = "dashboard";
+                }
+            } else {
+                toast.error("Agent not found");
+                currentView = "dashboard";
+            }
+        } catch (err) {
+            console.error("Failed to fetch agent status:", err);
+            toast.error("Failed to connect to agent");
+            currentView = "dashboard";
+        }
+    }
+
     // Handle URL-based terminal routing
     async function handleTerminalUrl() {
         const path = window.location.pathname;
@@ -481,6 +509,15 @@
             return;
         }
 
+        // Check for pending agent redirect after authentication
+        const pendingAgent = localStorage.getItem("pendingAgentId");
+        if (pendingAgent && $isAuthenticated) {
+            localStorage.removeItem("pendingAgentId");
+            window.history.replaceState({}, "", `/agent:${pendingAgent}`);
+            await connectToAgent(pendingAgent);
+            return;
+        }
+
         // Check for popped-out terminal window (?terminal=containerId&name=containerName)
         const terminalParam = params.get("terminal");
         const nameParam = params.get("name");
@@ -502,32 +539,16 @@
 
         // Handle agent URL routing (/agent:agentId)
         const agentMatch = path.match(/^\/agent:([a-f0-9-]{36})$/i);
-        if (agentMatch && $isAuthenticated) {
+        if (agentMatch) {
             const agentId = agentMatch[1];
-            // Create agent terminal session - fetch agent info first
-            try {
-                const authToken = get(token);
-                const response = await fetch(`/api/agents/${agentId}/status`, {
-                    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-                });
-                if (response.ok) {
-                    const status = await response.json();
-                    if (status.status === "online") {
-                        terminal.setViewMode("docked");
-                        terminal.createAgentSession(agentId, `Agent ${agentId.slice(0, 8)}`);
-                        currentView = "dashboard";
-                    } else {
-                        toast.error("Agent is offline");
-                        currentView = "dashboard";
-                    }
-                } else {
-                    toast.error("Agent not found");
-                    currentView = "dashboard";
-                }
-            } catch (err) {
-                console.error("Failed to fetch agent status:", err);
-                toast.error("Failed to connect to agent");
-                currentView = "dashboard";
+            if ($isAuthenticated) {
+                await connectToAgent(agentId);
+            } else {
+                localStorage.setItem("pendingAgentId", agentId);
+                // Fall through to landing/login
+                setTimeout(() => {
+                    toast.info("Please login to access this agent");
+                }, 500);
             }
             return;
         }

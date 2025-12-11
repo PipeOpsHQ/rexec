@@ -162,6 +162,25 @@ function createAgentsStore() {
       return `curl -sSL ${baseUrl}/install-agent.sh | bash -s -- --agent-id ${agentId} --token ${token}`;
     },
 
+    // Update agent status from WebSocket event
+    updateAgentStatus(agentId: string, status: 'online' | 'offline', agentData?: any) {
+      update(s => ({
+        ...s,
+        agents: s.agents.map(agent => {
+          if (agent.id === agentId) {
+            return {
+              ...agent,
+              status,
+              ...(agentData?.system_info && { system_info: agentData.system_info }),
+              ...(agentData?.stats && { stats: agentData.stats }),
+              ...(agentData?.connected_at && { connected_at: agentData.connected_at }),
+            };
+          }
+          return agent;
+        }),
+      }));
+    },
+
     reset() {
       set({ agents: [], loading: false, error: null });
     },
@@ -169,3 +188,20 @@ function createAgentsStore() {
 }
 
 export const agents = createAgentsStore();
+
+// Listen for container WebSocket events to update agent status
+if (typeof window !== 'undefined') {
+  window.addEventListener('container-agent-connected', ((e: CustomEvent) => {
+    const agentId = e.detail.id?.replace('agent:', '');
+    if (agentId) {
+      agents.updateAgentStatus(agentId, 'online', e.detail);
+    }
+  }) as EventListener);
+
+  window.addEventListener('container-agent-disconnected', ((e: CustomEvent) => {
+    const agentId = e.detail.id?.replace('agent:', '');
+    if (agentId) {
+      agents.updateAgentStatus(agentId, 'offline');
+    }
+  }) as EventListener);
+}

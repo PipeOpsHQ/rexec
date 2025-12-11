@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -55,6 +56,8 @@ func (s *PostgresStore) migrate() error {
 		password_hash VARCHAR(255) DEFAULT '',
 		tier VARCHAR(50) DEFAULT 'free',
 		is_admin BOOLEAN DEFAULT false,
+		mfa_enabled BOOLEAN DEFAULT false,
+		mfa_secret VARCHAR(255) DEFAULT '',
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
@@ -135,6 +138,18 @@ func (s *PostgresStore) migrate() error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_snippets_user_id ON snippets(user_id);
+
+	CREATE TABLE IF NOT EXISTS audit_logs (
+		id VARCHAR(36) PRIMARY KEY,
+		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		action VARCHAR(255) NOT NULL,
+		ip_address VARCHAR(45),
+		user_agent TEXT,
+		details TEXT,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 	`
 
 	if _, err := s.db.Exec(createTables); err != nil {
@@ -143,6 +158,24 @@ func (s *PostgresStore) migrate() error {
 
 	// Step 2: Add optional columns if they don't exist
 	addColumns := []string{
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='mfa_enabled') THEN
+				ALTER TABLE users ADD COLUMN mfa_enabled BOOLEAN DEFAULT false;
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='mfa_secret') THEN
+				ALTER TABLE users ADD COLUMN mfa_secret VARCHAR(255) DEFAULT '';
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='allowed_ips') THEN
+				ALTER TABLE users ADD COLUMN allowed_ips TEXT;
+			END IF;
+		END $$`,
 		`DO $$ BEGIN
 			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
 				WHERE table_name='users' AND column_name='stripe_customer_id') THEN
@@ -408,7 +441,7 @@ func (s *PostgresStore) seedExampleSnippets() error {
 		RequiresInstall bool
 	}{
 		// System snippets
-		{"seed-001", "System Info", "#!/bin/bash\necho '=== System Info ==='\nuname -a\necho ''\necho '=== Memory ==='\nfree -h\necho ''\necho '=== Disk ==='\ndf -h /\necho ''\necho '=== CPU ==='\nlscpu | grep -E '^(Model name|CPU\\(s\\)|Thread)'\necho ''\nneofetch 2>/dev/null || echo 'neofetch not installed'", "bash", "Display comprehensive system information including OS, memory, disk, and CPU details", "terminal", "system", "", false},
+		{"seed-001", "System Info", "#!/bin/bash\necho '=== System Info ==='\nuname -a\necho ''\necho '=== Memory ==='\nfree -h\necho ''\necho '=== Disk ==='\ndf -h /\necho ''\necho '=== CPU ==='\nlscpu | grep -E '^(Model name|CPU(s)|Thread)'\necho ''\nneofetch 2>/dev/null || echo 'neofetch not installed'", "bash", "Display comprehensive system information including OS, memory, disk, and CPU details", "terminal", "system", "", false},
 		{"seed-002", "Find Large Files", "#!/bin/bash\necho 'Finding files larger than 100MB...'\nfind . -type f -size +100M -exec ls -lh {} \\; 2>/dev/null | awk '{print $5, $9}' | sort -rh | head -20", "bash", "Find and list the 20 largest files over 100MB in current directory", "folder", "system", "", false},
 		{"seed-003", "Process Monitor", "#!/bin/bash\necho 'Top 10 processes by CPU:'\nps aux --sort=-%cpu | head -11\necho ''\necho 'Top 10 processes by Memory:'\nps aux --sort=-%mem | head -11", "bash", "Show top 10 processes by CPU and memory usage", "chart", "system", "", false},
 		{"seed-004", "Quick Backup", "#!/bin/bash\nDIR=${1:-.}\nBACKUP_NAME=\"backup_$(date +%Y%m%d_%H%M%S).tar.gz\"\ntar -czvf \"$BACKUP_NAME\" \"$DIR\"\necho \"Backup created: $BACKUP_NAME\"\nls -lh \"$BACKUP_NAME\"", "bash", "Create a timestamped tar.gz backup of current or specified directory", "archive", "system", "", false},
@@ -422,14 +455,14 @@ func (s *PostgresStore) seedExampleSnippets() error {
 
 		// Python/Data Science snippets
 		{"seed-010", "Python Venv Setup", "#!/bin/bash\npython3 -m venv venv\nsource venv/bin/activate\npip install --upgrade pip\npip install pandas numpy matplotlib jupyter requests\npip freeze > requirements.txt\necho 'Virtual environment created and activated!'", "bash", "Create Python virtual environment with common data science packages", "python", "python", "", false},
-		{"seed-011", "Data Analysis Template", "import pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# Load data\ndf = pd.read_csv('data.csv')\n\n# Quick overview\nprint('Shape:', df.shape)\nprint('\\nColumns:', df.columns.tolist())\nprint('\\nData types:')\nprint(df.dtypes)\nprint('\\nSummary statistics:')\nprint(df.describe())\nprint('\\nMissing values:')\nprint(df.isnull().sum())", "python", "Python data analysis template with pandas for quick dataset exploration", "chart", "python", "pip install pandas numpy matplotlib", true},
+		{"seed-011", "Data Analysis Template", "import pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n# Load data\ndf = pd.read_csv('data.csv')\n\n# Quick overview\nprint('Shape:', df.shape)\nprint('\nColumns:', df.columns.tolist())\nprint('\nData types:')\nprint(df.dtypes)\nprint('\nSummary statistics:')\nprint(df.describe())\nprint('\nMissing values:')\nprint(df.isnull().sum())", "python", "Python data analysis template with pandas for quick dataset exploration", "chart", "python", "pip install pandas numpy matplotlib", true},
 		{"seed-012", "Flask API Starter", "from flask import Flask, jsonify, request\n\napp = Flask(__name__)\n\nitems = [{'id': 1, 'name': 'Item 1'}]\n\n@app.route('/health')\ndef health():\n    return jsonify({'status': 'ok'})\n\n@app.route('/api/items', methods=['GET'])\ndef get_items():\n    return jsonify(items)\n\n@app.route('/api/items', methods=['POST'])\ndef create_item():\n    item = {'id': len(items) + 1, **request.json}\n    items.append(item)\n    return jsonify(item), 201\n\nif __name__ == '__main__':\n    app.run(debug=True, port=5000)", "python", "Minimal Flask REST API with health check and CRUD endpoints", "server", "python", "pip install flask", true},
 		{"seed-013", "Jupyter Setup", "#!/bin/bash\npip install jupyterlab ipykernel\npython -m ipykernel install --user --name=myenv\njupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root", "bash", "Install JupyterLab and start it for remote access", "notebook", "python", "pip install jupyterlab", true},
 
 		// Go/Gopher snippets
 		{"seed-014", "Go Module Init", "#!/bin/bash\ngo mod init myproject\nmkdir -p cmd/myapp internal pkg\ncat > cmd/myapp/main.go << 'EOF'\npackage main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, Go!\")\n}\nEOF\ngo mod tidy\ngo build -o bin/myapp ./cmd/myapp\necho 'Go project initialized!'", "bash", "Initialize a Go module with standard project layout", "go", "golang", "", false},
 		{"seed-015", "Go HTTP Server", "package main\n\nimport (\n\t\"encoding/json\"\n\t\"log\"\n\t\"net/http\"\n)\n\nfunc main() {\n\thttp.HandleFunc(\"/health\", func(w http.ResponseWriter, r *http.Request) {\n\t\tjson.NewEncoder(w).Encode(map[string]string{\"status\": \"ok\"})\n\t})\n\n\thttp.HandleFunc(\"/api/items\", func(w http.ResponseWriter, r *http.Request) {\n\t\titems := []map[string]interface{}{{\"id\": 1, \"name\": \"Item 1\"}}\n\t\tw.Header().Set(\"Content-Type\", \"application/json\")\n\t\tjson.NewEncoder(w).Encode(items)\n\t})\n\n\tlog.Println(\"Server starting on :8080\")\n\tlog.Fatal(http.ListenAndServe(\":8080\", nil))\n}", "go", "Simple Go HTTP server with JSON endpoints", "network", "golang", "", false},
-		{"seed-016", "Go Test Template", "package mypackage\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\ttests := []struct {\n\t\tname     string\n\t\ta, b     int\n\t\texpected int\n\t}{\n\t\t{\"positive\", 2, 3, 5},\n\t\t{\"negative\", -1, -1, -2},\n\t\t{\"zero\", 0, 0, 0},\n\t}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tresult := Add(tt.a, tt.b)\n\t\t\tif result != tt.expected {\n\t\t\t\tt.Errorf(\"Add(%d, %d) = %d; want %d\", tt.a, tt.b, result, tt.expected)\n\t\t\t}\n\t\t})\n\t}\n}", "go", "Go table-driven test template with subtests", "test", "golang", "", false},
+		{"seed-016", "Go Test Template", "package mypackage\n\nimport \"testing\"\n\nfunc TestAdd(t *testing.T) {\n\ttests := []struct {\n\t\tname     string\n\t\ta, b     int\n\t\texpected int\n\t}{\n\t\t{\"positive\", 2, 3, 5},\n\t\t{\"negative\", -1, -1, -2},\n\t\t{\"zero\", 0, 0, 0},\n	}\n\n\tfor _, tt := range tests {\n\t\tt.Run(tt.name, func(t *testing.T) {\n\t\t\tresult := Add(tt.a, tt.b)\n\t\t\tif result != tt.expected {\n\t\t\t\tt.Errorf(\"Add(%d, %d) = %d; want %d\", tt.a, tt.b, result, tt.expected)\n\t\t\t}\n\t\t})\n\t}\n}", "go", "Go table-driven test template with subtests", "test", "golang", "", false},
 		{"seed-017", "Go Build All", "#!/bin/bash\necho 'Building for multiple platforms...'\nGOOS=linux GOARCH=amd64 go build -o bin/app-linux-amd64 ./cmd/app\nGOOS=darwin GOARCH=amd64 go build -o bin/app-darwin-amd64 ./cmd/app\nGOOS=windows GOARCH=amd64 go build -o bin/app-windows-amd64.exe ./cmd/app\nls -la bin/\necho 'Cross-compilation complete!'", "bash", "Cross-compile Go application for Linux, macOS, and Windows", "build", "golang", "", false},
 
 		// Neovim/Editor snippets
@@ -522,9 +555,10 @@ func (s *PostgresStore) Close() error {
 
 // CreateUser creates a new user
 func (s *PostgresStore) CreateUser(ctx context.Context, user *models.User, passwordHash string) error {
+	allowedIPs := strings.Join(user.AllowedIPs, ",")
 	query := `
-		INSERT INTO users (id, email, username, password_hash, tier, is_admin, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO users (id, email, username, password_hash, tier, is_admin, allowed_ips, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		user.ID,
@@ -533,6 +567,7 @@ func (s *PostgresStore) CreateUser(ctx context.Context, user *models.User, passw
 		passwordHash,
 		user.Tier,
 		user.IsAdmin,
+		allowedIPs,
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
@@ -544,10 +579,14 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	var user models.User
 	var passwordHash string
 	var pipeopsID sql.NullString
+	var mfaEnabled bool
+	var mfaSecret string
+	var allowedIPs string
 
 	query := `
 		SELECT id, email, username, COALESCE(password_hash, ''), tier, COALESCE(is_admin, false),
-		       COALESCE(pipeops_id, ''), created_at, updated_at
+		       COALESCE(pipeops_id, ''), COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
+		       COALESCE(allowed_ips, ''), created_at, updated_at
 		FROM users WHERE email = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, email)
@@ -559,6 +598,9 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 		&user.Tier,
 		&user.IsAdmin,
 		&pipeopsID,
+		&mfaEnabled,
+		&mfaSecret,
+		&allowedIPs,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -569,6 +611,11 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 		return nil, "", err
 	}
 	user.PipeOpsID = pipeopsID.String
+	user.MFAEnabled = mfaEnabled
+	user.MFASecret = mfaSecret
+	if allowedIPs != "" {
+		user.AllowedIPs = strings.Split(allowedIPs, ",")
+	}
 	return &user, passwordHash, nil
 }
 
@@ -576,9 +623,14 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	var user models.User
 	var pipeopsID sql.NullString
+	var mfaEnabled bool
+	var mfaSecret string
+	var allowedIPs string
 
 	query := `
-		SELECT id, email, username, tier, COALESCE(is_admin, false), COALESCE(pipeops_id, ''), created_at, updated_at
+		SELECT id, email, username, tier, COALESCE(is_admin, false), COALESCE(pipeops_id, ''),
+		       COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), COALESCE(allowed_ips, ''),
+		       created_at, updated_at
 		FROM users WHERE id = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, id)
@@ -589,6 +641,9 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		&user.Tier,
 		&user.IsAdmin,
 		&pipeopsID,
+		&mfaEnabled,
+		&mfaSecret,
+		&allowedIPs,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -599,13 +654,19 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		return nil, err
 	}
 	user.PipeOpsID = pipeopsID.String
+	user.MFAEnabled = mfaEnabled
+	user.MFASecret = mfaSecret
+	if allowedIPs != "" {
+		user.AllowedIPs = strings.Split(allowedIPs, ",")
+	}
 	return &user, nil
 }
 
 // UpdateUser updates a user
 func (s *PostgresStore) UpdateUser(ctx context.Context, user *models.User) error {
+	allowedIPs := strings.Join(user.AllowedIPs, ",")
 	query := `
-		UPDATE users SET username = $2, tier = $3, is_admin = $4, pipeops_id = $5, updated_at = $6
+		UPDATE users SET username = $2, tier = $3, is_admin = $4, pipeops_id = $5, mfa_enabled = $6, allowed_ips = $7, updated_at = $8
 		WHERE id = $1
 	`
 	_, err := s.db.ExecContext(ctx, query,
@@ -614,6 +675,8 @@ func (s *PostgresStore) UpdateUser(ctx context.Context, user *models.User) error
 		user.Tier,
 		user.IsAdmin,
 		user.PipeOpsID,
+		user.MFAEnabled,
+		allowedIPs,
 		time.Now(),
 	)
 	return err
@@ -1041,7 +1104,8 @@ func (s *PostgresStore) UpdateContainerSettings(ctx context.Context, id, name st
 		return fmt.Errorf("update query failed: %w", err)
 	}
 	
-	rowsAffected, _ := result.RowsAffected()
+
+rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		return fmt.Errorf("no container found with id %s or it was deleted", id)
 	}
@@ -1110,9 +1174,9 @@ func (s *PostgresStore) TouchContainer(ctx context.Context, id string) error {
 	return err
 }
 
-// ============================================================================
+// ============================================================================ 
 // Terminal Recordings
-// ============================================================================
+// ============================================================================ 
 
 // RecordingRecord represents a terminal recording in the database
 type RecordingRecord struct {
@@ -1282,9 +1346,9 @@ func (s *PostgresStore) GetRecordingDataByToken(ctx context.Context, token strin
 	return data, err
 }
 
-// ============================================================================
+// ============================================================================ 
 // Collaboration Sessions
-// ============================================================================
+// ============================================================================ 
 
 // CollabSessionRecord represents a collaborative terminal session
 type CollabSessionRecord struct {
@@ -1490,9 +1554,9 @@ func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, session
 	return count, err
 }
 
-// ============================================================================
+// ============================================================================ 
 // Remote Host operations (SSH Jump Hosts)
-// ============================================================================
+// ============================================================================ 
 
 // CreateRemoteHost creates a new remote host record
 func (s *PostgresStore) CreateRemoteHost(ctx context.Context, host *models.RemoteHost) error {
@@ -1614,9 +1678,9 @@ func (s *PostgresStore) GetRemoteHostByID(ctx context.Context, id string) (*mode
 	return &h, nil
 }
 
-// ============================================================================
+// ============================================================================ 
 // Port Forward operations
-// ============================================================================
+// ============================================================================ 
 
 // CreatePortForward creates a new port forward record
 func (s *PostgresStore) CreatePortForward(ctx context.Context, pf *models.PortForward) error {
@@ -1709,9 +1773,9 @@ func (s *PostgresStore) DeletePortForward(ctx context.Context, id string) error 
 	return err
 }
 
-// ============================================================================
+// ============================================================================ 
 // Snippet operations
-// ============================================================================
+// ============================================================================ 
 
 // CreateSnippet creates a new snippet record
 func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snippet) error {
@@ -1893,6 +1957,7 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 
 	query += " LIMIT 100"
 
+
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -1946,4 +2011,96 @@ func (s *PostgresStore) DeleteSnippet(ctx context.Context, id string) error {
 	query := `DELETE FROM snippets WHERE id = $1`
 	_, err := s.db.ExecContext(ctx, query, id)
 	return err
+}
+
+// ============================================================================ 
+// Audit Logs
+// ============================================================================ 
+
+// CreateAuditLog creates a new audit log entry
+func (s *PostgresStore) CreateAuditLog(ctx context.Context, log *models.AuditLog) error {
+	query := `
+		INSERT INTO audit_logs (id, user_id, action, ip_address, user_agent, details, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		log.ID,
+		log.UserID,
+		log.Action,
+		log.IPAddress,
+		log.UserAgent,
+		log.Details,
+		log.CreatedAt,
+	)
+	return err
+}
+
+// GetAuditLogsByUserID retrieves audit logs for a user
+func (s *PostgresStore) GetAuditLogsByUserID(ctx context.Context, userID string, limit, offset int) ([]*models.AuditLog, error) {
+	query := `
+		SELECT id, user_id, action, ip_address, user_agent, details, created_at
+		FROM audit_logs WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []*models.AuditLog
+	for rows.Next() {
+		var l models.AuditLog
+		err := rows.Scan(
+			&l.ID,
+			&l.UserID,
+			&l.Action,
+			&l.IPAddress,
+			&l.UserAgent,
+			&l.Details,
+			&l.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, &l)
+	}
+	return logs, nil
+}
+
+// EnableMFA enables MFA for a user
+func (s *PostgresStore) EnableMFA(ctx context.Context, userID, secret string) error {
+	// Encrypt secret
+	encryptedSecret, err := s.encryptor.Encrypt(secret)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt MFA secret: %w", err)
+	}
+
+	query := `UPDATE users SET mfa_enabled = true, mfa_secret = $2, updated_at = $3 WHERE id = $1`
+	_, err = s.db.ExecContext(ctx, query, userID, encryptedSecret, time.Now())
+	return err
+}
+
+// DisableMFA disables MFA for a user
+func (s *PostgresStore) DisableMFA(ctx context.Context, userID string) error {
+	query := `UPDATE users SET mfa_enabled = false, mfa_secret = '', updated_at = $2 WHERE id = $1`
+	_, err := s.db.ExecContext(ctx, query, userID, time.Now())
+	return err
+}
+
+// GetUserMFASecret retrieves the decrypted MFA secret for a user
+func (s *PostgresStore) GetUserMFASecret(ctx context.Context, userID string) (string, error) {
+	var secret string
+	query := `SELECT mfa_secret FROM users WHERE id = $1`
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(&secret)
+	if err != nil {
+		return "", err
+	}
+	
+	if secret == "" {
+		return "", nil
+	}
+
+	return s.encryptor.Decrypt(secret)
 }

@@ -19,8 +19,22 @@ type User struct {
 	Password           string    `json:"-"`                    // Never serialize password
 	Tier               string    `json:"tier"`                 // free, pro, enterprise
 	PipeOpsID          string    `json:"pipeops_id,omitempty"` // PipeOps OAuth user ID
+	MFAEnabled         bool      `json:"mfa_enabled"`          // Whether MFA is enabled
+	MFASecret          string    `json:"-"`                    // TOTP secret (encrypted)
+	AllowedIPs         []string  `json:"allowed_ips,omitempty"` // Whitelisted IPs/CIDRs
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// AuditLog represents a system audit log entry
+type AuditLog struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Action    string    `json:"action"` // e.g., "login", "container_create"
+	IPAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	Details   string    `json:"details,omitempty"` // JSON details
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // RemoteHost represents a saved remote SSH connection (Jump Host target)
