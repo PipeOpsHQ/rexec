@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1334,7 +1335,18 @@ func (h *AuthHandler) GetAuditLogs(c *gin.Context) {
 	// Pagination
 	limit := 50
 	offset := 0
-	// TODO: Add proper pagination params parsing if needed
+	
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if val, err := strconv.Atoi(limitStr); err == nil && val > 0 && val <= 100 {
+			limit = val
+		}
+	}
+	
+	if offsetStr := c.Query("offset"); offsetStr != "" {
+		if val, err := strconv.Atoi(offsetStr); err == nil && val >= 0 {
+			offset = val
+		}
+	}
 
 	ctx := context.Background()
 	logs, err := h.store.GetAuditLogsByUserID(ctx, userID, limit, offset)
