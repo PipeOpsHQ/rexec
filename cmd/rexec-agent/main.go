@@ -289,6 +289,53 @@ func saveAgentConfig(cfg *AgentConfig) error {
 		return err
 	}
 
+	// Preserve YAML configs created by install script.
+	if strings.HasSuffix(configPath, ".yaml") || strings.HasSuffix(configPath, ".yml") {
+		existing, _ := os.ReadFile(configPath)
+		lines := strings.Split(string(existing), "\n")
+
+		updates := map[string]string{
+			"api_url":  cfg.Host,
+			"token":    cfg.Token,
+			"agent_id": cfg.ID,
+			"name":     cfg.Name,
+			"shell":    cfg.Shell,
+		}
+		seen := make(map[string]bool)
+		out := make([]string, 0, len(lines))
+
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				out = append(out, line)
+				continue
+			}
+
+			parts := strings.SplitN(trimmed, ":", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				if val, ok := updates[key]; ok {
+					prefix := ""
+					if idx := strings.Index(line, key); idx > 0 {
+						prefix = line[:idx]
+					}
+					out = append(out, fmt.Sprintf("%s%s: %s", prefix, key, val))
+					seen[key] = true
+					continue
+				}
+			}
+			out = append(out, line)
+		}
+
+		for key, val := range updates {
+			if !seen[key] {
+				out = append(out, fmt.Sprintf("%s: %s", key, val))
+			}
+		}
+
+		return os.WriteFile(configPath, []byte(strings.Join(out, "\n")), 0600)
+	}
+
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err

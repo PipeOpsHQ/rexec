@@ -434,7 +434,12 @@ EOF
 
     systemctl daemon-reload
     systemctl enable rexec-agent
-    systemctl start rexec-agent
+    # Restart if already running so updated token/config take effect
+    if systemctl is-active --quiet rexec-agent; then
+        systemctl restart rexec-agent
+    else
+        systemctl start rexec-agent
+    fi
 
     echo -e "${GREEN}Systemd service installed and started${NC}"
 }
@@ -484,6 +489,9 @@ setup_launchd() {
 </plist>
 EOF
 
+    # Reload if already installed so updated token/config take effect
+    launchctl stop io.pipeops.rexec-agent 2>/dev/null || true
+    launchctl unload "$PLIST_PATH" 2>/dev/null || true
     launchctl load "$PLIST_PATH"
     launchctl start io.pipeops.rexec-agent
 
@@ -544,7 +552,11 @@ INITSCRIPT
 
     chmod +x /etc/init.d/rexec-agent
     update-rc.d rexec-agent defaults 2>/dev/null || chkconfig --add rexec-agent 2>/dev/null || true
-    /etc/init.d/rexec-agent start
+    if /etc/init.d/rexec-agent status >/dev/null 2>&1; then
+        /etc/init.d/rexec-agent restart
+    else
+        /etc/init.d/rexec-agent start
+    fi
 
     echo -e "${GREEN}Init.d service installed and started${NC}"
 }
