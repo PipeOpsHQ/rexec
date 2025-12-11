@@ -235,6 +235,7 @@ func (h *Hub) Subscribe(channel string, handler MessageHandler) {
 func (h *Hub) Publish(channel string, msgType string, payload interface{}) error {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
+		log.Printf("[PubSub] Failed to marshal payload: %v", err)
 		return err
 	}
 
@@ -248,10 +249,23 @@ func (h *Hub) Publish(channel string, msgType string, payload interface{}) error
 
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
+		log.Printf("[PubSub] Failed to marshal message: %v", err)
 		return err
 	}
 
-	return h.client.Publish(h.ctx, channel, msgBytes).Err()
+	// Use a fresh context for publishing to avoid issues with canceled hub context
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	result := h.client.Publish(ctx, channel, msgBytes)
+	if err := result.Err(); err != nil {
+		log.Printf("[PubSub] Failed to publish to %s: %v", channel, err)
+		return err
+	}
+	
+	// Log successful publish for debugging
+	log.Printf("[PubSub] Published to %s: type=%s, receivers=%d", channel, msgType, result.Val())
+	return nil
 }
 
 // PublishContainerEvent publishes a container event for a user

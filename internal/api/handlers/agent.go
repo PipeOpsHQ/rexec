@@ -420,6 +420,10 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	instanceID := ""
 	if h.pubsubHub != nil {
 		instanceID = h.pubsubHub.InstanceID()
+		// Register agent location in Redis for cross-instance routing
+		if err := h.pubsubHub.RegisterAgentLocation(agentID, userID, agent.Name, agentConn.OS, agentConn.Arch, agentConn.ConnectedAt); err != nil {
+			log.Printf("[Agent WS] Failed to register agent location in Redis: %v", err)
+		}
 	}
 	h.store.UpdateAgentHeartbeat(context.Background(), agentID, instanceID)
 	h.store.UpdateAgentMetadata(context.Background(), agentID, agentConn.OS, agentConn.Arch, agentConn.Shell)
@@ -437,6 +441,13 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 		conn.Close()
 		log.Printf("Agent disconnected: %s (%s)", agent.Name, agentID)
 
+		// Unregister agent location from Redis
+		if h.pubsubHub != nil {
+			if err := h.pubsubHub.UnregisterAgentLocation(agentID, agent.UserID); err != nil {
+				log.Printf("[Agent WS] Failed to unregister agent location from Redis: %v", err)
+			}
+		}
+
 		// Update DB: Clear connected instance ID
 		h.store.DisconnectAgent(context.Background(), agentID)
 
@@ -451,6 +462,10 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 		agentConn.LastPing = time.Now()
 		// Update heartbeat in DB
 		h.store.UpdateAgentStatus(context.Background(), agentID)
+		// Refresh Redis location TTL
+		if h.pubsubHub != nil {
+			h.pubsubHub.RefreshAgentLocation(agentID)
+		}
 		return nil
 	})
 
