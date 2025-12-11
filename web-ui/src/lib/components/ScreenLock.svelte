@@ -354,7 +354,7 @@
     .lock-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.95);
+        background: var(--overlay-bg);
         backdrop-filter: blur(20px);
         display: flex;
         align-items: center;
@@ -468,7 +468,7 @@
     .prompt-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.8);
+        background: var(--overlay-light);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -572,7 +572,7 @@
     .setup-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.85);
+        background: var(--overlay-bg);
         display: flex;
         align-items: center;
         justify-content: center;

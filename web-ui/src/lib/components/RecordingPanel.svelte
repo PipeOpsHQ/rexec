@@ -425,7 +425,7 @@
   .panel-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-light);
     backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
@@ -437,12 +437,12 @@
     width: 360px;
     max-width: 95vw;
     max-height: 85vh;
-    background: #0c0c10;
-    border: 1px solid #1e1e28;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: 8px;
     font-size: 11px;
     font-family: var(--font-mono, 'JetBrains Mono', monospace);
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 71, 87, 0.1);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
   }
 
@@ -455,8 +455,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: #0f0f14;
-    border-bottom: 1px solid #1e1e28;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
   }
 
   .header-left {
@@ -485,7 +485,7 @@
   .close-btn {
     background: transparent;
     border: none;
-    color: #999;
+    color: var(--text-muted);
     font-size: 16px;
     cursor: pointer;
     padding: 2px 6px;
@@ -501,7 +501,7 @@
 
   .tabs {
     display: flex;
-    background: #080809;
+    background: var(--bg);
     padding: 3px;
     gap: 2px;
   }
@@ -512,7 +512,7 @@
     background: transparent;
     border: none;
     border-radius: 3px;
-    color: #999;
+    color: var(--text-muted);
     font-size: 9px;
     font-weight: 600;
     cursor: pointer;
@@ -613,17 +613,17 @@
   .title-input {
     width: 100%;
     padding: 8px 10px;
-    background: #0a0a0c;
-    border: 1px solid #1e1e28;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: 4px;
-    color: #fff;
+    color: var(--text);
     font-size: 11px;
     font-family: inherit;
     transition: all 0.15s;
   }
 
   .title-input::placeholder {
-    color: #999;
+    color: var(--text-muted);
   }
 
   .title-input:focus {
@@ -660,7 +660,7 @@
   }
 
   .hint {
-    color: #999;
+    color: var(--text-muted);
     text-align: center;
     padding: 20px;
     margin: 0;
@@ -674,7 +674,7 @@
   }
 
   .loading, .empty {
-    color: #999;
+    color: var(--text-muted);
     text-align: center;
     padding: 20px;
     margin: 0;
@@ -689,8 +689,8 @@
     display: flex;
     align-items: center;
     padding: 8px 10px;
-    background: #0a0a0c;
-    border: 1px solid #1a1a22;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
     border-radius: 4px;
     transition: all 0.15s;
   }
@@ -763,15 +763,15 @@
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
-    background: #080809;
-    border-bottom: 1px solid #1a1a22;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
   }
 
   .back-btn {
     background: transparent;
-    border: 1px solid #1e1e28;
+    border: 1px solid var(--border);
     border-radius: 3px;
-    color: #a0a0a0;
+    color: var(--text-muted);
     cursor: pointer;
     font-size: 12px;
     padding: 3px 6px;
@@ -779,12 +779,12 @@
   }
 
   .back-btn:hover {
-    color: #fff;
-    border-color: #333;
+    color: var(--text);
+    border-color: var(--text-muted);
   }
 
   .player-title {
-    color: #ccc;
+    color: var(--text);
     font-size: 11px;
     font-weight: 500;
     flex: 1;
@@ -794,19 +794,19 @@
   }
 
   .player-duration {
-    color: #999;
+    color: var(--text-muted);
     font-size: 9px;
     padding: 2px 6px;
-    background: #0a0a0c;
+    background: var(--bg-card);
     border-radius: 3px;
   }
 
   .player-container {
-    background: #050506;
+    background: var(--bg);
     height: 200px;
     min-height: 160px;
     overflow: hidden;
-    border: 1px solid #1a1a22;
+    border: 1px solid var(--border);
     margin: 0 12px;
     border-radius: 4px;
   }
@@ -825,8 +825,8 @@
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    background: #0a0a0c;
-    border-top: 1px solid #1a1a22;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
     margin: 0 12px 12px;
     border-radius: 0 0 4px 4px;
   }
@@ -834,7 +834,7 @@
   .progress-bar {
     flex: 1;
     height: 6px;
-    background: #1a1a22;
+    background: var(--border);
     border-radius: 3px;
     overflow: hidden;
     cursor: pointer;

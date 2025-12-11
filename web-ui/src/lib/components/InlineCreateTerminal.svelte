@@ -963,7 +963,7 @@
         padding: 16px;
         height: 100%;
         overflow-y: auto;
-        background: #0a0a0a;
+        background: var(--bg-card);
     }
 
     .inline-create.compact {
@@ -1281,8 +1281,8 @@
         align-items: center;
         gap: 8px;
         padding: 12px 8px;
-        background: #1a1a1a;
-        border: 1px solid #333;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
         border-radius: 6px;
         cursor: pointer;
         transition: all 0.15s ease;
@@ -1290,7 +1290,7 @@
 
     .role-card:hover {
         border-color: var(--text-muted);
-        background: #222;
+        background: var(--bg-card-hover);
     }
 
     .role-card.selected {
@@ -1315,7 +1315,7 @@
 
     .role-name {
         font-size: 11px;
-        color: #e0e0e0;
+        color: var(--text);
         text-align: center;
         font-weight: 500;
     }
@@ -1324,8 +1324,8 @@
     .role-info {
         margin-top: 12px;
         padding: 10px;
-        background: #111;
-        border: 1px solid #333;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 4px;
     }
 
@@ -1420,8 +1420,8 @@
         align-items: center;
         gap: 6px;
         padding: 12px 8px;
-        background: #1a1a1a;
-        border: 1px solid #333;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
         border-radius: 6px;
         cursor: pointer;
         transition: all 0.15s ease;
@@ -1430,7 +1430,7 @@
 
     .os-card:hover {
         border-color: var(--accent);
-        background: rgba(0, 255, 65, 0.05);
+        background: var(--accent-dim);
         transform: translateY(-2px);
     }
 
@@ -1440,7 +1440,7 @@
 
     .os-name {
         font-size: 11px;
-        color: #e0e0e0;
+        color: var(--text);
         text-align: center;
     }
 
@@ -1464,8 +1464,8 @@
         gap: 8px;
         width: 100%;
         padding: 8px 12px;
-        background: #111;
-        border: 1px solid #333;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 4px;
         cursor: pointer;
         transition: all 0.15s ease;
@@ -1473,7 +1473,7 @@
 
     .resource-toggle:hover {
         border-color: var(--text-muted);
-        background: #1a1a1a;
+        background: var(--bg-tertiary);
     }
 
     .resource-toggle h4 {
@@ -1499,8 +1499,8 @@
     .resource-config {
         margin-top: 12px;
         padding: 12px;
-        background: #111;
-        border: 1px solid #333;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 4px;
         display: flex;
         flex-direction: column;
@@ -1537,7 +1537,7 @@
         height: 6px;
         -webkit-appearance: none;
         appearance: none;
-        background: #333;
+        background: var(--border);
         border-radius: 3px;
         outline: none;
         margin: 8px 0;
@@ -1547,7 +1547,7 @@
     .resource-row input[type="range"]::-webkit-slider-runnable-track {
         width: 100%;
         height: 6px;
-        background: #333;
+        background: var(--border);
         border-radius: 3px;
     }
 
@@ -1573,7 +1573,7 @@
     .resource-row input[type="range"]::-moz-range-track {
         width: 100%;
         height: 6px;
-        background: #333;
+        background: var(--border);
         border-radius: 3px;
     }
 

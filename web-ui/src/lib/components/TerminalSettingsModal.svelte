@@ -710,7 +710,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
+        background: var(--overlay-bg);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -954,7 +954,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
+        background: var(--overlay-light);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -965,11 +965,11 @@
     .modal-container-nested {
         width: 420px;
         max-width: 90vw;
-        background: var(--bg, #0a0a0a);
-        border: 1px solid var(--border, #1a1a1a);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        box-shadow: var(--shadow-soft);
     }
 
     .form-row {

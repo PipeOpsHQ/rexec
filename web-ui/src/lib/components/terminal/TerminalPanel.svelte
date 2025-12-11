@@ -1387,7 +1387,7 @@
         align-items: center;
         gap: 6px;
         padding: 4px 10px;
-        background: rgba(0, 0, 0, 0.6);
+        background: var(--overlay-light);
         border: 1px solid var(--border);
         border-radius: 4px;
         z-index: 5;
@@ -1638,7 +1638,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
+        background: var(--overlay-light);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1650,7 +1650,7 @@
         border: 1px solid var(--border);
         width: 100%;
         max-width: 400px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        box-shadow: var(--shadow-soft);
     }
 
     .download-modal-header {

@@ -1251,7 +1251,7 @@
     .add-menu-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: var(--overlay-light);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1263,7 +1263,7 @@
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        box-shadow: var(--shadow-soft);
         width: 90%;
         max-width: 340px;
         max-height: 80vh;
@@ -1514,7 +1514,7 @@
         flex: 1;
         position: relative;
         overflow: hidden;
-        background: #050505;
+        background: var(--bg);
     }
 
     .fullscreen-create {

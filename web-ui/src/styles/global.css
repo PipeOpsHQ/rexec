@@ -40,6 +40,10 @@
     --font-sans: "Inter", sans-serif;
     --glass: rgba(10, 10, 10, 0.9);
     --shadow-soft: 0 0 20px rgba(0, 0, 0, 0.8);
+    --overlay-bg: rgba(0, 0, 0, 0.85);
+    --overlay-light: rgba(0, 0, 0, 0.7);
+    --code-bg: #0a0a0a;
+    --code-header-bg: #111;
 }
 
 /* Light mode theme */
@@ -70,6 +74,10 @@
     --warning: #ca8a04;
     --glass: rgba(255, 255, 255, 0.95);
     --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --overlay-bg: rgba(255, 255, 255, 0.9);
+    --overlay-light: rgba(255, 255, 255, 0.8);
+    --code-bg: #f0f0f0;
+    --code-header-bg: #e0e0e0;
 }
 
 /* Disable scanline effect in light mode */
