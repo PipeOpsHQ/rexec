@@ -357,13 +357,17 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	token := c.Query("token")
 
 	// Log connection attempt for debugging
-	log.Printf("[Agent WS] Connection attempt: agent=%s, hasToken=%v, IP=%s", 
-		agentID, token != "", c.ClientIP())
+	tokenType := "JWT"
+	if strings.HasPrefix(token, "rexec_") {
+		tokenType = "API"
+	}
+	log.Printf("[Agent WS] Connection attempt: agent=%s, tokenType=%s, IP=%s", 
+		agentID, tokenType, c.ClientIP())
 
 	// Verify token and get user
 	userID, err := h.verifyToken(token)
 	if err != nil {
-		log.Printf("[Agent WS] Token verification failed for agent %s: %v", agentID, err)
+		log.Printf("[Agent WS] Token verification failed for agent %s (type=%s): %v", agentID, tokenType, err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
