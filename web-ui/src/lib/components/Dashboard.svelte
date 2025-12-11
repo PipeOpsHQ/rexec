@@ -199,7 +199,9 @@
         
         let result;
         if (container.session_type === 'agent') {
-            const success = await agents.deleteAgent(container.id);
+            // Strip "agent:" prefix if present
+            const agentId = container.id.replace(/^agent:/, '');
+            const success = await agents.deleteAgent(agentId);
             result = { success };
             // Also remove from containers store UI immediately
             if (success) {

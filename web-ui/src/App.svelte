@@ -84,55 +84,192 @@
     // Pricing modal state
     let showPricing = false;
 
-    // SEO & Meta Management
+    // SEO & Meta Management - Page-specific metadata
+    interface PageSEO {
+        title: string;
+        description: string;
+        robots?: string;
+        ogTitle?: string;
+        keywords?: string;
+    }
+
+    const seoConfig: Record<string, PageSEO> = {
+        landing: {
+            title: "Rexec - Terminal as a Service | Instant Linux Terminals",
+            description: "Launch secure Linux terminals instantly in your browser. No setup required. Choose from Ubuntu, Debian, Alpine, and more. Perfect for developers, learning, and testing.",
+            keywords: "terminal, linux, cloud terminal, web terminal, ubuntu, debian, docker, containers, developer tools",
+        },
+        promo: {
+            title: "Rexec - The Future of Cloud Terminals",
+            description: "Experience the next generation of cloud terminals. Instant access to powerful Linux environments with no setup required.",
+        },
+        dashboard: {
+            title: "Dashboard - Rexec",
+            description: "Manage your cloud terminals and containers. Create, monitor, and control your Linux environments.",
+            robots: "noindex, nofollow",
+        },
+        admin: {
+            title: "Admin Dashboard - Rexec",
+            description: "Rexec administration panel",
+            robots: "noindex, nofollow",
+        },
+        pricing: {
+            title: "Pricing - Rexec | Simple, Transparent Plans",
+            description: "Simple, transparent pricing for instant Linux terminals. Free tier available. Scale your infrastructure as you grow with Pro and Enterprise plans.",
+            keywords: "pricing, plans, cloud terminal pricing, linux terminal cost",
+        },
+        billing: {
+            title: "Billing - Rexec",
+            description: "Manage your Rexec subscription and billing details.",
+            robots: "noindex, nofollow",
+        },
+        guides: {
+            title: "Guides & Tutorials - Rexec",
+            description: "Learn how to use Rexec with AI tools like Claude, ChatGPT, and GitHub Copilot. Step-by-step tutorials for terminal automation.",
+            keywords: "tutorials, guides, AI tools, Claude, ChatGPT, terminal automation",
+        },
+        "use-cases": {
+            title: "Use Cases - Rexec | Terminal as a Service",
+            description: "Discover how developers, teams, and enterprises use Rexec for development, testing, training, and AI agent workflows.",
+            keywords: "use cases, agentic, AI agents, development, testing, training",
+        },
+        "use-case-detail": {
+            title: "Use Case - Rexec",
+            description: "Detailed use case for Rexec Terminal as a Service.",
+        },
+        docs: {
+            title: "Documentation - Rexec",
+            description: "Complete documentation for Rexec. Learn about features, security, API, CLI, and agent integration.",
+            keywords: "documentation, docs, API, CLI, agent, security",
+        },
+        "cli-docs": {
+            title: "CLI Documentation - Rexec",
+            description: "Install and use the Rexec CLI for terminal access from your command line. SSH, exec, and manage containers.",
+            keywords: "CLI, command line, terminal, SSH, rexec-cli",
+        },
+        "agent-docs": {
+            title: "Agent Documentation - Rexec",
+            description: "Connect your own servers to Rexec with the agent. Bring your own server (BYOS) for terminal access anywhere.",
+            keywords: "agent, BYOS, bring your own server, remote terminal, rexec-agent",
+        },
+        marketplace: {
+            title: "Marketplace - Rexec",
+            description: "Browse and use pre-built terminal environments and configurations shared by the community.",
+            keywords: "marketplace, templates, environments, community",
+        },
+        snippets: {
+            title: "Snippets - Rexec",
+            description: "Manage your command snippets. Save, organize, and quickly execute frequently used commands.",
+            robots: "noindex, nofollow",
+        },
+        account: {
+            title: "Account - Rexec",
+            description: "Manage your Rexec account settings, profile, and preferences.",
+            robots: "noindex, nofollow",
+        },
+        "account-settings": {
+            title: "Settings - Rexec",
+            description: "Configure your Rexec account settings, MFA, and connected agents.",
+            robots: "noindex, nofollow",
+        },
+        "account-ssh": {
+            title: "SSH Keys - Rexec",
+            description: "Manage your SSH keys for secure terminal access.",
+            robots: "noindex, nofollow",
+        },
+        "account-billing": {
+            title: "Billing - Rexec",
+            description: "Manage your subscription and billing details.",
+            robots: "noindex, nofollow",
+        },
+        "account-snippets": {
+            title: "Snippets - Rexec",
+            description: "Manage your command snippets.",
+            robots: "noindex, nofollow",
+        },
+        "account-api": {
+            title: "API Tokens - Rexec",
+            description: "Manage your API tokens for CLI and programmatic access.",
+            robots: "noindex, nofollow",
+        },
+        settings: {
+            title: "Settings - Rexec",
+            description: "Configure your terminal settings and preferences.",
+            robots: "noindex, nofollow",
+        },
+        sshkeys: {
+            title: "SSH Keys - Rexec",
+            description: "Manage your SSH keys for secure access.",
+            robots: "noindex, nofollow",
+        },
+        create: {
+            title: "Create Terminal - Rexec",
+            description: "Create a new cloud terminal. Choose from Ubuntu, Debian, Alpine, Kali, and more.",
+            robots: "noindex, nofollow",
+        },
+        join: {
+            title: "Join Session - Rexec",
+            description: "Join a collaborative terminal session.",
+            robots: "noindex, nofollow",
+        },
+        "cli-login": {
+            title: "CLI Login - Rexec",
+            description: "Authenticate your CLI with Rexec.",
+            robots: "noindex, nofollow",
+        },
+        "404": {
+            title: "Page Not Found - Rexec",
+            description: "The page you're looking for doesn't exist.",
+            robots: "noindex, nofollow",
+        },
+    };
+
+    function updateMeta(name: string, content: string) {
+        let meta = document.querySelector(`meta[name="${name}"]`);
+        if (!meta) {
+            meta = document.createElement("meta");
+            meta.setAttribute("name", name);
+            document.head.appendChild(meta);
+        }
+        meta.setAttribute("content", content);
+    }
+
+    function updateOGMeta(property: string, content: string) {
+        let meta = document.querySelector(`meta[property="${property}"]`);
+        if (!meta) {
+            meta = document.createElement("meta");
+            meta.setAttribute("property", property);
+            document.head.appendChild(meta);
+        }
+        meta.setAttribute("content", content);
+    }
+
     $: {
         if (typeof document !== "undefined") {
-            // Title
-            if (currentView === "admin") {
-                document.title = "Admin Dashboard - Rexec";
-            } else if (currentView === "pricing") {
-                document.title = "Pricing - Rexec";
-            } else if (currentView === "dashboard") {
-                document.title = "Dashboard - Rexec";
-            } else if (currentView === "landing") {
-                document.title = "Rexec - Terminal as a Service";
-            } else if (currentView === "promo") {
-                document.title = "Rexec - The Future of Terminals";
+            const seo = seoConfig[currentView] || seoConfig.landing;
+            
+            // Update title
+            document.title = seo.title;
+            
+            // Update description
+            updateMeta("description", seo.description);
+            
+            // Update robots
+            updateMeta("robots", seo.robots || "index, follow");
+            
+            // Update keywords if provided
+            if (seo.keywords) {
+                updateMeta("keywords", seo.keywords);
             }
-
-            // Robots meta
-            let robotsMeta = document.querySelector('meta[name="robots"]');
-            if (!robotsMeta) {
-                robotsMeta = document.createElement("meta");
-                robotsMeta.setAttribute("name", "robots");
-                document.head.appendChild(robotsMeta);
-            }
-
-            if (currentView === "admin") {
-                robotsMeta.setAttribute("content", "noindex, nofollow");
-            } else {
-                robotsMeta.setAttribute("content", "index, follow");
-            }
-
-            // Description meta
-            let descMeta = document.querySelector('meta[name="description"]');
-            if (!descMeta) {
-                descMeta = document.createElement("meta");
-                descMeta.setAttribute("name", "description");
-                document.head.appendChild(descMeta);
-            }
-
-            if (currentView === "pricing") {
-                descMeta.setAttribute(
-                    "content",
-                    "Simple, transparent pricing for instant Linux terminals. Scale your infrastructure as you grow.",
-                );
-            } else if (currentView === "landing" || currentView === "promo") {
-                descMeta.setAttribute(
-                    "content",
-                    "Launch secure Linux terminals instantly in your browser. No setup required. Perfect for demos, training, and quick tasks.",
-                );
-            }
+            
+            // Update Open Graph tags
+            updateOGMeta("og:title", seo.ogTitle || seo.title);
+            updateOGMeta("og:description", seo.description);
+            updateOGMeta("og:url", `https://rexec.pipeops.io${window.location.pathname}`);
+            
+            // Update Twitter tags
+            updateMeta("twitter:title", seo.ogTitle || seo.title);
+            updateMeta("twitter:description", seo.description);
         }
     }
 
