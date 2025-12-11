@@ -57,4 +57,4 @@ docker/data/
 volumes/
 downloads/
 CLAUDE.md
-./rexec
+rexec
