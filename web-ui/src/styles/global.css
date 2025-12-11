@@ -17,6 +17,9 @@
     --bg-card-hover: #111;
     --bg-secondary: #0a0a0a;
     --bg-tertiary: #111;
+    --bg-elevated: rgba(10, 10, 10, 0.5);
+    --terminal-bg: #0a0a0a;
+    --terminal-header-bg: #111;
     --border: #333;
     --border-muted: #222;
     --border-active: #00ff41;
@@ -48,6 +51,9 @@
     --bg-card-hover: #f0f0f0;
     --bg-secondary: #ffffff;
     --bg-tertiary: #f0f0f0;
+    --bg-elevated: rgba(255, 255, 255, 0.9);
+    --terminal-bg: #1a1a1a;
+    --terminal-header-bg: #2a2a2a;
     --border: #d0d0d0;
     --border-muted: #e0e0e0;
     --border-active: #00c832;

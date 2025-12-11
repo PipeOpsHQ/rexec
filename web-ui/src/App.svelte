@@ -775,6 +775,7 @@
         currentView !== "marketplace" &&
         currentView !== "agent-docs" &&
         currentView !== "cli-docs" &&
+        currentView !== "docs" &&
         currentView !== "account" &&
         currentView !== "join" &&
         currentView !== "pricing" &&

@@ -145,7 +145,7 @@
         min-height: calc(100dvh - 100px);
         text-align: center;
         border: 1px solid var(--border);
-        background: rgba(10, 10, 10, 0.5);
+        background: var(--bg-elevated);
         position: relative;
         padding: 40px;
     }
@@ -290,7 +290,7 @@
         width: 100%;
         max-width: 600px;
         margin: 0 auto 40px;
-        background: #000;
+        background: var(--terminal-bg, #0a0a0a);
         border: 1px solid var(--border);
         text-align: left;
     }
@@ -299,7 +299,7 @@
         display: flex;
         align-items: center;
         padding: 8px 12px;
-        background: #111;
+        background: var(--terminal-header-bg, #111);
         border-bottom: 1px solid var(--border);
         gap: 6px;
     }
