@@ -97,7 +97,7 @@
             
             <button class="link-card" onclick={() => navigate('snippets')} disabled={$isGuest}>
                 <div class="icon-wrapper">
-                    <StatusIcon status="script" size={24} />
+                    <StatusIcon status="snippet" size={24} />
                 </div>
                 <div class="card-content">
                     <h3>Snippets</h3>

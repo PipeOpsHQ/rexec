@@ -157,8 +157,12 @@
             <span>Pricing</span>
         </button>
         <a class="nav-link" href="/marketplace">
-            <StatusIcon status="store" size={14} />
+            <StatusIcon status="snippet" size={14} />
             <span>Snippets</span>
+        </a>
+        <a class="nav-link" href="/docs">
+            <StatusIcon status="book" size={14} />
+            <span>Docs</span>
         </a>
     </nav>
 
@@ -326,7 +330,7 @@
                                 }
                             }}
                         >
-                            <StatusIcon status="script" size={14} />
+                            <StatusIcon status="snippet" size={14} />
                             Snippets
                             {#if $isGuest}<span class="lock-icon"><StatusIcon status="lock" size={12} /></span>{/if}
                         </button>

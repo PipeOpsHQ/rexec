@@ -8,6 +8,7 @@
         wsConnected,
         type Container,
     } from "$stores/containers";
+    import { agents } from "$stores/agents";
     import { auth } from "$stores/auth";
     import { terminal, connectedContainerIds } from "$stores/terminal";
     import { toast } from "$stores/toast";
@@ -195,7 +196,22 @@
         await tick();
         
         const toastId = toast.loading(`Deleting ${container.name}...`);
-        const result = await containers.deleteContainer(container.id, container.db_id);
+        
+        let result;
+        if (container.session_type === 'agent') {
+            const success = await agents.deleteAgent(container.id);
+            result = { success };
+            // Also remove from containers store UI immediately
+            if (success) {
+                containers.update(s => ({
+                    ...s,
+                    containers: s.containers.filter(c => c.id !== container.id)
+                }));
+            }
+        } else {
+            result = await containers.deleteContainer(container.id, container.db_id);
+        }
+
         if (loadingId) setLoading(loadingId, null);
 
         if (result.success) {
@@ -700,6 +716,25 @@
                                         Offline
                                     </button>
                                 {/if}
+                                <button
+                                    class="btn btn-icon btn-sm"
+                                    title="Disconnect Agent"
+                                    onclick={() => handleDelete(container)}
+                                    disabled={getLoadingState(container.id) === 'deleting'}
+                                    style="color: var(--red, #ff6b6b); border-color: rgba(255, 107, 107, 0.3);"
+                                >
+                                    <svg
+                                        class="icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path
+                                            d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                        />
+                                    </svg>
+                                </button>
                                 <button
                                     class="btn btn-icon btn-sm"
                                     title="Agent Details"

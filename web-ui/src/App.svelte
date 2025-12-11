@@ -915,6 +915,8 @@
             currentView = "agent-docs";
         } else if (path === "/docs/cli") {
             currentView = "cli-docs";
+        } else if (path === "/docs") {
+            currentView = "docs";
         } else if (path.startsWith("/account")) {
             if ($isAuthenticated) {
                 if (path === "/account/settings") {
@@ -1067,6 +1069,19 @@
                 <CLIDocs 
                     onback={() => {
                         window.history.back();
+                    }}
+                />
+            {:else if currentView === "docs"}
+                <Docs 
+                    on:navigate={(e) => {
+                        const view = e.detail.view;
+                        if (view === 'docs/cli') {
+                            currentView = "cli-docs";
+                            window.history.pushState({}, "", "/docs/cli");
+                        } else if (view === 'docs/agent') {
+                            currentView = "agent-docs";
+                            window.history.pushState({}, "", "/docs/agent");
+                        }
                     }}
                 />
             {:else if currentView === "cli-login"}

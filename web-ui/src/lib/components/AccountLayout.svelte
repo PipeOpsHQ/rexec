@@ -21,7 +21,7 @@
         { id: "ssh", label: "SSH Keys", href: "/account/ssh", icon: "key" },
         { id: "api", label: "API Tokens", href: "/account/api", icon: "code" },
         { id: "billing", label: "Billing", href: "/account/billing", icon: "invoice" },
-        { id: "snippets", label: "Snippets", href: "/account/snippets", icon: "script" },
+        { id: "snippets", label: "Snippets", href: "/account/snippets", icon: "snippet" },
     ];
 
     function isActive(itemId: string): boolean {

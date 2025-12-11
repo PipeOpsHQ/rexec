@@ -262,7 +262,7 @@
             </div>
         {:else if snippets.length === 0 && !showCreate}
             <div class="empty-state">
-                <div class="empty-icon"><StatusIcon status="script" size={48} /></div>
+                <div class="empty-icon"><StatusIcon status="snippet" size={48} /></div>
                 <h2>No Snippets</h2>
                 <p>Save your favorite commands to run them instantly in any terminal.</p>
                 <button class="btn btn-primary" onclick={() => showCreate = true}>
