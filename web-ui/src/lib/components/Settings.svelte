@@ -645,7 +645,10 @@
       <div class="setting-item">
         <div class="setting-info">
           <label>IP Whitelist</label>
-          <span class="setting-description">Restrict access to specific IPs</span>
+          <span class="setting-description">
+            Restrict access to your account and API endpoints from specific IP addresses. 
+            Leave empty to allow access from any IP. All changes are logged.
+          </span>
         </div>
         <div class="setting-value">
           <button class="btn btn-secondary btn-sm" onclick={openIPModal}>
