@@ -356,9 +356,14 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	agentID := c.Param("id")
 	token := c.Query("token")
 
+	// Log connection attempt for debugging
+	log.Printf("[Agent WS] Connection attempt: agent=%s, hasToken=%v, IP=%s", 
+		agentID, token != "", c.ClientIP())
+
 	// Verify token and get user
 	userID, err := h.verifyToken(token)
 	if err != nil {
+		log.Printf("[Agent WS] Token verification failed for agent %s: %v", agentID, err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 		return
 	}
@@ -367,11 +372,14 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	ctx := context.Background()
 	agent, err := h.store.GetAgent(ctx, agentID)
 	if err != nil || agent == nil {
+		log.Printf("[Agent WS] Agent not found: %s, err=%v", agentID, err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
 		return
 	}
 
 	if agent.UserID != userID {
+		log.Printf("[Agent WS] Authorization failed: agent %s owned by %s, token user %s", 
+			agentID, agent.UserID, userID)
 		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
 		return
 	}
@@ -379,9 +387,11 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	// Upgrade to WebSocket
 	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade agent connection: %v", err)
+		log.Printf("[Agent WS] Failed to upgrade connection for agent %s: %v", agentID, err)
 		return
 	}
+	
+	log.Printf("[Agent WS] WebSocket upgraded successfully for agent %s", agentID)
 
 	// Create agent connection
 	agentConn := &AgentConnection{
@@ -444,14 +454,21 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 		return nil
 	})
 
+	// Create a done channel to stop the ping goroutine
+	done := make(chan struct{})
+	defer close(done)
+
 	// Start ping ticker
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
+			case <-done:
+				return
 			case <-ticker.C:
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					log.Printf("[Agent WS] Ping failed for agent %s: %v", agentID, err)
 					return
 				}
 			}
@@ -462,6 +479,7 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
+			log.Printf("[Agent WS] Read error for agent %s: %v", agentID, err)
 			break
 		}
 
