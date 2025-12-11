@@ -772,26 +772,7 @@
             </svg>
           </div>
           <h3>Connect Your Own Machine</h3>
-          <p class="empty-desc">Bring your own server, VM, or local machine to rexec. Run the command below to install the agent.</p>
-          
-          <div class="install-box">
-            <div class="install-command-row">
-              <code class="install-cmd">curl -sSL https://rexec.pipeops.io/install-agent.sh | bash</code>
-              <button 
-                class="btn btn-sm btn-icon copy-btn" 
-                title="Copy command"
-                onclick={() => {
-                  navigator.clipboard.writeText('curl -sSL https://rexec.pipeops.io/install-agent.sh | bash');
-                  toast.success('Copied to clipboard');
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
+          <p class="empty-desc">Bring your own server, VM, or local machine to rexec. Click "Register Agent" to get a personalized install command with your API token.</p>
 
           <div class="empty-actions">
             <button class="btn btn-primary" onclick={() => showAgentModal = true}>
@@ -1004,6 +985,24 @@
               {copiedScript ? 'Copied!' : 'Copy'}
             </button>
           </div>
+          
+          {#if agents.getAgentToken(createdAgent.id)}
+            <div class="token-notice token-notice-success">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+              <span>This install command includes a permanent API token that never expires.</span>
+            </div>
+          {:else}
+            <div class="token-notice token-notice-warning">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <span>Using session token (expires in 24h). For permanent access, <a href="/account/api">generate an API token</a>.</span>
+            </div>
+          {/if}
 
           <div class="install-notes">
             <h5>Requirements:</h5>
@@ -1959,6 +1958,42 @@
     top: 50%;
     right: 12px;
     transform: translateY(-50%);
+  }
+  
+  .token-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  
+  .token-notice svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  .token-notice-success {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+  }
+  
+  .token-notice-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #f59e0b;
+  }
+  
+  .token-notice a {
+    color: inherit;
+    text-decoration: underline;
+  }
+  
+  .token-notice a:hover {
+    opacity: 0.8;
   }
 
   .install-notes {

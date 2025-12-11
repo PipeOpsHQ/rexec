@@ -223,6 +223,23 @@ func runServer() {
 		log.Fatal("REXEC_ENCRYPTION_KEY must be set to a production key in release mode")
 	}
 
+	// Initialize JWT secret for auth
+	jwtSecretStr := os.Getenv("JWT_SECRET")
+	if jwtSecretStr == "" {
+		if os.Getenv("GIN_MODE") == "release" {
+			log.Fatal("JWT_SECRET must be set in production")
+		}
+		log.Println("⚠️  JWT_SECRET not set, using default dev secret")
+		jwtSecretStr = "rexec-dev-secret-change-in-production"
+	}
+	if os.Getenv("GIN_MODE") == "release" && jwtSecretStr == "rexec-dev-secret-change-in-production" {
+		log.Fatal("JWT_SECRET must be a secure production secret in release mode")
+	}
+	if os.Getenv("GIN_MODE") == "release" && len(jwtSecretStr) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters in release mode")
+	}
+	jwtSecret := []byte(jwtSecretStr)
+
 	var keyBytes []byte
 	
 	// Support hex encoded keys (common for 32-byte keys represented as 64-char hex strings)
@@ -346,7 +363,7 @@ func runServer() {
 	}
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(store, adminEventsHub)
+	authHandler := handlers.NewAuthHandler(store, adminEventsHub, jwtSecret)
 	containerHandler := handlers.NewContainerHandler(containerManager, store, adminEventsHub)
 	containerEventsHub := handlers.NewContainerEventsHub(containerManager, store)
 	containerHandler.SetEventsHub(containerEventsHub)
@@ -375,7 +392,7 @@ func runServer() {
 	adminHandler := handlers.NewAdminHandler(store, adminEventsHub)
 
 	// Initialize agent handler
-	agentHandler := handlers.NewAgentHandler(store)
+	agentHandler := handlers.NewAgentHandler(store, jwtSecret)
 	
 	// Connect agent handler to container handler for unified API
 	containerHandler.SetAgentHandler(agentHandler)
@@ -416,17 +433,8 @@ func runServer() {
 		c.Next()
 	})
 
-	// CORS middleware
-	router.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-		c.Next()
-	})
+	// CORS middleware (see internal/api/middleware/cors.go)
+	router.Use(middleware.CORSMiddleware())
 
 	// Security Headers
 	router.Use(middleware.SecurityHeaders())
@@ -470,7 +478,7 @@ func runServer() {
 
 	// API routes (protected) - with rate limiting
 	api := router.Group("/api")
-	api.Use(middleware.AuthMiddleware(store, mfaService))
+	api.Use(middleware.AuthMiddleware(store, mfaService, jwtSecret))
 	api.Use(apiLimiter.Middleware())
 	{
 		// Container management - stricter rate limiting for mutations
@@ -639,13 +647,13 @@ func runServer() {
 	}
 
 	// WebSocket terminal endpoint - with rate limiting
-	router.GET("/ws/terminal/:containerId", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), terminalHandler.HandleWebSocket)
+	router.GET("/ws/terminal/:containerId", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService, jwtSecret), terminalHandler.HandleWebSocket)
 
 	// WebSocket collaboration endpoint
-	router.GET("/ws/collab/:code", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), collabHandler.HandleCollabWebSocket)
+	router.GET("/ws/collab/:code", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService, jwtSecret), collabHandler.HandleCollabWebSocket)
 
 	// WebSocket for Port Forwarding
-	router.GET("/ws/port-forward/:forwardId", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), portForwardHandler.HandlePortForwardWebSocket)
+	router.GET("/ws/port-forward/:forwardId", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService, jwtSecret), portForwardHandler.HandlePortForwardWebSocket)
 
 	// HTTP Proxy for Port Forwarding (public access via UUID path)
 	// Supports all HTTP methods for full web app proxying
@@ -656,7 +664,7 @@ func runServer() {
 	}
 
 	// WebSocket for Admin Events (NEW)
-	router.GET("/ws/admin/events", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService), middleware.AdminOnly(store), adminEventsHub.HandleWebSocket)
+	router.GET("/ws/admin/events", wsLimiter.Middleware(), middleware.AuthMiddleware(store, mfaService, jwtSecret), middleware.AdminOnly(store), adminEventsHub.HandleWebSocket)
 
 	// WebSocket for Agent connections
 	router.GET("/ws/agent/:id", wsLimiter.Middleware(), agentHandler.HandleAgentWebSocket)

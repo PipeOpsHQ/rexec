@@ -34,14 +34,11 @@ type AuthHandler struct {
 	adminEventsHub *admin_events.AdminEventsHub
 }
 
-// NewAuthHandler creates a new auth handler
-func NewAuthHandler(store *storage.PostgresStore, adminEventsHub *admin_events.AdminEventsHub) *AuthHandler {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "rexec-dev-secret-change-in-production"
-	}
+// NewAuthHandler creates a new auth handler.
+// jwtSecret must be the server's signing key.
+func NewAuthHandler(store *storage.PostgresStore, adminEventsHub *admin_events.AdminEventsHub, jwtSecret []byte) *AuthHandler {
 	return &AuthHandler{
-		jwtSecret:      []byte(secret),
+		jwtSecret:      jwtSecret,
 		store:          store,
 		oauthService:   auth.NewPKCEOAuthService(),
 		mfaService:     auth.NewMFAService("Rexec"),

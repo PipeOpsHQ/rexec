@@ -5,27 +5,21 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/rexec/rexec/internal/auth"
 	"github.com/rexec/rexec/internal/models"
 	"github.com/rexec/rexec/internal/storage"
 )
 
-// AuthMiddleware validates JWT tokens and extracts user info
-// AuthMiddleware validates JWT tokens and extracts user info, enforcing MFA if enabled.
-func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService) gin.HandlerFunc {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "rexec-dev-secret-change-in-production"
-	}
-	jwtSecret := []byte(secret)
-
+// AuthMiddleware validates JWT or API tokens and extracts user info, enforcing MFA if enabled.
+// jwtSecret must be the server's signing key.
+func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, jwtSecret []byte) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get token from Authorization header or query params
 		authHeader := c.GetHeader("Authorization")
@@ -39,10 +33,13 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService) g
 		}
 
 		if tokenString == "" {
-			// Check for token in query params (for WebSocket connections)
-			tokenQuery := c.Query("token")
-			if tokenQuery != "" {
-				tokenString = tokenQuery
+			// Only allow token in query params for WebSocket upgrades to avoid leaking tokens
+			// via URLs on normal HTTP requests.
+			if websocket.IsWebSocketUpgrade(c.Request) {
+				tokenQuery := c.Query("token")
+				if tokenQuery != "" {
+					tokenString = tokenQuery
+				}
 			}
 		}
 

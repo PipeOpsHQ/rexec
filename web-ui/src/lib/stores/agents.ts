@@ -40,12 +40,16 @@ export interface Agent {
   created_at: string;
   system_info?: AgentSystemInfo;
   stats?: AgentStats;
+  // API token for this agent (only available right after registration)
+  token?: string;
 }
 
 interface AgentsState {
   agents: Agent[];
   loading: boolean;
   error: string | null;
+  // Map of agent ID to their API tokens (for newly registered agents)
+  agentTokens: Record<string, string>;
 }
 
 const API_BASE = '/api';
@@ -55,6 +59,7 @@ function createAgentsStore() {
     agents: [],
     loading: false,
     error: null,
+    agentTokens: {},
   });
 
   function getAuthHeader(): HeadersInit {
@@ -121,11 +126,15 @@ function createAgentsStore() {
         });
         if (!res.ok) throw new Error('Failed to register agent');
         const agent = await res.json();
-        // Add new agent to the top of the list
+        // Add new agent to the top of the list and save the API token
         update(s => ({
           ...s,
           agents: [{ ...agent, status: 'registered' }, ...s.agents],
           loading: false,
+          // Store the API token for this agent (used in getInstallScript)
+          agentTokens: agent.token 
+            ? { ...s.agentTokens, [agent.id]: agent.token }
+            : s.agentTokens,
         }));
         return agent;
       } catch (err: any) {
@@ -158,10 +167,23 @@ function createAgentsStore() {
     },
 
     getInstallScript(agentId: string): string {
-      const authState = get(auth);
-      const token = authState.token || '';
+      // Get the current state to check for agent-specific API token
+      const state = get({ subscribe });
+      const agentToken = state.agentTokens[agentId];
+      
+      // Prefer the agent-specific API token (never expires)
+      // Fall back to user's JWT token (expires in 24h) if no agent token available
+      const token = agentToken || get(auth).token || '';
       const baseUrl = window.location.origin;
+      
+      // If using agent token, include it with a note that it's permanent
       return `curl -sSL ${baseUrl}/install-agent.sh | bash -s -- --agent-id ${agentId} --token ${token}`;
+    },
+    
+    // Get the API token for a specific agent (if available)
+    getAgentToken(agentId: string): string | undefined {
+      const state = get({ subscribe });
+      return state.agentTokens[agentId];
     },
 
     // Update agent status from WebSocket event

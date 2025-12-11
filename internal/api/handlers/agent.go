@@ -59,18 +59,14 @@ type AgentSession struct {
 	CreatedAt time.Time
 }
 
-// NewAgentHandler creates a new agent handler
-func NewAgentHandler(store *storage.PostgresStore) *AgentHandler {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "rexec-dev-secret-change-in-production"
-	}
-
+// NewAgentHandler creates a new agent handler.
+// jwtSecret must be the server's signing key.
+func NewAgentHandler(store *storage.PostgresStore, jwtSecret []byte) *AgentHandler {
 	return &AgentHandler{
 		store:          store,
 		agents:         make(map[string]*AgentConnection),
 		remoteSessions: make(map[string]*AgentSession),
-		jwtSecret:      []byte(secret),
+		jwtSecret:      jwtSecret,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				// Prevent Cross-Site WebSocket Hijacking (CSWSH)

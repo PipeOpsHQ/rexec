@@ -228,19 +228,35 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 			})
 			return
 		}
-	} else {
-		// Validate standard image type
-		if _, ok := container.SupportedImages[req.Image]; !ok {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":            "unsupported image type",
-				"supported_images": getImageNames(),
-			})
-			return
+		} else {
+			// Validate standard image type
+			if _, ok := container.SupportedImages[req.Image]; !ok {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":            "unsupported image type",
+					"supported_images": getImageNames(),
+				})
+				return
+			}
 		}
-	}
 
-	// Auto-generate name if not provided
-	containerName := strings.TrimSpace(req.Name)
+		// Gate privileged macOS VM containers to enterprise/admin users only.
+		if req.Image == "macos" || req.Image == "macos-legacy" {
+			user, err := h.store.GetUserByID(ctx, userID)
+			if err != nil || user == nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+				return
+			}
+			if tier != "enterprise" && !user.IsAdmin {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error":   "macOS containers are restricted",
+					"message": "macOS images require enterprise tier or admin access",
+				})
+				return
+			}
+		}
+
+		// Auto-generate name if not provided
+		containerName := strings.TrimSpace(req.Name)
 	if containerName == "" {
 		containerName = generateContainerName()
 	}
@@ -1488,19 +1504,40 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 			})
 			return
 		}
-	} else {
-		if _, ok := container.SupportedImages[req.Image]; !ok {
-			sendEvent(container.ProgressEvent{
-				Stage:    "validating",
-				Error:    "unsupported image type",
-				Complete: true,
-			})
-			return
+		} else {
+			if _, ok := container.SupportedImages[req.Image]; !ok {
+				sendEvent(container.ProgressEvent{
+					Stage:    "validating",
+					Error:    "unsupported image type",
+					Complete: true,
+				})
+				return
+			}
 		}
-	}
 
-	// Auto-generate name if not provided
-	containerName := strings.TrimSpace(req.Name)
+		// Gate privileged macOS VM containers to enterprise/admin users only.
+		if req.Image == "macos" || req.Image == "macos-legacy" {
+			user, err := h.store.GetUserByID(ctx, userID)
+			if err != nil || user == nil {
+				sendEvent(container.ProgressEvent{
+					Stage:    "validating",
+					Error:    "user not found",
+					Complete: true,
+				})
+				return
+			}
+			if tier != "enterprise" && !user.IsAdmin {
+				sendEvent(container.ProgressEvent{
+					Stage:    "validating",
+					Error:    "macOS images require enterprise tier or admin access",
+					Complete: true,
+				})
+				return
+			}
+		}
+
+		// Auto-generate name if not provided
+		containerName := strings.TrimSpace(req.Name)
 	if containerName == "" {
 		containerName = generateContainerName()
 	}

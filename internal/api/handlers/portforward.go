@@ -544,16 +544,24 @@ func (h *PortForwardHandler) HandleHTTPProxy(c *gin.Context) {
 		return
 	}
 
-	// Copy headers
+	// Copy headers, stripping sensitive/internal ones so they don't leak into user services.
 	for key, values := range c.Request.Header {
+		canonicalKey := http.CanonicalHeaderKey(key)
 		// Skip hop-by-hop headers
-		if key == "Connection" || key == "Keep-Alive" || key == "Proxy-Authenticate" ||
-			key == "Proxy-Authorization" || key == "Te" || key == "Trailers" ||
-			key == "Transfer-Encoding" || key == "Upgrade" {
+		if canonicalKey == "Connection" || canonicalKey == "Keep-Alive" || canonicalKey == "Proxy-Authenticate" ||
+			canonicalKey == "Proxy-Authorization" || canonicalKey == "Te" || canonicalKey == "Trailers" ||
+			canonicalKey == "Transfer-Encoding" || canonicalKey == "Upgrade" {
+			continue
+		}
+		// Strip auth/cookies and forwarded/internal headers
+		if canonicalKey == "Authorization" || canonicalKey == "Cookie" ||
+			canonicalKey == "X-Forwarded-For" || canonicalKey == "X-Forwarded-Proto" ||
+			canonicalKey == "X-Forwarded-Host" || canonicalKey == "X-Real-Ip" ||
+			strings.HasPrefix(canonicalKey, "X-Rexec-") {
 			continue
 		}
 		for _, value := range values {
-			proxyReq.Header.Add(key, value)
+			proxyReq.Header.Add(canonicalKey, value)
 		}
 	}
 
