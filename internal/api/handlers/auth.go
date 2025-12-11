@@ -178,13 +178,14 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 // generateGuestToken creates a JWT token for a guest user with 1-hour expiry
 func (h *AuthHandler) generateGuestToken(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id":  user.ID,
-		"email":    user.Email,
-		"username": user.Username,
-		"tier":     "guest",
-		"guest":    true,
-		"exp":      time.Now().Add(GuestSessionDuration).Unix(),
-		"iat":      time.Now().Unix(),
+		"user_id":             user.ID,
+		"email":               user.Email,
+		"username":            user.Username,
+		"tier":                "guest",
+		"guest":               true,
+		"subscription_active": false,
+		"exp":                 time.Now().Add(GuestSessionDuration).Unix(),
+		"iat":                 time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
