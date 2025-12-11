@@ -319,8 +319,7 @@ Environment=REXEC_API=${REXEC_API}
 Environment=REXEC_TOKEN=${TOKEN}
 Environment=REXEC_CONFIG=${CONFIG_DIR}/agent.yaml
 
-# Watchdog timeout (restart if agent hangs)
-WatchdogSec=120
+# Note: No watchdog - agent has its own health checks via WebSocket ping/pong
 
 [Install]
 WantedBy=multi-user.target
