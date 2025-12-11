@@ -1938,6 +1938,8 @@ func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.
 	decrypted, err := s.encryptor.Decrypt(sn.Content)
 	if err == nil {
 		sn.Content = decrypted
+	} else {
+		sn.Content = "[Encrypted Content - Decryption Failed]"
 	}
 
 	return &sn, nil
@@ -2042,6 +2044,8 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 		decrypted, err := s.encryptor.Decrypt(sn.Content)
 		if err == nil {
 			sn.Content = decrypted
+		} else {
+			sn.Content = "[Encrypted Content - Decryption Failed]"
 		}
 
 		snippets = append(snippets, &sn)
