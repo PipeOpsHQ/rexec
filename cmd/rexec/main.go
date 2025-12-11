@@ -824,6 +824,23 @@ func runServer() {
 			c.File(indexFile)
 		})
 
+		// Account routes
+		router.GET("/account", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
+		router.GET("/account/settings", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
+		router.GET("/account/api", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
+		router.GET("/account/recordings", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
 		// Also support direct container ID or agent URL in URL path
 		router.GET("/:id", func(c *gin.Context) {
 			id := c.Param("id")

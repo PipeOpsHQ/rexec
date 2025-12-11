@@ -20,6 +20,7 @@
         { id: "settings", label: "Settings", href: "/account/settings", icon: "settings" },
         { id: "ssh", label: "SSH Keys", href: "/account/ssh", icon: "key" },
         { id: "api", label: "API Tokens", href: "/account/api", icon: "code" },
+        { id: "recordings", label: "Recordings", href: "/account/recordings", icon: "video" },
         { id: "billing", label: "Billing", href: "/account/billing", icon: "invoice" },
         { id: "snippets", label: "Snippets", href: "/account/snippets", icon: "snippet" },
     ];
