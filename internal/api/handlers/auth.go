@@ -1721,6 +1721,7 @@ func (h *AuthHandler) CompleteMFALogin(c *gin.Context) {
 			"verified":            user.Verified,
 			"subscription_active": user.SubscriptionActive,
 			"mfa_enabled":         user.MFAEnabled,
+			"allowed_ips":         user.AllowedIPs,
 		},
 	})
 }

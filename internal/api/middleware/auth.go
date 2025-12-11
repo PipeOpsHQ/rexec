@@ -223,61 +223,6 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService) g
 			}
 		}
 
-		// --- MFA Enforcement ---
-		if user.MFAEnabled {
-			mfaCode := c.GetHeader("X-MFA-Code")
-			if mfaCode == "" {
-				mfaCode = c.Query("mfa_code")
-			}
-
-			if mfaCode == "" {
-				store.CreateAuditLog(context.Background(), &models.AuditLog{
-					ID:        uuid.New().String(),
-					UserID:    userID,
-					Action:    "mfa_required",
-					IPAddress: c.ClientIP(),
-					UserAgent: c.Request.UserAgent(),
-					Details:   "MFA code missing for enabled account",
-					CreatedAt: time.Now(),
-				})
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "MFA code required"})
-				c.Abort()
-				return
-			}
-
-			mfaSecret, err := store.GetUserMFASecret(context.Background(), userID)
-			if err != nil {
-				store.CreateAuditLog(context.Background(), &models.AuditLog{
-					ID:        uuid.New().String(),
-					UserID:    userID,
-					Action:    "mfa_validation_failed",
-					IPAddress: c.ClientIP(),
-					UserAgent: c.Request.UserAgent(),
-					Details:   fmt.Sprintf("Failed to retrieve MFA secret: %v", err),
-					CreatedAt: time.Now(),
-				})
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify MFA"})
-				c.Abort()
-				return
-			}
-
-			if !mfaService.Validate(mfaCode, mfaSecret) {
-				store.CreateAuditLog(context.Background(), &models.AuditLog{
-					ID:        uuid.New().String(),
-					UserID:    userID,
-					Action:    "mfa_validation_failed",
-					IPAddress: c.ClientIP(),
-					UserAgent: c.Request.UserAgent(),
-					Details:   "Invalid MFA code provided",
-					CreatedAt: time.Now(),
-				})
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid MFA code"})
-				c.Abort()
-				return
-			}
-			c.Set("mfa_verified", true) // Indicate MFA was successfully verified
-		}
-
 		// Log successful authentication
 		store.CreateAuditLog(context.Background(), &models.AuditLog{
 			ID:        uuid.New().String(),
