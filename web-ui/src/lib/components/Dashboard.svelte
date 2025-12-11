@@ -682,7 +682,37 @@
                     {/if}
 
                     <div class="container-actions">
-                        {#if container.status === "running"}
+                        {#if isAgent}
+                            <div class="action-row">
+                                {#if container.status === "running"}
+                                    <button
+                                        class="btn btn-primary btn-sm flex-1"
+                                        onclick={() => handleConnect(container)}
+                                    >
+                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="2" y="3" width="20" height="14" rx="2" />
+                                            <path d="M6 8l4 4-4 4" />
+                                        </svg>
+                                        Connect
+                                    </button>
+                                {:else}
+                                    <button class="btn btn-secondary btn-sm flex-1" disabled>
+                                        Offline
+                                    </button>
+                                {/if}
+                                <button
+                                    class="btn btn-icon btn-sm"
+                                    title="Agent Details"
+                                    onclick={() => dispatch("showAgentDocs")}
+                                >
+                                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <line x1="12" y1="16" x2="12" y2="12" />
+                                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                                    </svg>
+                                </button>
+                            </div>
+                        {:else if container.status === "running"}
                             <div class="action-row">
                                 {#if !containerConnected && !isConnecting(container.id)}
                                     <button
