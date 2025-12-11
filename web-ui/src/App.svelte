@@ -17,7 +17,7 @@
     import Dashboard from "$components/Dashboard.svelte";
     import AdminDashboard from "$components/AdminDashboard.svelte";
     import CreateTerminal from "$components/CreateTerminal.svelte";
-    import Settings from "$components/Settings.svelte";
+    import Settings from "$components/SettingsNew.svelte";
     import SSHKeys from "$components/SSHKeys.svelte";
     import TerminalView from "$components/terminal/TerminalView.svelte";
     import ToastContainer from "$components/ui/ToastContainer.svelte";
