@@ -218,6 +218,15 @@ func runServer() {
 		}
 	}
 
+	if os.Getenv("GIN_MODE") == "release" && encryptionKey == "rexec-dev-key-do-not-use-in-prod" {
+		log.Fatal("REXEC_ENCRYPTION_KEY must be set to a production key in release mode")
+	}
+
+	// Validate encryption key length (16, 24, or 32 bytes)
+	if len(encryptionKey) != 16 && len(encryptionKey) != 24 && len(encryptionKey) != 32 {
+		log.Fatalf("Invalid REXEC_ENCRYPTION_KEY length. Must be 16, 24, or 32 characters (bytes).")
+	}
+
 	encryptor, err := crypto.NewEncryptor(encryptionKey)
 	if err != nil {
 		log.Fatalf("Failed to initialize encryptor: %v", err)
