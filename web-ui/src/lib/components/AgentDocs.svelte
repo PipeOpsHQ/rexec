@@ -353,7 +353,7 @@
 <style>
     .docs-page {
         min-height: 100vh;
-        background: #0a0a0a;
+        background: var(--bg);
         padding: 24px;
         overflow-y: auto;
     }
@@ -392,7 +392,7 @@
         text-align: center;
         margin-bottom: 48px;
         padding-bottom: 32px;
-        border-bottom: 1px solid #222;
+        border-bottom: 1px solid var(--border);
     }
 
     .header-icon {
@@ -445,8 +445,8 @@
     }
 
     .feature-card {
-        background: #111;
-        border: 1px solid #222;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 20px;
     }
@@ -473,8 +473,8 @@
         display: flex;
         align-items: flex-start;
         gap: 12px;
-        background: #0d0d0d;
-        border: 1px solid #222;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 16px;
         margin: 12px 0;
@@ -498,7 +498,7 @@
         flex-shrink: 0;
         padding: 6px 12px;
         background: transparent;
-        border: 1px solid #333;
+        border: 1px solid var(--border);
         border-radius: 4px;
         color: var(--text-muted);
         font-size: 11px;
@@ -510,7 +510,7 @@
     .copy-btn:hover {
         border-color: var(--accent);
         color: var(--accent);
-        background: rgba(0, 255, 65, 0.05);
+        background: var(--accent-dim);
     }
 
     .hint {
@@ -540,8 +540,8 @@
     }
 
     .command-item {
-        background: #111;
-        border: 1px solid #222;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 6px;
         padding: 12px 16px;
     }
@@ -557,7 +557,7 @@
         font-family: var(--font-mono);
         font-size: 13px;
         color: var(--accent);
-        background: #0a0a0a;
+        background: var(--bg-tertiary);
         padding: 4px 8px;
         border-radius: 4px;
     }
@@ -580,8 +580,8 @@
         align-items: center;
         gap: 8px;
         padding: 16px;
-        background: #111;
-        border: 1px solid #222;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 8px;
         font-size: 12px;
         color: var(--text-muted);
@@ -594,8 +594,8 @@
     }
 
     .faq-item {
-        background: #111;
-        border: 1px solid #222;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 8px;
         padding: 16px;
     }
@@ -612,7 +612,7 @@
     }
 
     .faq-item code {
-        background: #0a0a0a;
+        background: var(--bg-tertiary);
         padding: 2px 6px;
         border-radius: 4px;
         color: var(--accent);

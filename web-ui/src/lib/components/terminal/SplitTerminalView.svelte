@@ -69,7 +69,7 @@
         height: 100%;
         width: 100%;
         position: relative;
-        background: #0a0a0a;
+        background: var(--terminal-bg, #0a0a0a);
         border: 1px solid var(--border);
     }
 
@@ -82,7 +82,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 4px 8px;
-        background: #111;
+        background: var(--terminal-header-bg, #111);
         border-bottom: 1px solid var(--border);
         flex-shrink: 0;
     }

@@ -1435,7 +1435,7 @@
         align-items: center;
         gap: 16px;
         padding: 8px 16px;
-        background: #0a0a0a;
+        background: var(--terminal-header-bg, #0a0a0a);
         border-bottom: 1px solid var(--border);
         flex-shrink: 0;
     }
@@ -1561,7 +1561,7 @@
         display: flex;
         align-items: center;
         padding: 6px 12px;
-        background: #111;
+        background: var(--terminal-header-bg, #111);
         border-bottom: 1px solid var(--border);
         cursor: move;
         user-select: none;
@@ -1664,7 +1664,7 @@
     .floating-body {
         flex: 1;
         overflow: hidden;
-        background: #0a0a0a;
+        background: var(--terminal-bg, #0a0a0a);
         position: relative;
     }
 
@@ -2120,8 +2120,8 @@
         align-items: center;
         gap: 6px;
         padding: 12px 8px;
-        background: #1a1a1a;
-        border: 1px solid #333;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
         cursor: pointer;
         transition: all 0.15s;
         font-family: var(--font-mono);
@@ -2438,8 +2438,8 @@
         align-items: center;
         gap: 6px;
         padding: 12px 8px;
-        background: #1a1a1a;
-        border: 1px solid #333;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
         cursor: pointer;
         transition: all 0.15s;
         font-family: var(--font-mono);
@@ -2804,8 +2804,8 @@
     }
     
     .panel-modal {
-        background: #1a1a1a;
-        border: 1px solid #333;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
         border-radius: 12px;
         max-width: 600px;
         max-height: 80vh;

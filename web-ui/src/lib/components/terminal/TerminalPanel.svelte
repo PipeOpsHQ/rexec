@@ -797,7 +797,7 @@
         height: 100%;
         width: 100%;
         position: relative;
-        background: #0a0a0a;
+        background: var(--terminal-bg, #0a0a0a);
     }
 
     /* Toolbar */
@@ -806,7 +806,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 6px 12px;
-        background: #111;
+        background: var(--terminal-header-bg, #111);
         border-bottom: 1px solid var(--border);
         flex-shrink: 0;
         gap: 8px;

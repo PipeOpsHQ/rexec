@@ -52,8 +52,8 @@
     --bg-secondary: #ffffff;
     --bg-tertiary: #f0f0f0;
     --bg-elevated: rgba(255, 255, 255, 0.9);
-    --terminal-bg: #1a1a1a;
-    --terminal-header-bg: #2a2a2a;
+    --terminal-bg: #ffffff;
+    --terminal-header-bg: #f0f0f0;
     --border: #d0d0d0;
     --border-muted: #e0e0e0;
     --border-active: #00c832;
