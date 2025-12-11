@@ -93,11 +93,22 @@ func (h *CollabHandler) StartSession(c *gin.Context) {
 		return
 	}
 
-	// Verify container ownership
-	container, ok := h.containerManager.GetContainer(req.ContainerID)
-	if !ok || container.UserID != userID.(string) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized to share this terminal"})
-		return
+	// Verify ownership - handle both containers and agents
+	if strings.HasPrefix(req.ContainerID, "agent:") {
+		// Agent terminal - verify agent ownership
+		agentID := strings.TrimPrefix(req.ContainerID, "agent:")
+		agent, err := h.store.GetAgent(c.Request.Context(), agentID)
+		if err != nil || agent == nil || agent.UserID != userID.(string) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not authorized to share this terminal"})
+			return
+		}
+	} else {
+		// Docker container - verify container ownership
+		container, ok := h.containerManager.GetContainer(req.ContainerID)
+		if !ok || container.UserID != userID.(string) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not authorized to share this terminal"})
+			return
+		}
 	}
 
 	// Check if session already exists for this container
@@ -288,8 +299,16 @@ func (h *CollabHandler) JoinSession(c *gin.Context) {
 	})
 
 	// Get container info for better display
-	containerName := session.ContainerID[:12] // Default to truncated ID
-	if container, err := h.store.GetContainerByDockerID(c.Request.Context(), session.ContainerID); err == nil && container != nil {
+	containerName := session.ContainerID
+	if len(containerName) > 12 {
+		containerName = containerName[:12] // Default to truncated ID
+	}
+	if strings.HasPrefix(session.ContainerID, "agent:") {
+		agentID := strings.TrimPrefix(session.ContainerID, "agent:")
+		if agent, err := h.store.GetAgent(c.Request.Context(), agentID); err == nil && agent != nil {
+			containerName = agent.Name
+		}
+	} else if container, err := h.store.GetContainerByDockerID(c.Request.Context(), session.ContainerID); err == nil && container != nil {
 		containerName = container.Name
 	}
 
