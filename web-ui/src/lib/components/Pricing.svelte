@@ -183,7 +183,7 @@
     width: 100%;
     min-height: 100vh;
     padding: 40px 20px;
-    background: #0a0a0c;
+    background: var(--bg-primary, #0a0a0c);
   }
 
   .pricing-page-container {
@@ -195,7 +195,7 @@
   .pricing-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85);
+    background: var(--overlay-bg, rgba(0, 0, 0, 0.85));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -205,8 +205,8 @@
   }
   
   .pricing-modal {
-    background: #0a0a0c;
-    border: 1px solid #1e1e28;
+    background: var(--bg-primary, #0a0a0c);
+    border: 1px solid var(--border-color, #1e1e28);
     border-radius: 8px;
     width: 100%;
     max-width: 1000px;
@@ -222,7 +222,7 @@
     right: 16px;
     background: transparent;
     border: none;
-    color: #999;
+    color: var(--text-muted, #999);
     font-size: 24px;
     cursor: pointer;
     padding: 4px 10px;
@@ -247,11 +247,11 @@
     text-transform: uppercase;
     letter-spacing: 2px;
     margin: 0 0 8px;
-    color: #fff;
+    color: var(--text-primary, #fff);
   }
   
   .pricing-header p {
-    color: #a0a0a0;
+    color: var(--text-secondary, #a0a0a0);
     font-size: 14px;
     margin: 0;
   }
@@ -264,8 +264,8 @@
   }
   
   .plan-card {
-    background: #0f0f14;
-    border: 1px solid #1e1e28;
+    background: var(--bg-secondary, #0f0f14);
+    border: 1px solid var(--border-color, #1e1e28);
     border-radius: 6px;
     padding: 24px;
     display: flex;
@@ -275,17 +275,17 @@
   }
   
   .plan-card:hover {
-    border-color: #2a2a35;
+    border-color: var(--border-hover, #2a2a35);
     transform: translateY(-2px);
   }
   
   .plan-card.accent {
     border-color: var(--accent, #00ff88);
-    background: rgba(0, 255, 136, 0.02);
+    background: var(--accent-bg, rgba(0, 255, 136, 0.02));
   }
   
   .plan-card.current {
-    border-color: #333;
+    border-color: var(--border-color, #333);
     opacity: 0.8;
   }
   
@@ -307,7 +307,7 @@
   .plan-header {
     text-align: center;
     padding-bottom: 20px;
-    border-bottom: 1px solid #1e1e28;
+    border-bottom: 1px solid var(--border-color, #1e1e28);
     margin-bottom: 20px;
   }
   
@@ -317,7 +317,7 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     margin: 0 0 12px;
-    color: #fff;
+    color: var(--text-primary, #fff);
   }
   
   .price-row {
@@ -337,12 +337,12 @@
   
   .period {
     font-size: 14px;
-    color: #a0a0a0;
+    color: var(--text-secondary, #a0a0a0);
   }
   
   .plan-desc {
     font-size: 12px;
-    color: #999;
+    color: var(--text-muted, #999);
     margin: 0;
   }
   
@@ -359,8 +359,8 @@
     gap: 10px;
     padding: 8px 0;
     font-size: 13px;
-    color: #ccc;
-    border-bottom: 1px solid #151518;
+    color: var(--text-secondary, #ccc);
+    border-bottom: 1px solid var(--border-subtle, #151518);
   }
   
   .features li:last-child {
@@ -380,18 +380,18 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border: 1px solid #333;
+    border: 1px solid var(--border-color, #333);
     border-radius: 4px;
-    background: #1a1a1f;
-    color: #999;
+    background: var(--bg-tertiary, #1a1a1f);
+    color: var(--text-muted, #999);
     cursor: pointer;
     transition: all 0.2s;
   }
   
   .plan-cta:hover:not(:disabled) {
-    background: #222;
-    border-color: #555;
-    color: #fff;
+    background: var(--bg-hover, #222);
+    border-color: var(--border-hover, #555);
+    color: var(--text-primary, #fff);
   }
   
   .plan-cta.accent {
@@ -406,23 +406,23 @@
   
   .plan-cta.current {
     background: transparent;
-    border-color: #333;
-    color: #888;
+    border-color: var(--border-color, #333);
+    color: var(--text-muted, #888);
     cursor: default;
   }
   
   .pricing-footer {
     text-align: center;
     padding: 16px;
-    background: rgba(0, 255, 136, 0.05);
-    border: 1px solid rgba(0, 255, 136, 0.1);
+    background: var(--accent-bg, rgba(0, 255, 136, 0.05));
+    border: 1px solid var(--accent-border, rgba(0, 255, 136, 0.1));
     border-radius: 4px;
   }
   
   .pricing-footer p {
     margin: 0;
     font-size: 13px;
-    color: #888;
+    color: var(--text-muted, #888);
   }
   
   .pricing-footer strong {
@@ -439,18 +439,82 @@
   }
   
   .pricing-modal::-webkit-scrollbar-thumb {
-    background: #222;
+    background: var(--scrollbar-thumb, #222);
     border-radius: 3px;
   }
   
   .pricing-modal::-webkit-scrollbar-thumb:hover {
-    background: #333;
+    background: var(--scrollbar-hover, #333);
   }
   
   /* Firefox */
   .pricing-modal {
     scrollbar-width: thin;
-    scrollbar-color: #222 transparent;
+    scrollbar-color: var(--scrollbar-thumb, #222) transparent;
+  }
+
+  /* Light mode overrides */
+  :global([data-theme="light"]) .pricing-page-wrapper {
+    background: #f8f9fa;
+  }
+
+  :global([data-theme="light"]) .pricing-modal,
+  :global([data-theme="light"]) .plan-card {
+    background: #ffffff;
+    border-color: #e0e0e0;
+  }
+
+  :global([data-theme="light"]) .pricing-header h1,
+  :global([data-theme="light"]) .plan-header h2 {
+    color: #1a1a1a;
+  }
+
+  :global([data-theme="light"]) .pricing-header p,
+  :global([data-theme="light"]) .period,
+  :global([data-theme="light"]) .plan-desc {
+    color: #666;
+  }
+
+  :global([data-theme="light"]) .features li {
+    color: #333;
+    border-bottom-color: #f0f0f0;
+  }
+
+  :global([data-theme="light"]) .plan-header {
+    border-bottom-color: #e0e0e0;
+  }
+
+  :global([data-theme="light"]) .plan-card:hover {
+    border-color: #ccc;
+  }
+
+  :global([data-theme="light"]) .plan-cta {
+    background: #f5f5f5;
+    border-color: #ddd;
+    color: #666;
+  }
+
+  :global([data-theme="light"]) .plan-cta:hover:not(:disabled) {
+    background: #eee;
+    border-color: #bbb;
+    color: #1a1a1a;
+  }
+
+  :global([data-theme="light"]) .pricing-footer {
+    background: rgba(0, 200, 100, 0.08);
+    border-color: rgba(0, 200, 100, 0.2);
+  }
+
+  :global([data-theme="light"]) .pricing-footer p {
+    color: #555;
+  }
+
+  :global([data-theme="light"]) .close-btn {
+    color: #666;
+  }
+
+  :global([data-theme="light"]) .pricing-overlay {
+    background: rgba(0, 0, 0, 0.5);
   }
   
   @media (max-width: 768px) {

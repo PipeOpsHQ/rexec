@@ -812,7 +812,15 @@ func runServer() {
 			c.File(indexFile)
 		})
 
+		router.GET("/docs", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
 		router.GET("/docs/agent", func(c *gin.Context) {
+			c.File(indexFile)
+		})
+
+		router.GET("/docs/cli", func(c *gin.Context) {
 			c.File(indexFile)
 		})
 
