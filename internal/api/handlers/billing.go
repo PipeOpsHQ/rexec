@@ -108,6 +108,16 @@ func (h *BillingHandler) GetSubscription(c *gin.Context) {
 		return
 	}
 
+	// Handle nil billing service (no Stripe configured)
+	if h.billingService == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"tier":            user.Tier,
+			"status":          "active",
+			"container_limit": billing.TierLimits(billing.Tier(user.Tier)),
+		})
+		return
+	}
+
 	// Get customer ID from user metadata
 	customerID, err := h.store.GetUserStripeCustomerID(c.Request.Context(), user.ID)
 	if err != nil || customerID == "" {

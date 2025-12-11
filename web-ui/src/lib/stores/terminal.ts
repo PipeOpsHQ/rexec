@@ -147,15 +147,20 @@ function createCustomKeyHandler(term: Terminal) {
              return true;
         }
         
-        // Ctrl+C: Special handling - only intercept if there's no text selection
+        // Ctrl+C: Special handling - copy if there's terminal selection, else interrupt
         if (key === 'c') {
-          const selection = window.getSelection();
-          if (!selection || selection.isCollapsed || selection.toString().length === 0) {
-            // No selection - this is Ctrl+C for interrupt, let terminal handle it
+          // Check terminal's own selection (not window.getSelection)
+          if (term.hasSelection()) {
+            // Has selection in terminal - copy to clipboard
+            const selection = term.getSelection();
+            if (selection) {
+              navigator.clipboard.writeText(selection).catch(() => {});
+            }
             event.preventDefault();
-            return true;
+            return false;
           }
-          // Has selection - let browser handle copy
+          // No selection - this is Ctrl+C for interrupt, let terminal handle it
+          event.preventDefault();
           return true;
         }
     }
@@ -172,18 +177,22 @@ function createCustomKeyHandler(term: Terminal) {
     if (isMac && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
         const key = event.key.toLowerCase();
         
-        // Cmd+C: Send Ctrl+C to terminal if no text selection (interrupt), else copy
+        // Cmd+C: Copy if terminal has selection, else send Ctrl+C interrupt
         if (key === 'c') {
-          const selection = window.getSelection();
-          if (!selection || selection.isCollapsed || selection.toString().length === 0) {
-            // No selection - send Ctrl+C to interrupt running process
+          if (term.hasSelection()) {
+            // Has selection in terminal - copy to clipboard
+            const selection = term.getSelection();
+            if (selection) {
+              navigator.clipboard.writeText(selection).catch(() => {});
+            }
             event.preventDefault();
-            event.stopPropagation();
-            term.input("\x03"); // Ctrl+C
             return false;
           }
-          // Has selection - let browser handle copy
-          return true;
+          // No selection - send Ctrl+C to interrupt running process
+          event.preventDefault();
+          event.stopPropagation();
+          term.input("\x03"); // Ctrl+C
+          return false;
         }
         
         // Preserve standard clipboard shortcuts (Cmd+V, Cmd+X, Cmd+A)

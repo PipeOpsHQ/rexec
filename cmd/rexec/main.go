@@ -359,10 +359,8 @@ func runServer() {
 	terminalHandler.SetRecordingHandler(recordingHandler)
 	// Connect collab handler to terminal handler for shared session access
 	terminalHandler.SetCollabHandler(collabHandler)
-	var billingHandler *handlers.BillingHandler
-	if billingService != nil {
-		billingHandler = handlers.NewBillingHandler(billingService, store)
-	}
+	
+	billingHandler := handlers.NewBillingHandler(billingService, store)
 
 	// Initialize port forward handler
 	portForwardHandler := handlers.NewPortForwardHandler(store, containerManager)
@@ -597,12 +595,13 @@ func runServer() {
 			recordings.DELETE("/:id", recordingHandler.DeleteRecording)
 		}
 
-		// Billing endpoints (if enabled)
-		if billingHandler != nil {
-			billing := api.Group("/billing")
-			{
-				billing.GET("/plans", billingHandler.GetPlans)
-				billing.GET("/subscription", billingHandler.GetSubscription)
+		// Billing endpoints
+		billing := api.Group("/billing")
+		{
+			billing.GET("/plans", billingHandler.GetPlans)
+			billing.GET("/subscription", billingHandler.GetSubscription)
+			
+			if billingService != nil {
 				billing.GET("/history", billingHandler.GetBillingHistory)
 				billing.POST("/checkout", billingHandler.CreateCheckoutSession)
 				billing.POST("/portal", billingHandler.CreatePortalSession)
@@ -635,7 +634,7 @@ func runServer() {
 	}
 
 	// Stripe webhook (public, verified by signature)
-	if billingHandler != nil {
+	if billingService != nil {
 		router.POST("/api/billing/webhook", billingHandler.HandleWebhook)
 	}
 
