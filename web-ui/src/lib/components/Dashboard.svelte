@@ -703,16 +703,42 @@
                         {#if isAgent}
                             <div class="action-row">
                                 {#if container.status === "running"}
-                                    <button
-                                        class="btn btn-primary btn-sm flex-1"
-                                        onclick={() => handleConnect(container)}
-                                    >
-                                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <rect x="2" y="3" width="20" height="14" rx="2" />
-                                            <path d="M6 8l4 4-4 4" />
-                                        </svg>
-                                        Connect
-                                    </button>
+                                    {#if !containerConnected && !isConnecting(container.id)}
+                                        <button
+                                            class="btn btn-primary btn-sm flex-1"
+                                            onclick={() => handleConnect(container)}
+                                        >
+                                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="2" y="3" width="20" height="14" rx="2" />
+                                                <path d="M6 8l4 4-4 4" />
+                                            </svg>
+                                            Connect
+                                        </button>
+                                    {:else if isConnecting(container.id)}
+                                        <button
+                                            class="btn btn-secondary btn-sm flex-1 connecting-btn"
+                                            disabled
+                                        >
+                                            <span class="spinner-sm"></span>
+                                            Connecting...
+                                        </button>
+                                    {:else}
+                                        <button
+                                            class="btn btn-secondary btn-sm flex-1 connected-btn"
+                                            disabled
+                                        >
+                                            <svg
+                                                class="icon"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <path d="M20 6L9 17l-5-5" />
+                                            </svg>
+                                            Connected
+                                        </button>
+                                    {/if}
                                 {:else}
                                     <button class="btn btn-secondary btn-sm flex-1" disabled>
                                         Offline

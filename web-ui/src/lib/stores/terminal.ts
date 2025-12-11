@@ -1540,10 +1540,13 @@ function createTerminalStore() {
       // Update all terminal sessions
       state.sessions.forEach((session) => {
         session.terminal.options.theme = newTheme;
+        // Force terminal to refresh with new theme
+        session.terminal.refresh(0, session.terminal.rows - 1);
         
         // Update split panes as well
         session.splitPanes.forEach((pane) => {
           pane.terminal.options.theme = newTheme;
+          pane.terminal.refresh(0, pane.terminal.rows - 1);
         });
       });
     },
