@@ -27,6 +27,7 @@ TOKEN=""
 NAME=""
 LABELS=""
 AGENT_ID=""
+UNINSTALL=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -50,17 +51,22 @@ while [[ $# -gt 0 ]]; do
             REXEC_API="$2"
             shift 2
             ;;
+        --uninstall)
+            UNINSTALL=true
+            shift
+            ;;
         --help|-h)
             echo "Rexec Agent Installer"
             echo ""
             echo "Usage: curl -fsSL https://rexec.pipeops.io/install-agent.sh | bash -s -- [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --token, -t TOKEN      Agent registration token (required)"
+            echo "  --token, -t TOKEN      Agent registration token (required for install)"
             echo "  --agent-id, -i ID      Pre-registered agent ID (optional)"
             echo "  --name, -n NAME        Custom name for this agent (default: hostname)"
             echo "  --labels, -l LABELS    Comma-separated labels (e.g., 'prod,web,us-east')"
             echo "  --api URL              Rexec API URL (default: https://rexec.pipeops.io)"
+            echo "  --uninstall            Uninstall the agent and remove all files"
             echo "  --help, -h             Show this help message"
             exit 0
             ;;
@@ -585,6 +591,68 @@ verify_installation() {
     esac
 }
 
+uninstall_agent() {
+    echo -e "${CYAN}${BOLD}Uninstalling Rexec Agent...${NC}"
+    echo ""
+    
+    # Stop and disable services
+    case "$INIT_SYSTEM" in
+        systemd)
+            echo -e "${CYAN}Stopping systemd service...${NC}"
+            systemctl stop rexec-agent 2>/dev/null || true
+            systemctl disable rexec-agent 2>/dev/null || true
+            rm -f "${SERVICE_DIR}/rexec-agent.service"
+            systemctl daemon-reload
+            echo -e "${GREEN}✓ Systemd service removed${NC}"
+            ;;
+        launchd)
+            echo -e "${CYAN}Stopping launchd service...${NC}"
+            launchctl stop io.pipeops.rexec-agent 2>/dev/null || true
+            launchctl unload /Library/LaunchDaemons/io.pipeops.rexec-agent.plist 2>/dev/null || true
+            rm -f /Library/LaunchDaemons/io.pipeops.rexec-agent.plist
+            echo -e "${GREEN}✓ Launchd service removed${NC}"
+            ;;
+        sysvinit)
+            echo -e "${CYAN}Stopping init.d service...${NC}"
+            /etc/init.d/rexec-agent stop 2>/dev/null || true
+            update-rc.d -f rexec-agent remove 2>/dev/null || chkconfig --del rexec-agent 2>/dev/null || true
+            rm -f /etc/init.d/rexec-agent
+            echo -e "${GREEN}✓ Init.d service removed${NC}"
+            ;;
+        *)
+            # Kill any running agent process
+            pkill -f rexec-agent 2>/dev/null || true
+            echo -e "${GREEN}✓ Agent process stopped${NC}"
+            ;;
+    esac
+    
+    # Remove binary
+    if [ -f "${INSTALL_DIR}/rexec-agent" ]; then
+        rm -f "${INSTALL_DIR}/rexec-agent"
+        echo -e "${GREEN}✓ Agent binary removed${NC}"
+    fi
+    
+    # Remove config directory
+    if [ -d "$CONFIG_DIR" ]; then
+        rm -rf "$CONFIG_DIR"
+        echo -e "${GREEN}✓ Configuration removed${NC}"
+    fi
+    
+    # Remove log files
+    rm -f /var/log/rexec-agent.log 2>/dev/null || true
+    rm -f /var/log/rexec-agent.error.log 2>/dev/null || true
+    
+    echo ""
+    echo -e "${GREEN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${BOLD}  Rexec Agent Uninstalled Successfully!${NC}"
+    echo -e "${GREEN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "The agent has been removed from this server."
+    echo -e "To reinstall, run:"
+    echo -e "  ${CYAN}curl -fsSL https://rexec.pipeops.io/install-agent.sh | sudo bash -s -- --token YOUR_TOKEN${NC}"
+    echo ""
+}
+
 show_next_steps() {
     echo ""
     echo -e "${GREEN}${BOLD}═══════════════════════════════════════════════════════════${NC}"
@@ -623,9 +691,16 @@ show_next_steps() {
 main() {
     print_banner
     check_root
+    detect_init_system
+    
+    # Handle uninstall
+    if [ "$UNINSTALL" = true ]; then
+        uninstall_agent
+        exit 0
+    fi
+    
     check_token
     detect_platform
-    detect_init_system
     get_latest_version
     TEMP_DIR=$(download_agent)
     install_agent "$TEMP_DIR"
