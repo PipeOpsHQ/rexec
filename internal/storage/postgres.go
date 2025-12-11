@@ -190,6 +190,18 @@ func (s *PostgresStore) migrate() error {
 		END $$`,
 		`DO $$ BEGIN
 			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='first_name') THEN
+				ALTER TABLE users ADD COLUMN first_name VARCHAR(255) DEFAULT '';
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='last_name') THEN
+				ALTER TABLE users ADD COLUMN last_name VARCHAR(255) DEFAULT '';
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
 				WHERE table_name='containers' AND column_name='deleted_at') THEN
 				ALTER TABLE containers ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE;
 			END IF;
@@ -631,11 +643,12 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	var mfaEnabled bool
 	var mfaSecret string
 	var allowedIPs string
+	var firstName, lastName sql.NullString
 
 	query := `
 		SELECT id, email, username, COALESCE(password_hash, ''), tier, COALESCE(is_admin, false),
 		       COALESCE(pipeops_id, ''), COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
-		       COALESCE(allowed_ips, ''), created_at, updated_at
+		       COALESCE(allowed_ips, ''), COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
 		FROM users WHERE email = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, email)
@@ -650,6 +663,8 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 		&mfaEnabled,
 		&mfaSecret,
 		&allowedIPs,
+		&firstName,
+		&lastName,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -662,6 +677,8 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	user.PipeOpsID = pipeopsID.String
 	user.MFAEnabled = mfaEnabled
 	user.MFASecret = mfaSecret
+	user.FirstName = firstName.String
+	user.LastName = lastName.String
 	if allowedIPs != "" {
 		user.AllowedIPs = strings.Split(allowedIPs, ",")
 	}
@@ -675,11 +692,12 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	var mfaEnabled bool
 	var mfaSecret string
 	var allowedIPs string
+	var firstName, lastName sql.NullString
 
 	query := `
 		SELECT id, email, username, tier, COALESCE(is_admin, false), COALESCE(pipeops_id, ''),
 		       COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), COALESCE(allowed_ips, ''),
-		       created_at, updated_at
+		       COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
 		FROM users WHERE id = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, id)
@@ -693,6 +711,8 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		&mfaEnabled,
 		&mfaSecret,
 		&allowedIPs,
+		&firstName,
+		&lastName,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -705,6 +725,8 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	user.PipeOpsID = pipeopsID.String
 	user.MFAEnabled = mfaEnabled
 	user.MFASecret = mfaSecret
+	user.FirstName = firstName.String
+	user.LastName = lastName.String
 	if allowedIPs != "" {
 		user.AllowedIPs = strings.Split(allowedIPs, ",")
 	}
@@ -715,7 +737,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 func (s *PostgresStore) UpdateUser(ctx context.Context, user *models.User) error {
 	allowedIPs := strings.Join(user.AllowedIPs, ",")
 	query := `
-		UPDATE users SET username = $2, tier = $3, is_admin = $4, pipeops_id = $5, mfa_enabled = $6, allowed_ips = $7, updated_at = $8
+		UPDATE users SET username = $2, tier = $3, is_admin = $4, pipeops_id = $5, mfa_enabled = $6, allowed_ips = $7, first_name = $8, last_name = $9, updated_at = $10
 		WHERE id = $1
 	`
 	_, err := s.db.ExecContext(ctx, query,
@@ -726,6 +748,8 @@ func (s *PostgresStore) UpdateUser(ctx context.Context, user *models.User) error
 		user.PipeOpsID,
 		user.MFAEnabled,
 		allowedIPs,
+		user.FirstName,
+		user.LastName,
 		time.Now(),
 	)
 	return err
