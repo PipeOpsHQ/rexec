@@ -126,6 +126,8 @@ func main() {
 		handleUnregister()
 	case "install":
 		handleInstall()
+	case "refresh-token":
+		handleRefreshToken(cmdArgs[1:])
 	default:
 		fmt.Printf("%sUnknown command: %s%s\n", Red, cmdArgs[0], Reset)
 		showHelp()
@@ -144,12 +146,13 @@ func showHelp() {
   --config, -c     Path to config file (default: /etc/rexec/agent.yaml or ~/.rexec/agent.json)
 
 %sCOMMANDS:%s
-  register     Register this machine as a Rexec terminal
-  start        Start the agent (connect to Rexec)
-  stop         Stop the running agent
-  status       Show agent status
-  unregister   Remove this machine from Rexec
-  install      Install as a system service
+  register       Register this machine as a Rexec terminal
+  start          Start the agent (connect to Rexec)
+  stop           Stop the running agent
+  status         Show agent status
+  unregister     Remove this machine from Rexec
+  install        Install as a system service
+  refresh-token  Update token for existing agent (fixes 401 errors)
 
 %sREGISTER OPTIONS:%s
   --name, -n       Name for this terminal (default: hostname)
@@ -398,13 +401,19 @@ func handleRegister(args []string) {
 	}
 
 	var result struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Token string `json:"token"`
 	}
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	cfg.ID = result.ID
 	cfg.Registered = true
+	
+	// Use the new API token from registration (long-lived, doesn't expire)
+	if result.Token != "" {
+		cfg.Token = result.Token
+	}
 
 	if err := saveAgentConfig(cfg); err != nil {
 		fmt.Printf("%sError saving config: %v%s\n", Red, err, Reset)
@@ -414,6 +423,9 @@ func handleRegister(args []string) {
 	fmt.Printf("\n%s✓ Agent registered successfully!%s\n", Green, Reset)
 	fmt.Printf("  ID:   %s\n", cfg.ID)
 	fmt.Printf("  Name: %s\n", cfg.Name)
+	if result.Token != "" {
+		fmt.Printf("  Token: %s (saved to config)%s\n", Green, Reset)
+	}
 	fmt.Printf("\nStart the agent with: %srexec-agent start%s\n\n", Cyan, Reset)
 }
 
@@ -1050,6 +1062,91 @@ func handleUnregister() {
 	os.Remove(getConfigPath())
 
 	fmt.Printf("%s✓ Agent unregistered%s\n", Green, Reset)
+}
+
+func handleRefreshToken(args []string) {
+	cfg, err := loadAgentConfig()
+	if err != nil {
+		fmt.Printf("%sAgent not registered. Run 'rexec-agent register' first.%s\n", Red, Reset)
+		os.Exit(1)
+	}
+
+	if cfg.ID == "" {
+		fmt.Printf("%sAgent ID not found. Run 'rexec-agent register' first.%s\n", Red, Reset)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%sRefreshing agent token...%s\n\n", Dim, Reset)
+
+	// Check for new token in args or prompt
+	var newToken string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--token" && i+1 < len(args) {
+			newToken = args[i+1]
+			break
+		}
+	}
+
+	if newToken == "" {
+		newToken = os.Getenv("REXEC_TOKEN")
+	}
+
+	if newToken == "" {
+		fmt.Printf("To fix 401 errors, you need an API token.\n")
+		fmt.Printf("Generate one at: %s%s/account/api%s\n\n", Cyan, cfg.Host, Reset)
+		fmt.Print("Enter new API token (rexec_...): ")
+
+		reader := bufio.NewReader(os.Stdin)
+		token, _ := reader.ReadString('\n')
+		newToken = strings.TrimSpace(token)
+
+		if newToken == "" {
+			fmt.Printf("%sCancelled%s\n", Yellow, Reset)
+			return
+		}
+	}
+
+	// Validate it's an API token
+	if !strings.HasPrefix(newToken, "rexec_") {
+		fmt.Printf("%sWarning: Token doesn't start with 'rexec_'. API tokens are recommended for agents.%s\n", Yellow, Reset)
+	}
+
+	// Test the new token
+	fmt.Printf("Testing new token...")
+	resp, err := apiRequest(cfg.Host, newToken, "GET", "/api/agents/"+cfg.ID, nil)
+	if err != nil {
+		fmt.Printf(" %sFailed: %v%s\n", Red, err, Reset)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		fmt.Printf(" %sInvalid token%s\n", Red, Reset)
+		os.Exit(1)
+	}
+
+	if resp.StatusCode == 403 {
+		fmt.Printf(" %sToken doesn't have access to this agent%s\n", Red, Reset)
+		os.Exit(1)
+	}
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf(" %sFailed: %s%s\n", Red, string(body), Reset)
+		os.Exit(1)
+	}
+
+	fmt.Printf(" %s✓%s\n", Green, Reset)
+
+	// Save the new token
+	cfg.Token = newToken
+	if err := saveAgentConfig(cfg); err != nil {
+		fmt.Printf("%sError saving config: %v%s\n", Red, err, Reset)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\n%s✓ Token updated successfully!%s\n", Green, Reset)
+	fmt.Printf("Restart the agent: %ssudo systemctl restart rexec-agent%s\n", Cyan, Reset)
 }
 
 func handleInstall() {

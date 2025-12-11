@@ -248,9 +248,31 @@ func (h *AgentHandler) RegisterAgent(c *gin.Context) {
 		return
 	}
 
+	// Generate a long-lived API token for the agent (no expiration)
+	tokenName := fmt.Sprintf("agent-%s", agent.Name)
+	scopes := []string{"agent"}
+	apiToken, plainToken, err := h.store.GenerateAPIToken(ctx, agent.UserID, tokenName, scopes, nil)
+	if err != nil {
+		log.Printf("Failed to generate agent token: %v", err)
+		// Still return success but warn about token
+		c.JSON(http.StatusCreated, gin.H{
+			"id":      agent.ID,
+			"name":    agent.Name,
+			"warning": "Agent registered but token generation failed. Please generate an API token manually.",
+		})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
-		"id":   agent.ID,
-		"name": agent.Name,
+		"id":    agent.ID,
+		"name":  agent.Name,
+		"token": plainToken,
+		"token_info": gin.H{
+			"id":     apiToken.ID,
+			"name":   apiToken.Name,
+			"scopes": apiToken.Scopes,
+			"note":   "This token is used for agent authentication. Save it securely - it won't be shown again.",
+		},
 	})
 }
 
