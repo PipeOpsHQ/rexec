@@ -587,6 +587,8 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	var req struct {
 		Username   string   `json:"username"`
+		FirstName  string   `json:"first_name"`
+		LastName   string   `json:"last_name"`
 		AllowedIPs []string `json:"allowed_ips"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -612,6 +614,8 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	user.Username = req.Username
+	user.FirstName = req.FirstName
+	user.LastName = req.LastName
 	// Only update AllowedIPs if provided (or allow clearing if empty list is sent explicitly? JSON zero value is nil/empty)
 	// If the user sends [], it clears the list. If they don't send the field, it might be nil.
 	// But `req.AllowedIPs` will be nil if missing.

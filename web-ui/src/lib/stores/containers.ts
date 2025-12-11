@@ -78,7 +78,7 @@ const initialState: ContainersState = {
   containers: [],
   isLoading: false,
   error: null,
-  limit: 2,
+  limit: 5,
   creating: null,
 };
 
@@ -159,7 +159,7 @@ function createContainersStore() {
       update((state) => ({
         ...state,
         containers: data?.containers || [],
-        limit: data?.limit || 2,
+        limit: data?.limit || 5,
         isLoading: false,
         error: null,
       }));
@@ -940,7 +940,7 @@ function handleContainerEvent(event: {
       containers.update((state) => ({
         ...state,
         containers: containerData.containers || [],
-        limit: containerData.limit || 2,
+        limit: containerData.limit || 5,
         isLoading: false,
       }));
       break;

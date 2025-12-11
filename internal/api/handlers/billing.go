@@ -326,7 +326,7 @@ func (h *BillingHandler) GetPlans(c *gin.Context) {
 			"price":           0,
 			"container_limit": billing.TierLimits(billing.TierFree),
 			"features": []string{
-				"2 containers",
+				"5 containers",
 				"512 MB RAM per container",
 				"1 GB storage",
 				"Community support",
@@ -338,7 +338,7 @@ func (h *BillingHandler) GetPlans(c *gin.Context) {
 			"price":           9.99,
 			"container_limit": billing.TierLimits(billing.TierPro),
 			"features": []string{
-				"5 containers",
+				"10 containers",
 				"2 GB RAM per container",
 				"10 GB storage",
 				"Priority support",

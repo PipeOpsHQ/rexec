@@ -139,7 +139,7 @@
                     {/if}
 
                     <p class="limit-info">
-                        Container limit: <strong>{subscription?.container_limit || 2}</strong>
+                        Container limit: <strong>{subscription?.container_limit || 5}</strong>
                     </p>
                 </div>
 

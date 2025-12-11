@@ -802,6 +802,53 @@ func (h *ContainerHandler) Delete(c *gin.Context) {
 
 	ctx := context.Background()
 
+	// Handle agent terminals (id starts with "agent:")
+	if strings.HasPrefix(dockerID, "agent:") {
+		agentID := strings.TrimPrefix(dockerID, "agent:")
+		if h.agentHandler == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "agent handler not configured"})
+			return
+		}
+
+		// Verify ownership
+		agent, err := h.store.GetAgent(ctx, agentID)
+		if err != nil || agent == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+			return
+		}
+
+		if agent.UserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+			return
+		}
+
+		// Disconnect if online
+		h.agentHandler.agentsMu.Lock()
+		if conn, ok := h.agentHandler.agents[agentID]; ok {
+			conn.conn.Close()
+			delete(h.agentHandler.agents, agentID)
+		}
+		h.agentHandler.agentsMu.Unlock()
+
+		// Delete from database
+		if err := h.store.DeleteAgent(ctx, agentID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete agent"})
+			return
+		}
+
+		// Notify via WebSocket
+		if h.eventsHub != nil {
+			h.eventsHub.NotifyContainerDeleted(userID, dockerID, agentID)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "agent deleted",
+			"id":      dockerID,
+			"name":    agent.Name,
+		})
+		return
+	}
+
 	// Verify ownership
 	records, err := h.store.GetContainersByUserID(ctx, userID)
 	if err != nil {
@@ -1015,6 +1062,56 @@ func (h *ContainerHandler) Stop(c *gin.Context) {
 	}
 
 	ctx := context.Background()
+
+	// Handle agent terminals (id starts with "agent:")
+	// Agents can't be "stopped" in the traditional sense - they're either connected or not
+	// This endpoint will disconnect an active agent session
+	if strings.HasPrefix(dockerID, "agent:") {
+		agentID := strings.TrimPrefix(dockerID, "agent:")
+		if h.agentHandler == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "agent handler not configured"})
+			return
+		}
+
+		// Verify ownership
+		agent, err := h.store.GetAgent(ctx, agentID)
+		if err != nil || agent == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+			return
+		}
+
+		if agent.UserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+			return
+		}
+
+		// Disconnect if online (this is what "stop" means for agents)
+		h.agentHandler.agentsMu.Lock()
+		wasOnline := false
+		if conn, ok := h.agentHandler.agents[agentID]; ok {
+			conn.conn.Close()
+			delete(h.agentHandler.agents, agentID)
+			wasOnline = true
+		}
+		h.agentHandler.agentsMu.Unlock()
+
+		// Update status in database
+		h.store.DisconnectAgent(ctx, agentID)
+
+		status := "offline"
+		message := "agent disconnected"
+		if !wasOnline {
+			message = "agent was already offline"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": message,
+			"id":      dockerID,
+			"name":    agent.Name,
+			"status":  status,
+		})
+		return
+	}
 
 	// Verify ownership
 	records, err := h.store.GetContainersByUserID(ctx, userID)

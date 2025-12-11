@@ -5,6 +5,8 @@ export interface User {
   id: string;
   email: string;
   username: string; // Added username
+  firstName?: string;
+  lastName?: string;
   name: string;
   avatar?: string;
   tier: "guest" | "free" | "pro" | "enterprise";
