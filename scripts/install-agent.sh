@@ -383,6 +383,9 @@ system:
 reconnect_interval: 5s
 heartbeat_interval: 30s
 
+# Self-update (opt-in)
+# auto_update: false
+
 # Shell configuration
 shell: ${SHELL:-/bin/bash}
 working_dir: /root

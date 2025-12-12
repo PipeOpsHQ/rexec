@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -60,6 +61,7 @@ type AgentConfig struct {
 	Tags        []string `json:"tags,omitempty"`
 	Registered  bool     `json:"registered"`
 	AutoStart   bool     `json:"auto_start"`
+	AutoUpdate  bool     `json:"auto_update"`
 }
 
 // ShellSession represents a single shell/PTY session
@@ -168,13 +170,14 @@ func showHelp() {
   rexec-agent --config /etc/rexec/agent.yaml start
   rexec-agent status
 
-%sENVIRONMENT:%s
-  REXEC_TOKEN      Auth token
-  REXEC_HOST       API host
-  REXEC_API        API host (alternative)
-  REXEC_CONFIG     Config file path
+	%sENVIRONMENT:%s
+	  REXEC_TOKEN      Auth token
+	  REXEC_HOST       API host
+	  REXEC_API        API host (alternative)
+	  REXEC_CONFIG     Config file path
+	  REXEC_AUTO_UPDATE  Enable self-updates (true/false)
 
-`, Bold, Cyan, Reset,
+	`, Bold, Cyan, Reset,
 		Yellow, Reset,
 		Yellow, Reset,
 		Yellow, Reset,
@@ -243,6 +246,8 @@ func loadAgentConfig() (*AgentConfig, error) {
 				cfg.Name = value
 			case "shell":
 				cfg.Shell = value
+			case "auto_update":
+				cfg.AutoUpdate = parseBool(value)
 			}
 		}
 		cfg.Registered = cfg.Token != "" && (cfg.ID != "" || cfg.Host != "")
@@ -281,6 +286,205 @@ func loadAgentConfig() (*AgentConfig, error) {
 	return &cfg, nil
 }
 
+func parseBool(value string) bool {
+	v := strings.TrimSpace(strings.ToLower(strings.Trim(value, `"'`)))
+	return v == "true" || v == "1" || v == "yes" || v == "y" || v == "on"
+}
+
+// maybeAutoUpdate checks the server for a newer agent binary and swaps it in-place.
+// This is opt-in via config `auto_update: true` or env `REXEC_AUTO_UPDATE=true`.
+func maybeAutoUpdate(cfg *AgentConfig) {
+	enabled := cfg.AutoUpdate
+	if env := os.Getenv("REXEC_AUTO_UPDATE"); env != "" {
+		enabled = parseBool(env)
+	}
+	if !enabled {
+		return
+	}
+
+	latest, err := fetchLatestVersion(cfg.Host)
+	if err != nil || latest == "" {
+		log.Printf("[AutoUpdate] Could not check latest version: %v", err)
+		return
+	}
+
+	current := Version
+	if !strings.HasPrefix(current, "v") {
+		current = "v" + current
+	}
+	if !isNewerVersion(latest, current) {
+		return
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Printf("[AutoUpdate] Could not locate executable: %v", err)
+		return
+	}
+	if resolved, err := filepath.EvalSymlinks(exePath); err == nil {
+		exePath = resolved
+	}
+
+	suffix, err := platformSuffix()
+	if err != nil {
+		log.Printf("[AutoUpdate] Unsupported platform: %v", err)
+		return
+	}
+
+	downloadURL := strings.TrimRight(cfg.Host, "/") + "/downloads/rexec-agent-" + suffix
+	dir := filepath.Dir(exePath)
+
+	log.Printf("[AutoUpdate] Updating rexec-agent from %s to %s...", current, latest)
+	tmpPath, err := downloadToTemp(downloadURL, dir)
+	if err != nil {
+		log.Printf("[AutoUpdate] Download failed: %v", err)
+		return
+	}
+	defer os.Remove(tmpPath)
+
+	if !verifyDownloadedBinary(tmpPath, latest) {
+		log.Printf("[AutoUpdate] Verification failed; keeping current binary.")
+		return
+	}
+
+	// Preserve executable mode.
+	if fi, err := os.Stat(exePath); err == nil {
+		_ = os.Chmod(tmpPath, fi.Mode())
+	} else {
+		_ = os.Chmod(tmpPath, 0755)
+	}
+
+	if err := os.Rename(tmpPath, exePath); err != nil {
+		log.Printf("[AutoUpdate] Replace failed: %v", err)
+		return
+	}
+
+	log.Printf("[AutoUpdate] Updated to %s; restarting agent.", latest)
+	args := append([]string{exePath}, os.Args[1:]...)
+	if err := syscall.Exec(exePath, args, os.Environ()); err != nil {
+		log.Printf("[AutoUpdate] Restart failed: %v (new binary will be used on next start)", err)
+	}
+}
+
+func fetchLatestVersion(host string) (string, error) {
+	url := strings.TrimRight(host, "/") + "/api/version"
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var v struct {
+		Version string `json:"version"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(v.Version), nil
+}
+
+func isNewerVersion(latest, current string) bool {
+	lMaj, lMin, lPat, okL := parseSemver(latest)
+	cMaj, cMin, cPat, okC := parseSemver(current)
+	if !okL || !okC {
+		return false
+	}
+	if lMaj != cMaj {
+		return lMaj > cMaj
+	}
+	if lMin != cMin {
+		return lMin > cMin
+	}
+	return lPat > cPat
+}
+
+func parseSemver(v string) (int, int, int, bool) {
+	s := strings.TrimSpace(strings.TrimPrefix(v, "v"))
+	s = strings.SplitN(s, "-", 2)[0]
+	parts := strings.Split(s, ".")
+	if len(parts) == 0 {
+		return 0, 0, 0, false
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	minor, patch := 0, 0
+	if len(parts) > 1 {
+		minor, _ = strconv.Atoi(parts[1])
+	}
+	if len(parts) > 2 {
+		patch, _ = strconv.Atoi(parts[2])
+	}
+	return major, minor, patch, true
+}
+
+func platformSuffix() (string, error) {
+	osPart := runtime.GOOS
+	switch osPart {
+	case "linux", "darwin":
+	default:
+		return "", fmt.Errorf("unsupported os %q", osPart)
+	}
+
+	archPart := runtime.GOARCH
+	switch archPart {
+	case "amd64", "arm64":
+	case "arm":
+		archPart = "armv7"
+	default:
+		return "", fmt.Errorf("unsupported arch %q", archPart)
+	}
+
+	return osPart + "-" + archPart, nil
+}
+
+func downloadToTemp(downloadURL, dir string) (string, error) {
+	tmpFile, err := os.CreateTemp(dir, "rexec-agent-update-*")
+	if err != nil {
+		return "", err
+	}
+	tmpPath := tmpFile.Name()
+	defer tmpFile.Close()
+
+	client := &http.Client{Timeout: 2 * time.Minute}
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		os.Remove(tmpPath)
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("status %d", resp.StatusCode)
+	}
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		os.Remove(tmpPath)
+		return "", err
+	}
+
+	// Basic sanity check: non-empty binary.
+	if fi, err := os.Stat(tmpPath); err != nil || fi.Size() < 1024*1024 {
+		os.Remove(tmpPath)
+		return "", fmt.Errorf("downloaded file too small")
+	}
+
+	return tmpPath, nil
+}
+
+func verifyDownloadedBinary(path, expectedVersion string) bool {
+	out, err := exec.Command(path, "version").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	expectedNoV := strings.TrimPrefix(expectedVersion, "v")
+	return strings.Contains(string(out), expectedNoV)
+}
+
 func saveAgentConfig(cfg *AgentConfig) error {
 	configPath := getConfigPath()
 	dir := filepath.Dir(configPath)
@@ -300,6 +504,12 @@ func saveAgentConfig(cfg *AgentConfig) error {
 			"agent_id": cfg.ID,
 			"name":     cfg.Name,
 			"shell":    cfg.Shell,
+			"auto_update": func() string {
+				if cfg.AutoUpdate {
+					return "true"
+				}
+				return "false"
+			}(),
 		}
 		seen := make(map[string]bool)
 		out := make([]string, 0, len(lines))
@@ -493,6 +703,9 @@ func handleStart(args []string) {
 		fmt.Printf("%sNo agent_id found in config. Re-run 'rexec-agent register' or set agent_id in your config file.%s\n", Red, Reset)
 		os.Exit(1)
 	}
+
+	// Optional self-update on startup (opt-in).
+	maybeAutoUpdate(cfg)
 
 	// Check for --daemon flag
 	daemon := false
