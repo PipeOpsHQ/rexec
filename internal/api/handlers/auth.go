@@ -144,8 +144,13 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 		}
 	}
 
-	// Generate JWT token with 1-hour expiry
-	token, err := h.generateGuestToken(user)
+	// Generate JWT token with 1-hour expiry and tracked session.
+	sessionID, err := h.createUserSession(c, user)
+	if err != nil {
+		log.Printf("failed to create guest session record: %v", err)
+		sessionID = ""
+	}
+	token, err := h.generateToken(user, sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIError{
 			Code:    http.StatusInternalServerError,
@@ -428,8 +433,13 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
-	authToken, err := h.generateToken(user)
+	// Generate JWT token with tracked session
+	sessionID, err := h.createUserSession(c, user)
+	if err != nil {
+		log.Printf("failed to create session record: %v", err)
+		sessionID = ""
+	}
+	authToken, err := h.generateToken(user, sessionID)
 	if err != nil {
 		log.Printf("Failed to generate JWT token for OAuth user: %v", err)
 		c.Data(http.StatusInternalServerError, "text/html; charset=utf-8", []byte(renderOAuthErrorPage("token", "Failed to generate token")))
@@ -449,8 +459,25 @@ func (h *AuthHandler) OAuthExchange(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Use callback endpoint"})
 }
 
-// generateToken creates a JWT token for a user
-func (h *AuthHandler) generateToken(user *models.User) (string, error) {
+// createUserSession records a new login session and returns its ID.
+// If session tracking fails, caller may choose to proceed without a session ID.
+func (h *AuthHandler) createUserSession(c *gin.Context, user *models.User) (string, error) {
+	session := &models.UserSession{
+		ID:         uuid.New().String(),
+		UserID:     user.ID,
+		IPAddress:  c.ClientIP(),
+		UserAgent:  c.Request.UserAgent(),
+		CreatedAt:  time.Now(),
+		LastSeenAt: time.Now(),
+	}
+	if err := h.store.CreateUserSession(c.Request.Context(), session); err != nil {
+		return "", err
+	}
+	return session.ID, nil
+}
+
+// generateToken creates a JWT token for a user and optional session ID.
+func (h *AuthHandler) generateToken(user *models.User, sessionID string) (string, error) {
 	// Guest users get 1-hour tokens, authenticated users get 24-hour tokens
 	expiry := 24 * time.Hour
 	isGuest := user.Tier == "guest"
@@ -467,6 +494,9 @@ func (h *AuthHandler) generateToken(user *models.User) (string, error) {
 		"guest":               isGuest,
 		"exp":                 time.Now().Add(expiry).Unix(),
 		"iat":                 time.Now().Unix(),
+	}
+	if sessionID != "" {
+		claims["sid"] = sessionID
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -635,7 +665,15 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		h.adminEventsHub.Broadcast("user_updated", user)
 	}
 
-	token, err := h.generateToken(user)
+	sessionID := c.GetString("sessionID")
+	if sessionID == "" {
+		if sid, err := h.createUserSession(c, user); err == nil {
+			sessionID = sid
+		} else {
+			log.Printf("failed to create session record: %v", err)
+		}
+	}
+	token, err := h.generateToken(user, sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
@@ -1694,8 +1732,13 @@ func (h *AuthHandler) CompleteMFALogin(c *gin.Context) {
 		return
 	}
 
-	// MFA verified - generate full auth token
-	authToken, err := h.generateToken(user)
+	// MFA verified - generate full auth token with tracked session
+	sessionID, err := h.createUserSession(c, user)
+	if err != nil {
+		log.Printf("failed to create session record: %v", err)
+		sessionID = ""
+	}
+	authToken, err := h.generateToken(user, sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return

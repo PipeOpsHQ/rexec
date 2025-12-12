@@ -389,6 +389,9 @@ func runServer() {
 	// Initialize token handler for API tokens
 	tokenHandler := handlers.NewTokenHandler(store)
 
+	// Initialize sessions handler
+	sessionsHandler := handlers.NewSessionsHandler(store)
+
 	// Initialize admin handler
 	adminHandler := handlers.NewAdminHandler(store, adminEventsHub)
 
@@ -523,6 +526,14 @@ func runServer() {
 		api.DELETE("/security/passcode", securityHandler.RemovePasscode)
 		api.POST("/security/lock", securityHandler.Lock)
 		api.POST("/security/unlock", securityHandler.Unlock)
+
+		// Auth sessions
+		sessions := api.Group("/sessions")
+		{
+			sessions.GET("", sessionsHandler.List)
+			sessions.DELETE("/:id", sessionsHandler.Revoke)
+			sessions.POST("/revoke-others", sessionsHandler.RevokeOthers)
+		}
 
 		// MFA
 		mfa := api.Group("/mfa")

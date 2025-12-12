@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/rexec/rexec/internal/models"
@@ -258,7 +260,24 @@ func (h *SecurityHandler) Unlock(c *gin.Context) {
 		return
 	}
 
-	token, err := h.generateToken(user)
+	sessionID := c.GetString("sessionID")
+	if sessionID == "" {
+		sid := uuid.New().String()
+		if err := h.store.CreateUserSession(c.Request.Context(), &models.UserSession{
+			ID:         sid,
+			UserID:     user.ID,
+			IPAddress:  c.ClientIP(),
+			UserAgent:  c.Request.UserAgent(),
+			CreatedAt:  time.Now(),
+			LastSeenAt: time.Now(),
+		}); err != nil {
+			log.Printf("failed to create session record: %v", err)
+			sid = ""
+		}
+		sessionID = sid
+	}
+
+	token, err := h.generateToken(user, sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
 		return
@@ -279,7 +298,7 @@ func (h *SecurityHandler) Unlock(c *gin.Context) {
 	})
 }
 
-func (h *SecurityHandler) generateToken(user *models.User) (string, error) {
+func (h *SecurityHandler) generateToken(user *models.User, sessionID string) (string, error) {
 	expiry := 24 * time.Hour
 	isGuest := user.Tier == "guest"
 	if isGuest {
@@ -295,6 +314,9 @@ func (h *SecurityHandler) generateToken(user *models.User) (string, error) {
 		"guest":               isGuest,
 		"exp":                 time.Now().Add(expiry).Unix(),
 		"iat":                 time.Now().Unix(),
+	}
+	if sessionID != "" {
+		claims["sid"] = sessionID
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

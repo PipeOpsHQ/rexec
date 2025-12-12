@@ -31,6 +31,19 @@ type User struct {
 	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
+// UserSession represents an authenticated login session (JWT-backed).
+// Sessions are server-tracked to allow listing and revocation across devices.
+type UserSession struct {
+	ID            string     `json:"id"`
+	UserID        string     `json:"user_id,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	LastSeenAt    time.Time  `json:"last_seen_at"`
+	IPAddress     string     `json:"ip_address,omitempty"`
+	UserAgent     string     `json:"user_agent,omitempty"`
+	RevokedAt     *time.Time `json:"revoked_at,omitempty"`
+	RevokedReason string     `json:"revoked_reason,omitempty"`
+}
+
 // AuditLog represents a system audit log entry
 type AuditLog struct {
 	ID        string    `json:"id"`

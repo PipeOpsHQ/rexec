@@ -66,6 +66,18 @@ func (s *PostgresStore) migrate() error {
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		);
 
+		CREATE TABLE IF NOT EXISTS user_sessions (
+			id VARCHAR(36) PRIMARY KEY,
+			user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			ip_address VARCHAR(45),
+			user_agent TEXT,
+			token_issued_at TIMESTAMP WITH TIME ZONE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			last_seen_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			revoked_at TIMESTAMP WITH TIME ZONE,
+			revoked_reason TEXT
+		);
+
 	CREATE TABLE IF NOT EXISTS containers (
 		id VARCHAR(64) PRIMARY KEY,
 		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -97,6 +109,8 @@ func (s *PostgresStore) migrate() error {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+	CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+	CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked_at ON user_sessions(revoked_at);
 	CREATE INDEX IF NOT EXISTS idx_containers_user_id ON containers(user_id);
 	CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_ssh_keys_user_id ON ssh_keys(user_id);
@@ -2252,6 +2266,137 @@ func (s *PostgresStore) GetUserMFASecret(ctx context.Context, userID string) (st
 	}
 
 	return s.encryptor.Decrypt(secret)
+}
+
+// ============================================================================
+// User Sessions (auth)
+// ============================================================================
+
+// CreateUserSession inserts a new tracked login session.
+func (s *PostgresStore) CreateUserSession(ctx context.Context, session *models.UserSession) error {
+	query := `
+		INSERT INTO user_sessions (id, user_id, ip_address, user_agent, token_issued_at, created_at, last_seen_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err := s.db.ExecContext(ctx, query,
+		session.ID,
+		session.UserID,
+		session.IPAddress,
+		session.UserAgent,
+		session.CreatedAt,
+		session.CreatedAt,
+		session.LastSeenAt,
+	)
+	return err
+}
+
+// ListUserSessions returns all sessions for a user, newest first.
+func (s *PostgresStore) ListUserSessions(ctx context.Context, userID string) ([]*models.UserSession, error) {
+	query := `
+		SELECT id, user_id, COALESCE(ip_address, ''), COALESCE(user_agent, ''), created_at,
+		       COALESCE(last_seen_at, created_at), revoked_at, COALESCE(revoked_reason, '')
+		FROM user_sessions
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []*models.UserSession
+	for rows.Next() {
+		var srec models.UserSession
+		var revokedAt sql.NullTime
+		if err := rows.Scan(
+			&srec.ID,
+			&srec.UserID,
+			&srec.IPAddress,
+			&srec.UserAgent,
+			&srec.CreatedAt,
+			&srec.LastSeenAt,
+			&revokedAt,
+			&srec.RevokedReason,
+		); err != nil {
+			return nil, err
+		}
+		if revokedAt.Valid {
+			srec.RevokedAt = &revokedAt.Time
+		}
+		sessions = append(sessions, &srec)
+	}
+	return sessions, nil
+}
+
+// GetUserSession fetches a session by ID.
+func (s *PostgresStore) GetUserSession(ctx context.Context, sessionID string) (*models.UserSession, error) {
+	query := `
+		SELECT id, user_id, COALESCE(ip_address, ''), COALESCE(user_agent, ''), created_at,
+		       COALESCE(last_seen_at, created_at), revoked_at, COALESCE(revoked_reason, '')
+		FROM user_sessions WHERE id = $1
+	`
+	var srec models.UserSession
+	var revokedAt sql.NullTime
+	err := s.db.QueryRowContext(ctx, query, sessionID).Scan(
+		&srec.ID,
+		&srec.UserID,
+		&srec.IPAddress,
+		&srec.UserAgent,
+		&srec.CreatedAt,
+		&srec.LastSeenAt,
+		&revokedAt,
+		&srec.RevokedReason,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if revokedAt.Valid {
+		srec.RevokedAt = &revokedAt.Time
+	}
+	return &srec, nil
+}
+
+// TouchUserSession updates last_seen_at and refreshes IP/UA at most once per minute.
+func (s *PostgresStore) TouchUserSession(ctx context.Context, sessionID, ip, ua string) error {
+	query := `
+		UPDATE user_sessions
+		SET last_seen_at = NOW(),
+		    ip_address = $2,
+		    user_agent = $3
+		WHERE id = $1
+		  AND revoked_at IS NULL
+		  AND (last_seen_at IS NULL OR last_seen_at < NOW() - INTERVAL '1 minute')
+	`
+	_, err := s.db.ExecContext(ctx, query, sessionID, ip, ua)
+	return err
+}
+
+// RevokeUserSession marks a session as revoked.
+func (s *PostgresStore) RevokeUserSession(ctx context.Context, userID, sessionID, reason string) error {
+	query := `
+		UPDATE user_sessions
+		SET revoked_at = NOW(),
+		    revoked_reason = $3
+		WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL
+	`
+	_, err := s.db.ExecContext(ctx, query, sessionID, userID, reason)
+	return err
+}
+
+// RevokeOtherUserSessions revokes all sessions except the current one.
+func (s *PostgresStore) RevokeOtherUserSessions(ctx context.Context, userID, currentSessionID, reason string) error {
+	query := `
+		UPDATE user_sessions
+		SET revoked_at = NOW(),
+		    revoked_reason = $3
+		WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL
+	`
+	_, err := s.db.ExecContext(ctx, query, userID, currentSessionID, reason)
+	return err
 }
 
 // ============================================================================

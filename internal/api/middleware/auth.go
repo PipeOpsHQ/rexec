@@ -135,6 +135,7 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, j
 		email, email_ok := claims["email"].(string)
 		exp, exp_ok := claims["exp"].(float64)
 		iat, _ := claims["iat"].(float64)
+		sessionID, _ := claims["sid"].(string)
 
 		// Check if this is an MFA pending token
 		mfaPending, _ := claims["mfa_pending"].(bool)
@@ -201,6 +202,19 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, j
 
 		// Store full user object in context for later use (e.g., in AdminOnly middleware)
 		c.Set("user", user)
+
+		// --- Session revocation enforcement ---
+		if sessionID != "" {
+			srec, err := store.GetUserSession(reqCtx, sessionID)
+			if err != nil || srec == nil || srec.UserID != userID || srec.RevokedAt != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "session_revoked"})
+				c.Abort()
+				return
+			}
+			// Touch last seen (best effort, throttled in store).
+			_ = store.TouchUserSession(reqCtx, sessionID, c.ClientIP(), c.Request.UserAgent())
+			c.Set("sessionID", sessionID)
+		}
 
 		// --- Server-enforced screen lock ---
 		// If the account is locked after this token was issued, block access with 423.

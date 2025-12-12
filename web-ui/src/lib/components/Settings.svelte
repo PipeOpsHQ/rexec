@@ -28,6 +28,12 @@
   let passcodeError = '';
   let isChangingPasscode = false;
 
+  // Sessions state
+  let showSessionsModal = false;
+  let sessionsLoading = false;
+  let sessionsError = '';
+  let sessions: any[] = [];
+
   // MFA state
   let showMFAModal = false;
   let mfaStep: 'intro' | 'setup' | 'verify' | 'disable' = 'intro';
@@ -442,6 +448,74 @@
     }
   }
 
+  // Sessions Functions
+  async function openSessionsModal() {
+    showSessionsModal = true;
+    sessionsLoading = true;
+    sessionsError = '';
+    try {
+      const res = await fetch('/api/sessions', {
+        headers: { Authorization: `Bearer ${$auth.token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load sessions');
+      const data = await res.json();
+      sessions = data.sessions || [];
+    } catch (e: any) {
+      sessionsError = e.message || 'Failed to load sessions';
+    } finally {
+      sessionsLoading = false;
+    }
+  }
+
+  function closeSessionsModal() {
+    showSessionsModal = false;
+    sessionsError = '';
+    sessions = [];
+  }
+
+  async function revokeSession(sessionId: string, isCurrent: boolean) {
+    if (!confirm('Revoke this session?')) return;
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${$auth.token}`
+        }
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to revoke session');
+      }
+      sessions = sessions.map(s => s.id === sessionId ? { ...s, revoked_at: new Date().toISOString(), revoked_reason: 'revoked_by_user' } : s);
+      toast.success('Session revoked');
+      if (isCurrent) {
+        auth.logout();
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to revoke session');
+    }
+  }
+
+  async function revokeOtherSessions() {
+    if (!confirm('Revoke all other sessions?')) return;
+    try {
+      const res = await fetch('/api/sessions/revoke-others', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${$auth.token}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to revoke sessions');
+      // Refresh list
+      await openSessionsModal();
+      toast.success('Other sessions revoked');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to revoke sessions');
+    }
+  }
+
   // Load on mount
   loadSettings();
 </script>
@@ -743,6 +817,18 @@
         <div class="setting-value">
           <button class="btn btn-secondary btn-sm" onclick={openAuditModal}>
             View Logs
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <label>Active Sessions</label>
+          <span class="setting-description">Manage devices logged into your account</span>
+        </div>
+        <div class="setting-value">
+          <button class="btn btn-secondary btn-sm" onclick={openSessionsModal}>
+            Manage Sessions
           </button>
         </div>
       </div>
@@ -1193,6 +1279,79 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" onclick={() => showAuditModal = false}>Close</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Sessions Modal -->
+{#if showSessionsModal}
+  <div class="modal-overlay" onclick={(e) => e.target === e.currentTarget && closeSessionsModal()}>
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>Active Sessions</h3>
+        <button class="modal-close" onclick={closeSessionsModal}>×</button>
+      </div>
+      <div class="modal-body">
+        {#if sessionsLoading}
+          <div class="loading-text">Loading sessions...</div>
+        {:else if sessions.length === 0}
+          <div class="empty-text">No sessions found</div>
+        {:else}
+          <div class="sessions-list">
+            {#each sessions as s (s.id)}
+              <div class="session-row" class:current={s.is_current}>
+                <div class="session-meta">
+                  <div class="session-ua">{s.user_agent || 'Unknown device'}</div>
+                  <div class="session-details">
+                    <span>{s.ip_address || 'Unknown IP'}</span>
+                    <span>•</span>
+                    <span>Started {new Date(s.created_at).toLocaleString()}</span>
+                    <span>•</span>
+                    <span>Last active {new Date(s.last_seen_at).toLocaleString()}</span>
+                  </div>
+                  {#if s.revoked_at}
+                    <div class="session-revoked">
+                      Revoked {new Date(s.revoked_at).toLocaleString()}
+                    </div>
+                  {/if}
+                  {#if s.is_current}
+                    <div class="session-current-badge">Current session</div>
+                  {/if}
+                </div>
+                <div class="session-actions">
+                  {#if !s.revoked_at}
+                    <button
+                      class="btn btn-danger btn-sm"
+                      onclick={() => revokeSession(s.id, s.is_current)}
+                    >
+                      Revoke
+                    </button>
+                  {:else}
+                    <button class="btn btn-secondary btn-sm" disabled>
+                      Revoked
+                    </button>
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        {#if sessionsError}
+          <p class="error-text">{sessionsError}</p>
+        {/if}
+      </div>
+      <div class="modal-footer">
+        <button
+          class="btn btn-secondary"
+          onclick={revokeOtherSessions}
+          disabled={sessionsLoading || sessions.length === 0}
+        >
+          Revoke Others
+        </button>
+        <button class="btn btn-primary" onclick={closeSessionsModal}>
+          Close
+        </button>
       </div>
     </div>
   </div>
@@ -2157,6 +2316,64 @@
     text-align: center;
     padding: 20px;
     color: var(--text-muted);
+  }
+
+  /* Sessions modal */
+  .sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .session-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .session-row.current {
+    border-color: var(--accent);
+    box-shadow: var(--accent-glow);
+  }
+
+  .session-meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .session-ua {
+    font-size: 12px;
+    color: var(--text);
+    word-break: break-word;
+  }
+
+  .session-details {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .session-current-badge {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .session-revoked {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .session-actions {
+    flex-shrink: 0;
   }
 
   .profile-names {
