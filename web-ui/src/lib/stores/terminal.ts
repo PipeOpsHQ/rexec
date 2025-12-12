@@ -1,12 +1,13 @@
 import { writable, derived, get } from "svelte/store";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebglAddon } from "@xterm/addon-webgl";
+import type { Terminal } from "@xterm/xterm";
+import type { FitAddon } from "@xterm/addon-fit";
+import type { Unicode11Addon } from "@xterm/addon-unicode11";
+import type { WebLinksAddon } from "@xterm/addon-web-links";
+import type { WebglAddon } from "@xterm/addon-webgl";
 import { token } from "./auth";
 import { toast } from "./toast";
 import { theme } from "./theme";
+import { loadXtermCore, loadXtermWebgl } from "$utils/xterm";
 
 // Types
 export type SessionStatus =
@@ -460,7 +461,7 @@ function createTerminalStore() {
     getState,
 
     // Create a new terminal session (reuses existing session for same container)
-    createSession(containerId: string, name: string): string | null {
+    async createSession(containerId: string, name: string): Promise<string | null> {
       const currentState = getState();
 
       // Validate inputs
@@ -492,11 +493,11 @@ function createTerminalStore() {
       }
 
       // Create a new tab
-      return this.createNewTab(containerId, sessionName);
+      return await this.createNewTab(containerId, sessionName);
     },
 
     // Create a new tab (always creates a new session, even for same container)
-    createNewTab(containerId: string, name: string): string | null {
+    async createNewTab(containerId: string, name: string): Promise<string | null> {
       const authToken = get(token);
       if (!authToken) return null;
 
@@ -519,17 +520,41 @@ function createTerminalStore() {
       ).length;
 
       // Create terminal instance
-      const terminal = new Terminal(TERMINAL_OPTIONS);
-      const fitAddon = new FitAddon();
-      terminal.loadAddon(fitAddon);
-      terminal.loadAddon(new WebLinksAddon());
-      // Unicode11 addon for proper Unicode character widths (emojis, CJK, etc.)
-      const unicode11Addon = new Unicode11Addon();
-      terminal.loadAddon(unicode11Addon);
-      terminal.unicode.activeVersion = "11";
-      
-      // Attach custom key handler (browser overrides + macOS mapping)
-      terminal.attachCustomKeyEventHandler(createCustomKeyHandler(terminal));
+      let XtermTerminal: (typeof import("@xterm/xterm"))["Terminal"];
+      let XtermFitAddon: (typeof import("@xterm/addon-fit"))["FitAddon"];
+      let XtermUnicode11Addon: (typeof import("@xterm/addon-unicode11"))["Unicode11Addon"];
+      let XtermWebLinksAddon: (typeof import("@xterm/addon-web-links"))["WebLinksAddon"];
+      try {
+        ({
+          Terminal: XtermTerminal,
+          FitAddon: XtermFitAddon,
+          Unicode11Addon: XtermUnicode11Addon,
+          WebLinksAddon: XtermWebLinksAddon,
+        } = await loadXtermCore());
+      } catch (e) {
+        console.error("[Terminal] Failed to load xterm:", e);
+        toast.error("Failed to load terminal. Please refresh and try again.");
+        return null;
+      }
+      let terminal: Terminal;
+      let fitAddon: FitAddon;
+      try {
+        terminal = new XtermTerminal(TERMINAL_OPTIONS);
+        fitAddon = new XtermFitAddon();
+        terminal.loadAddon(fitAddon);
+        terminal.loadAddon(new XtermWebLinksAddon());
+        // Unicode11 addon for proper Unicode character widths (emojis, CJK, etc.)
+        const unicode11Addon = new XtermUnicode11Addon();
+        terminal.loadAddon(unicode11Addon);
+        terminal.unicode.activeVersion = "11";
+
+        // Attach custom key handler (browser overrides + macOS mapping)
+        terminal.attachCustomKeyEventHandler(createCustomKeyHandler(terminal));
+      } catch (e) {
+        console.error("[Terminal] Failed to initialize terminal:", e);
+        toast.error("Failed to initialize terminal. Please try again.");
+        return null;
+      }
 
       // WebGL addon will be loaded after terminal is attached to DOM
 
@@ -596,13 +621,13 @@ function createTerminalStore() {
     },
 
     // Create a collab session (joined via share link)
-    createCollabSession(
+    async createCollabSession(
       containerId: string,
       name: string,
       mode: "view" | "control",
       role: "owner" | "editor" | "viewer",
-    ): string | null {
-      const sessionId = this.createSession(containerId, name);
+    ): Promise<string | null> {
+      const sessionId = await this.createSession(containerId, name);
       if (!sessionId) return null;
 
       // Mark as collab session with mode/role
@@ -617,12 +642,12 @@ function createTerminalStore() {
     },
 
     // Create an agent session (external machine connected via agent)
-    createAgentSession(agentId: string, name: string): string | null {
+    async createAgentSession(agentId: string, name: string): Promise<string | null> {
       const authToken = get(token);
       if (!authToken) return null;
 
       // Use agentId as the containerId for consistency
-      const sessionId = this.createNewTab(`agent:${agentId}`, `[Agent] ${name}`);
+      const sessionId = await this.createNewTab(`agent:${agentId}`, `[Agent] ${name}`);
       if (!sessionId) return null;
 
       // Mark as agent session
@@ -1613,21 +1638,32 @@ function createTerminalStore() {
         }
       });
 
-      // Try to load WebGL addon for GPU-accelerated rendering
-      // This significantly improves performance with large outputs
-      try {
-        const webglAddon = new WebglAddon();
-        webglAddon.onContextLoss(() => {
-          // WebGL context lost, dispose and fall back to canvas renderer
-          webglAddon.dispose();
-          updateSession(sessionId, (s) => ({ ...s, webglAddon: null }));
+      // Try to load WebGL addon for GPU-accelerated rendering (best-effort)
+      // This significantly improves performance with large outputs.
+      loadXtermWebgl()
+        .then(({ WebglAddon: XtermWebglAddon }) => {
+          const current = getState().sessions.get(sessionId);
+          if (!current) return;
+          if (current.webglAddon) return;
+
+          try {
+            const webglAddon = new XtermWebglAddon();
+            webglAddon.onContextLoss(() => {
+              webglAddon.dispose();
+              updateSession(sessionId, (s) => ({ ...s, webglAddon: null }));
+            });
+            current.terminal.loadAddon(webglAddon);
+            updateSession(sessionId, (s) => ({ ...s, webglAddon }));
+          } catch (e) {
+            console.warn(
+              "WebGL addon not available, using canvas renderer:",
+              e,
+            );
+          }
+        })
+        .catch(() => {
+          // Ignore (WebGL module may not be supported in some environments)
         });
-        session.terminal.loadAddon(webglAddon);
-        updateSession(sessionId, (s) => ({ ...s, webglAddon }));
-      } catch (e) {
-        // WebGL not available, terminal will use canvas renderer
-        console.warn("WebGL addon not available, using canvas renderer:", e);
-      }
 
       // Setup resize observer
       if (window.ResizeObserver) {
@@ -1940,10 +1976,10 @@ function createTerminalStore() {
     },
 
     // Split the current terminal view (creates a new INDEPENDENT terminal session to the same container)
-    splitPane(
+    async splitPane(
       sessionId: string,
       direction: SplitDirection = "horizontal",
-    ): string | null {
+    ): Promise<string | null> {
       const state = getState();
       const session = state.sessions.get(sessionId);
       if (!session) return null;
@@ -1952,17 +1988,43 @@ function createTerminalStore() {
       if (!authToken) return null;
 
       // Create a new terminal instance with its OWN WebSocket connection
-      const newTerminal = new Terminal(TERMINAL_OPTIONS);
-      const newFitAddon = new FitAddon();
-      newTerminal.loadAddon(newFitAddon);
-      newTerminal.loadAddon(new WebLinksAddon());
-      // Unicode11 addon for proper Unicode character widths
-      const unicode11Addon = new Unicode11Addon();
-      newTerminal.loadAddon(unicode11Addon);
-      newTerminal.unicode.activeVersion = "11";
-      
-      // Attach custom key handler (browser overrides + macOS mapping)
-      newTerminal.attachCustomKeyEventHandler(createCustomKeyHandler(newTerminal));
+      let XtermTerminal: (typeof import("@xterm/xterm"))["Terminal"];
+      let XtermFitAddon: (typeof import("@xterm/addon-fit"))["FitAddon"];
+      let XtermUnicode11Addon: (typeof import("@xterm/addon-unicode11"))["Unicode11Addon"];
+      let XtermWebLinksAddon: (typeof import("@xterm/addon-web-links"))["WebLinksAddon"];
+      try {
+        ({
+          Terminal: XtermTerminal,
+          FitAddon: XtermFitAddon,
+          Unicode11Addon: XtermUnicode11Addon,
+          WebLinksAddon: XtermWebLinksAddon,
+        } = await loadXtermCore());
+      } catch (e) {
+        console.error("[Terminal] Failed to load xterm:", e);
+        toast.error("Failed to open split pane. Please try again.");
+        return null;
+      }
+      let newTerminal: Terminal;
+      let newFitAddon: FitAddon;
+      try {
+        newTerminal = new XtermTerminal(TERMINAL_OPTIONS);
+        newFitAddon = new XtermFitAddon();
+        newTerminal.loadAddon(newFitAddon);
+        newTerminal.loadAddon(new XtermWebLinksAddon());
+        // Unicode11 addon for proper Unicode character widths
+        const unicode11Addon = new XtermUnicode11Addon();
+        newTerminal.loadAddon(unicode11Addon);
+        newTerminal.unicode.activeVersion = "11";
+
+        // Attach custom key handler (browser overrides + macOS mapping)
+        newTerminal.attachCustomKeyEventHandler(
+          createCustomKeyHandler(newTerminal),
+        );
+      } catch (e) {
+        console.error("[Terminal] Failed to initialize split pane:", e);
+        toast.error("Failed to open split pane. Please try again.");
+        return null;
+      }
 
       const paneId = this._generatePaneId();
       const newPane: SplitPane = {
@@ -2345,17 +2407,26 @@ function createTerminalStore() {
 
       pane.terminal.open(element);
 
-      // Try to load WebGL addon
-      try {
-        const webglAddon = new WebglAddon();
-        webglAddon.onContextLoss(() => {
-          webglAddon.dispose();
+      // Try to load WebGL addon (best-effort)
+      loadXtermWebgl()
+        .then(({ WebglAddon: XtermWebglAddon }) => {
+          const current = getState().sessions.get(sessionId);
+          const currentPane = current?.splitPanes.get(paneId);
+          if (!currentPane) return;
+          if (currentPane.webglAddon) return;
+
+          try {
+            const webglAddon = new XtermWebglAddon();
+            webglAddon.onContextLoss(() => webglAddon.dispose());
+            currentPane.terminal.loadAddon(webglAddon);
+            currentPane.webglAddon = webglAddon;
+          } catch (e) {
+            console.warn("WebGL addon not available for split pane:", e);
+          }
+        })
+        .catch(() => {
+          // Ignore
         });
-        pane.terminal.loadAddon(webglAddon);
-        pane.webglAddon = webglAddon;
-      } catch (e) {
-        console.warn("WebGL addon not available for split pane:", e);
-      }
 
       // Setup resize observer
       if (window.ResizeObserver) {

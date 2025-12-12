@@ -1,6 +1,5 @@
 import { writable, derived, get } from "svelte/store";
 import { token } from "./auth";
-import { terminal } from "./terminal";
 
 // Types
 export interface ContainerResources {
@@ -685,7 +684,11 @@ function createContainersStore() {
       // Handle recreated container (new ID)
       if (data?.recreated && data.id !== id) {
         // Update any active terminal sessions for this container
-        terminal.updateSessionContainerId(id, data.id);
+        import("./terminal")
+          .then(({ terminal }) => terminal.updateSessionContainerId(id, data.id))
+          .catch(() => {
+            // Ignore - terminal store may not be loaded in some flows
+          });
         
         update((state) => ({
           ...state,

@@ -110,11 +110,11 @@ export default defineConfig({
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
-        manualChunks: {
-          // Split xterm into its own chunk (large library)
-          'xterm': ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl', '@xterm/addon-web-links', '@xterm/addon-unicode11'],
-          // Svelte runtime
-          'svelte': ['svelte'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          if (id.includes('@xterm/')) return 'xterm';
+          if (id.includes('/svelte/') || id.includes('node_modules/svelte')) return 'svelte';
+          return 'vendor';
         },
       },
     },

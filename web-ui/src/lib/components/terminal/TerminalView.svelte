@@ -147,17 +147,17 @@
         showAddMenu = false;
     }
 
-    function connectToAvailable(container: Container) {
+    async function connectToAvailable(container: Container) {
         const isAgent = container.session_type === "agent" || container.id.startsWith("agent:");
         if (isAgent) {
             const agentId = container.id.replace(/^agent:/, "");
-            const sid = terminal.createAgentSession(agentId, container.name);
+            const sid = await terminal.createAgentSession(agentId, container.name);
             if (!sid) {
                 toast.error("Failed to connect to agent terminal");
                 return;
             }
         } else {
-            terminal.createSession(container.id, container.name);
+            await terminal.createSession(container.id, container.name);
         }
         showAddMenu = false;
         toast.success(`Connected to ${container.name}`);

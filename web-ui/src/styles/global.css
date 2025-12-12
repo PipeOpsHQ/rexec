@@ -1,8 +1,5 @@
 /* Rexec Global Styles */
 
-/* XTerm.js styles */
-@import "@xterm/xterm/css/xterm.css";
-
 * {
     margin: 0;
     padding: 0;

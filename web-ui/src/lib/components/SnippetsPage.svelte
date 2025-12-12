@@ -6,6 +6,60 @@
     import ConfirmModal from "./ConfirmModal.svelte";
 
     declare const ace: any; // Declare ace to avoid TypeScript errors
+    const ACE_VERSION = "1.33.0";
+    const ACE_BASE = `https://cdnjs.cloudflare.com/ajax/libs/ace/${ACE_VERSION}/`;
+    let aceLoadPromise: Promise<void> | null = null;
+
+    function loadScript(src: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector<HTMLScriptElement>(
+                `script[src="${src}"]`,
+            );
+            if (existing) {
+                if ((existing as any)._rexecLoaded) {
+                    resolve();
+                    return;
+                }
+                existing.addEventListener("load", () => resolve(), { once: true });
+                existing.addEventListener(
+                    "error",
+                    () => reject(new Error(`Failed to load ${src}`)),
+                    { once: true },
+                );
+                return;
+            }
+
+            const script = document.createElement("script");
+            script.src = src;
+            script.async = true;
+            script.onload = () => {
+                (script as any)._rexecLoaded = true;
+                resolve();
+            };
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function ensureAceLoaded(): Promise<void> {
+        if (typeof window === "undefined") return;
+        if ((window as any).ace) return;
+
+        if (!aceLoadPromise) {
+            aceLoadPromise = (async () => {
+                await loadScript(`${ACE_BASE}ace.js`);
+                await Promise.all([
+                    loadScript(`${ACE_BASE}mode-sh.js`),
+                    loadScript(`${ACE_BASE}theme-dracula.js`),
+                ]);
+            })().catch((err) => {
+                aceLoadPromise = null;
+                throw err;
+            });
+        }
+
+        await aceLoadPromise;
+    }
 
     const dispatch = createEventDispatcher<{
         back: void;
@@ -66,20 +120,43 @@
     });
 
     // Reactive statement to initialize editor when the form is shown
-    $: if (showCreate && editorElement && typeof ace !== 'undefined' && !editor) {
-        editor = ace.edit(editorElement);
-        editor.setTheme("ace/theme/dracula");
-        editor.session.setMode("ace/mode/sh"); // Bash syntax highlighting
-        editor.session.setUseWrapMode(true);
-        editor.setShowPrintMargin(false);
-        editor.setFontSize("13px");
+    $: if (showCreate && editorElement && !editor) {
+        ensureAceLoaded()
+            .then(() => {
+                if (!showCreate || !editorElement || editor) return;
+                if (typeof ace === "undefined") {
+                    throw new Error("Ace editor not available after load");
+                }
 
-        // Update newContent when editor content changes
-        editor.session.on("change", () => {
-            newContent = editor.getValue();
-        });
-        // Set initial content
-        editor.setValue(newContent, -1); // -1 to move cursor to start
+                editor = ace.edit(editorElement);
+                editor.setTheme("ace/theme/dracula");
+                editor.session.setMode("ace/mode/sh"); // Bash syntax highlighting
+                editor.session.setUseWrapMode(true);
+                editor.setShowPrintMargin(false);
+                editor.setFontSize("13px");
+
+                // Update newContent when editor content changes
+                editor.session.on("change", () => {
+                    newContent = editor.getValue();
+                });
+                // Set initial content
+                editor.setValue(newContent, -1); // -1 to move cursor to start
+            })
+            .catch((err) => {
+                console.error("[Snippets] Failed to load Ace editor:", err);
+                toast.error("Failed to load editor. Please try again.");
+            });
+    }
+
+    // Destroy editor when the form is closed (avoids stale DOM refs + reduces memory)
+    $: if (!showCreate && editor) {
+        try {
+            editor.destroy();
+            editor.container?.remove?.();
+        } catch (e) {
+            // Ignore
+        }
+        editor = null;
     }
 
     // Update editor content when newContent changes programmatically (e.g. after save/clear)

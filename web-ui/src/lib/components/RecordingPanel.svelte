@@ -4,8 +4,9 @@
   import { recordings, type Recording } from '../stores/recordings';
   import { token } from '../stores/auth';
   import { slide } from 'svelte/transition';
-  import { Terminal } from '@xterm/xterm';
-  import { FitAddon } from '@xterm/addon-fit';
+  import type { Terminal } from '@xterm/xterm';
+  import type { FitAddon } from '@xterm/addon-fit';
+  import { loadXtermCore } from '$utils/xterm';
 
   export let containerId: string = '';
   export let isOpen = false;
@@ -119,7 +120,15 @@
     
     // Initialize player terminal
     if (playerElement && !playerTerminal) {
-      playerTerminal = new Terminal({
+      let XtermTerminal: (typeof import("@xterm/xterm"))["Terminal"];
+      let XtermFitAddon: (typeof import("@xterm/addon-fit"))["FitAddon"];
+      try {
+        ({ Terminal: XtermTerminal, FitAddon: XtermFitAddon } = await loadXtermCore());
+      } catch (e) {
+        console.error("[Recording] Failed to load xterm:", e);
+        return;
+      }
+      playerTerminal = new XtermTerminal({
         theme: {
           background: '#0a0a14',
           foreground: '#e0e0e0',
@@ -140,7 +149,7 @@
         scrollback: 1000,
       });
       
-      fitAddon = new FitAddon();
+      fitAddon = new XtermFitAddon();
       playerTerminal.loadAddon(fitAddon);
       playerTerminal.open(playerElement);
       fitAddon.fit();
