@@ -2,7 +2,7 @@
     import { onMount, onDestroy, tick } from "svelte";
     import { terminal, sessionCount, isFloating, isFullscreen } from "$stores/terminal";
     import { toast } from "$stores/toast";
-    import { containers } from "$stores/containers";
+    import { containers, type Container } from "$stores/containers";
     import TerminalPanel from "./TerminalPanel.svelte";
     import InlineCreateTerminal from "../InlineCreateTerminal.svelte";
     import RecordingPanel from "../RecordingPanel.svelte";
@@ -147,10 +147,20 @@
         showAddMenu = false;
     }
 
-    function connectToTerminal(containerId: string, name: string) {
-        terminal.createSession(containerId, name);
+    function connectToAvailable(container: Container) {
+        const isAgent = container.session_type === "agent" || container.id.startsWith("agent:");
+        if (isAgent) {
+            const agentId = container.id.replace(/^agent:/, "");
+            const sid = terminal.createAgentSession(agentId, container.name);
+            if (!sid) {
+                toast.error("Failed to connect to agent terminal");
+                return;
+            }
+        } else {
+            terminal.createSession(container.id, container.name);
+        }
         showAddMenu = false;
-        toast.success(`Connected to ${name}`);
+        toast.success(`Connected to ${container.name}`);
     }
 
     // Floating drag handlers
@@ -1214,12 +1224,17 @@
                     <div class="add-menu-label">Connect to available terminal</div>
                     <div class="add-menu-sessions">
                         {#each availableTerminals as container}
+                            {@const isAgentAvailable = container.session_type === 'agent' || container.id.startsWith('agent:')}
                             <button 
                                 class="add-menu-item"
-                                onclick={() => connectToTerminal(container.id, container.name)}
+                                class:agent-item={isAgentAvailable}
+                                onclick={() => connectToAvailable(container)}
                             >
-                                <span class="menu-icon status-dot running"></span>
+                                <span class="menu-icon status-dot running" class:agent-dot={isAgentAvailable}></span>
                                 <span>{container.name}</span>
+                                {#if isAgentAvailable}
+                                    <span class="agent-badge">Agent</span>
+                                {/if}
                             </button>
                         {/each}
                     </div>
@@ -1230,13 +1245,18 @@
                     <div class="add-menu-label">Switch to connected session</div>
                     <div class="add-menu-sessions">
                         {#each sessions as [id, session]}
+                            {@const isAgentSessionItem = session.isAgentSession}
                             <button 
                                 class="add-menu-item" 
                                 class:active={id === activeId}
+                                class:agent-item={isAgentSessionItem}
                                 onclick={() => selectExistingSession(id)}
                             >
-                                <span class="menu-icon status-dot {session.status}"></span>
+                                <span class="menu-icon status-dot {session.status}" class:agent-dot={isAgentSessionItem}></span>
                                 <span>{session.name}</span>
+                                {#if isAgentSessionItem}
+                                    <span class="agent-badge">Agent</span>
+                                {/if}
                                 {#if id === activeId}
                                     <span class="current-badge">Current</span>
                                 {/if}
@@ -1367,9 +1387,23 @@
         background: rgba(0, 255, 65, 0.15);
     }
 
+    .add-menu-item.agent-item {
+        background: rgba(168, 85, 247, 0.08);
+        border: 1px solid rgba(168, 85, 247, 0.25);
+    }
+
+    .add-menu-item.agent-item:hover {
+        background: rgba(168, 85, 247, 0.12);
+    }
+
     .add-menu-item.active {
         background: rgba(0, 255, 65, 0.1);
         color: var(--accent);
+    }
+
+    .add-menu-item.agent-item.active {
+        background: rgba(168, 85, 247, 0.12);
+        color: #a855f7;
     }
 
     .add-menu-item .menu-icon {
@@ -1394,8 +1428,28 @@
         box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
     }
 
+    .add-menu-item .status-dot.agent-dot {
+        background: #a855f7;
+        box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+    }
+
+    .add-menu-item.agent-item .menu-icon {
+        color: #a855f7;
+    }
+
     .add-menu-item .status-dot.disconnected {
         background: var(--text-muted);
+    }
+
+    .agent-badge {
+        margin-left: auto;
+        padding: 2px 8px;
+        background: rgba(168, 85, 247, 0.12);
+        color: #a855f7;
+        font-size: 10px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .current-badge {
@@ -1407,6 +1461,11 @@
         border-radius: 4px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+
+    .add-menu-item.agent-item .current-badge {
+        background: rgba(168, 85, 247, 0.15);
+        color: #a855f7;
     }
 
     .add-menu-divider {
