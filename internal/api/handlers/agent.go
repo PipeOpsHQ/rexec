@@ -973,17 +973,25 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 			localConn, isLocal := h.agents[agent.ID]
 			h.agentsMu.RUnlock()
 
-			if isLocal {
-				// Use local connection data for most accurate stats
-				agentData["resources"] = h.buildAgentData(localConn)["resources"]
-				if localConn.Stats != nil {
-					agentData["stats"] = localConn.Stats
-				}
-			} else {
-				// For remote agents, use persisted SystemInfo from DB to calculate capacity
-				resources := gin.H{
-					"memory_mb":  0,
-					"cpu_shares": 1024,
+				if isLocal {
+					// Use local connection data for most accurate stats
+					agentData["resources"] = h.buildAgentData(localConn)["resources"]
+					if localConn.Stats != nil {
+						agentData["stats"] = localConn.Stats
+					}
+					if localConn.SystemInfo != nil {
+						if hostname, ok := localConn.SystemInfo["hostname"].(string); ok && hostname != "" {
+							agentData["hostname"] = hostname
+						}
+						if region, ok := localConn.SystemInfo["region"].(string); ok && region != "" {
+							agentData["region"] = region
+						}
+					}
+				} else {
+					// For remote agents, use persisted SystemInfo from DB to calculate capacity
+					resources := gin.H{
+						"memory_mb":  0,
+						"cpu_shares": 1024,
 					"disk_mb":    0,
 				}
 				
@@ -1000,14 +1008,17 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 						if total, ok := disk["total"].(float64); ok {
 							resources["disk_mb"] = int(total / 1024 / 1024)
 						}
+						}
+						if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+							agentData["hostname"] = hostname
+						}
+						if region, ok := agent.SystemInfo["region"].(string); ok && region != "" {
+							agentData["region"] = region
+						}
 					}
-					if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
-						agentData["hostname"] = hostname
-					}
+					
+					agentData["resources"] = resources
 				}
-				
-				agentData["resources"] = resources
-			}
 			
 			onlineAgents = append(onlineAgents, agentData)
 		}
@@ -1037,7 +1048,7 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 		"disk_mb":    0,
 	}
 
-	if agent.SystemInfo != nil {
+		if agent.SystemInfo != nil {
 		// Handle both float64 (from JSON unmarshal) and int (from internal creation if any)
 		var numCPU float64
 		if val, ok := agent.SystemInfo["num_cpu"].(float64); ok {
@@ -1060,10 +1071,13 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 				resources["disk_mb"] = int(total / 1024 / 1024)
 			}
 		}
-		if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
-			agentData["hostname"] = hostname
+			if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+				agentData["hostname"] = hostname
+			}
+			if region, ok := agent.SystemInfo["region"].(string); ok && region != "" {
+				agentData["region"] = region
+			}
 		}
-	}
 
 	if agent.Stats != nil {
 		if memLimit, ok := agent.Stats["memory_limit"].(float64); ok && memLimit > 0 {

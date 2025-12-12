@@ -858,6 +858,11 @@ func (a *Agent) getSystemInfo() map[string]interface{} {
 		info["hostname"] = hostname
 	}
 
+	// Detect cloud region (best-effort)
+	if region := detectRegion(); region != "" {
+		info["region"] = region
+	}
+
 	// Get memory info (Linux)
 	if runtime.GOOS == "linux" {
 		if data, err := os.ReadFile("/proc/meminfo"); err == nil {
@@ -894,6 +899,238 @@ func (a *Agent) getSystemInfo() map[string]interface{} {
 	}
 
 	return info
+}
+
+func detectRegion() string {
+	// Manual override for on-prem/local or custom installs
+	if region := strings.TrimSpace(os.Getenv("REXEC_REGION")); region != "" {
+		return region
+	}
+
+	// Common cloud/runtime env vars
+	for _, key := range []string{
+		"AWS_REGION",
+		"AWS_DEFAULT_REGION",
+		"GOOGLE_CLOUD_REGION",
+		"AZURE_REGION",
+	} {
+		if region := strings.TrimSpace(os.Getenv(key)); region != "" {
+			return region
+		}
+	}
+
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return ""
+	}
+
+	// Disable proxies to avoid leaking metadata calls via HTTP_PROXY
+	metadataTransport := transport.Clone()
+	metadataTransport.Proxy = nil
+
+	client := &http.Client{
+		Timeout:   400 * time.Millisecond,
+		Transport: metadataTransport,
+	}
+
+	if region := detectAWSRegion(client); region != "" {
+		return region
+	}
+	if region := detectGCPRegion(client); region != "" {
+		return region
+	}
+	if region := detectAzureRegion(client); region != "" {
+		return region
+	}
+	if region := detectDigitalOceanRegion(client); region != "" {
+		return region
+	}
+
+	return ""
+}
+
+func detectAWSRegion(client *http.Client) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+
+	if region, status := awsGetRegionFromIdentityDoc(ctx, client, ""); status == http.StatusOK {
+		return region
+	} else if status != http.StatusUnauthorized && status != http.StatusForbidden {
+		return ""
+	}
+
+	token := awsIMDSToken(ctx, client)
+	if token == "" {
+		return ""
+	}
+	region, status := awsGetRegionFromIdentityDoc(ctx, client, token)
+	if status == http.StatusOK {
+		return region
+	}
+	return ""
+}
+
+func awsGetRegionFromIdentityDoc(ctx context.Context, client *http.Client, token string) (string, int) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://169.254.169.254/latest/dynamic/instance-identity/document", nil)
+	if err != nil {
+		return "", 0
+	}
+	if token != "" {
+		req.Header.Set("X-aws-ec2-metadata-token", token)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", 0
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", resp.StatusCode
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<10))
+	if err != nil {
+		return "", 0
+	}
+
+	var doc struct {
+		Region           string `json:"region"`
+		AvailabilityZone string `json:"availabilityZone"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		return "", http.StatusOK
+	}
+	if doc.Region != "" {
+		return doc.Region, http.StatusOK
+	}
+	if doc.AvailabilityZone != "" {
+		// us-east-1a -> us-east-1
+		if idx := strings.LastIndex(doc.AvailabilityZone, "-"); idx > 0 {
+			return doc.AvailabilityZone[:idx], http.StatusOK
+		}
+	}
+	return "", http.StatusOK
+}
+
+func awsIMDSToken(ctx context.Context, client *http.Client) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "http://169.254.169.254/latest/api/token", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "60")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(body))
+}
+
+func detectGCPRegion(client *http.Client) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://metadata.google.internal/computeMetadata/v1/instance/zone", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("Metadata-Flavor", "Google")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+	if err != nil {
+		return ""
+	}
+
+	zonePath := strings.TrimSpace(string(body))
+	if zonePath == "" {
+		return ""
+	}
+	parts := strings.Split(zonePath, "/")
+	zone := parts[len(parts)-1] // e.g. "us-central1-a"
+	if zone == "" {
+		return ""
+	}
+	if idx := strings.LastIndex(zone, "-"); idx > 0 {
+		return zone[:idx]
+	}
+	return ""
+}
+
+func detectAzureRegion(client *http.Client) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://169.254.169.254/metadata/instance/compute/location?api-version=2021-02-01&format=text", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("Metadata", "true")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(body))
+}
+
+func detectDigitalOceanRegion(client *http.Client) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://169.254.169.254/metadata/v1.json", nil)
+	if err != nil {
+		return ""
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<10))
+	if err != nil {
+		return ""
+	}
+
+	var meta struct {
+		Region string `json:"region"`
+	}
+	if err := json.Unmarshal(body, &meta); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(meta.Region)
 }
 
 // sendSystemInfo sends machine info to the server

@@ -48,6 +48,7 @@ export interface Container {
   arch?: string;
   shell?: string;
   hostname?: string;
+  region?: string;
   stats?: {
     cpu_percent?: number;
     memory?: number;

@@ -646,6 +646,12 @@
                                 >
                             </div>
                         {/if}
+                        {#if isAgent && container.region}
+                            <div class="meta-item meta-item-right">
+                                <span class="meta-label">Region</span>
+                                <span class="meta-value">{container.region}</span>
+                            </div>
+                        {/if}
                     </div>
 
                     {#if container.resources}
@@ -1637,11 +1643,16 @@
         border: 1px solid var(--border-muted);
     }
 
-    .meta-item {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
+	    .meta-item {
+	        display: flex;
+	        flex-direction: column;
+	        gap: 2px;
+	    }
+	
+	    .meta-item-right {
+	        margin-left: auto;
+	        text-align: right;
+	    }
 
     .meta-label {
         font-size: 10px;

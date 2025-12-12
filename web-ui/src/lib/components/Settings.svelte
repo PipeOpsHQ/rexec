@@ -1665,22 +1665,12 @@
   }
 
   .error-text {
-    color: var(--error);
+    color: var(--danger);
     font-size: 13px;
     margin: 0;
     padding: 8px 12px;
     background: rgba(255, 77, 77, 0.1);
     border: 1px solid rgba(255, 77, 77, 0.3);
-  }
-
-  .btn-danger {
-    background: var(--error);
-    color: white;
-    border: 1px solid var(--error);
-  }
-
-  .btn-danger:hover {
-    background: #ff3333;
   }
 
   @keyframes fadeIn {
@@ -2010,8 +2000,8 @@
   }
 
   .btn-icon:hover {
-    border-color: var(--error);
-    color: var(--error);
+    border-color: var(--danger);
+    color: var(--danger);
     background: rgba(255, 77, 77, 0.1);
   }
 
