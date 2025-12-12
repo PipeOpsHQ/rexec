@@ -294,28 +294,44 @@
                 </div>
             </div>
             
-            <h3 style="margin-top: 24px;">Agent Mode</h3>
-            <div class="cli-commands">
-                <div class="command-item">
-                    <div class="command-header">
-                        <code class="command">rexec agent register</code>
-                        <span class="command-desc">Register this machine.</span>
-                    </div>
-                </div>
-                <div class="command-item">
-                    <div class="command-header">
-                        <code class="command">rexec agent start</code>
-                        <span class="command-desc">Start the agent.</span>
-                    </div>
-                </div>
-                <div class="command-item">
-                    <div class="command-header">
-                        <code class="command">rexec agent status</code>
-                        <span class="command-desc">Check agent status.</span>
-                    </div>
-                </div>
-            </div>
-        </section>
+	            <h3 style="margin-top: 24px;">Agent Mode</h3>
+	            <div class="cli-commands">
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent register</code>
+	                        <span class="command-desc">Register this machine.</span>
+	                    </div>
+	                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent start</code>
+	                        <span class="command-desc">Start the agent.</span>
+	                    </div>
+	                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent stop</code>
+	                        <span class="command-desc">Stop the running agent.</span>
+	                    </div>
+	                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent status</code>
+	                        <span class="command-desc">Check agent status.</span>
+	                    </div>
+	                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent refresh-token</code>
+	                        <span class="command-desc">Switch to a long-lived API token if you're getting 401s.</span>
+	                    </div>
+	                </div>
+	            </div>
+	            <p>
+	                Tip: enable agent self-updates by setting <code>auto_update: true</code> in <code>/etc/rexec/agent.yaml</code>
+	                or running with <code>REXEC_AUTO_UPDATE=true</code>.
+	            </p>
+	        </section>
 
         <section class="docs-section">
             <h2>Tips & Tricks</h2>

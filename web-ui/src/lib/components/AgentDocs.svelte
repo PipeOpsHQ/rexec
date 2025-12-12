@@ -39,12 +39,12 @@
                 This includes cloud VMs (AWS, GCP, Azure), bare metal servers, Raspberry Pi, 
                 or even your local development machine.
             </p>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <StatusIcon status="ready" size={20} />
-                    <h4>Resumable Sessions</h4>
-                    <p>Sessions persist across disconnects using tmux</p>
-                </div>
+	            <div class="feature-grid">
+	                <div class="feature-card">
+	                    <StatusIcon status="ready" size={20} />
+	                    <h4>Reconnectable Sessions</h4>
+	                    <p>Reconnect anytime; your shell history persists</p>
+	                </div>
                 <div class="feature-card">
                     <StatusIcon status="ready" size={20} />
                     <h4>Secure Connection</h4>
@@ -248,16 +248,22 @@
                         <span class="command-desc">Stop the running agent</span>
                     </div>
                 </div>
-                <div class="command-item">
-                    <div class="command-header">
-                        <code class="command">rexec agent status</code>
-                        <span class="command-desc">Check if agent is running and connected</span>
-                    </div>
-                </div>
-                <div class="command-item">
-                    <div class="command-header">
-                        <code class="command">rexec -i</code>
-                        <span class="command-desc">Launch interactive TUI mode</span>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent status</code>
+	                        <span class="command-desc">Check if agent is running and connected</span>
+	                    </div>
+	                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec agent refresh-token</code>
+	                        <span class="command-desc">Replace a JWT with a long-lived API token</span>
+	                    </div>
+	                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec -i</code>
+	                        <span class="command-desc">Launch interactive TUI mode</span>
                     </div>
                 </div>
                 <div class="command-item">
@@ -266,12 +272,12 @@
                         <span class="command-desc">Authenticate with your rexec account</span>
                     </div>
                 </div>
-                <div class="command-item">
-                    <div class="command-header">
-                        <code class="command">rexec terminals</code>
-                        <span class="command-desc">List your terminals</span>
-                    </div>
-                </div>
+	                <div class="command-item">
+	                    <div class="command-header">
+	                        <code class="command">rexec ls</code>
+	                        <span class="command-desc">List your terminals and agents</span>
+	                    </div>
+	                </div>
             </div>
         </section>
 
@@ -279,14 +285,28 @@
             <h2>Running as a Service</h2>
             <p>For production servers, run the agent as a systemd service:</p>
             
-            <div class="code-block">
-                <code># Create systemd service<br/>sudo tee /etc/systemd/system/rexec-agent.service &lt;&lt;EOF<br/>[Unit]<br/>Description=rexec Agent<br/>After=network.target<br/><br/>[Service]<br/>Type=simple<br/>ExecStart=/usr/local/bin/rexec agent start --daemon<br/>Restart=always<br/>RestartSec=10<br/><br/>[Install]<br/>WantedBy=multi-user.target<br/>EOF<br/><br/># Enable and start<br/>sudo systemctl daemon-reload<br/>sudo systemctl enable rexec-agent<br/>sudo systemctl start rexec-agent</code>
-            </div>
-        </section>
+	            <div class="code-block">
+	                <code># Create systemd service<br/>sudo tee /etc/systemd/system/rexec-agent.service &lt;&lt;EOF<br/>[Unit]<br/>Description=rexec Agent<br/>After=network.target<br/><br/>[Service]<br/>Type=simple<br/>ExecStart=/usr/local/bin/rexec-agent --config /etc/rexec/agent.yaml start<br/>Restart=always<br/>RestartSec=10<br/><br/>[Install]<br/>WantedBy=multi-user.target<br/>EOF<br/><br/># Enable and start<br/>sudo systemctl daemon-reload<br/>sudo systemctl enable rexec-agent<br/>sudo systemctl start rexec-agent</code>
+		            </div>
+		        </section>
 
-        <section class="docs-section">
-            <h2>Supported Platforms</h2>
-            <div class="platform-grid">
+	        <section class="docs-section">
+	            <h2>Automatic Updates</h2>
+	            <p>
+	                Agents can optionally self-update on startup so your servers pick up new releases automatically.
+	                This is disabled by default.
+	            </p>
+	            <div class="code-block">
+	                <code># /etc/rexec/agent.yaml<br/>auto_update: true<br/><br/># or via env<br/>REXEC_AUTO_UPDATE=true rexec-agent start</code>
+	            </div>
+	            <p class="hint">
+	                Self-updates run only on startup and require write access to the agent binary (default systemd install runs as root).
+	            </p>
+	        </section>
+
+	        <section class="docs-section">
+	            <h2>Supported Platforms</h2>
+	            <div class="platform-grid">
                 <div class="platform-item">
                     <PlatformIcon platform="ubuntu" size={24} />
                     <span>Ubuntu</span>
