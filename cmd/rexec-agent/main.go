@@ -64,10 +64,10 @@ type AgentConfig struct {
 
 // ShellSession represents a single shell/PTY session
 type ShellSession struct {
-	ID       string
-	Cmd      *exec.Cmd
-	Ptmx     *os.File
-	IsMain   bool // Main session shares tmux, split sessions get new windows
+	ID     string
+	Cmd    *exec.Cmd
+	Ptmx   *os.File
+	IsMain bool // Main session shares tmux, split sessions get new windows
 }
 
 type Agent struct {
@@ -87,7 +87,7 @@ func main() {
 	// Parse global flags first
 	args := os.Args[1:]
 	var cmdArgs []string
-	
+
 	for i := 0; i < len(args); i++ {
 		if args[i] == "--config" || args[i] == "-c" {
 			if i+1 < len(args) {
@@ -189,17 +189,17 @@ func getConfigPath() string {
 	if configPath != "" {
 		return configPath
 	}
-	
+
 	// Check for REXEC_CONFIG env var
 	if envConfig := os.Getenv("REXEC_CONFIG"); envConfig != "" {
 		return envConfig
 	}
-	
+
 	// Check /etc/rexec/agent.yaml first (system-wide)
 	if _, err := os.Stat("/etc/rexec/agent.yaml"); err == nil {
 		return "/etc/rexec/agent.yaml"
 	}
-	
+
 	// Fall back to ~/.rexec/agent.json (user-specific)
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ConfigDir, AgentFile)
@@ -213,7 +213,7 @@ func loadAgentConfig() (*AgentConfig, error) {
 	}
 
 	var cfg AgentConfig
-	
+
 	// Check if it's YAML (from install script) or JSON (from register command)
 	if strings.HasSuffix(cfgPath, ".yaml") || strings.HasSuffix(cfgPath, ".yml") {
 		// Parse YAML config
@@ -223,15 +223,15 @@ func loadAgentConfig() (*AgentConfig, error) {
 			if strings.HasPrefix(line, "#") || line == "" {
 				continue
 			}
-			
+
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) != 2 {
 				continue
 			}
-			
+
 			key := strings.TrimSpace(parts[0])
 			value := strings.TrimSpace(parts[1])
-			
+
 			switch key {
 			case "api_url":
 				cfg.Host = value
@@ -263,7 +263,7 @@ func loadAgentConfig() (*AgentConfig, error) {
 	if token := os.Getenv("REXEC_TOKEN"); token != "" {
 		cfg.Token = token
 	}
-	
+
 	// Set defaults
 	if cfg.Host == "" {
 		cfg.Host = DefaultHost
@@ -456,7 +456,7 @@ func handleRegister(args []string) {
 
 	cfg.ID = result.ID
 	cfg.Registered = true
-	
+
 	// Use the new API token from registration (long-lived, doesn't expire)
 	if result.Token != "" {
 		cfg.Token = result.Token
@@ -594,9 +594,9 @@ func (a *Agent) connect() error {
 		if resp != nil {
 			// If we get a 4xx error (Unauthorized, Forbidden, Not Found), stop the agent
 			// This happens when the agent is deleted from the server or token is invalid/expired
-			if resp.StatusCode == http.StatusUnauthorized || 
-			   resp.StatusCode == http.StatusForbidden || 
-			   resp.StatusCode == http.StatusNotFound {
+			if resp.StatusCode == http.StatusUnauthorized ||
+				resp.StatusCode == http.StatusForbidden ||
+				resp.StatusCode == http.StatusNotFound {
 				log.Printf("Fatal: Server rejected connection (Status %d).", resp.StatusCode)
 				if resp.StatusCode == http.StatusUnauthorized {
 					log.Printf("Token may be expired or invalid. Use an API token (rexec_...) for persistent connections.")
@@ -877,13 +877,13 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 	if a.sessions == nil {
 		a.sessions = make(map[string]*ShellSession)
 	}
-	
+
 	// Check if session already exists
 	if _, exists := a.sessions[sessionID]; exists {
 		a.mu.Unlock()
 		return
 	}
-	
+
 	// For main session, check if mainCmd is already running
 	if !newSession && a.mainCmd != nil {
 		a.mu.Unlock()
@@ -891,8 +891,9 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 	}
 	a.mu.Unlock()
 
-	// Start a plain shell - no tmux, just direct PTY
-	cmd := exec.Command(a.config.Shell, "-l")
+	// Start a plain interactive login shell - no tmux, just direct PTY.
+	// Force interactive mode so line editing/history works consistently.
+	cmd := exec.Command(a.config.Shell, "-l", "-i")
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
 		"REXEC_AGENT=1",
@@ -955,16 +956,17 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 func (a *Agent) cleanupSession(sessionID string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	
+
 	if session, exists := a.sessions[sessionID]; exists {
+		// Gracefully terminate the shell so it can flush history/state.
+		if session.Cmd != nil && session.Cmd.Process != nil {
+			_ = session.Cmd.Process.Signal(syscall.SIGTERM)
+		}
 		if session.Ptmx != nil {
 			session.Ptmx.Close()
 		}
-		if session.Cmd != nil && session.Cmd.Process != nil {
-			session.Cmd.Process.Kill()
-		}
 		delete(a.sessions, sessionID)
-		
+
 		if session.IsMain {
 			a.mainCmd = nil
 			a.mainPtmx = nil
@@ -983,11 +985,11 @@ func (a *Agent) stopShell() {
 
 	// Stop all sessions
 	for sessionID, session := range a.sessions {
+		if session.Cmd != nil && session.Cmd.Process != nil {
+			_ = session.Cmd.Process.Signal(syscall.SIGTERM)
+		}
 		if session.Ptmx != nil {
 			session.Ptmx.Close()
-		}
-		if session.Cmd != nil && session.Cmd.Process != nil {
-			session.Cmd.Process.Kill()
 		}
 		delete(a.sessions, sessionID)
 	}
