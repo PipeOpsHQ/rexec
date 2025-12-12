@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -31,6 +32,48 @@ var (
 	containerLimiter = middleware.ContainerRateLimiter()
 	wsLimiter        = middleware.WebSocketRateLimiter()
 )
+
+// SEO overrides for server-rendered routes so curl/bots get correct metadata.
+type seoConfig struct {
+	Title       string
+	Description string
+}
+
+var (
+	reTitleTag    = regexp.MustCompile(`(?is)<title[^>]*>.*?</title>`)
+	reMetaContent = func(attrName, attrValue string) *regexp.Regexp {
+		return regexp.MustCompile(`(?i)(<meta[^>]+` + attrName + `=["']` + regexp.QuoteMeta(attrValue) + `["'][^>]*content=["'])([^"']*)(["'][^>]*>)`)
+	}
+	reCanonicalHref = regexp.MustCompile(`(?i)(<link[^>]+rel=["']canonical["'][^>]*href=["'])([^"']*)(["'][^>]*>)`)
+)
+
+func applySEO(baseHTML string, seo seoConfig, canonical string) string {
+	out := reTitleTag.ReplaceAllString(baseHTML, fmt.Sprintf("<title>%s</title>", seo.Title))
+	out = reMetaContent("name", "title").ReplaceAllString(out, "$1"+seo.Title+"$3")
+	out = reMetaContent("name", "description").ReplaceAllString(out, "$1"+seo.Description+"$3")
+	out = reMetaContent("property", "og:title").ReplaceAllString(out, "$1"+seo.Title+"$3")
+	out = reMetaContent("property", "og:description").ReplaceAllString(out, "$1"+seo.Description+"$3")
+	out = reMetaContent("property", "og:url").ReplaceAllString(out, "$1"+canonical+"$3")
+	out = reMetaContent("name", "twitter:title").ReplaceAllString(out, "$1"+seo.Title+"$3")
+	out = reMetaContent("name", "twitter:description").ReplaceAllString(out, "$1"+seo.Description+"$3")
+	out = reMetaContent("name", "twitter:url").ReplaceAllString(out, "$1"+canonical+"$3")
+	out = reCanonicalHref.ReplaceAllString(out, "$1"+canonical+"$3")
+	return out
+}
+
+func canonicalURL(c *gin.Context) string {
+	base := strings.TrimRight(os.Getenv("BASE_URL"), "/")
+	if base == "" {
+		scheme := "https"
+		if proto := c.GetHeader("X-Forwarded-Proto"); proto != "" {
+			scheme = proto
+		} else if c.Request.TLS == nil {
+			scheme = "http"
+		}
+		base = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	}
+	return base + c.Request.URL.Path
+}
 
 func main() {
 	if len(os.Args) > 1 {
@@ -708,6 +751,34 @@ func runServer() {
 	// Check if web directory exists
 	if _, err := os.Stat(webDir); err == nil {
 		indexFile := filepath.Join(webDir, "index.html")
+		baseIndexHTML := ""
+		if b, err := os.ReadFile(indexFile); err == nil {
+			baseIndexHTML = string(b)
+		} else {
+			log.Printf("Warning: failed to read index.html for SEO overrides: %v", err)
+		}
+
+		docsSEO := seoConfig{
+			Title:       "Documentation | Rexec - Terminal as a Service",
+			Description: "Complete documentation for Rexec - learn about instant cloud terminals, BYOS agents, CLI tools, security features, and API integration.",
+		}
+		agentDocsSEO := seoConfig{
+			Title:       "Agent Documentation | Rexec",
+			Description: "Install and run rexec-agent to connect your own servers, VMs, or local machines as terminals in Rexec.",
+		}
+		cliDocsSEO := seoConfig{
+			Title:       "CLI Documentation | Rexec",
+			Description: "Install and use the rexec CLI/TUI to manage terminals, snippets, and agents from your local shell.",
+		}
+		serveSEO := func(c *gin.Context, seo seoConfig) {
+			if baseIndexHTML == "" {
+				c.File(indexFile)
+				return
+			}
+			canonical := canonicalURL(c)
+			html := applySEO(baseIndexHTML, seo, canonical)
+			c.Data(200, "text/html; charset=utf-8", []byte(html))
+		}
 
 		router.StaticFile("/", indexFile)
 		router.StaticFile("/index.html", indexFile)
@@ -842,15 +913,15 @@ func runServer() {
 		})
 
 		router.GET("/docs", func(c *gin.Context) {
-			c.File(indexFile)
+			serveSEO(c, docsSEO)
 		})
 
 		router.GET("/docs/agent", func(c *gin.Context) {
-			c.File(indexFile)
+			serveSEO(c, agentDocsSEO)
 		})
 
 		router.GET("/docs/cli", func(c *gin.Context) {
-			c.File(indexFile)
+			serveSEO(c, cliDocsSEO)
 		})
 
 		// Account routes
