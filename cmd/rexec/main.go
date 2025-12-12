@@ -241,13 +241,13 @@ func runServer() {
 	jwtSecret := []byte(jwtSecretStr)
 
 	var keyBytes []byte
-	
+
 	// Support hex encoded keys (common for 32-byte keys represented as 64-char hex strings)
 	if len(encryptionKey) == 64 {
 		var err error
 		keyBytes, err = hex.DecodeString(encryptionKey)
 		if err != nil {
-			// If not valid hex, assume it's just a very long password? 
+			// If not valid hex, assume it's just a very long password?
 			// crypto.NewEncryptor only supports 16/24/32 bytes.
 			// 64 bytes is not supported by AES-GCM standard key sizes (128/192/256 bits).
 			// So if it's 64 chars and fails hex decode, it's invalid length for raw key.
@@ -259,12 +259,12 @@ func runServer() {
 		log.Fatalf("Invalid REXEC_ENCRYPTION_KEY length. Must be 16, 24, or 32 bytes (raw), or 64 hex characters (32 bytes decoded). Got %d characters.", len(encryptionKey))
 	}
 
-	// Pass the byte slice directly to NewEncryptor if we modified it to accept []byte, 
+	// Pass the byte slice directly to NewEncryptor if we modified it to accept []byte,
 	// OR convert back to string if it accepts string but we've validated/transformed it.
-	// Looking at crypto package, NewEncryptor(key string). 
-	// If we decoded hex, we have []byte. converting []byte to string might not work if NewEncryptor expects readable chars? 
+	// Looking at crypto package, NewEncryptor(key string).
+	// If we decoded hex, we have []byte. converting []byte to string might not work if NewEncryptor expects readable chars?
 	// No, AES key is just bytes. string(keyBytes) is fine in Go as long as NewEncryptor converts it back to []byte.
-	
+
 	encryptor, err := crypto.NewEncryptor(string(keyBytes))
 	if err != nil {
 		log.Fatalf("Failed to initialize encryptor: %v", err)
@@ -364,6 +364,7 @@ func runServer() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(store, adminEventsHub, jwtSecret)
+	securityHandler := handlers.NewSecurityHandler(store, jwtSecret)
 	containerHandler := handlers.NewContainerHandler(containerManager, store, adminEventsHub)
 	containerEventsHub := handlers.NewContainerEventsHub(containerManager, store)
 	containerHandler.SetEventsHub(containerEventsHub)
@@ -376,7 +377,7 @@ func runServer() {
 	terminalHandler.SetRecordingHandler(recordingHandler)
 	// Connect collab handler to terminal handler for shared session access
 	terminalHandler.SetCollabHandler(collabHandler)
-	
+
 	billingHandler := handlers.NewBillingHandler(billingService, store)
 
 	// Initialize port forward handler
@@ -393,13 +394,13 @@ func runServer() {
 
 	// Initialize agent handler
 	agentHandler := handlers.NewAgentHandler(store, jwtSecret)
-	
+
 	// Connect agent handler to container handler for unified API
 	containerHandler.SetAgentHandler(agentHandler)
-	
+
 	// Connect events hub to agent handler for real-time updates
 	agentHandler.SetEventsHub(containerEventsHub)
-	
+
 	// Connect agent handler to events hub for including agents in WebSocket list
 	containerEventsHub.SetAgentHandler(agentHandler)
 
@@ -515,6 +516,14 @@ func runServer() {
 		api.GET("/profile", authHandler.GetProfile)
 		api.PUT("/profile", authHandler.UpdateProfile)
 
+		// Security (server-enforced screen lock)
+		api.GET("/security", securityHandler.GetScreenLock)
+		api.PATCH("/security", securityHandler.UpdateSettings)
+		api.POST("/security/passcode", securityHandler.SetPasscode)
+		api.DELETE("/security/passcode", securityHandler.RemovePasscode)
+		api.POST("/security/lock", securityHandler.Lock)
+		api.POST("/security/unlock", securityHandler.Unlock)
+
 		// MFA
 		mfa := api.Group("/mfa")
 		{
@@ -608,7 +617,7 @@ func runServer() {
 		{
 			billing.GET("/plans", billingHandler.GetPlans)
 			billing.GET("/subscription", billingHandler.GetSubscription)
-			
+
 			if billingService != nil {
 				billing.GET("/history", billingHandler.GetBillingHistory)
 				billing.POST("/checkout", billingHandler.CreateCheckoutSession)
@@ -618,14 +627,14 @@ func runServer() {
 		}
 
 		// Agent endpoints
-			agents := api.Group("/agents")
-			{
-				agents.POST("/register", agentHandler.RegisterAgent)
-				agents.GET("", agentHandler.ListAgents)
-				agents.GET("/:id", agentHandler.GetAgent)
-				agents.GET("/:id/status", agentHandler.GetAgentStatus)
-				agents.DELETE("/:id", agentHandler.DeleteAgent)
-			}
+		agents := api.Group("/agents")
+		{
+			agents.POST("/register", agentHandler.RegisterAgent)
+			agents.GET("", agentHandler.ListAgents)
+			agents.GET("/:id", agentHandler.GetAgent)
+			agents.GET("/:id/status", agentHandler.GetAgentStatus)
+			agents.DELETE("/:id", agentHandler.DeleteAgent)
+		}
 
 		// Admin routes
 		admin := api.Group("/admin")
@@ -867,17 +876,17 @@ func runServer() {
 			c.Status(404)
 		})
 
-			// Catch-all for SPA routing
-			router.NoRoute(func(c *gin.Context) {
-				path := c.Request.URL.Path
-				// Don't mask API/WebSocket 404s with HTML; return JSON instead.
-				if strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/ws/") {
-					c.JSON(404, gin.H{"error": "not found"})
-					return
-				}
-				c.File(indexFile)
-			})
-		}
+		// Catch-all for SPA routing
+		router.NoRoute(func(c *gin.Context) {
+			path := c.Request.URL.Path
+			// Don't mask API/WebSocket 404s with HTML; return JSON instead.
+			if strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/ws/") {
+				c.JSON(404, gin.H{"error": "not found"})
+				return
+			}
+			c.File(indexFile)
+		})
+	}
 
 	// Get port from env or default to 8080
 	port := os.Getenv("PORT")

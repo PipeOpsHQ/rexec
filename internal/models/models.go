@@ -6,24 +6,29 @@ import (
 
 // User represents a registered user
 type User struct {
-	ID                 string    `json:"id"`
-	Email              string    `json:"email"`
-	Username           string    `json:"username"`
-	Name               string    `json:"name,omitempty"` // Display name (first + last, or username)
-	FirstName          string    `json:"first_name,omitempty"`
-	LastName           string    `json:"last_name,omitempty"`
-	Avatar             string    `json:"avatar,omitempty"`
-	Verified           bool      `json:"verified,omitempty"`
-	SubscriptionActive bool      `json:"subscription_active,omitempty"`
-	IsAdmin            bool      `json:"is_admin,omitempty"`
-	Password           string    `json:"-"`                    // Never serialize password
-	Tier               string    `json:"tier"`                 // free, pro, enterprise
-	PipeOpsID          string    `json:"pipeops_id,omitempty"` // PipeOps OAuth user ID
-	MFAEnabled         bool      `json:"mfa_enabled"`          // Whether MFA is enabled
-	MFASecret          string    `json:"-"`                    // TOTP secret (encrypted)
-	AllowedIPs         []string  `json:"allowed_ips,omitempty"` // Whitelisted IPs/CIDRs
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 string   `json:"id"`
+	Email              string   `json:"email"`
+	Username           string   `json:"username"`
+	Name               string   `json:"name,omitempty"` // Display name (first + last, or username)
+	FirstName          string   `json:"first_name,omitempty"`
+	LastName           string   `json:"last_name,omitempty"`
+	Avatar             string   `json:"avatar,omitempty"`
+	Verified           bool     `json:"verified,omitempty"`
+	SubscriptionActive bool     `json:"subscription_active,omitempty"`
+	IsAdmin            bool     `json:"is_admin,omitempty"`
+	Password           string   `json:"-"`                     // Never serialize password
+	Tier               string   `json:"tier"`                  // free, pro, enterprise
+	PipeOpsID          string   `json:"pipeops_id,omitempty"`  // PipeOps OAuth user ID
+	MFAEnabled         bool     `json:"mfa_enabled"`           // Whether MFA is enabled
+	MFASecret          string   `json:"-"`                     // TOTP secret (encrypted)
+	AllowedIPs         []string `json:"allowed_ips,omitempty"` // Whitelisted IPs/CIDRs
+	// Screen lock (server-enforced, cross-session)
+	ScreenLockEnabled bool       `json:"screen_lock_enabled,omitempty"`
+	LockAfterMinutes  int        `json:"lock_after_minutes,omitempty"`
+	LockRequiredSince *time.Time `json:"lock_required_since,omitempty"`
+	ScreenLockHash    string     `json:"-"` // Never serialize
+	CreatedAt         time.Time  `json:"created_at"`
+	UpdatedAt         time.Time  `json:"updated_at"`
 }
 
 // AuditLog represents a system audit log entry
@@ -64,34 +69,34 @@ type PortForward struct {
 
 // Snippet represents a saved script or macro
 type Snippet struct {
-	ID               string    `json:"id"`
-	UserID           string    `json:"user_id"`
-	Username         string    `json:"username,omitempty"` // For marketplace display
-	Name             string    `json:"name"`
-	Content          string    `json:"content"`
-	Language         string    `json:"language"` // bash, python, etc.
-	IsPublic         bool      `json:"is_public"`
-	UsageCount       int       `json:"usage_count"`
-	Description      string    `json:"description,omitempty"`
-	Icon             string    `json:"icon,omitempty"`              // Emoji icon for display
-	Category         string    `json:"category,omitempty"`          // devops, security, database, etc.
-	InstallCommand   string    `json:"install_command,omitempty"`   // Command to install dependencies
-	RequiresInstall  bool      `json:"requires_install"`            // Whether install step is needed
-	CreatedAt        time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	UserID          string    `json:"user_id"`
+	Username        string    `json:"username,omitempty"` // For marketplace display
+	Name            string    `json:"name"`
+	Content         string    `json:"content"`
+	Language        string    `json:"language"` // bash, python, etc.
+	IsPublic        bool      `json:"is_public"`
+	UsageCount      int       `json:"usage_count"`
+	Description     string    `json:"description,omitempty"`
+	Icon            string    `json:"icon,omitempty"`            // Emoji icon for display
+	Category        string    `json:"category,omitempty"`        // devops, security, database, etc.
+	InstallCommand  string    `json:"install_command,omitempty"` // Command to install dependencies
+	RequiresInstall bool      `json:"requires_install"`          // Whether install step is needed
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // APIToken represents a personal access token for CLI/API usage
 type APIToken struct {
 	ID          string     `json:"id"`
 	UserID      string     `json:"user_id"`
-	Name        string     `json:"name"`                    // User-friendly name for the token
-	TokenHash   string     `json:"-"`                       // Hashed token (never exposed)
-	TokenPrefix string     `json:"token_prefix"`            // First 8 chars for identification
-	Scopes      []string   `json:"scopes"`                  // Permissions: read, write, admin
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`  // Last time token was used
-	ExpiresAt   *time.Time `json:"expires_at,omitempty"`    // Optional expiration
+	Name        string     `json:"name"`                   // User-friendly name for the token
+	TokenHash   string     `json:"-"`                      // Hashed token (never exposed)
+	TokenPrefix string     `json:"token_prefix"`           // First 8 chars for identification
+	Scopes      []string   `json:"scopes"`                 // Permissions: read, write, admin
+	LastUsedAt  *time.Time `json:"last_used_at,omitempty"` // Last time token was used
+	ExpiresAt   *time.Time `json:"expires_at,omitempty"`   // Optional expiration
 	CreatedAt   time.Time  `json:"created_at"`
-	RevokedAt   *time.Time `json:"revoked_at,omitempty"`    // When token was revoked
+	RevokedAt   *time.Time `json:"revoked_at,omitempty"` // When token was revoked
 }
 
 // Container represents a user's terminal container
@@ -172,7 +177,7 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 			MemoryMB:        4096,  // 4GB RAM
 			DiskMB:          20480, // 20GB Storage
 			NetworkMB:       100,
-			SessionDuration: 0,     // Unlimited
+			SessionDuration: 0, // Unlimited
 			MaxContainers:   10,
 		}
 	}

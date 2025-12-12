@@ -705,7 +705,7 @@
                                 {#if container.status === "running"}
                                     {#if !containerConnected && !isConnecting(container.id)}
                                         <button
-                                            class="btn btn-primary btn-sm flex-1"
+                                            class="btn btn-primary btn-sm flex-1 agent-connect-btn"
                                             onclick={() => handleConnect(container)}
                                         >
                                             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1290,6 +1290,26 @@
     .agent-env {
         background: rgba(168, 85, 247, 0.15);
         border-color: rgba(168, 85, 247, 0.3);
+        color: #a855f7;
+    }
+
+    /* Agent connect button uses purple accent */
+    .agent-connect-btn {
+        background: rgba(168, 85, 247, 0.15);
+        border-color: #a855f7;
+        color: #a855f7;
+    }
+
+    .agent-connect-btn:hover:not(:disabled) {
+        background: #a855f7;
+        border-color: #a855f7;
+        color: var(--bg);
+        box-shadow: 0 0 10px rgba(168, 85, 247, 0.35);
+    }
+
+    .container-card.agent-card .connecting-btn,
+    .container-card.agent-card .connected-btn {
+        border-color: rgba(168, 85, 247, 0.4);
         color: #a855f7;
     }
 

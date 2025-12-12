@@ -446,6 +446,40 @@ func buildTerminalWSURL(cfg *Config, terminalID string) string {
 	)
 }
 
+// resolveTerminalID expands a short ID (as shown in rexec ls) to the full ID by prefix match.
+// Supports both container IDs and agent IDs (agent:<uuid>).
+func resolveTerminalID(cfg *Config, input string) (string, error) {
+	// If this already looks like a full ID, return as-is.
+	if strings.HasPrefix(input, "agent:") {
+		agentPart := strings.TrimPrefix(input, "agent:")
+		if len(agentPart) >= 36 {
+			return input, nil
+		}
+	} else if len(input) >= 24 {
+		return input, nil
+	}
+
+	containers, err := fetchContainers(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	var matches []string
+	for _, c := range containers {
+		if strings.HasPrefix(c.ID, input) {
+			matches = append(matches, c.ID)
+		}
+	}
+
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no terminal found matching %q", input)
+	}
+	return "", fmt.Errorf("multiple terminals match %q; use a longer id", input)
+}
+
 func parseMemoryMB(input string) (int64, error) {
 	s := strings.ToLower(strings.TrimSpace(input))
 	if s == "" {
@@ -949,7 +983,12 @@ func handleConnect(args []string) {
 		os.Exit(1)
 	}
 
-	terminalID := args[0]
+	terminalID, err := resolveTerminalID(cfg, args[0])
+	if err != nil {
+		fmt.Printf("%sError: %v%s\n", Red, err, Reset)
+		os.Exit(1)
+	}
+	isAgentSession := strings.HasPrefix(terminalID, "agent:")
 
 	wsURL := buildTerminalWSURL(cfg, terminalID)
 
@@ -1013,12 +1052,44 @@ func handleConnect(args []string) {
 	// Read from WebSocket and write to stdout
 	go func() {
 		for {
-			_, message, err := conn.ReadMessage()
+			messageType, message, err := conn.ReadMessage()
 			if err != nil {
 				term.Restore(int(os.Stdin.Fd()), oldState)
 				fmt.Println("\n\rConnection closed.")
 				os.Exit(0)
 			}
+			if !isAgentSession {
+				os.Stdout.Write(message)
+				continue
+			}
+
+			// Agent terminal streams JSON envelopes: {type, data}.
+			if messageType == websocket.TextMessage {
+				var env struct {
+					Type string          `json:"type"`
+					Data json.RawMessage `json:"data"`
+				}
+				if err := json.Unmarshal(message, &env); err == nil {
+					switch env.Type {
+					case "output":
+						var out string
+						if err := json.Unmarshal(env.Data, &out); err == nil {
+							os.Stdout.Write([]byte(out))
+						}
+					case "stats":
+						// Ignore stats in raw CLI mode.
+					default:
+						// Best-effort: if data is a string, print it.
+						var s string
+						if err := json.Unmarshal(env.Data, &s); err == nil && s != "" {
+							os.Stdout.Write([]byte(s))
+						}
+					}
+					continue
+				}
+			}
+
+			// Fallback for unexpected frames.
 			os.Stdout.Write(message)
 		}
 	}()

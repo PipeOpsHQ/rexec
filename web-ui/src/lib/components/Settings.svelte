@@ -203,9 +203,13 @@
   }
 
   // Update lock timeout
-  function updateLockTimeout() {
-    security.setLockTimeout(lockTimeout);
-    toast.success('Lock timeout updated');
+  async function updateLockTimeout() {
+    const result = await security.updateLockTimeout(lockTimeout);
+    if (result.success) {
+      toast.success('Lock timeout updated');
+    } else {
+      toast.error(result.error || 'Failed to update lock timeout');
+    }
   }
 
   // Open passcode modal
@@ -231,15 +235,6 @@
   async function handleSetPasscode() {
     passcodeError = '';
 
-    // If changing, verify current passcode first
-    if (isChangingPasscode && $hasPasscode) {
-      const isValid = await security.verifyPasscode(currentPasscode);
-      if (!isValid) {
-        passcodeError = 'Current passcode is incorrect';
-        return;
-      }
-    }
-
     if (!newPasscode.trim()) {
       passcodeError = 'Please enter a passcode';
       return;
@@ -255,7 +250,16 @@
       return;
     }
 
-    await security.setPasscode(newPasscode);
+    const result = await security.setPasscode(
+      newPasscode,
+      isChangingPasscode && $hasPasscode ? currentPasscode : undefined,
+      lockTimeout
+    );
+    if (!result.success) {
+      passcodeError = result.error || 'Failed to set passcode';
+      return;
+    }
+
     closePasscodeModal();
     toast.success($hasPasscode ? 'Passcode updated' : 'Screen lock passcode set');
   }
@@ -263,17 +267,19 @@
   // Remove passcode
   async function handleRemovePasscode() {
     if (!$hasPasscode) return;
-
-    // Verify current passcode
-    const isValid = await security.verifyPasscode(currentPasscode);
-    if (!isValid) {
-      passcodeError = 'Passcode is incorrect';
+    const result = await security.removePasscode(currentPasscode);
+    if (!result.success) {
+      passcodeError = result.error || 'Passcode is incorrect';
       return;
     }
 
-    security.removePasscode();
     closePasscodeModal();
     toast.success('Screen lock disabled');
+  }
+
+  // Keep lockTimeout in sync with server setting
+  $: if ($hasPasscode && $security.lockAfterMinutes !== lockTimeout) {
+    lockTimeout = $security.lockAfterMinutes;
   }
 
   // MFA Functions

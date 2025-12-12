@@ -134,6 +134,7 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, j
 		userID, userID_ok := claims["user_id"].(string)
 		email, email_ok := claims["email"].(string)
 		exp, exp_ok := claims["exp"].(float64)
+		iat, _ := claims["iat"].(float64)
 
 		// Check if this is an MFA pending token
 		mfaPending, _ := claims["mfa_pending"].(bool)
@@ -201,11 +202,25 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, j
 		// Store full user object in context for later use (e.g., in AdminOnly middleware)
 		c.Set("user", user)
 
+		// --- Server-enforced screen lock ---
+		// If the account is locked after this token was issued, block access with 423.
+		if user.ScreenLockEnabled && user.ScreenLockHash != "" && user.LockRequiredSince != nil {
+			// Allow unlock endpoint to proceed even with a locked token.
+			if c.Request.URL.Path != "/api/security/unlock" {
+				tokenIat := time.Unix(int64(iat), 0)
+				if tokenIat.Before(*user.LockRequiredSince) {
+					c.JSON(http.StatusLocked, gin.H{"error": "session_locked"})
+					c.Abort()
+					return
+				}
+			}
+		}
+
 		// --- IP Whitelist Enforcement ---
 		if len(user.AllowedIPs) > 0 {
 			clientIP := c.ClientIP()
-				if !checkIPWhitelist(clientIP, user.AllowedIPs) {
-					store.CreateAuditLog(reqCtx, &models.AuditLog{
+			if !checkIPWhitelist(clientIP, user.AllowedIPs) {
+				store.CreateAuditLog(reqCtx, &models.AuditLog{
 					ID:        uuid.New().String(),
 					UserID:    userID,
 					Action:    "ip_blocked",

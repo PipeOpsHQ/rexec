@@ -1,149 +1,234 @@
 import { writable, derived, get } from "svelte/store";
+import { auth } from "$stores/auth";
 
-// Types
 export interface SecurityState {
-  passcodeHash: string | null;
+  enabled: boolean;
   isLocked: boolean;
   lockAfterMinutes: number;
   lastActivity: number;
   passcodeSetupPromptDismissed: boolean;
 }
 
-// Initial state
 const initialState: SecurityState = {
-  passcodeHash: null,
+  enabled: false,
   isLocked: false,
-  lockAfterMinutes: 5, // Default: lock after 5 minutes of inactivity
+  lockAfterMinutes: 5,
   lastActivity: Date.now(),
   passcodeSetupPromptDismissed: false,
 };
 
-// Load persisted security settings from localStorage
 function loadPersistedSecurity(): SecurityState {
   if (typeof window === "undefined") return initialState;
-
   try {
     const stored = localStorage.getItem("rexec_security");
     if (stored) {
       const parsed = JSON.parse(stored);
-      const hasPasscode = !!parsed.passcodeHash;
-      const wasLocked = parsed.isLocked === true;
-      const lastActivity = parsed.lastActivity || Date.now();
-      const lockAfterMinutes = parsed.lockAfterMinutes || 5;
-      
-      // Calculate if should be locked based on:
-      // 1. Was already locked before reload
-      // 2. Or has passcode and was inactive too long
-      const elapsed = Date.now() - lastActivity;
-      const timeoutMs = lockAfterMinutes * 60 * 1000;
-      const shouldBeLocked = hasPasscode && (wasLocked || elapsed >= timeoutMs);
-      
       return {
         ...initialState,
-        passcodeHash: parsed.passcodeHash || null,
-        lockAfterMinutes: lockAfterMinutes,
+        isLocked: parsed.isLocked === true,
+        lockAfterMinutes: parsed.lockAfterMinutes || 5,
+        lastActivity: parsed.lastActivity || Date.now(),
         passcodeSetupPromptDismissed: parsed.passcodeSetupPromptDismissed || false,
-        lastActivity: wasLocked ? lastActivity : Date.now(), // Keep old lastActivity if was locked
-        isLocked: shouldBeLocked,
       };
     }
   } catch (e) {
     console.error("Failed to load security settings:", e);
   }
-
   return initialState;
 }
 
-// Simple hash function for passcode (not cryptographically secure, but sufficient for screen lock)
-async function hashPasscode(passcode: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(passcode + "rexec_salt_v1");
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Create the store
 function createSecurityStore() {
   const store = writable<SecurityState>(loadPersistedSecurity());
-  const { subscribe, set, update } = store;
+  const { subscribe, update } = store;
 
-  // Persist to localStorage
-  function persist(state: SecurityState) {
+  function persistLocal(state: SecurityState) {
     if (typeof window === "undefined") return;
     localStorage.setItem(
       "rexec_security",
       JSON.stringify({
-        passcodeHash: state.passcodeHash,
-        lockAfterMinutes: state.lockAfterMinutes,
-        passcodeSetupPromptDismissed: state.passcodeSetupPromptDismissed,
         isLocked: state.isLocked,
+        lockAfterMinutes: state.lockAfterMinutes,
         lastActivity: state.lastActivity,
+        passcodeSetupPromptDismissed: state.passcodeSetupPromptDismissed,
       })
     );
+  }
+
+  async function authedFetch(input: RequestInfo, init: RequestInit = {}) {
+    const token = get(auth).token || localStorage.getItem("rexec_token");
+    const headers = new Headers(init.headers || {});
+    headers.set("Content-Type", "application/json");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    return fetch(input, { ...init, headers });
   }
 
   return {
     subscribe,
 
-    // Set passcode
-    async setPasscode(passcode: string) {
-      const hash = await hashPasscode(passcode);
-      update((state) => {
-        const newState = { ...state, passcodeHash: hash };
-        persist(newState);
-        return newState;
-      });
-    },
-
-    // Remove passcode
-    removePasscode() {
-      update((state) => {
-        const newState = { ...state, passcodeHash: null };
-        persist(newState);
-        return newState;
-      });
-    },
-
-    // Verify passcode
-    async verifyPasscode(passcode: string): Promise<boolean> {
-      const state = get(store);
-      const hash = await hashPasscode(passcode);
-      return hash === state.passcodeHash;
-    },
-
-    // Lock the screen
-    lock() {
-      update((state) => {
-        const newState = { ...state, isLocked: true };
-        persist(newState);
-        return newState;
-      });
-    },
-
-    // Unlock the screen
-    unlock() {
+    async refreshFromServer() {
+      const res = await authedFetch("/api/security");
+      if (res.status === 423) {
+        update((state) => {
+          const newState = { ...state, isLocked: true };
+          persistLocal(newState);
+          return newState;
+        });
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json();
       update((state) => {
         const newState = {
           ...state,
-          isLocked: false,
-          lastActivity: Date.now(),
+          enabled: !!data.enabled,
+          lockAfterMinutes: data.lock_after_minutes || state.lockAfterMinutes,
         };
-        persist(newState);
+        persistLocal(newState);
         return newState;
       });
     },
 
-    // Update last activity
+    async setPasscode(newPasscode: string, currentPasscode?: string, lockAfterMinutes?: number) {
+      const res = await authedFetch("/api/security/passcode", {
+        method: "POST",
+        body: JSON.stringify({
+          new_passcode: newPasscode,
+          current_passcode: currentPasscode,
+          lock_after_minutes: lockAfterMinutes,
+        }),
+      });
+      if (res.status === 423) {
+        this.lockLocal();
+        return { success: false, error: "session_locked" };
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Failed to set passcode" };
+      }
+      update((state) => {
+        const newState = {
+          ...state,
+          enabled: true,
+          lockAfterMinutes: data.lock_after_minutes || state.lockAfterMinutes,
+        };
+        persistLocal(newState);
+        return newState;
+      });
+      return { success: true };
+    },
+
+    async removePasscode(currentPasscode: string) {
+      const res = await authedFetch("/api/security/passcode", {
+        method: "DELETE",
+        body: JSON.stringify({ current_passcode: currentPasscode }),
+      });
+      if (res.status === 423) {
+        this.lockLocal();
+        return { success: false, error: "session_locked" };
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Failed to disable screen lock" };
+      }
+      update((state) => {
+        const newState = { ...state, enabled: false, isLocked: false };
+        persistLocal(newState);
+        return newState;
+      });
+      return { success: true };
+    },
+
+    async updateLockTimeout(minutes: number) {
+      const res = await authedFetch("/api/security", {
+        method: "PATCH",
+        body: JSON.stringify({ lock_after_minutes: minutes }),
+      });
+      if (res.status === 423) {
+        this.lockLocal();
+        return { success: false, error: "session_locked" };
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Failed to update lock timeout" };
+      }
+      update((state) => {
+        const newState = { ...state, lockAfterMinutes: minutes };
+        persistLocal(newState);
+        return newState;
+      });
+      return { success: true };
+    },
+
+    async lock() {
+      const res = await authedFetch("/api/security/lock", { method: "POST" });
+      if (res.ok || res.status === 423) {
+        this.lockLocal();
+      }
+    },
+
+    lockLocal() {
+      update((state) => {
+        const newState = { ...state, isLocked: true };
+        persistLocal(newState);
+        return newState;
+      });
+    },
+
+    async unlockWithPasscode(passcode: string) {
+      const res = await authedFetch("/api/security/unlock", {
+        method: "POST",
+        body: JSON.stringify({ passcode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.error || "Incorrect passcode" };
+      }
+
+      const newToken = data.token as string | undefined;
+      if (newToken) {
+        const currentAuth = get(auth);
+        if (currentAuth.user) {
+          auth.login(newToken, {
+            ...currentAuth.user,
+            tier: data.user?.tier ?? currentAuth.user.tier,
+            isAdmin: data.user?.is_admin ?? currentAuth.user.isAdmin,
+            subscriptionActive: data.user?.subscription_active ?? currentAuth.user.subscriptionActive,
+            allowedIPs: data.user?.allowed_ips ?? currentAuth.user.allowedIPs,
+            mfaEnabled: data.user?.mfa_enabled ?? currentAuth.user.mfaEnabled,
+          });
+        } else if (data.user) {
+          auth.login(newToken, {
+            id: data.user.id,
+            email: data.user.email,
+            username: data.user.username,
+            name: data.user.username,
+            tier: data.user.tier,
+            isGuest: data.user.tier === "guest",
+            isAdmin: data.user.is_admin,
+            subscriptionActive: data.user.subscription_active,
+            allowedIPs: data.user.allowed_ips || [],
+            mfaEnabled: data.user.mfa_enabled || false,
+          });
+        }
+      }
+
+      update((state) => {
+        const newState = { ...state, isLocked: false, lastActivity: Date.now() };
+        persistLocal(newState);
+        return newState;
+      });
+
+      return { success: true };
+    },
+
     updateActivity() {
       update((state) => {
         const newState = { ...state, lastActivity: Date.now() };
-        // Throttle persist to avoid too many writes
         if (typeof window !== "undefined") {
           const lastPersist = (window as any).__rexec_last_activity_persist || 0;
           const now = Date.now();
-          if (now - lastPersist > 30000) { // Only persist every 30 seconds
-            persist(newState);
+          if (now - lastPersist > 30000) {
+            persistLocal(newState);
             (window as any).__rexec_last_activity_persist = now;
           }
         }
@@ -151,58 +236,41 @@ function createSecurityStore() {
       });
     },
 
-    // Set lock timeout
-    setLockTimeout(minutes: number) {
-      update((state) => {
-        const newState = { ...state, lockAfterMinutes: minutes };
-        persist(newState);
-        return newState;
-      });
-    },
-
-    // Dismiss passcode setup prompt
     dismissSetupPrompt() {
       update((state) => {
         const newState = { ...state, passcodeSetupPromptDismissed: true };
-        persist(newState);
+        persistLocal(newState);
         return newState;
       });
     },
 
-    // Reset setup prompt dismissal
     resetSetupPrompt() {
       update((state) => {
         const newState = { ...state, passcodeSetupPromptDismissed: false };
-        persist(newState);
+        persistLocal(newState);
         return newState;
       });
     },
 
-    // Check if should lock based on inactivity
     checkInactivity(): boolean {
       const state = get(store);
-      if (!state.passcodeHash || state.isLocked) {
-        return false;
-      }
+      if (!state.enabled || state.isLocked) return false;
       const elapsed = Date.now() - state.lastActivity;
       const timeoutMs = state.lockAfterMinutes * 60 * 1000;
       return elapsed >= timeoutMs;
     },
 
-    // Get current state synchronously
     getState(): SecurityState {
       return get(store);
     },
   };
 }
 
-// Export the store
 export const security = createSecurityStore();
 
-// Derived stores
-export const hasPasscode = derived(security, ($security) => !!$security.passcodeHash);
+export const hasPasscode = derived(security, ($security) => $security.enabled);
 export const isLocked = derived(security, ($security) => $security.isLocked);
 export const shouldPromptPasscode = derived(
   security,
-  ($security) => !$security.passcodeHash && !$security.passcodeSetupPromptDismissed
+  ($security) => !$security.enabled && !$security.passcodeSetupPromptDismissed
 );

@@ -49,18 +49,22 @@ func NewPostgresStore(databaseURL string, encryptor *crypto.Encryptor) (*Postgre
 func (s *PostgresStore) migrate() error {
 	// Step 1: Create tables with basic columns
 	createTables := `
-	CREATE TABLE IF NOT EXISTS users (
-		id VARCHAR(36) PRIMARY KEY,
-		email VARCHAR(255) UNIQUE NOT NULL,
-		username VARCHAR(255) NOT NULL,
-		password_hash VARCHAR(255) DEFAULT '',
-		tier VARCHAR(50) DEFAULT 'free',
-		is_admin BOOLEAN DEFAULT false,
-		mfa_enabled BOOLEAN DEFAULT false,
-		mfa_secret VARCHAR(255) DEFAULT '',
-		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-	);
+		CREATE TABLE IF NOT EXISTS users (
+			id VARCHAR(36) PRIMARY KEY,
+			email VARCHAR(255) UNIQUE NOT NULL,
+			username VARCHAR(255) NOT NULL,
+			password_hash VARCHAR(255) DEFAULT '',
+			tier VARCHAR(50) DEFAULT 'free',
+			is_admin BOOLEAN DEFAULT false,
+			mfa_enabled BOOLEAN DEFAULT false,
+			mfa_secret VARCHAR(255) DEFAULT '',
+			screen_lock_hash VARCHAR(255) DEFAULT '',
+			screen_lock_enabled BOOLEAN DEFAULT false,
+			lock_after_minutes INTEGER DEFAULT 5,
+			lock_required_since TIMESTAMP WITH TIME ZONE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);
 
 	CREATE TABLE IF NOT EXISTS containers (
 		id VARCHAR(64) PRIMARY KEY,
@@ -159,22 +163,46 @@ func (s *PostgresStore) migrate() error {
 	// Step 2: Add optional columns if they don't exist
 	addColumns := []string{
 		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-				WHERE table_name='users' AND column_name='mfa_enabled') THEN
-				ALTER TABLE users ADD COLUMN mfa_enabled BOOLEAN DEFAULT false;
-			END IF;
-		END $$`,
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='mfa_enabled') THEN
+					ALTER TABLE users ADD COLUMN mfa_enabled BOOLEAN DEFAULT false;
+				END IF;
+			END $$`,
 		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-				WHERE table_name='users' AND column_name='mfa_secret') THEN
-				ALTER TABLE users ADD COLUMN mfa_secret VARCHAR(255) DEFAULT '';
-			END IF;
-		END $$`,
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='mfa_secret') THEN
+					ALTER TABLE users ADD COLUMN mfa_secret VARCHAR(255) DEFAULT '';
+				END IF;
+			END $$`,
 		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-				WHERE table_name='users' AND column_name='allowed_ips') THEN
-				ALTER TABLE users ADD COLUMN allowed_ips TEXT;
-			END IF;
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='screen_lock_hash') THEN
+					ALTER TABLE users ADD COLUMN screen_lock_hash VARCHAR(255) DEFAULT '';
+				END IF;
+			END $$`,
+		`DO $$ BEGIN
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='screen_lock_enabled') THEN
+					ALTER TABLE users ADD COLUMN screen_lock_enabled BOOLEAN DEFAULT false;
+				END IF;
+			END $$`,
+		`DO $$ BEGIN
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='lock_after_minutes') THEN
+					ALTER TABLE users ADD COLUMN lock_after_minutes INTEGER DEFAULT 5;
+				END IF;
+			END $$`,
+		`DO $$ BEGIN
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='lock_required_since') THEN
+					ALTER TABLE users ADD COLUMN lock_required_since TIMESTAMP WITH TIME ZONE;
+				END IF;
+			END $$`,
+		`DO $$ BEGIN
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='allowed_ips') THEN
+					ALTER TABLE users ADD COLUMN allowed_ips TEXT;
+				END IF;
 		END $$`,
 		`DO $$ BEGIN
 			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
@@ -642,12 +670,18 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	var pipeopsID sql.NullString
 	var mfaEnabled bool
 	var mfaSecret string
+	var screenLockHash string
+	var screenLockEnabled bool
+	var lockAfterMinutes int
+	var lockRequiredSince sql.NullTime
 	var allowedIPs string
 	var firstName, lastName sql.NullString
 
 	query := `
 		SELECT id, email, username, COALESCE(password_hash, ''), tier, COALESCE(is_admin, false),
 		       COALESCE(pipeops_id, ''), COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
+		       COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5),
+		       lock_required_since,
 		       COALESCE(allowed_ips, ''), COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
 		FROM users WHERE email = $1
 	`
@@ -662,6 +696,10 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 		&pipeopsID,
 		&mfaEnabled,
 		&mfaSecret,
+		&screenLockHash,
+		&screenLockEnabled,
+		&lockAfterMinutes,
+		&lockRequiredSince,
 		&allowedIPs,
 		&firstName,
 		&lastName,
@@ -677,6 +715,12 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	user.PipeOpsID = pipeopsID.String
 	user.MFAEnabled = mfaEnabled
 	user.MFASecret = mfaSecret
+	user.ScreenLockHash = screenLockHash
+	user.ScreenLockEnabled = screenLockEnabled
+	user.LockAfterMinutes = lockAfterMinutes
+	if lockRequiredSince.Valid {
+		user.LockRequiredSince = &lockRequiredSince.Time
+	}
 	user.FirstName = firstName.String
 	user.LastName = lastName.String
 	if allowedIPs != "" {
@@ -691,12 +735,19 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	var pipeopsID sql.NullString
 	var mfaEnabled bool
 	var mfaSecret string
+	var screenLockHash string
+	var screenLockEnabled bool
+	var lockAfterMinutes int
+	var lockRequiredSince sql.NullTime
 	var allowedIPs string
 	var firstName, lastName sql.NullString
 
 	query := `
 		SELECT id, email, username, tier, COALESCE(is_admin, false), COALESCE(pipeops_id, ''),
-		       COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''), COALESCE(allowed_ips, ''),
+		       COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
+		       COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5),
+		       lock_required_since,
+		       COALESCE(allowed_ips, ''),
 		       COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
 		FROM users WHERE id = $1
 	`
@@ -710,6 +761,10 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		&pipeopsID,
 		&mfaEnabled,
 		&mfaSecret,
+		&screenLockHash,
+		&screenLockEnabled,
+		&lockAfterMinutes,
+		&lockRequiredSince,
 		&allowedIPs,
 		&firstName,
 		&lastName,
@@ -725,6 +780,12 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	user.PipeOpsID = pipeopsID.String
 	user.MFAEnabled = mfaEnabled
 	user.MFASecret = mfaSecret
+	user.ScreenLockHash = screenLockHash
+	user.ScreenLockEnabled = screenLockEnabled
+	user.LockAfterMinutes = lockAfterMinutes
+	if lockRequiredSince.Valid {
+		user.LockRequiredSince = &lockRequiredSince.Time
+	}
 	user.FirstName = firstName.String
 	user.LastName = lastName.String
 	if allowedIPs != "" {
@@ -1176,13 +1237,12 @@ func (s *PostgresStore) UpdateContainerSettings(ctx context.Context, id, name st
 	if err != nil {
 		return fmt.Errorf("update query failed: %w", err)
 	}
-	
 
-rowsAffected, _ := result.RowsAffected()
+	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		return fmt.Errorf("no container found with id %s or it was deleted", id)
 	}
-	
+
 	return nil
 }
 
@@ -1247,9 +1307,9 @@ func (s *PostgresStore) TouchContainer(ctx context.Context, id string) error {
 	return err
 }
 
-// ============================================================================ 
+// ============================================================================
 // Terminal Recordings
-// ============================================================================ 
+// ============================================================================
 
 // RecordingRecord represents a terminal recording in the database
 type RecordingRecord struct {
@@ -1257,13 +1317,13 @@ type RecordingRecord struct {
 	UserID      string     `db:"user_id"`
 	ContainerID string     `db:"container_id"`
 	Title       string     `db:"title"`
-	Duration    int64      `db:"duration_ms"`    // Duration in milliseconds
-	Size        int64      `db:"size_bytes"`     // Size of recording data
-	Data        []byte     `db:"data"`           // Recording data (gzipped asciicast)
-	ShareToken  string     `db:"share_token"`    // Public share link token
-	IsPublic    bool       `db:"is_public"`      // Whether publicly accessible
+	Duration    int64      `db:"duration_ms"` // Duration in milliseconds
+	Size        int64      `db:"size_bytes"`  // Size of recording data
+	Data        []byte     `db:"data"`        // Recording data (gzipped asciicast)
+	ShareToken  string     `db:"share_token"` // Public share link token
+	IsPublic    bool       `db:"is_public"`   // Whether publicly accessible
 	CreatedAt   time.Time  `db:"created_at"`
-	ExpiresAt   *time.Time `db:"expires_at"`     // Optional expiration
+	ExpiresAt   *time.Time `db:"expires_at"` // Optional expiration
 }
 
 // CreateRecording creates a new recording record
@@ -1419,17 +1479,17 @@ func (s *PostgresStore) GetRecordingDataByToken(ctx context.Context, token strin
 	return data, err
 }
 
-// ============================================================================ 
+// ============================================================================
 // Collaboration Sessions
-// ============================================================================ 
+// ============================================================================
 
 // CollabSessionRecord represents a collaborative terminal session
 type CollabSessionRecord struct {
 	ID          string    `db:"id"`
 	ContainerID string    `db:"container_id"`
 	OwnerID     string    `db:"owner_id"`
-	ShareCode   string    `db:"share_code"`      // Short code for joining (e.g., "ABC123")
-	Mode        string    `db:"mode"`            // "view" or "control"
+	ShareCode   string    `db:"share_code"` // Short code for joining (e.g., "ABC123")
+	Mode        string    `db:"mode"`       // "view" or "control"
 	MaxUsers    int       `db:"max_users"`
 	IsActive    bool      `db:"is_active"`
 	CreatedAt   time.Time `db:"created_at"`
@@ -1438,12 +1498,12 @@ type CollabSessionRecord struct {
 
 // CollabParticipantRecord represents a participant in a collab session
 type CollabParticipantRecord struct {
-	ID        string    `db:"id"`
-	SessionID string    `db:"session_id"`
-	UserID    string    `db:"user_id"`
-	Username  string    `db:"username"`
-	Role      string    `db:"role"`       // "owner", "editor", "viewer"
-	JoinedAt  time.Time `db:"joined_at"`
+	ID        string     `db:"id"`
+	SessionID string     `db:"session_id"`
+	UserID    string     `db:"user_id"`
+	Username  string     `db:"username"`
+	Role      string     `db:"role"` // "owner", "editor", "viewer"
+	JoinedAt  time.Time  `db:"joined_at"`
 	LeftAt    *time.Time `db:"left_at"`
 }
 
@@ -1627,9 +1687,9 @@ func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, session
 	return count, err
 }
 
-// ============================================================================ 
+// ============================================================================
 // Remote Host operations (SSH Jump Hosts)
-// ============================================================================ 
+// ============================================================================
 
 // CreateRemoteHost creates a new remote host record
 func (s *PostgresStore) CreateRemoteHost(ctx context.Context, host *models.RemoteHost) error {
@@ -1751,9 +1811,9 @@ func (s *PostgresStore) GetRemoteHostByID(ctx context.Context, id string) (*mode
 	return &h, nil
 }
 
-// ============================================================================ 
+// ============================================================================
 // Port Forward operations
-// ============================================================================ 
+// ============================================================================
 
 // CreatePortForward creates a new port forward record
 func (s *PostgresStore) CreatePortForward(ctx context.Context, pf *models.PortForward) error {
@@ -1846,9 +1906,9 @@ func (s *PostgresStore) DeletePortForward(ctx context.Context, id string) error 
 	return err
 }
 
-// ============================================================================ 
+// ============================================================================
 // Snippet operations
-// ============================================================================ 
+// ============================================================================
 
 // CreateSnippet creates a new snippet record
 func (s *PostgresStore) CreateSnippet(ctx context.Context, snippet *models.Snippet) error {
@@ -1897,37 +1957,38 @@ func (s *PostgresStore) GetSnippetsByUserID(ctx context.Context, userID string) 
 	var snippets []*models.Snippet
 	for rows.Next() {
 		var sn models.Snippet
-		        err := rows.Scan(
-		            &sn.ID,
-		            &sn.UserID,
-		            &sn.Name,
-		            &sn.Content,
-		            &sn.Language,
-		            &sn.IsPublic,
-		            &sn.Description,
-		            &sn.Icon,
-		            &sn.Category,
-		            &sn.InstallCommand,
-		            &sn.RequiresInstall,
-		            &sn.UsageCount,
-		            &sn.CreatedAt,
-		        )
-		        if err != nil {
-		            return nil, err
-		        }
-		
-		        // Decrypt content
-		        decrypted, err := s.encryptor.Decrypt(sn.Content)
-		        if err == nil {
-		            sn.Content = decrypted
-		        } else {
-		            sn.Content = "[Encrypted Content - Decryption Failed]"
-		        }
-		
-		        snippets = append(snippets, &sn)
-		    }
-		    return snippets, nil
+		err := rows.Scan(
+			&sn.ID,
+			&sn.UserID,
+			&sn.Name,
+			&sn.Content,
+			&sn.Language,
+			&sn.IsPublic,
+			&sn.Description,
+			&sn.Icon,
+			&sn.Category,
+			&sn.InstallCommand,
+			&sn.RequiresInstall,
+			&sn.UsageCount,
+			&sn.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
 		}
+
+		// Decrypt content
+		decrypted, err := s.encryptor.Decrypt(sn.Content)
+		if err == nil {
+			sn.Content = decrypted
+		} else if !isLikelyPlaintext(err) {
+			sn.Content = "[Encrypted Content - Decryption Failed]"
+		}
+
+		snippets = append(snippets, &sn)
+	}
+	return snippets, nil
+}
+
 // GetSnippetByID retrieves a snippet by ID
 func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.Snippet, error) {
 	var sn models.Snippet
@@ -1962,7 +2023,7 @@ func (s *PostgresStore) GetSnippetByID(ctx context.Context, id string) (*models.
 	decrypted, err := s.encryptor.Decrypt(sn.Content)
 	if err == nil {
 		sn.Content = decrypted
-	} else {
+	} else if !isLikelyPlaintext(err) {
 		sn.Content = "[Encrypted Content - Decryption Failed]"
 	}
 
@@ -2033,7 +2094,6 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 
 	query += " LIMIT 100"
 
-
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -2068,13 +2128,24 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 		decrypted, err := s.encryptor.Decrypt(sn.Content)
 		if err == nil {
 			sn.Content = decrypted
-		} else {
+		} else if !isLikelyPlaintext(err) {
 			sn.Content = "[Encrypted Content - Decryption Failed]"
 		}
 
 		snippets = append(snippets, &sn)
 	}
 	return snippets, nil
+}
+
+// isLikelyPlaintext returns true when a decrypt error suggests the stored value
+// was never encrypted (legacy plaintext snippets).
+func isLikelyPlaintext(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "illegal base64 data") ||
+		strings.Contains(msg, "ciphertext too short")
 }
 
 // IncrementSnippetUsage increments the usage count for a snippet
@@ -2091,9 +2162,9 @@ func (s *PostgresStore) DeleteSnippet(ctx context.Context, id string) error {
 	return err
 }
 
-// ============================================================================ 
+// ============================================================================
 // Audit Logs
-// ============================================================================ 
+// ============================================================================
 
 // CreateAuditLog creates a new audit log entry
 func (s *PostgresStore) CreateAuditLog(ctx context.Context, log *models.AuditLog) error {
@@ -2175,10 +2246,70 @@ func (s *PostgresStore) GetUserMFASecret(ctx context.Context, userID string) (st
 	if err != nil {
 		return "", err
 	}
-	
+
 	if secret == "" {
 		return "", nil
 	}
 
 	return s.encryptor.Decrypt(secret)
+}
+
+// ============================================================================
+// Screen Lock (server-enforced)
+// ============================================================================
+
+// GetUserScreenLock returns the screen lock settings for a user.
+func (s *PostgresStore) GetUserScreenLock(ctx context.Context, userID string) (hash string, enabled bool, lockAfterMinutes int, lockRequiredSince *time.Time, err error) {
+	var lockSince sql.NullTime
+	query := `
+		SELECT COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5), lock_required_since
+		FROM users WHERE id = $1
+	`
+	if err := s.db.QueryRowContext(ctx, query, userID).Scan(&hash, &enabled, &lockAfterMinutes, &lockSince); err != nil {
+		return "", false, 0, nil, err
+	}
+	if lockSince.Valid {
+		lockRequiredSince = &lockSince.Time
+	}
+	return hash, enabled, lockAfterMinutes, lockRequiredSince, nil
+}
+
+// SetScreenLockPasscode sets/updates the user's passcode hash and enables screen lock.
+func (s *PostgresStore) SetScreenLockPasscode(ctx context.Context, userID, passcodeHash string, lockAfterMinutes int) error {
+	query := `
+		UPDATE users
+		SET screen_lock_hash = $2,
+		    screen_lock_enabled = true,
+		    lock_after_minutes = $3,
+		    updated_at = $4
+		WHERE id = $1
+	`
+	_, err := s.db.ExecContext(ctx, query, userID, passcodeHash, lockAfterMinutes, time.Now())
+	return err
+}
+
+// RemoveScreenLockPasscode disables screen lock and clears the stored hash.
+func (s *PostgresStore) RemoveScreenLockPasscode(ctx context.Context, userID string) error {
+	query := `
+		UPDATE users
+		SET screen_lock_hash = '',
+		    screen_lock_enabled = false,
+		    lock_required_since = NULL,
+		    updated_at = $2
+		WHERE id = $1
+	`
+	_, err := s.db.ExecContext(ctx, query, userID, time.Now())
+	return err
+}
+
+// SetLockRequiredSince marks the account as locked from this time onward.
+func (s *PostgresStore) SetLockRequiredSince(ctx context.Context, userID string, t time.Time) error {
+	query := `
+		UPDATE users
+		SET lock_required_since = $2,
+		    updated_at = $3
+		WHERE id = $1
+	`
+	_, err := s.db.ExecContext(ctx, query, userID, t, time.Now())
+	return err
 }

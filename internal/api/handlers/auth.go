@@ -14,10 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	admin_events "github.com/rexec/rexec/internal/api/handlers/admin_events"
 	"github.com/rexec/rexec/internal/auth"
 	"github.com/rexec/rexec/internal/models"
 	"github.com/rexec/rexec/internal/storage"
-	admin_events "github.com/rexec/rexec/internal/api/handlers/admin_events"
 )
 
 const (
@@ -132,11 +132,11 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 				}
 			} else {
 				c.JSON(http.StatusInternalServerError, models.APIError{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to create guest session",
-					})
-					return
-				}
+					Code:    http.StatusInternalServerError,
+					Message: "Failed to create guest session",
+				})
+				return
+			}
 		}
 		// Broadcast user_created event
 		if h.adminEventsHub != nil {
@@ -397,12 +397,12 @@ func (h *AuthHandler) OAuthCallback(c *gin.Context) {
 			// Ensure OAuth users are at least on the free tier (upgrade from guest)
 			user.Tier = "free"
 		}
-		
+
 		// Update PipeOps ID if not set
 		if user.PipeOpsID == "" {
 			user.PipeOpsID = fmt.Sprintf("%d", userInfo.ID)
 		}
-		
+
 		user.UpdatedAt = time.Now()
 		if err := h.store.UpdateUser(ctx, user); err != nil {
 			// Log error but continue, as user exists
@@ -477,11 +477,11 @@ func (h *AuthHandler) generateToken(user *models.User) (string, error) {
 func (h *AuthHandler) generateMFAToken(user *models.User) (string, error) {
 	// MFA tokens are valid for 10 minutes
 	claims := jwt.MapClaims{
-		"user_id":      user.ID,
-		"email":        user.Email,
-		"mfa_pending":  true,
-		"exp":          time.Now().Add(10 * time.Minute).Unix(),
-		"iat":          time.Now().Unix(),
+		"user_id":     user.ID,
+		"email":       user.Email,
+		"mfa_pending": true,
+		"exp":         time.Now().Add(10 * time.Minute).Unix(),
+		"iat":         time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -528,20 +528,23 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	// Build user response
 	userResponse := gin.H{
-		"id":         user.ID,
-		"email":      user.Email,
-		"username":   user.Username,
-		"name":       name,
-		"first_name": user.FirstName,
-		"last_name":  user.LastName,
-		"avatar":     user.Avatar,
-		"verified":   user.Verified,
-		"tier":       user.Tier,
-		"created_at": user.CreatedAt,
-		"updated_at":  user.UpdatedAt,
-		"is_admin":    user.IsAdmin,
-		"mfa_enabled": user.MFAEnabled,
-		"allowed_ips": user.AllowedIPs,
+		"id":                  user.ID,
+		"email":               user.Email,
+		"username":            user.Username,
+		"name":                name,
+		"first_name":          user.FirstName,
+		"last_name":           user.LastName,
+		"avatar":              user.Avatar,
+		"verified":            user.Verified,
+		"tier":                user.Tier,
+		"created_at":          user.CreatedAt,
+		"updated_at":          user.UpdatedAt,
+		"is_admin":            user.IsAdmin,
+		"mfa_enabled":         user.MFAEnabled,
+		"allowed_ips":         user.AllowedIPs,
+		"screen_lock_enabled": user.ScreenLockEnabled && user.ScreenLockHash != "",
+		"lock_after_minutes":  user.LockAfterMinutes,
+		"lock_required_since": user.LockRequiredSince,
 	}
 
 	// For guest users, include expiration time from token
@@ -1434,26 +1437,26 @@ func userToJSON(user *models.User) string {
 	firstName := strings.ReplaceAll(user.FirstName, `"`, `\"`)
 	lastName := strings.ReplaceAll(user.LastName, `"`, `\"`)
 	avatar := strings.ReplaceAll(user.Avatar, `"`, `\"`)
-	
+
 	// Determine display name
 	name := username
 	if firstName != "" || lastName != "" {
 		name = strings.TrimSpace(firstName + " " + lastName)
 	}
 	name = strings.ReplaceAll(name, `"`, `\"`)
-	
+
 	// Determine is_guest based on tier
 	isGuest := "false"
 	if tier == "guest" {
 		isGuest = "true"
 	}
-	
-		verified := "false"
+
+	verified := "false"
 	if user.Verified {
 		verified = "true"
 	}
 
-		// Determine subscription status
+	// Determine subscription status
 	subscriptionActive := "false"
 	if user.SubscriptionActive {
 		subscriptionActive = "true"
@@ -1523,7 +1526,7 @@ func (h *AuthHandler) VerifyMFA(c *gin.Context) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Enable MFA for user
 	if err := h.store.EnableMFA(ctx, userID, req.Secret); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enable MFA"})
@@ -1738,13 +1741,13 @@ func (h *AuthHandler) GetAuditLogs(c *gin.Context) {
 	// Pagination
 	limit := 50
 	offset := 0
-	
+
 	if limitStr := c.Query("limit"); limitStr != "" {
 		if val, err := strconv.Atoi(limitStr); err == nil && val > 0 && val <= 100 {
 			limit = val
 		}
 	}
-	
+
 	if offsetStr := c.Query("offset"); offsetStr != "" {
 		if val, err := strconv.Atoi(offsetStr); err == nil && val >= 0 {
 			offset = val

@@ -66,6 +66,9 @@
         // Subscribe to stores inside onMount to avoid effect_orphan error in Svelte 5
         unsubAuth = isAuthenticated.subscribe(value => {
             currentIsAuthenticated = value;
+            if (value) {
+                security.refreshFromServer();
+            }
         });
         
         unsubPasscode = hasPasscode.subscribe(value => {
@@ -121,14 +124,12 @@
         isVerifying = true;
         error = "";
 
-        const isValid = await security.verifyPasscode(passcodeInput);
-        
-        if (isValid) {
-            security.unlock();
+        const result = await security.unlockWithPasscode(passcodeInput);
+        if (result.success) {
             passcodeInput = "";
             toast.success("Screen unlocked");
         } else {
-            error = "Incorrect passcode";
+            error = result.error || "Incorrect passcode";
             passcodeInput = "";
         }
 
@@ -152,8 +153,12 @@
         }
 
         isVerifying = true;
-        await security.setPasscode(newPasscode);
+        const result = await security.setPasscode(newPasscode);
         isVerifying = false;
+        if (!result.success) {
+            error = result.error || "Failed to set passcode";
+            return;
+        }
 
         newPasscode = "";
         confirmPasscode = "";
