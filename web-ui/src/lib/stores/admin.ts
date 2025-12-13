@@ -1,5 +1,6 @@
 import { writable, derived, get } from "svelte/store";
 import { api, type ApiResponse, getWebSocketUrl } from "../utils/api";
+import { createRexecWebSocket } from "../utils/ws";
 import type { User } from "./auth";
 import type { Container } from "./containers";
 
@@ -106,9 +107,9 @@ function createAdminStore() {
       return;
     }
 
-    const wsUrl = getWebSocketUrl(`/ws/admin/events?token=${token}`);
+    const wsUrl = getWebSocketUrl("/ws/admin/events");
 
-    ws = new WebSocket(wsUrl);
+    ws = createRexecWebSocket(wsUrl, token);
     update((state) => ({ ...state, ws }));
 
     ws.onopen = () => {

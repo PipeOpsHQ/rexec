@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { auth } from './auth';
+import { createRexecWebSocket } from '$utils/ws';
 
 // Types
 export interface CollabSession {
@@ -156,9 +157,9 @@ function createCollabStore() {
     update(s => ({ ...s, isConnecting: true }));
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/collab/${shareCode}?token=${token}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws/collab/${shareCode}`;
 
-    ws = new WebSocket(wsUrl);
+    ws = createRexecWebSocket(wsUrl, token);
 
     ws.onopen = () => {
 

@@ -16,6 +16,24 @@ import (
 	"github.com/rexec/rexec/internal/storage"
 )
 
+const wsTokenProtocolPrefix = "rexec.token."
+
+func tokenFromWebSocketSubprotocolHeader(headerVal string) string {
+	if headerVal == "" {
+		return ""
+	}
+	for _, part := range strings.Split(headerVal, ",") {
+		proto := strings.TrimSpace(part)
+		if strings.HasPrefix(proto, wsTokenProtocolPrefix) {
+			token := strings.TrimPrefix(proto, wsTokenProtocolPrefix)
+			if token != "" {
+				return token
+			}
+		}
+	}
+	return ""
+}
+
 // AuthMiddleware validates JWT or API tokens and extracts user info, enforcing MFA if enabled.
 // jwtSecret must be the server's signing key.
 func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, jwtSecret []byte) gin.HandlerFunc {
@@ -32,10 +50,13 @@ func AuthMiddleware(store *storage.PostgresStore, mfaService *auth.MFAService, j
 			}
 		}
 
-		if tokenString == "" {
-			// Only allow token in query params for WebSocket upgrades to avoid leaking tokens
-			// via URLs on normal HTTP requests.
-			if websocket.IsWebSocketUpgrade(c.Request) {
+		if tokenString == "" && websocket.IsWebSocketUpgrade(c.Request) {
+			// For browser WebSockets, pass the token in a header instead of the URL:
+			// Sec-WebSocket-Protocol: rexec.v1, rexec.token.<token>
+			tokenString = tokenFromWebSocketSubprotocolHeader(c.GetHeader("Sec-WebSocket-Protocol"))
+
+			// Backwards compatibility: allow token in query params for legacy WebSocket clients.
+			if tokenString == "" {
 				tokenQuery := c.Query("token")
 				if tokenQuery != "" {
 					tokenString = tokenQuery

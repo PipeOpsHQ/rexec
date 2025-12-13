@@ -1,5 +1,6 @@
 import { writable, derived, get } from "svelte/store";
 import { token } from "./auth";
+import { createRexecWebSocket } from "../utils/ws";
 
 // Types
 export interface ContainerResources {
@@ -821,10 +822,9 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Get WebSocket URL
 function getWebSocketUrl(): string {
-  const currentToken = get(token);
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
-  return `${protocol}//${host}/api/containers/events?token=${currentToken}`;
+  return `${protocol}//${host}/api/containers/events`;
 }
 
 // WebSocket connection status
@@ -851,7 +851,7 @@ export function startContainerEvents() {
   if (!currentToken) return;
 
   try {
-    eventsSocket = new WebSocket(getWebSocketUrl());
+    eventsSocket = createRexecWebSocket(getWebSocketUrl(), currentToken);
 
     eventsSocket.onopen = () => {
       wsConnected.set(true);
@@ -892,8 +892,6 @@ export function startContainerEvents() {
         }, 60000); // Retry after 1 minute
       }
     };
-
-
   } catch (e) {
     console.error("[ContainerEvents] Failed to create WebSocket:", e);
     // Retry after delay

@@ -19,6 +19,45 @@ import (
 	"github.com/rexec/rexec/internal/storage"
 )
 
+const wsTokenProtocolPrefix = "rexec.token."
+
+func tokenFromAuthorizationHeader(authHeader string) string {
+	if authHeader == "" {
+		return ""
+	}
+	parts := strings.Fields(authHeader)
+	if len(parts) >= 2 && strings.EqualFold(parts[0], "bearer") {
+		return parts[1]
+	}
+	return ""
+}
+
+func tokenFromWebSocketSubprotocolHeader(headerVal string) string {
+	if headerVal == "" {
+		return ""
+	}
+	for _, part := range strings.Split(headerVal, ",") {
+		proto := strings.TrimSpace(part)
+		if strings.HasPrefix(proto, wsTokenProtocolPrefix) {
+			token := strings.TrimPrefix(proto, wsTokenProtocolPrefix)
+			if token != "" {
+				return token
+			}
+		}
+	}
+	return ""
+}
+
+func tokenFromWebSocketRequest(c *gin.Context) string {
+	if t := tokenFromAuthorizationHeader(c.GetHeader("Authorization")); t != "" {
+		return t
+	}
+	if t := tokenFromWebSocketSubprotocolHeader(c.GetHeader("Sec-WebSocket-Protocol")); t != "" {
+		return t
+	}
+	return c.Query("token")
+}
+
 // AgentHandler handles external agent connections
 type AgentHandler struct {
 	store            *storage.PostgresStore
@@ -33,18 +72,18 @@ type AgentHandler struct {
 }
 
 type AgentConnection struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	OS          string          `json:"os"`
-	Arch        string          `json:"arch"`
-	Shell       string          `json:"shell"`
-	Tags        []string        `json:"tags,omitempty"`
-	UserID      string          `json:"user_id"`
-	Status      string          `json:"status"`
-	CreatedAt   time.Time       `json:"created_at"`
-	ConnectedAt time.Time       `json:"connected_at"`
-	LastPing    time.Time       `json:"last_ping"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	OS          string    `json:"os"`
+	Arch        string    `json:"arch"`
+	Shell       string    `json:"shell"`
+	Tags        []string  `json:"tags,omitempty"`
+	UserID      string    `json:"user_id"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	ConnectedAt time.Time `json:"connected_at"`
+	LastPing    time.Time `json:"last_ping"`
 	conn        *websocket.Conn
 	sessions    map[string]*AgentSession
 	sessionsMu  sync.RWMutex
@@ -69,8 +108,8 @@ type AgentSession struct {
 	AgentSessionID string
 
 	NewSession bool
-	UserConn    *websocket.Conn
-	CreatedAt   time.Time
+	UserConn   *websocket.Conn
+	CreatedAt  time.Time
 }
 
 // NewAgentHandler creates a new agent handler.
@@ -389,7 +428,7 @@ func (h *AgentHandler) ListAgents(c *gin.Context) {
 		} else {
 			agents[i].Status = "offline"
 		}
-		
+
 		// Fallback for ConnectedAt if zero (since DB might not store it yet)
 		if agents[i].ConnectedAt.IsZero() {
 			agents[i].ConnectedAt = agents[i].LastPing
@@ -471,14 +510,18 @@ func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 // HandleAgentWebSocket handles the WebSocket connection from the agent
 func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	agentID := c.Param("id")
-	token := c.Query("token")
+	token := tokenFromWebSocketRequest(c)
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
 
 	// Log connection attempt for debugging
 	tokenType := "JWT"
 	if strings.HasPrefix(token, "rexec_") {
 		tokenType = "API"
 	}
-	log.Printf("[Agent WS] Connection attempt: agent=%s, tokenType=%s, IP=%s", 
+	log.Printf("[Agent WS] Connection attempt: agent=%s, tokenType=%s, IP=%s",
 		agentID, tokenType, c.ClientIP())
 
 	// Verify token and get user
@@ -499,7 +542,7 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	}
 
 	if agent.UserID != userID {
-		log.Printf("[Agent WS] Authorization failed: agent %s owned by %s, token user %s", 
+		log.Printf("[Agent WS] Authorization failed: agent %s owned by %s, token user %s",
 			agentID, agent.UserID, userID)
 		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
 		return
@@ -511,24 +554,24 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 		log.Printf("[Agent WS] Failed to upgrade connection for agent %s: %v", agentID, err)
 		return
 	}
-	
+
 	log.Printf("[Agent WS] WebSocket upgraded successfully for agent %s", agentID)
 
 	// Create agent connection
 	agentConn := &AgentConnection{
-		ID:          agentID,
-		Name:        agent.Name,
-		Description: agent.Description,
-		OS:          c.GetHeader("X-Agent-OS"),
-		Arch:        c.GetHeader("X-Agent-Arch"),
-		Shell:       c.GetHeader("X-Agent-Shell"),
-		UserID:      userID,
-		Status:      "online",
-		CreatedAt:   agent.CreatedAt,
-		ConnectedAt: time.Now(),
-		LastPing:    time.Now(),
-		conn:        conn,
-		sessions:    make(map[string]*AgentSession),
+		ID:                agentID,
+		Name:              agent.Name,
+		Description:       agent.Description,
+		OS:                c.GetHeader("X-Agent-OS"),
+		Arch:              c.GetHeader("X-Agent-Arch"),
+		Shell:             c.GetHeader("X-Agent-Shell"),
+		UserID:            userID,
+		Status:            "online",
+		CreatedAt:         agent.CreatedAt,
+		ConnectedAt:       time.Now(),
+		LastPing:          time.Now(),
+		conn:              conn,
+		sessions:          make(map[string]*AgentSession),
 		remoteSessionRefs: make(map[string]map[string]struct{}),
 	}
 
@@ -705,7 +748,7 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 			if err := json.Unmarshal(msg.Data, &sysInfo); err == nil {
 				agentConn.SystemInfo = sysInfo
 				log.Printf("Agent %s system info: %v", agentConn.Name, sysInfo)
-				
+
 				// Persist system info to DB
 				if err := h.store.UpdateAgentSystemInfo(context.Background(), agentID, sysInfo); err != nil {
 					log.Printf("Failed to persist system info for agent %s: %v", agentID, err)
@@ -737,7 +780,11 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 // HandleUserWebSocket handles the WebSocket connection from a user to an agent
 func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 	agentID := c.Param("id")
-	token := c.Query("token")
+	token := tokenFromWebSocketRequest(c)
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
 
 	// Verify token and get user
 	userID, err := h.verifyToken(token)
@@ -821,8 +868,8 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 	}
 
 	session := &AgentSession{
-		ID:            connectionID,
-		UserID:        userID,
+		ID:             connectionID,
+		UserID:         userID,
 		AgentID:        agentID,
 		AgentSessionID: agentSessionID,
 		NewSession:     newSession,
@@ -1144,7 +1191,7 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 	for _, agent := range allAgents {
 		// Check if agent is online based on LastPing (LastHeartbeat from DB)
 		isOnline := !agent.LastPing.IsZero() && agent.LastPing.After(threshold)
-		
+
 		if isOnline {
 			// Construct agent data
 			agentData := gin.H{
@@ -1166,28 +1213,28 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 			localConn, isLocal := h.agents[agent.ID]
 			h.agentsMu.RUnlock()
 
-				if isLocal {
-					// Use local connection data for most accurate stats
-					agentData["resources"] = h.buildAgentData(localConn)["resources"]
-					if localConn.Stats != nil {
-						agentData["stats"] = localConn.Stats
+			if isLocal {
+				// Use local connection data for most accurate stats
+				agentData["resources"] = h.buildAgentData(localConn)["resources"]
+				if localConn.Stats != nil {
+					agentData["stats"] = localConn.Stats
+				}
+				if localConn.SystemInfo != nil {
+					if hostname, ok := localConn.SystemInfo["hostname"].(string); ok && hostname != "" {
+						agentData["hostname"] = hostname
 					}
-					if localConn.SystemInfo != nil {
-						if hostname, ok := localConn.SystemInfo["hostname"].(string); ok && hostname != "" {
-							agentData["hostname"] = hostname
-						}
-						if region, ok := localConn.SystemInfo["region"].(string); ok && region != "" {
-							agentData["region"] = region
-						}
+					if region, ok := localConn.SystemInfo["region"].(string); ok && region != "" {
+						agentData["region"] = region
 					}
-				} else {
-					// For remote agents, use persisted SystemInfo from DB to calculate capacity
-					resources := gin.H{
-						"memory_mb":  0,
-						"cpu_shares": 1024,
+				}
+			} else {
+				// For remote agents, use persisted SystemInfo from DB to calculate capacity
+				resources := gin.H{
+					"memory_mb":  0,
+					"cpu_shares": 1024,
 					"disk_mb":    0,
 				}
-				
+
 				if agent.SystemInfo != nil {
 					if numCPU, ok := agent.SystemInfo["num_cpu"].(float64); ok { // JSON unmarshals numbers as float64
 						resources["cpu_shares"] = int(numCPU * 1024)
@@ -1201,18 +1248,18 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 						if total, ok := disk["total"].(float64); ok {
 							resources["disk_mb"] = int(total / 1024 / 1024)
 						}
-						}
-						if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
-							agentData["hostname"] = hostname
-						}
-						if region, ok := agent.SystemInfo["region"].(string); ok && region != "" {
-							agentData["region"] = region
-						}
 					}
-					
-					agentData["resources"] = resources
+					if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+						agentData["hostname"] = hostname
+					}
+					if region, ok := agent.SystemInfo["region"].(string); ok && region != "" {
+						agentData["region"] = region
+					}
 				}
-			
+
+				agentData["resources"] = resources
+			}
+
 			onlineAgents = append(onlineAgents, agentData)
 		}
 	}
@@ -1241,7 +1288,7 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 		"disk_mb":    0,
 	}
 
-		if agent.SystemInfo != nil {
+	if agent.SystemInfo != nil {
 		// Handle both float64 (from JSON unmarshal) and int (from internal creation if any)
 		var numCPU float64
 		if val, ok := agent.SystemInfo["num_cpu"].(float64); ok {
@@ -1249,7 +1296,7 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 		} else if val, ok := agent.SystemInfo["num_cpu"].(int); ok {
 			numCPU = float64(val)
 		}
-		
+
 		if numCPU > 0 {
 			resources["cpu_shares"] = int(numCPU * 1024)
 		}
@@ -1264,13 +1311,13 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 				resources["disk_mb"] = int(total / 1024 / 1024)
 			}
 		}
-			if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
-				agentData["hostname"] = hostname
-			}
-			if region, ok := agent.SystemInfo["region"].(string); ok && region != "" {
-				agentData["region"] = region
-			}
+		if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+			agentData["hostname"] = hostname
 		}
+		if region, ok := agent.SystemInfo["region"].(string); ok && region != "" {
+			agentData["region"] = region
+		}
+	}
 
 	if agent.Stats != nil {
 		if memLimit, ok := agent.Stats["memory_limit"].(float64); ok && memLimit > 0 {

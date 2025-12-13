@@ -8,6 +8,7 @@ import { token } from "./auth";
 import { toast } from "./toast";
 import { theme } from "./theme";
 import { loadXtermCore, loadXtermWebgl } from "$utils/xterm";
+import { createRexecWebSocket } from "$utils/ws";
 
 // Types
 export type SessionStatus =
@@ -676,13 +677,13 @@ function createTerminalStore() {
     },
 
     // Connect WebSocket for a session
-    connectWebSocket(sessionId: string) {
-      const state = getState();
-      const session = state.sessions.get(sessionId);
-      if (!session) return;
+	    connectWebSocket(sessionId: string) {
+	      const state = getState();
+	      const session = state.sessions.get(sessionId);
+	      if (!session) return;
 
-      const authToken = get(token);
-      if (!authToken) return;
+	      const authToken = get(token);
+	      if (!authToken) return;
 
       // Prevent duplicate connections
       if (
@@ -697,14 +698,20 @@ function createTerminalStore() {
       if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
       if (session.pingInterval) clearInterval(session.pingInterval);
 
-      // Build WebSocket URL - different endpoint for agent sessions
-      let wsUrl: string;
-      if (session.isAgentSession && session.agentId) {
-        wsUrl = `${getWsUrl()}/ws/agent/${session.agentId}/terminal?token=${authToken}&id=${sessionId}`;
-      } else {
-        wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${sessionId}`;
-      }
-      const ws = new WebSocket(wsUrl);
+	      // Build WebSocket URL - different endpoint for agent sessions
+	      const agentId =
+	        session.agentId ||
+	        (session.containerId.startsWith("agent:")
+	          ? session.containerId.slice("agent:".length)
+	          : null);
+	      let wsUrl: string;
+	      if (session.isAgentSession || agentId) {
+	        if (!agentId) return;
+	        wsUrl = `${getWsUrl()}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(sessionId)}`;
+	      } else {
+	        wsUrl = `${getWsUrl()}/ws/terminal/${encodeURIComponent(session.containerId)}?id=${encodeURIComponent(sessionId)}`;
+	      }
+	      const ws = createRexecWebSocket(wsUrl, authToken);
 
       updateSession(sessionId, (s) => ({ ...s, ws, status: "connecting" }));
 
@@ -2088,10 +2095,10 @@ function createTerminalStore() {
     },
 
     // Connect a split pane to its own independent WebSocket session
-    connectSplitPaneWebSocket(sessionId: string, paneId: string) {
-      const state = getState();
-      const session = state.sessions.get(sessionId);
-      if (!session) return;
+	    connectSplitPaneWebSocket(sessionId: string, paneId: string) {
+	      const state = getState();
+	      const session = state.sessions.get(sessionId);
+	      if (!session) return;
 
       const pane = session.splitPanes.get(paneId);
       if (!pane) return;
@@ -2111,15 +2118,21 @@ function createTerminalStore() {
       // Clear existing timer
       if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
 
-      // Create independent WebSocket connection for this pane with unique ID
-      // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
-      let wsUrl: string;
-      if (session.isAgentSession && session.agentId) {
-        wsUrl = `${getWsUrl()}/ws/agent/${session.agentId}/terminal?token=${authToken}&id=${paneId}&newSession=true`;
-      } else {
-        wsUrl = `${getWsUrl()}/ws/terminal/${session.containerId}?token=${authToken}&id=${paneId}&newSession=true`;
-      }
-      const ws = new WebSocket(wsUrl);
+	      // Create independent WebSocket connection for this pane with unique ID
+	      // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
+	      const agentId =
+	        session.agentId ||
+	        (session.containerId.startsWith("agent:")
+	          ? session.containerId.slice("agent:".length)
+	          : null);
+	      let wsUrl: string;
+	      if (session.isAgentSession || agentId) {
+	        if (!agentId) return;
+	        wsUrl = `${getWsUrl()}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(paneId)}&newSession=true`;
+	      } else {
+	        wsUrl = `${getWsUrl()}/ws/terminal/${encodeURIComponent(session.containerId)}?id=${encodeURIComponent(paneId)}&newSession=true`;
+	      }
+	      const ws = createRexecWebSocket(wsUrl, authToken);
 
       ws.onopen = () => {
         // Reset reconnect attempts on successful connection
