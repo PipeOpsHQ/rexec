@@ -76,7 +76,11 @@ type TerminalHandler struct {
 	mu               sync.RWMutex
 	recordingHandler *RecordingHandler
 	collabHandler    *CollabHandler
-	adminEventsHub   *admin_events.AdminEventsHub // New field
+	adminEventsHub   *admin_events.AdminEventsHub
+	
+	// Caches to speed up reconnection
+	shellCache       map[string]string // containerID -> shell path
+	tmuxCache        map[string]bool   // containerID -> hasTmux
 }
 
 // SharedTerminalSession represents a terminal session shared by multiple users (for collaboration)
@@ -127,7 +131,9 @@ func NewTerminalHandler(cm *mgr.Manager, store *storage.PostgresStore, adminEven
 		store:            store,
 		sessions:         make(map[string]*TerminalSession),
 		sharedSessions:   make(map[string]*SharedTerminalSession),
-		adminEventsHub: adminEventsHub, // Assign the hub
+		adminEventsHub:   adminEventsHub, // Assign the hub
+		shellCache:       make(map[string]string),
+		tmuxCache:        make(map[string]bool),
 	}
 
 	// Start keepalive goroutine
@@ -754,7 +760,18 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		
 		// Check if tmux is available for session persistence
 		// Fall back to direct shell if tmux is not installed
-		if h.commandExists(ctx, session.ContainerID, "tmux") {
+		h.mu.RLock()
+		hasTmux, cached := h.tmuxCache[session.ContainerID]
+		h.mu.RUnlock()
+
+		if !cached {
+			hasTmux = h.commandExists(ctx, session.ContainerID, "tmux")
+			h.mu.Lock()
+			h.tmuxCache[session.ContainerID] = hasTmux
+			h.mu.Unlock()
+		}
+
+		if hasTmux {
 			// For split panes (ForceNewSession), always create new session (no -A flag)
 			// For main sessions, attach if exists or create (-A flag)
 			var tmuxCmd []string
@@ -1027,55 +1044,76 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 // detectShell finds the best available shell in the container
 // Prefers zsh if oh-my-zsh is installed, then bash, then sh
 func (h *TerminalHandler) detectShell(ctx context.Context, containerID, imageType string) string {
+	// Check cache first
+	h.mu.RLock()
+	if shell, ok := h.shellCache[containerID]; ok {
+		h.mu.RUnlock()
+		return shell
+	}
+	h.mu.RUnlock()
+
+	var shell string
+
 	// First, check if zsh with oh-my-zsh is set up (best experience)
 	if h.isZshSetup(ctx, containerID) {
 		// Verify zsh exists
 		if h.shellExists(ctx, containerID, "/bin/zsh") {
-			return "/bin/zsh"
+			shell = "/bin/zsh"
+		} else if h.shellExists(ctx, containerID, "/usr/bin/zsh") {
+			shell = "/usr/bin/zsh"
 		}
-		if h.shellExists(ctx, containerID, "/usr/bin/zsh") {
-			return "/usr/bin/zsh"
+	}
+
+	if shell == "" {
+		// Check if this is a macOS container
+		isMacOS := strings.Contains(strings.ToLower(imageType), "macos") || strings.Contains(strings.ToLower(imageType), "osx")
+
+		// Define shell preference order based on image type
+		var shells []string
+		switch {
+		case isMacOS:
+			// macOS VM - use bash or zsh, don't probe too aggressively as it's a VM
+			shells = []string{"/bin/bash", "/bin/zsh", "/bin/sh"}
+		case imageType == "alpine" || imageType == "alpine-3.18":
+			shells = []string{"/bin/zsh", "/bin/ash", "/bin/sh"}
+		case imageType == "ubuntu" || imageType == "ubuntu-24" || imageType == "ubuntu-20" ||
+			imageType == "debian" || imageType == "debian-11" || imageType == "kali" || imageType == "parrot":
+			shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
+		case imageType == "fedora" || imageType == "fedora-39" || imageType == "centos" ||
+			imageType == "rocky" || imageType == "alma" || imageType == "oracle" || imageType == "amazonlinux":
+			shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
+		case imageType == "archlinux" || imageType == "opensuse" || imageType == "gentoo" ||
+			imageType == "void" || imageType == "nixos":
+			shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
+		default:
+			shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
 		}
-	}
 
-	// Check if this is a macOS container
-	isMacOS := strings.Contains(strings.ToLower(imageType), "macos") || strings.Contains(strings.ToLower(imageType), "osx")
-
-	// Define shell preference order based on image type
-	var shells []string
-	switch {
-	case isMacOS:
-		// macOS VM - use bash or zsh, don't probe too aggressively as it's a VM
-		shells = []string{"/bin/bash", "/bin/zsh", "/bin/sh"}
-	case imageType == "alpine" || imageType == "alpine-3.18":
-		shells = []string{"/bin/zsh", "/bin/ash", "/bin/sh"}
-	case imageType == "ubuntu" || imageType == "ubuntu-24" || imageType == "ubuntu-20" ||
-		imageType == "debian" || imageType == "debian-11" || imageType == "kali" || imageType == "parrot":
-		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
-	case imageType == "fedora" || imageType == "fedora-39" || imageType == "centos" ||
-		imageType == "rocky" || imageType == "alma" || imageType == "oracle" || imageType == "amazonlinux":
-		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
-	case imageType == "archlinux" || imageType == "opensuse" || imageType == "gentoo" ||
-		imageType == "void" || imageType == "nixos":
-		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
-	default:
-		shells = []string{"/bin/zsh", "/bin/bash", "/bin/sh"}
-	}
-
-	// For macOS, skip shell existence checks - just return bash
-	// The VM handles its own shell availability
-	if isMacOS {
-		return "/bin/bash"
-	}
-
-	for _, shell := range shells {
-		if h.shellExists(ctx, containerID, shell) {
-			return shell
+		// For macOS, skip shell existence checks - just return bash
+		// The VM handles its own shell availability
+		if isMacOS {
+			shell = "/bin/bash"
+		} else {
+			for _, s := range shells {
+				if h.shellExists(ctx, containerID, s) {
+					shell = s
+					break
+				}
+			}
 		}
 	}
 
 	// Last resort - /bin/sh should always exist
-	return "/bin/sh"
+	if shell == "" {
+		shell = "/bin/sh"
+	}
+
+	// Update cache
+	h.mu.Lock()
+	h.shellCache[containerID] = shell
+	h.mu.Unlock()
+
+	return shell
 }
 
 // isZshSetup checks if oh-my-zsh is installed in the container
