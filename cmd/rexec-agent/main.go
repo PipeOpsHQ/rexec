@@ -283,12 +283,107 @@ func loadAgentConfig() (*AgentConfig, error) {
 		cfg.Name, _ = os.Hostname()
 	}
 
+	// Prefer a fully-featured interactive shell (zsh/bash) over plain sh when available.
+	cfg.Shell = resolveInteractiveShell(cfg.Shell)
+
 	return &cfg, nil
 }
 
 func parseBool(value string) bool {
 	v := strings.TrimSpace(strings.ToLower(strings.Trim(value, `"'`)))
 	return v == "true" || v == "1" || v == "yes" || v == "y" || v == "on"
+}
+
+func normalizeShellValue(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, `"'`)
+	return strings.TrimSpace(value)
+}
+
+func isExecutable(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	// If the user provided a bare command (e.g. "bash"), resolve from PATH.
+	if !strings.Contains(path, "/") {
+		_, err := exec.LookPath(path)
+		return err == nil
+	}
+
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	return info.Mode()&0o111 != 0
+}
+
+func isShShell(path string) bool {
+	return filepath.Base(path) == "sh"
+}
+
+// resolveInteractiveShell picks a stable interactive shell for agent sessions.
+// If config points to /bin/sh, we prefer zsh/bash when installed to avoid broken
+// arrow keys/history (sh lacks readline) and reduce startup script incompatibilities.
+func resolveInteractiveShell(preferred string) string {
+	preferred = normalizeShellValue(preferred)
+	envShell := normalizeShellValue(os.Getenv("SHELL"))
+
+	// Build ordered candidates with de-duplication.
+	var candidates []string
+
+	// If preferred is not plain "sh", honor it first.
+	if preferred != "" && !isShShell(preferred) {
+		candidates = append(candidates, preferred)
+	}
+
+	// Next, try the user's login shell if it's not plain sh.
+	if envShell != "" && envShell != preferred && !isShShell(envShell) {
+		candidates = append(candidates, envShell)
+	}
+
+	// Common interactive shells.
+	candidates = append(candidates,
+		"/bin/zsh",
+		"/usr/bin/zsh",
+		"/bin/bash",
+		"/usr/bin/bash",
+		"/usr/local/bin/bash", // Homebrew/macOS
+	)
+
+	// If preferred was sh (or empty), try it after better shells.
+	if preferred != "" {
+		candidates = append(candidates, preferred)
+	}
+
+	// Final fallback.
+	candidates = append(candidates, "/bin/sh")
+
+	seen := make(map[string]struct{}, len(candidates))
+	for _, c := range candidates {
+		c = normalizeShellValue(c)
+		if c == "" {
+			continue
+		}
+		if _, ok := seen[c]; ok {
+			continue
+		}
+		seen[c] = struct{}{}
+
+		// Resolve bare command names via PATH.
+		if !strings.Contains(c, "/") {
+			if resolved, err := exec.LookPath(c); err == nil {
+				return resolved
+			}
+			continue
+		}
+
+		if isExecutable(c) {
+			return c
+		}
+	}
+
+	return "/bin/sh"
 }
 
 // maybeAutoUpdate checks the server for a newer agent binary and swaps it in-place.
@@ -1344,12 +1439,23 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 	}
 	a.mu.Unlock()
 
-	// Start a plain interactive login shell - no tmux, just direct PTY.
-	// Force interactive mode so line editing/history works consistently.
-	cmd := exec.Command(a.config.Shell, "-l", "-i")
+	// Start a plain interactive shell - no tmux, just direct PTY.
+	// Prefer a full-featured shell (bash/zsh) so readline/history works.
+	shellPath := resolveInteractiveShell(a.config.Shell)
+	args := []string{"-l", "-i"}
+	// Avoid login mode for plain sh: it commonly sources /etc/profile where
+	// bashisms or CRLF can produce noisy "not found" errors.
+	if isShShell(shellPath) {
+		args = []string{"-i"}
+	}
+	cmd := exec.Command(shellPath, args...)
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		cmd.Dir = home
+	}
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
 		"REXEC_AGENT=1",
+		"SHELL="+shellPath,
 	)
 
 	ptmx, err := pty.Start(cmd)

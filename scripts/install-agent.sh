@@ -28,6 +28,7 @@ NAME=""
 LABELS=""
 AGENT_ID=""
 UNINSTALL=false
+AGENT_SHELL=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -246,6 +247,28 @@ install_agent() {
     mkdir -p "$CONFIG_DIR"
 }
 
+detect_shell() {
+    # Prefer a fully-featured interactive shell so arrow keys/history work.
+    # Use $SHELL only if it’s executable and not plain sh.
+    if [ -n "${SHELL:-}" ] && [ -x "${SHELL}" ]; then
+        local base
+        base="$(basename "${SHELL}")"
+        if [ "${base}" != "sh" ]; then
+            AGENT_SHELL="${SHELL}"
+            return
+        fi
+    fi
+
+    for candidate in /bin/zsh /usr/bin/zsh /bin/bash /usr/bin/bash /usr/local/bin/bash /bin/sh /usr/bin/sh; do
+        if [ -x "${candidate}" ]; then
+            AGENT_SHELL="${candidate}"
+            return
+        fi
+    done
+
+    AGENT_SHELL="/bin/sh"
+}
+
 register_agent() {
     echo -e "${CYAN}Registering agent with Rexec...${NC}"
     
@@ -263,7 +286,7 @@ register_agent() {
             REGISTER_RESPONSE=$(curl -s -X POST "${REXEC_API}/api/agents/register" \
                 -H "Authorization: Bearer ${TOKEN}" \
                 -H "Content-Type: application/json" \
-                -d "{\"name\": \"${NAME}\", \"os\": \"$(uname -s | tr '[:upper:]' '[:lower:]')\", \"arch\": \"${ARCH}\", \"shell\": \"${SHELL:-/bin/bash}\", \"hostname\": \"$(hostname)\"}")
+                -d "{\"name\": \"${NAME}\", \"os\": \"$(uname -s | tr '[:upper:]' '[:lower:]')\", \"arch\": \"${ARCH}\", \"shell\": \"${AGENT_SHELL}\", \"hostname\": \"$(hostname)\"}")
             
             # Extract agent ID from response - try jq first, fallback to grep
             if command -v jq &> /dev/null; then
@@ -306,7 +329,7 @@ register_agent() {
     REGISTER_RESPONSE=$(curl -s -X POST "${REXEC_API}/api/agents/register" \
         -H "Authorization: Bearer ${TOKEN}" \
         -H "Content-Type: application/json" \
-        -d "{\"name\": \"${NAME}\", \"os\": \"$(uname -s | tr '[:upper:]' '[:lower:]')\", \"arch\": \"${ARCH}\", \"shell\": \"${SHELL:-/bin/bash}\", \"hostname\": \"$(hostname)\"}")
+        -d "{\"name\": \"${NAME}\", \"os\": \"$(uname -s | tr '[:upper:]' '[:lower:]')\", \"arch\": \"${ARCH}\", \"shell\": \"${AGENT_SHELL}\", \"hostname\": \"$(hostname)\"}")
     
     # Debug: show response (mask token if present)
     if [ -n "${DEBUG:-}" ]; then
@@ -387,7 +410,7 @@ heartbeat_interval: 30s
 # auto_update: false
 
 # Shell configuration
-shell: ${SHELL:-/bin/bash}
+shell: ${AGENT_SHELL}
 working_dir: /root
 
 # Logging
@@ -730,6 +753,7 @@ main() {
     check_root
     # Detect platform first so init detection can rely on $OS.
     detect_platform
+    detect_shell
     detect_init_system
     
     # Handle uninstall
