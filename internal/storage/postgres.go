@@ -1072,6 +1072,7 @@ func (s *PostgresStore) CreateContainer(ctx context.Context, container *Containe
 
 // GetContainersByUserID retrieves all non-deleted containers for a user
 func (s *PostgresStore) GetContainersByUserID(ctx context.Context, userID string) ([]*ContainerRecord, error) {
+	// TODO: Add pagination support if user container counts grow large
 	query := `
 		SELECT id, user_id, name, image, COALESCE(role, 'standard') as role, status, docker_id, volume_name,
 		       COALESCE(memory_mb, 512) as memory_mb, COALESCE(cpu_shares, 512) as cpu_shares, COALESCE(disk_mb, 2048) as disk_mb,

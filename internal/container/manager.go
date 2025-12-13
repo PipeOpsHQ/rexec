@@ -553,6 +553,20 @@ type Manager struct {
 	diskQuotaEnabled bool   // whether disk quota is available
 	diskQuotaChecked bool   // whether we've checked for disk quota support
 	diskQuotaCheckMu sync.Once
+
+	// Stats broadcasting
+	activeStatsStreams map[string]*StatsBroadcaster
+	statsMu            sync.Mutex
+}
+
+// StatsBroadcaster manages a single stats stream from Docker and broadcasts to multiple subscribers
+type StatsBroadcaster struct {
+	containerID string
+	manager     *Manager
+	subscribers map[chan ContainerResourceStats]struct{}
+	mu          sync.Mutex
+	done        chan struct{}
+	cancel      context.CancelFunc // To stop the Docker stats stream
 }
 
 // NewManager creates a new container manager
@@ -621,12 +635,13 @@ func NewManager(volumePaths ...string) (*Manager, error) {
 	}
 
 	mgr := &Manager{
-		client:           cli,
-		containers:       make(map[string]*ContainerInfo),
-		userIndex:        make(map[string][]string),
-		volumePath:       volumePath,
-		diskQuotaEnabled: false,
-		diskQuotaChecked: false,
+		client:             cli,
+		containers:         make(map[string]*ContainerInfo),
+		userIndex:          make(map[string][]string),
+		volumePath:         volumePath,
+		diskQuotaEnabled:   false,
+		diskQuotaChecked:   false,
+		activeStatsStreams: make(map[string]*StatsBroadcaster),
 	}
 
 	// Check disk quota availability asynchronously
@@ -1944,66 +1959,154 @@ type ContainerResourceStats struct {
 
 // StreamContainerStats streams container stats to the provided channel
 func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, statsCh chan<- ContainerResourceStats) error {
-	// Get container's configured memory limit first (Docker stats may return host memory)
+	// Get or create a broadcaster for this container
+	broadcaster := m.getOrCreateStatsBroadcaster(containerID)
+	
+	// Subscribe to the broadcaster
+	subCh, unsubscribe := broadcaster.Subscribe()
+	defer unsubscribe()
+
+	// Forward stats from subscription to the caller
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case stats, ok := <-subCh:
+			if !ok {
+				return nil // Broadcaster stopped
+			}
+			select {
+			case statsCh <- stats:
+			case <-ctx.Done():
+				return nil
+			}
+		}
+	}
+}
+
+// getOrCreateStatsBroadcaster gets an existing broadcaster or creates a new one
+func (m *Manager) getOrCreateStatsBroadcaster(containerID string) *StatsBroadcaster {
+	m.statsMu.Lock()
+	defer m.statsMu.Unlock()
+
+	if sb, exists := m.activeStatsStreams[containerID]; exists {
+		return sb
+	}
+
+	sb := &StatsBroadcaster{
+		containerID: containerID,
+		manager:     m,
+		subscribers: make(map[chan ContainerResourceStats]struct{}),
+		done:        make(chan struct{}),
+	}
+	m.activeStatsStreams[containerID] = sb
+	
+	// Start the broadcast loop in background
+	go sb.start()
+	
+	return sb
+}
+
+// Subscribe adds a subscriber to the broadcaster
+func (sb *StatsBroadcaster) Subscribe() (chan ContainerResourceStats, func()) {
+	sb.mu.Lock()
+	defer sb.mu.Unlock()
+
+	ch := make(chan ContainerResourceStats, 10) // Buffered channel to prevent blocking
+	sb.subscribers[ch] = struct{}{}
+
+	return ch, func() {
+		sb.mu.Lock()
+		defer sb.mu.Unlock()
+		
+		delete(sb.subscribers, ch)
+		close(ch)
+		
+		// If no subscribers left, stop the broadcaster
+		if len(sb.subscribers) == 0 {
+			sb.manager.statsMu.Lock()
+			// Check if we are still the active broadcaster (race protection)
+			if sb.manager.activeStatsStreams[sb.containerID] == sb {
+				delete(sb.manager.activeStatsStreams, sb.containerID)
+				if sb.cancel != nil {
+					sb.cancel()
+				}
+			}
+			sb.manager.statsMu.Unlock()
+		}
+	}
+}
+
+// start begins the Docker stats stream and broadcasts updates
+func (sb *StatsBroadcaster) start() {
+	ctx, cancel := context.WithCancel(context.Background())
+	sb.cancel = cancel
+	
+	// Helper to broadcast stats
+	broadcast := func(stats ContainerResourceStats) {
+		sb.mu.Lock()
+		defer sb.mu.Unlock()
+		for ch := range sb.subscribers {
+			select {
+			case ch <- stats:
+			default:
+				// Skip if channel is full (slow consumer)
+			}
+		}
+	}
+
+	// 1. Get configured limits (same logic as before)
 	var configuredMemoryLimit int64
 	var configuredDiskLimit int64
-	inspectInfo, err := m.client.ContainerInspect(ctx, containerID)
-	if err == nil && inspectInfo.HostConfig != nil {
-		if inspectInfo.HostConfig.Memory > 0 {
-			configuredMemoryLimit = inspectInfo.HostConfig.Memory
-			log.Printf("[StreamContainerStats] Container %s has configured memory limit: %d bytes", containerID, configuredMemoryLimit)
+	
+	inspectInfo, err := sb.manager.client.ContainerInspect(ctx, sb.containerID)
+	if err == nil {
+		if inspectInfo.HostConfig != nil {
+			if inspectInfo.HostConfig.Memory > 0 {
+				configuredMemoryLimit = inspectInfo.HostConfig.Memory
+			}
+			if sizeStr, ok := inspectInfo.HostConfig.StorageOpt["size"]; ok {
+				configuredDiskLimit = parseSizeString(sizeStr)
+			}
 		}
-
-		// Get disk limit from StorageOpt
-		if sizeStr, ok := inspectInfo.HostConfig.StorageOpt["size"]; ok {
-			// Parse size like "2G", "500M", etc.
-			configuredDiskLimit = parseSizeString(sizeStr)
-			if configuredDiskLimit > 0 {
-				log.Printf("[StreamContainerStats] Container %s has configured disk limit: %d bytes", containerID, configuredDiskLimit)
+		
+		if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
+			if configuredMemoryLimit == 0 {
+				if memLimitStr, ok := inspectInfo.Config.Labels["rexec.memory_limit"]; ok {
+					if memLimit, err := strconv.ParseInt(memLimitStr, 10, 64); err == nil && memLimit > 0 {
+						configuredMemoryLimit = memLimit
+					}
+				}
+			}
+			if configuredDiskLimit == 0 {
+				if diskLimitStr, ok := inspectInfo.Config.Labels["rexec.disk_quota"]; ok {
+					if diskLimit, err := strconv.ParseInt(diskLimitStr, 10, 64); err == nil && diskLimit > 0 {
+						configuredDiskLimit = diskLimit
+					}
+				}
+			}
+			if configuredMemoryLimit == 0 {
+				tier := inspectInfo.Config.Labels["rexec.tier"]
+				switch tier {
+				case "pro":
+					configuredMemoryLimit = 2048 * 1024 * 1024
+				case "enterprise":
+					configuredMemoryLimit = 4096 * 1024 * 1024
+				default:
+					configuredMemoryLimit = 512 * 1024 * 1024
+				}
 			}
 		}
 	}
 
-	// Fallback: try to get memory/disk limits from container labels (stored during creation)
-	if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
-		// Memory limit from label
-		if configuredMemoryLimit == 0 {
-			if memLimitStr, ok := inspectInfo.Config.Labels["rexec.memory_limit"]; ok {
-				if memLimit, err := strconv.ParseInt(memLimitStr, 10, 64); err == nil && memLimit > 0 {
-					configuredMemoryLimit = memLimit
-					log.Printf("[StreamContainerStats] Container %s: using label memory limit: %d bytes", containerID, configuredMemoryLimit)
-				}
-			}
-		}
-
-		// Disk limit from label
-		if configuredDiskLimit == 0 {
-			if diskLimitStr, ok := inspectInfo.Config.Labels["rexec.disk_quota"]; ok {
-				if diskLimit, err := strconv.ParseInt(diskLimitStr, 10, 64); err == nil && diskLimit > 0 {
-					configuredDiskLimit = diskLimit
-					log.Printf("[StreamContainerStats] Container %s: using label disk limit: %d bytes", containerID, configuredDiskLimit)
-				}
-			}
-		}
-
-		// If still not set, use tier-based fallback
-		if configuredMemoryLimit == 0 {
-			tier := inspectInfo.Config.Labels["rexec.tier"]
-			switch tier {
-			case "pro":
-				configuredMemoryLimit = 2048 * 1024 * 1024 // 2GB
-			case "enterprise":
-				configuredMemoryLimit = 4096 * 1024 * 1024 // 4GB
-			default: // free/guest
-				configuredMemoryLimit = 512 * 1024 * 1024 // 512MB
-			}
-			log.Printf("[StreamContainerStats] Container %s: using tier-based memory limit (%s): %d bytes", containerID, tier, configuredMemoryLimit)
-		}
-	}
-
-	stats, err := m.client.ContainerStats(ctx, containerID, true)
+	// 2. Start Docker stats stream
+	stats, err := sb.manager.client.ContainerStats(ctx, sb.containerID, true)
 	if err != nil {
-		return err
+		// Log error and remove self
+		sb.manager.statsMu.Lock()
+		delete(sb.manager.activeStatsStreams, sb.containerID)
+		sb.manager.statsMu.Unlock()
+		return
 	}
 	defer stats.Body.Close()
 
@@ -2016,22 +2119,22 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		default:
 			var v *container.StatsResponse
 			if err := decoder.Decode(&v); err != nil {
-				if err == io.EOF {
-					return nil
+				if err != io.EOF && !strings.Contains(err.Error(), "closed") {
+					// Log error
 				}
-				return err
+				return
 			}
 			
 			ticks++
-			// Update disk usage every 30 seconds (approx) to reduce load
-			if ticks%30 == 0 {
-				// Use a short timeout context for disk check to avoid blocking main stats loop too long
+			// Update disk usage every 10 seconds (approx)
+			if ticks%10 == 0 {
+				// Use a short timeout context for disk check
 				diskCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				usage := m.getContainerDiskUsage(diskCtx, containerID)
+				usage := sb.manager.getContainerDiskUsage(diskCtx, sb.containerID)
 				cancel()
 				if usage > 0 {
 					diskUsage = usage
@@ -2039,11 +2142,7 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 			}
 
 			// Calculate CPU percent
-			// Based on: https://github.com/docker/cli/blob/master/cli/command/container/stats_helpers.go
 			var cpuPercent = 0.0
-			
-			// Use manually tracked previous values if available, otherwise fallback to PreCPUStats
-			// This handles cases where PreCPUStats is missing or zero (common in some Docker environments)
 			prevCPUVal := previousCPU
 			prevSysVal := previousSystem
 			
@@ -2057,35 +2156,26 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 				systemDelta := float64(v.CPUStats.SystemUsage) - float64(prevSysVal)
 
 				if systemDelta > 0.0 && cpuDelta > 0.0 {
-					// Default to number of CPUs reported by stats
 					numCPUs := float64(len(v.CPUStats.CPUUsage.PercpuUsage))
-					
-					// Fallback if PercpuUsage is empty (e.g. cgroup v2 on some hosts)
 					if numCPUs == 0 && v.CPUStats.OnlineCPUs > 0 {
 						numCPUs = float64(v.CPUStats.OnlineCPUs)
 					}
-					// Absolute fallback
 					if numCPUs == 0 {
 						numCPUs = float64(runtime.NumCPU())
 					}
-					
 					cpuPercent = (cpuDelta / systemDelta) * numCPUs * 100.0
 				}
 			}
 			
-			// Update previous values for next iteration
 			previousCPU = v.CPUStats.CPUUsage.TotalUsage
 			previousSystem = v.CPUStats.SystemUsage
 
 			// Calculate Memory usage
-			// On cgroup v1, Cache is included in Usage, so we subtract it
-			// On cgroup v2, it might be different, but for simplicity we use Usage - Stats["cache"]
 			memUsage := float64(v.MemoryStats.Usage)
 			if v.MemoryStats.Stats != nil {
 				if cache, ok := v.MemoryStats.Stats["cache"]; ok {
 					memUsage -= float64(cache)
 				} else if inactiveFile, ok := v.MemoryStats.Stats["inactive_file"]; ok {
-					// cgroup v2
 					memUsage -= float64(inactiveFile)
 				}
 			}
@@ -2109,18 +2199,15 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 				netTx += float64(netStats.TxBytes)
 			}
 
-			// Use configured memory limit if Docker stats returns host memory (common with gVisor)
+			// Memory limit logic
 			memLimit := float64(v.MemoryStats.Limit)
 			if configuredMemoryLimit > 0 && (memLimit == 0 || memLimit > float64(configuredMemoryLimit)*2) {
-				// Docker returned 0 or host memory, use our configured limit
 				memLimit = float64(configuredMemoryLimit)
 			} else if configuredMemoryLimit == 0 && memLimit > 2*1024*1024*1024 {
-				// No configured limit found but Docker returned very high value (likely host memory)
-				// Default to 512MB for safety
 				memLimit = 512 * 1024 * 1024
 			}
 
-			statsCh <- ContainerResourceStats{
+			broadcast(ContainerResourceStats{
 				CPUPercent:  cpuPercent,
 				Memory:      memUsage,
 				MemoryLimit: memLimit,
@@ -2130,7 +2217,7 @@ func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, 
 				DiskLimit:   float64(configuredDiskLimit),
 				NetRx:       netRx,
 				NetTx:       netTx,
-			}
+			})
 		}
 	}
 }
