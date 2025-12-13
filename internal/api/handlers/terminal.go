@@ -384,8 +384,8 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// Configure WebSocket for large data handling
-	// Allow up to 4MB messages (sufficient for most pastes)
-	conn.SetReadLimit(4 * 1024 * 1024) 
+	// Allow up to 64MB messages for "vibe coding" (extreme AI contexts/pastes)
+	conn.SetReadLimit(64 * 1024 * 1024) 
 	conn.SetPongHandler(func(string) error {
 		conn.SetReadDeadline(time.Now().Add(120 * time.Second)) // Longer timeout for stability
 		return nil
