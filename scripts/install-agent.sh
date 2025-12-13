@@ -191,8 +191,8 @@ download_agent() {
     # Try GitHub releases first (most reliable for releases)
     AGENT_URL="https://github.com/${REPO}/releases/download/${VERSION}/rexec-agent-${SUFFIX}"
     if curl -fsSL "$AGENT_URL" -o "$AGENT_PATH" 2>/dev/null; then
-        # Verify it's a binary, not an HTML error page
-        if file "$AGENT_PATH" | grep -qE 'executable|ELF|Mach-O'; then
+        # Verify it's a binary, not an HTML error page (check for absence of html tag)
+        if ! grep -q '<html' "$AGENT_PATH"; then
             echo -e "${GREEN}Downloaded from GitHub releases${NC}" >&2
             chmod +x "$AGENT_PATH"
             echo "$DOWNLOAD_TEMP_DIR"
@@ -203,8 +203,8 @@ download_agent() {
     # Try rexec.pipeops.io (direct binary hosting)
     AGENT_URL="${REXEC_API}/downloads/rexec-agent-${SUFFIX}"
     if curl -fsSL "$AGENT_URL" -o "$AGENT_PATH" 2>/dev/null; then
-        # Verify it's a binary, not an HTML error page
-        if file "$AGENT_PATH" | grep -qE 'executable|ELF|Mach-O'; then
+        # Verify it's a binary, not an HTML error page (check for absence of html tag)
+        if ! grep -q '<html' "$AGENT_PATH"; then
             echo -e "${GREEN}Downloaded from rexec.pipeops.io${NC}" >&2
             chmod +x "$AGENT_PATH"
             echo "$DOWNLOAD_TEMP_DIR"
