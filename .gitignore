@@ -43,7 +43,7 @@ tmp/
 # Node modules
 node_modules/
 web/node_modules/
-web-ui/node_modules/
+frontend/node_modules/
 
 # Build artifacts
 dist/

@@ -1,0 +1,4 @@
+# github.com/rexec/rexec/internal/container [github.com/rexec/rexec/internal/container.test]
+internal/container/manager_init_exec_test.go:95:16: undefined: net
+FAIL	github.com/rexec/rexec/internal/container [build failed]
+FAIL

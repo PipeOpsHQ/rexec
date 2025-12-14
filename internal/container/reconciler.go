@@ -21,7 +21,7 @@ type ContainerStore interface {
 type ReconcilerService struct {
 	manager       *Manager
 	store         ContainerStore
-	dockerClient  *client.Client
+	dockerClient  client.CommonAPIClient
 	checkInterval time.Duration
 	stopChan      chan struct{}
 }

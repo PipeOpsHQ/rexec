@@ -46,7 +46,7 @@ docs/
 docker/data/
 
 # Node modules (will be installed in build stage)
-web-ui/node_modules/
+frontend/node_modules/
 web/node_modules/
 node_modules/
 

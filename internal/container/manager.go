@@ -545,7 +545,7 @@ type ContainerInfo struct {
 
 // Manager handles Docker container lifecycle
 type Manager struct {
-	client           *client.Client
+	client           client.CommonAPIClient
 	containers       map[string]*ContainerInfo // dockerID -> container info
 	userIndex        map[string][]string       // userID -> list of dockerIDs
 	mu               sync.RWMutex
@@ -1203,11 +1203,11 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		)
 
 		hostConfig.Privileged = true
-		hostConfig.SecurityOpt = nil    // Clear security opts to allow KVM
-		hostConfig.CapDrop = nil        // Don't drop caps
-		hostConfig.CapAdd = nil         // Allow all caps
+		hostConfig.SecurityOpt = nil      // Clear security opts to allow KVM
+		hostConfig.CapDrop = nil          // Don't drop caps
+		hostConfig.CapAdd = nil           // Allow all caps
 		hostConfig.ReadonlyRootfs = false // macOS needs writable root
-		hostConfig.Tmpfs = nil          // Clear tmpfs for macOS
+		hostConfig.Tmpfs = nil            // Clear tmpfs for macOS
 
 		// Map /dev/kvm if available
 		if _, err := os.Stat("/dev/kvm"); err == nil {
@@ -1231,7 +1231,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 				Target: "/home/user",
 			},
 		}
-		
+
 		// Remove /home/user from tmpfs since we use a volume mount
 		delete(hostConfig.Tmpfs, "/home/user")
 
@@ -1606,7 +1606,7 @@ func (m *Manager) TouchContainer(dockerID string) {
 }
 
 // GetClient returns the underlying Docker client (for advanced operations)
-func (m *Manager) GetClient() *client.Client {
+func (m *Manager) GetClient() client.CommonAPIClient {
 	return m.client
 }
 
@@ -1961,7 +1961,7 @@ type ContainerResourceStats struct {
 func (m *Manager) StreamContainerStats(ctx context.Context, containerID string, statsCh chan<- ContainerResourceStats) error {
 	// Get or create a broadcaster for this container
 	broadcaster := m.getOrCreateStatsBroadcaster(containerID)
-	
+
 	// Subscribe to the broadcaster
 	subCh, unsubscribe := broadcaster.Subscribe()
 	defer unsubscribe()
@@ -2000,10 +2000,10 @@ func (m *Manager) getOrCreateStatsBroadcaster(containerID string) *StatsBroadcas
 		done:        make(chan struct{}),
 	}
 	m.activeStatsStreams[containerID] = sb
-	
+
 	// Start the broadcast loop in background
 	go sb.start()
-	
+
 	return sb
 }
 
@@ -2018,10 +2018,10 @@ func (sb *StatsBroadcaster) Subscribe() (chan ContainerResourceStats, func()) {
 	return ch, func() {
 		sb.mu.Lock()
 		defer sb.mu.Unlock()
-		
+
 		delete(sb.subscribers, ch)
 		close(ch)
-		
+
 		// If no subscribers left, stop the broadcaster
 		if len(sb.subscribers) == 0 {
 			sb.manager.statsMu.Lock()
@@ -2041,7 +2041,7 @@ func (sb *StatsBroadcaster) Subscribe() (chan ContainerResourceStats, func()) {
 func (sb *StatsBroadcaster) start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	sb.cancel = cancel
-	
+
 	// Helper to broadcast stats
 	broadcast := func(stats ContainerResourceStats) {
 		sb.mu.Lock()
@@ -2058,7 +2058,7 @@ func (sb *StatsBroadcaster) start() {
 	// 1. Get configured limits (same logic as before)
 	var configuredMemoryLimit int64
 	var configuredDiskLimit int64
-	
+
 	inspectInfo, err := sb.manager.client.ContainerInspect(ctx, sb.containerID)
 	if err == nil {
 		if inspectInfo.HostConfig != nil {
@@ -2069,7 +2069,7 @@ func (sb *StatsBroadcaster) start() {
 				configuredDiskLimit = parseSizeString(sizeStr)
 			}
 		}
-		
+
 		if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
 			if configuredMemoryLimit == 0 {
 				if memLimitStr, ok := inspectInfo.Config.Labels["rexec.memory_limit"]; ok {
@@ -2128,7 +2128,7 @@ func (sb *StatsBroadcaster) start() {
 				}
 				return
 			}
-			
+
 			ticks++
 			// Update disk usage every 10 seconds (approx)
 			if ticks%10 == 0 {
@@ -2145,7 +2145,7 @@ func (sb *StatsBroadcaster) start() {
 			var cpuPercent = 0.0
 			prevCPUVal := previousCPU
 			prevSysVal := previousSystem
-			
+
 			if prevCPUVal == 0 {
 				prevCPUVal = v.PreCPUStats.CPUUsage.TotalUsage
 				prevSysVal = v.PreCPUStats.SystemUsage
@@ -2166,7 +2166,7 @@ func (sb *StatsBroadcaster) start() {
 					cpuPercent = (cpuDelta / systemDelta) * numCPUs * 100.0
 				}
 			}
-			
+
 			previousCPU = v.CPUStats.CPUUsage.TotalUsage
 			previousSystem = v.CPUStats.SystemUsage
 

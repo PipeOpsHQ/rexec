@@ -652,12 +652,12 @@ func generatePluginInstallScript(cfg ShellSetupConfig) string {
 }
 
 // SetupEnhancedShell installs and configures zsh with oh-my-zsh in a container (default config)
-func SetupEnhancedShell(ctx context.Context, cli *client.Client, containerID string) (*SetupShellResponse, error) {
+func SetupEnhancedShell(ctx context.Context, cli client.CommonAPIClient, containerID string) (*SetupShellResponse, error) {
 	return SetupShellWithConfig(ctx, cli, containerID, DefaultShellSetupConfig())
 }
 
 // SetupShellWithConfig installs and configures zsh with oh-my-zsh using custom config
-func SetupShellWithConfig(ctx context.Context, cli *client.Client, containerID string, cfg ShellSetupConfig) (*SetupShellResponse, error) {
+func SetupShellWithConfig(ctx context.Context, cli client.CommonAPIClient, containerID string, cfg ShellSetupConfig) (*SetupShellResponse, error) {
 	// If enhanced is disabled, skip shell setup entirely
 	if !cfg.Enhanced {
 		return &SetupShellResponse{
@@ -798,7 +798,7 @@ func GetContainerShell(ctx context.Context, cli *client.Client, containerID stri
 const RoleSetupTimeout = 5 * time.Minute
 
 // SetupRole installs tools for a specific role
-func SetupRole(ctx context.Context, cli *client.Client, containerID string, roleID string) (*SetupShellResponse, error) {
+func SetupRole(ctx context.Context, cli client.CommonAPIClient, containerID string, roleID string) (*SetupShellResponse, error) {
 	script, err := GenerateRoleScript(roleID)
 	if err != nil {
 		return nil, err
