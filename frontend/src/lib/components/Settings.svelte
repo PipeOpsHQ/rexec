@@ -265,6 +265,14 @@
       lockTimeout
     );
     if (!result.success) {
+      // Handle case where UI thought no passcode existed but server says otherwise
+      if (result.error && (result.error.includes('current_passcode is required') || result.error.includes('already exists'))) {
+        await security.refreshFromServer();
+        isChangingPasscode = true;
+        passcodeError = 'A passcode is already set. Please enter your current passcode.';
+        return;
+      }
+
       passcodeError = result.error || 'Failed to set passcode';
       return;
     }

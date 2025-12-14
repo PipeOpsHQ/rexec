@@ -997,6 +997,8 @@
 
             if (adminKey && expectedKey && adminKey === expectedKey) {
                 // If user is not logged in, login as guest first
+                // Note: auth.validateToken() returns a Promise, so !auth.validateToken() is always false.
+                // This seems to be a bug in existing code, but we are reverting to original state here.
                 if (!auth.validateToken()) {
                     await auth.guestLogin(
                         `admin_${Math.floor(Math.random() * 1000)}@rexec.dev`,
@@ -1057,6 +1059,11 @@
                     await containers.fetchContainers();
                     startAutoRefresh(); // Start polling for container updates
                     
+                    // Refresh security state
+                    import("$stores/security").then(({ security }) => {
+                        security.refreshFromServer();
+                    });
+
                     // Set default view to dashboard only if on root path
                     // handleTerminalUrl() will override for specific routes like /account
                     const currentPath = window.location.pathname;

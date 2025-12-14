@@ -156,6 +156,12 @@
         const result = await security.setPasscode(newPasscode);
         isVerifying = false;
         if (!result.success) {
+            if (result.error && (result.error.includes('current_passcode is required') || result.error.includes('already exists'))) {
+                await security.refreshFromServer();
+                error = "A passcode is already set. Please reload the page.";
+                showSetupPrompt = false;
+                return;
+            }
             error = result.error || "Failed to set passcode";
             return;
         }
