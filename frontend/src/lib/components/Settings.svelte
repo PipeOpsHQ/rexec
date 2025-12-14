@@ -78,6 +78,9 @@
   }
 
   onMount(() => {
+    // Refresh security state to ensure we know if passcode is enabled
+    security.refreshFromServer();
+
     if (!$isGuest) {
       // Initial fetch of registered agents
       agents.fetchAgents();
