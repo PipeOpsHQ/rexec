@@ -730,7 +730,7 @@ func SetupShellWithConfig(ctx context.Context, cli client.CommonAPIClient, conta
 }
 
 // IsShellSetupComplete checks if the enhanced shell is already set up
-func IsShellSetupComplete(ctx context.Context, cli *client.Client, containerID string) bool {
+func IsShellSetupComplete(ctx context.Context, cli client.CommonAPIClient, containerID string) bool {
 	execConfig := container.ExecOptions{
 		Cmd:          []string{"/bin/sh", "-c", "test -d ~/.oh-my-zsh && test -f ~/.zshrc"},
 		AttachStdout: true,
@@ -758,7 +758,7 @@ func IsShellSetupComplete(ctx context.Context, cli *client.Client, containerID s
 }
 
 // GetContainerShell returns the best available shell in the container
-func GetContainerShell(ctx context.Context, cli *client.Client, containerID string) string {
+func GetContainerShell(ctx context.Context, cli client.CommonAPIClient, containerID string) string {
 	// Check for zsh first
 	shells := []string{"/bin/zsh", "/usr/bin/zsh", "/bin/bash", "/usr/bin/bash", "/bin/sh"}
 
