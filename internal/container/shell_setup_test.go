@@ -76,3 +76,22 @@ func TestGeneratePluginInstallScript(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateShellSetupScript_Custom(t *testing.T) {
+	cfg := ShellSetupConfig{
+		Enhanced:    true,
+		Theme:       "powerlevel10k",
+		SystemStats: true,
+	}
+	script := generateShellSetupScript(cfg)
+
+	if !strings.Contains(script, "ZSH_THEME=\"powerlevel10k\"") {
+		t.Error("Script should contain custom theme")
+	}
+	if !strings.Contains(script, "show_system_stats()") {
+		t.Error("Script should contain system stats function")
+	}
+	if !strings.Contains(script, "show_system_stats\n") {
+		t.Error("Script should call show_system_stats")
+	}
+}
