@@ -69,7 +69,12 @@ func (m *MockDockerClient) ContainerInspect(ctx context.Context, containerID str
 	if m.ContainerInspectFunc != nil {
 		return m.ContainerInspectFunc(ctx, containerID)
 	}
-	return types.ContainerJSON{}, nil
+	return types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			HostConfig: &container.HostConfig{},
+		},
+		Config: &container.Config{},
+	}, nil
 }
 
 func (m *MockDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.CreateResponse, error) {

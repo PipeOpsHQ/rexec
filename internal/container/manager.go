@@ -940,7 +940,7 @@ func (m *Manager) pullImageWithProgressInternal(ctx context.Context, imageName s
 	return nil
 }
 
-// CheckImageExists checks if an image exists locally
+// CheckImageExists checks if an image exists in Docker
 func (m *Manager) CheckImageExists(ctx context.Context, imageType string, isCustom bool, customImage string) (bool, string) {
 	var imageName string
 
@@ -1413,7 +1413,10 @@ func (m *Manager) GetContainer(idOrName string) (*ContainerInfo, bool) {
 	// Fallback: search by ID prefix (for short IDs like first 12 chars)
 	if len(idOrName) >= 12 {
 		for dockerID, info := range m.containers {
-			if strings.HasPrefix(dockerID, idOrName) || strings.HasPrefix(idOrName, dockerID[:12]) {
+			if strings.HasPrefix(dockerID, idOrName) {
+				return info, true
+			}
+			if len(dockerID) >= 12 && strings.HasPrefix(idOrName, dockerID[:12]) {
 				return info, true
 			}
 		}
@@ -2060,41 +2063,47 @@ func (sb *StatsBroadcaster) start() {
 	var configuredDiskLimit int64
 
 	inspectInfo, err := sb.manager.client.ContainerInspect(ctx, sb.containerID)
-	if err == nil {
-		if inspectInfo.HostConfig != nil {
-			if inspectInfo.HostConfig.Memory > 0 {
-				configuredMemoryLimit = inspectInfo.HostConfig.Memory
-			}
-			if sizeStr, ok := inspectInfo.HostConfig.StorageOpt["size"]; ok {
-				configuredDiskLimit = parseSizeString(sizeStr)
+	if err != nil {
+		// Log error and remove self
+		sb.manager.statsMu.Lock()
+		delete(sb.manager.activeStatsStreams, sb.containerID)
+		sb.manager.statsMu.Unlock()
+		return
+	}
+
+	if inspectInfo.HostConfig != nil {
+		if inspectInfo.HostConfig.Memory > 0 {
+			configuredMemoryLimit = inspectInfo.HostConfig.Memory
+		}
+		if sizeStr, ok := inspectInfo.HostConfig.StorageOpt["size"]; ok {
+			configuredDiskLimit = parseSizeString(sizeStr)
+		}
+	}
+
+	if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
+		if configuredMemoryLimit == 0 {
+			if memLimitStr, ok := inspectInfo.Config.Labels["rexec.memory_limit"]; ok {
+				if memLimit, err := strconv.ParseInt(memLimitStr, 10, 64); err == nil && memLimit > 0 {
+					configuredMemoryLimit = memLimit
+				}
 			}
 		}
-
-		if inspectInfo.Config != nil && inspectInfo.Config.Labels != nil {
-			if configuredMemoryLimit == 0 {
-				if memLimitStr, ok := inspectInfo.Config.Labels["rexec.memory_limit"]; ok {
-					if memLimit, err := strconv.ParseInt(memLimitStr, 10, 64); err == nil && memLimit > 0 {
-						configuredMemoryLimit = memLimit
-					}
+		if configuredDiskLimit == 0 {
+			if diskLimitStr, ok := inspectInfo.Config.Labels["rexec.disk_quota"]; ok {
+				if diskLimit, err := strconv.ParseInt(diskLimitStr, 10, 64); err == nil && diskLimit > 0 {
+					configuredDiskLimit = diskLimit
 				}
 			}
-			if configuredDiskLimit == 0 {
-				if diskLimitStr, ok := inspectInfo.Config.Labels["rexec.disk_quota"]; ok {
-					if diskLimit, err := strconv.ParseInt(diskLimitStr, 10, 64); err == nil && diskLimit > 0 {
-						configuredDiskLimit = diskLimit
-					}
-				}
-			}
-			if configuredMemoryLimit == 0 {
-				tier := inspectInfo.Config.Labels["rexec.tier"]
-				switch tier {
-				case "pro":
-					configuredMemoryLimit = 2048 * 1024 * 1024
-				case "enterprise":
-					configuredMemoryLimit = 4096 * 1024 * 1024
-				default:
-					configuredMemoryLimit = 512 * 1024 * 1024
-				}
+		}
+		if configuredMemoryLimit == 0 {
+			tier := inspectInfo.Config.Labels["rexec.tier"]
+			switch tier {
+			case "pro":
+				configuredMemoryLimit = 2048 * 1024 * 1024
+			case "enterprise":
+				configuredMemoryLimit = 4096 * 1024 * 1024
+			default:
+				configuredMemoryLimit = 512 * 1024 * 1024
 			}
 		}
 	}
