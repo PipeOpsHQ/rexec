@@ -1891,11 +1891,12 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    background: linear-gradient(135deg, #0a1929 0%, #0d1f33 100%);
+    background: var(--bg-secondary);
     border: 1px solid #00ff41;
     border-radius: 8px;
     transition: all 0.3s;
     box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+    font-family: 'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'Hack Nerd Font', monospace;
   }
 
   .agent-card:hover {
@@ -1998,7 +1999,7 @@
   .detail-value {
     font-size: 12px;
     color: #00ff41;
-    font-family: var(--font-mono);
+    font-family: 'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'Hack Nerd Font', monospace;
   }
 
   .agent-actions {
