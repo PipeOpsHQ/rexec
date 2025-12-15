@@ -6,6 +6,7 @@
   import { agents, type Agent } from '$stores/agents';
   import { toast } from '$stores/toast';
   import { theme as themeStore } from '$stores/theme';
+  import StatusIcon from './icons/StatusIcon.svelte';
 
   const dispatch = createEventDispatcher<{
     back: void;
@@ -609,7 +610,7 @@
       {#if $isGuest}
         <div class="setting-item warning">
           <div class="setting-info">
-            <label>⚠️ Guest Account</label>
+            <label><StatusIcon status="warning" size={16} /> Guest Account</label>
             <span class="setting-description">
               Your terminals are temporary. Sign in to save your data.
             </span>

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher } from "svelte";
+    import { createEventDispatcher, onMount } from "svelte";
     import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
@@ -129,6 +129,12 @@
             description: "Integrate with AI coding assistants",
             href: "/guides",
             icon: "ai"
+        },
+        {
+            title: "FAQ",
+            description: "Frequently asked questions about Rexec",
+            href: "#faq",
+            icon: "question"
         }
     ];
 </script>
@@ -287,6 +293,104 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq">
+        <h2><StatusIcon status="question" size={20} /> Frequently Asked Questions</h2>
+        <div class="faq-grid">
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="question" size={16} />
+                    <span>Is this related to the old rexec protocol?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p><strong>No, not at all!</strong> We understand the concern — the legacy <code>rexec</code> (Remote Execution) protocol from the 1980s is indeed deprecated and insecure. Our Rexec is a completely different, modern product.</p>
+                    <p>We chose the name "Rexec" as shorthand for <strong>"Remote Execution"</strong> — which perfectly describes what we do: execute commands on remote cloud terminals. Think of it as reclaiming a cool name for a secure, modern use case.</p>
+                    <p>Our platform uses <strong>TLS encryption</strong>, <strong>JWT authentication</strong>, <strong>container isolation</strong>, and follows modern security best practices. It's as secure as any enterprise cloud platform.</p>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="lock" size={16} />
+                    <span>How is Rexec secure?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>Security is built into every layer:</p>
+                    <ul>
+                        <li><strong>TLS/HTTPS</strong> — All connections are encrypted end-to-end</li>
+                        <li><strong>Container Isolation</strong> — Each terminal runs in its own isolated container</li>
+                        <li><strong>OAuth + MFA</strong> — Secure authentication with multi-factor support</li>
+                        <li><strong>No Shared State</strong> — Your terminal is yours alone</li>
+                        <li><strong>Automatic Cleanup</strong> — Sessions are destroyed when you're done</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="bolt" size={16} />
+                    <span>What can I use Rexec for?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>Rexec is perfect for:</p>
+                    <ul>
+                        <li><strong>Learning Linux</strong> — Safe environment to experiment</li>
+                        <li><strong>Development</strong> — Instant dev environments with pre-installed tools</li>
+                        <li><strong>DevOps</strong> — Test scripts, debug issues, run CI/CD tasks</li>
+                        <li><strong>Teaching</strong> — Provide students with instant terminals</li>
+                        <li><strong>AI/ML Workloads</strong> — Access GPU-enabled environments</li>
+                        <li><strong>Remote Access</strong> — Connect to your servers from anywhere</li>
+                    </ul>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="save" size={16} />
+                    <span>Is my data persistent?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>By default, terminals are ephemeral — they're destroyed when your session ends. This is great for security and quick experimentation.</p>
+                    <p>For persistent storage, you can attach volumes to your containers or connect to your own infrastructure using Rexec Agents.</p>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="pricing" size={16} />
+                    <span>What does it cost?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>Rexec offers a generous free tier for personal use. For teams and businesses, we offer Pro and Enterprise plans with additional features like:</p>
+                    <ul>
+                        <li><strong>More concurrent terminals</strong></li>
+                        <li><strong>Longer session times</strong></li>
+                        <li><strong>Priority support</strong></li>
+                        <li><strong>Custom images</strong></li>
+                        <li><strong>SSO/SAML integration</strong></li>
+                    </ul>
+                    <p>Check our <a href="/pricing">pricing page</a> for details.</p>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="agent" size={16} />
+                    <span>Can I connect my own servers?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>Yes! With the <strong>Rexec Agent</strong>, you can connect any Linux or macOS machine to the platform. This enables:</p>
+                    <ul>
+                        <li><strong>BYOS (Bring Your Own Server)</strong> — Use your own hardware</li>
+                        <li><strong>On-premises access</strong> — Securely access internal servers</li>
+                        <li><strong>Custom environments</strong> — Full control over your setup</li>
+                    </ul>
+                    <p>See the <a href="/docs/agent">Agent Setup Guide</a> for installation instructions.</p>
+                </div>
+            </details>
         </div>
     </section>
 
@@ -707,5 +811,84 @@
             width: 100%;
             margin-top: 4px;
         }
+    }
+
+    /* FAQ */
+    .faq-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .faq-item {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .faq-question {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        cursor: pointer;
+        font-weight: 500;
+        color: var(--text);
+        list-style: none;
+        transition: background 0.2s;
+    }
+
+    .faq-question::-webkit-details-marker {
+        display: none;
+    }
+
+    .faq-question:hover {
+        background: var(--bg-tertiary);
+    }
+
+    .faq-item[open] .faq-question {
+        border-bottom: 1px solid var(--border);
+    }
+
+    .faq-answer {
+        padding: 16px;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .faq-answer p {
+        margin: 0 0 12px;
+    }
+
+    .faq-answer p:last-child {
+        margin-bottom: 0;
+    }
+
+    .faq-answer ul {
+        margin: 12px 0;
+        padding-left: 20px;
+    }
+
+    .faq-answer li {
+        margin-bottom: 8px;
+    }
+
+    .faq-answer code {
+        background: var(--bg-tertiary);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 13px;
+    }
+
+    .faq-answer a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .faq-answer a:hover {
+        text-decoration: underline;
     }
 </style>

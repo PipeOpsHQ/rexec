@@ -261,7 +261,7 @@
         </div>
         <div class="header-actions">
             <a href="/marketplace" class="btn btn-secondary">
-                🏪 Marketplace
+                <StatusIcon status="store" size={16} /> Marketplace
             </a>
             {#if !showCreate}
                 <button class="btn btn-primary" onclick={() => showCreate = true}>
