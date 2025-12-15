@@ -1286,45 +1286,48 @@
         box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
     }
 
-    /* Agent card styles */
+    /* Agent card styles - Navy hacker green theme */
     .container-card.agent-card {
-        border-color: #a855f7;
+        border-color: #00ff41;
         background: linear-gradient(
             135deg,
-            rgba(168, 85, 247, 0.05) 0%,
-            rgba(168, 85, 247, 0.02) 100%
+            #0a1929 0%,
+            #0d1f33 100%
         );
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
     }
 
     .container-card.agent-card:hover {
-        border-color: #a855f7;
-        box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+        border-color: #00ff41;
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), 0 0 30px rgba(0, 255, 65, 0.1);
+        transform: translateY(-2px);
     }
 
     .agent-env {
-        background: rgba(168, 85, 247, 0.15);
-        border-color: rgba(168, 85, 247, 0.3);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.15);
+        border-color: rgba(0, 255, 65, 0.3);
+        color: #00ff41;
+        text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
     }
 
-    /* Agent connect button uses purple accent */
+    /* Agent connect button uses hacker green accent */
     .agent-connect-btn {
-        background: rgba(168, 85, 247, 0.15);
-        border-color: #a855f7;
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.15);
+        border-color: #00ff41;
+        color: #00ff41;
     }
 
     .agent-connect-btn:hover:not(:disabled) {
-        background: #a855f7;
-        border-color: #a855f7;
-        color: var(--bg);
-        box-shadow: 0 0 10px rgba(168, 85, 247, 0.35);
+        background: #00ff41;
+        border-color: #00ff41;
+        color: #0a1929;
+        box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
     }
 
     .container-card.agent-card .connecting-btn,
     .container-card.agent-card .connected-btn {
-        border-color: rgba(168, 85, 247, 0.4);
-        color: #a855f7;
+        border-color: rgba(0, 255, 65, 0.4);
+        color: #00ff41;
     }
 
     .badge-icon {

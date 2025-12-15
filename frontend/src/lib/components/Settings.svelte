@@ -1891,22 +1891,27 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    background: linear-gradient(135deg, #0a1929 0%, #0d1f33 100%);
+    border: 1px solid #00ff41;
     border-radius: 8px;
-    transition: border-color 0.2s;
+    transition: all 0.3s;
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
   }
 
   .agent-card:hover {
-    border-color: var(--border-hover);
+    border-color: #00ff41;
+    box-shadow: 0 0 20px rgba(0, 255, 65, 0.3), 0 0 30px rgba(0, 255, 65, 0.1);
+    transform: translateY(-2px);
   }
 
   .agent-card.agent-online {
-    border-color: rgba(0, 255, 65, 0.3);
+    border-color: #00ff41;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3), 0 0 25px rgba(0, 255, 65, 0.15);
   }
 
   .agent-card.agent-online:hover {
-    border-color: var(--accent);
+    border-color: #00ff41;
+    box-shadow: 0 0 25px rgba(0, 255, 65, 0.4), 0 0 40px rgba(0, 255, 65, 0.2);
   }
 
   .agent-header {
@@ -1947,7 +1952,8 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--text-muted);
+    color: #00ff41;
+    font-weight: 600;
   }
 
   .agent-body {
@@ -1959,12 +1965,13 @@
   .agent-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text);
+    color: #00ff41;
+    text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
   }
 
   .agent-desc {
     font-size: 12px;
-    color: var(--text-secondary);
+    color: #a8dadc;
   }
 
   .agent-details {
@@ -1972,7 +1979,7 @@
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 8px;
     padding-top: 12px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(0, 255, 65, 0.2);
   }
 
   .agent-detail-item {
@@ -1985,12 +1992,12 @@
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--text-muted);
+    color: rgba(0, 255, 65, 0.7);
   }
 
   .detail-value {
     font-size: 12px;
-    color: var(--text);
+    color: #00ff41;
     font-family: var(--font-mono);
   }
 
