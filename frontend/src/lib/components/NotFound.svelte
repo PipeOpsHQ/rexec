@@ -85,11 +85,27 @@
         <div class="suggestions">
             <h3>Maybe you were looking for:</h3>
             <div class="suggestion-links">
-                <a href="/ui/dashboard">Dashboard</a>
+                <a href="/">Dashboard</a>
+                <a href="/docs">Documentation</a>
                 <a href="/use-cases">Use Cases</a>
                 <a href="/pricing">Pricing</a>
                 <a href="/guides">Guides</a>
             </div>
+        </div>
+
+        <div class="report-section">
+            <p class="report-text">Found a broken link?</p>
+            <a href="https://github.com/pipeops-dev/rexec/issues/new?title=Broken%20Link:%20{encodeURIComponent(currentPath)}&body=I%20found%20a%20broken%20link%20at:%20{currentPath}"
+               target="_blank"
+               rel="noopener"
+               class="btn btn-report">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Report This Issue
+            </a>
         </div>
     </div>
 </div>
@@ -288,7 +304,32 @@
         background: var(--bg-secondary);
         border-color: var(--accent);
     }
-    
+
+    .report-section {
+        margin-top: 32px;
+        padding: 20px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+    }
+
+    .report-text {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin: 0 0 12px;
+    }
+
+    .btn-report {
+        background: rgba(255, 107, 107, 0.1);
+        border-color: rgba(255, 107, 107, 0.3);
+        color: #ff6b6b;
+    }
+
+    .btn-report:hover {
+        background: rgba(255, 107, 107, 0.2);
+        border-color: #ff6b6b;
+    }
+
     @media (max-width: 480px) {
         .error-info h1 {
             font-size: 56px;
