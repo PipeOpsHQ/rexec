@@ -120,6 +120,7 @@
         | "useCaseDetail"
         | "pricing"
         | "promo"
+        | "launch"
         | "notFound"
         | "terminalView"
         | "screenLock";
@@ -150,6 +151,7 @@
         useCaseDetail: () => import("$components/UseCaseDetail.svelte"),
         pricing: () => import("$components/Pricing.svelte"),
         promo: () => import("$components/Promo.svelte"),
+        launch: () => import("$components/LaunchPage.svelte"),
         notFound: () => import("$components/NotFound.svelte"),
         terminalView: () => import("$components/terminal/TerminalView.svelte"),
         screenLock: () => import("$components/ScreenLock.svelte"),
@@ -195,6 +197,7 @@
     // App state
     let currentView:
         | "landing"
+        | "launch"
         | "dashboard"
         | "admin"
         | "create"
@@ -252,6 +255,11 @@
         promo: {
             title: "Rexec - The Future of Cloud Terminals",
             description: "Experience the next generation of cloud terminals. Instant access to powerful Linux environments with no setup required.",
+        },
+        launch: {
+            title: "Rexec Launch - Terminal as a Service | Cloud Terminals & Secure Agent",
+            description: "Instant cloud terminals for developers. Safely run AI-generated code, access servers without SSH exposure, and spin up dev environments in seconds. Try free today.",
+            keywords: "terminal as a service, cloud terminal, AI code execution, secure jump box, developer tools, linux terminal, docker containers, remote server access",
         },
         dashboard: {
             title: "Dashboard - Rexec",
@@ -668,6 +676,12 @@
         // Check for /promo route
         if (path === "/promo") {
             currentView = "promo";
+            return;
+        }
+
+        // Check for /launch route
+        if (path === "/launch") {
+            currentView = "launch";
             return;
         }
 
@@ -1353,6 +1367,9 @@
             case "promo":
                 preloadComponent("promo");
                 break;
+            case "launch":
+                preloadComponent("launch");
+                break;
             case "billing":
                 preloadComponent("billing");
                 break;
@@ -1864,6 +1881,30 @@
                             } else if (e.detail.view === "pricing") {
                                 window.history.pushState({}, "", "/pricing");
                                 currentView = "pricing";
+                            }
+                        }}
+                    />
+                {:else}
+                    <div class="view-loading">Loading...</div>
+                {/if}
+            {:else if currentView === "launch"}
+                {#if lazyComponents.launch}
+                    <svelte:component
+                        this={lazyComponents.launch}
+                        on:guest={openGuestModal}
+                        on:navigate={(e) => {
+                            if (e.detail.view === "use-cases") {
+                                window.history.pushState({}, "", "/use-cases");
+                                currentView = "use-cases";
+                            } else if (e.detail.view === "guides") {
+                                window.history.pushState({}, "", "/guides");
+                                currentView = "guides";
+                            } else if (e.detail.view === "pricing") {
+                                window.history.pushState({}, "", "/pricing");
+                                currentView = "pricing";
+                            } else if (e.detail.view === "docs") {
+                                window.history.pushState({}, "", "/docs");
+                                currentView = "docs";
                             }
                         }}
                     />
