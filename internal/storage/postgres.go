@@ -434,6 +434,7 @@ func (s *PostgresStore) migrate() error {
 		os VARCHAR(50),
 		arch VARCHAR(50),
 		shell VARCHAR(255),
+		distro VARCHAR(100),
 		tags TEXT[],
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -470,6 +471,9 @@ func (s *PostgresStore) migrate() error {
 		END IF;
 		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agents' AND column_name='system_info') THEN
 			ALTER TABLE agents ADD COLUMN system_info JSONB;
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agents' AND column_name='distro') THEN
+			ALTER TABLE agents ADD COLUMN distro VARCHAR(100);
 		END IF;
 	END $$;
 	`
