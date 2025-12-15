@@ -353,8 +353,13 @@
                     <span>Is my data persistent?</span>
                 </summary>
                 <div class="faq-answer">
-                    <p>By default, terminals are ephemeral — they're destroyed when your session ends. This is great for security and quick experimentation.</p>
-                    <p>For persistent storage, you can attach volumes to your containers or connect to your own infrastructure using Rexec Agents.</p>
+                    <p>Terminals persist between sessions — your files and work are saved until you explicitly delete the terminal. However, once you delete a terminal, all data is permanently removed.</p>
+                    <p>For long-term storage, we recommend:</p>
+                    <ul>
+                        <li><strong>Push to Git</strong> — Commit your work to a remote repository</li>
+                        <li><strong>Use Rexec Agents</strong> — Connect your own infrastructure for full control</li>
+                        <li><strong>Export files</strong> — Download important files before deleting</li>
+                    </ul>
                 </div>
             </details>
 

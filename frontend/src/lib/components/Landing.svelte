@@ -76,15 +76,6 @@
             </button>
         </div>
 
-        <div class="landing-links">
-            <button class="link-btn" onclick={() => navigateTo('use-cases')}>
-                <StatusIcon status="bolt" size={14} /> Use Cases
-            </button>
-            <span class="divider"></span>
-            <button class="link-btn" onclick={() => navigateTo('guides')}>
-                <StatusIcon status="book" size={14} /> Product Guide
-            </button>
-        </div>
 
         <div class="terminal-preview">
             <div class="terminal-preview-header">
@@ -246,41 +237,6 @@
         margin-bottom: 40px;
     }
 
-    .landing-links {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-        margin-bottom: 40px;
-    }
-
-    .link-btn {
-        background: none;
-        border: none;
-        color: var(--text-secondary);
-        font-size: 13px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 6px;
-        transition: all 0.2s;
-        border: 1px solid transparent;
-    }
-
-    .link-btn:hover {
-        color: var(--text);
-        background: var(--bg-card);
-        border-color: var(--border);
-    }
-
-    .divider {
-        width: 4px;
-        height: 4px;
-        background: var(--border);
-        border-radius: 50%;
-    }
 
     .btn-spinner {
         display: inline-block;
