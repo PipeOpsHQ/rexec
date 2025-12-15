@@ -1389,12 +1389,12 @@
     }
 
     .add-menu-item.agent-item {
-        background: rgba(168, 85, 247, 0.08);
-        border: 1px solid rgba(168, 85, 247, 0.25);
+        background: rgba(0, 255, 65, 0.08);
+        border: 1px solid rgba(0, 255, 65, 0.25);
     }
 
     .add-menu-item.agent-item:hover {
-        background: rgba(168, 85, 247, 0.12);
+        background: rgba(0, 255, 65, 0.12);
     }
 
     .add-menu-item.active {
@@ -1403,8 +1403,8 @@
     }
 
     .add-menu-item.agent-item.active {
-        background: rgba(168, 85, 247, 0.12);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.12);
+        color: #00ff41;
     }
 
     .add-menu-item .menu-icon {
@@ -1430,12 +1430,12 @@
     }
 
     .add-menu-item .status-dot.agent-dot {
-        background: #a855f7;
-        box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+        background: #00ff41;
+        box-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
     }
 
     .add-menu-item.agent-item .menu-icon {
-        color: #a855f7;
+        color: #00ff41;
     }
 
     .add-menu-item .status-dot.disconnected {
@@ -1445,8 +1445,8 @@
     .agent-badge {
         margin-left: auto;
         padding: 2px 8px;
-        background: rgba(168, 85, 247, 0.12);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.12);
+        color: #00ff41;
         font-size: 10px;
         border-radius: 4px;
         text-transform: uppercase;
@@ -1465,8 +1465,8 @@
     }
 
     .add-menu-item.agent-item .current-badge {
-        background: rgba(168, 85, 247, 0.15);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.15);
+        color: #00ff41;
     }
 
     .add-menu-divider {
@@ -1545,24 +1545,24 @@
         color: var(--text);
     }
 
-    /* Agent tabs use purple accent for quick differentiation */
+    /* Agent tabs use hacker green accent for quick differentiation */
     .fullscreen-tab.agent-tab {
-        border-color: rgba(168, 85, 247, 0.5);
-        background: rgba(168, 85, 247, 0.08);
-        color: #a855f7;
+        border-color: rgba(0, 255, 65, 0.5);
+        background: rgba(0, 255, 65, 0.08);
+        color: #00ff41;
     }
 
     .fullscreen-tab.agent-tab:hover {
-        background: rgba(168, 85, 247, 0.12);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.12);
+        color: #00ff41;
     }
 
     .fullscreen-tab.agent-tab.active {
         background: var(--bg);
-        border-color: #a855f7;
+        border-color: #00ff41;
         border-bottom-color: var(--bg);
-        color: #a855f7;
-        box-shadow: 0 0 8px rgba(168, 85, 247, 0.35);
+        color: #00ff41;
+        box-shadow: 0 0 8px rgba(0, 255, 65, 0.35);
     }
 
     .fullscreen-tab.new-tab-btn {
@@ -1690,18 +1690,18 @@
     }
 
     .floating-tab.agent-tab {
-        color: #a855f7;
+        color: #00ff41;
     }
 
     .floating-tab.agent-tab:hover {
-        background: rgba(168, 85, 247, 0.08);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.08);
+        color: #00ff41;
     }
 
     .floating-tab.agent-tab.active {
-        background: rgba(168, 85, 247, 0.12);
-        border-color: #a855f7;
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.12);
+        border-color: #00ff41;
+        color: #00ff41;
     }
 
     .floating-tab.dragging,
@@ -1932,22 +1932,22 @@
     }
 
     .docked-tab.agent-tab {
-        border-color: rgba(168, 85, 247, 0.5);
-        background: rgba(168, 85, 247, 0.08);
-        color: #a855f7;
+        border-color: rgba(0, 255, 65, 0.5);
+        background: rgba(0, 255, 65, 0.08);
+        color: #00ff41;
     }
 
     .docked-tab.agent-tab:hover {
-        background: rgba(168, 85, 247, 0.12);
-        color: #a855f7;
+        background: rgba(0, 255, 65, 0.12);
+        color: #00ff41;
     }
 
     .docked-tab.agent-tab.active {
         background: var(--bg);
-        border-color: #a855f7;
+        border-color: #00ff41;
         border-bottom-color: var(--bg);
-        color: #a855f7;
-        box-shadow: 0 0 8px rgba(168, 85, 247, 0.35);
+        color: #00ff41;
+        box-shadow: 0 0 8px rgba(0, 255, 65, 0.35);
     }
 
     .docked-tabs .new-tab-btn {
