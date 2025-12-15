@@ -1111,6 +1111,7 @@
         $: if (isInitialized && !$isAuthenticated && 
 
                currentView !== "landing" && 
+               currentView !== "launch" &&
                currentView !== "promo" &&
                currentView !== "guides" && 
         currentView !== "use-cases" &&
