@@ -31,11 +31,12 @@ FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app/web-ui
 
-# Copy package.json (not package-lock.json to avoid platform-specific deps)
+# Copy package.json and package-lock.json for reproducible installs
 COPY frontend/package.json ./
+COPY frontend/package-lock.json ./
 
-# Install dependencies (generates fresh lock file for Linux platform)
-RUN npm install --package-lock-only --platform=linux
+# Install dependencies using npm ci (clean install)
+RUN npm ci && npm rebuild
 
 # Copy source files
 COPY frontend/ ./
