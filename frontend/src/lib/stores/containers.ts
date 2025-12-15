@@ -47,6 +47,7 @@ export interface Container {
   os?: string;
   arch?: string;
   shell?: string;
+  distro?: string; // Linux distribution (ubuntu, debian, fedora, etc.)
   hostname?: string;
   region?: string;
   stats?: {
