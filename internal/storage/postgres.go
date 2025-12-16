@@ -285,6 +285,12 @@ func (s *PostgresStore) migrate() error {
 			END IF;
 		END $$`,
 		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='single_session_mode') THEN
+				ALTER TABLE users ADD COLUMN single_session_mode BOOLEAN DEFAULT false;
+			END IF;
+		END $$`,
+		`DO $$ BEGIN
 			ALTER TABLE audit_logs ALTER COLUMN user_id DROP NOT NULL;
 		EXCEPTION WHEN OTHERS THEN NULL;
 		END $$`,
@@ -766,6 +772,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	var lockRequiredSince sql.NullTime
 	var allowedIPs string
 	var firstName, lastName sql.NullString
+	var singleSessionMode bool
 
 	query := `
 		SELECT id, email, username, tier, COALESCE(is_admin, false), COALESCE(pipeops_id, ''),
@@ -773,7 +780,9 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		       COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5),
 		       lock_required_since,
 		       COALESCE(allowed_ips, ''),
-		       COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
+		       COALESCE(first_name, ''), COALESCE(last_name, ''),
+		       COALESCE(single_session_mode, false),
+		       created_at, updated_at
 		FROM users WHERE id = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, id)
@@ -793,6 +802,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		&allowedIPs,
 		&firstName,
 		&lastName,
+		&singleSessionMode,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -813,6 +823,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	}
 	user.FirstName = firstName.String
 	user.LastName = lastName.String
+	user.SingleSessionMode = singleSessionMode
 	if allowedIPs != "" {
 		user.AllowedIPs = strings.Split(allowedIPs, ",")
 	}
@@ -2468,5 +2479,18 @@ func (s *PostgresStore) SetLockRequiredSince(ctx context.Context, userID string,
 		WHERE id = $1
 	`
 	_, err := s.db.ExecContext(ctx, query, userID, t, time.Now())
+	return err
+}
+
+// SetSingleSessionMode enables or disables single session mode for a user.
+// When enabled, logging in from a new device automatically revokes all other sessions.
+func (s *PostgresStore) SetSingleSessionMode(ctx context.Context, userID string, enabled bool) error {
+	query := `
+		UPDATE users
+		SET single_session_mode = $2,
+		    updated_at = $3
+		WHERE id = $1
+	`
+	_, err := s.db.ExecContext(ctx, query, userID, enabled, time.Now())
 	return err
 }

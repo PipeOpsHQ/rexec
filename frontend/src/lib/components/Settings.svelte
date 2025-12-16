@@ -790,6 +790,38 @@
 
       <div class="setting-item">
         <div class="setting-info">
+          <label>Single Session Mode</label>
+          <span class="setting-description">
+            {#if $security.singleSessionMode}
+              Only one active session allowed. New logins revoke previous sessions.
+            {:else}
+              Allow multiple simultaneous sessions across devices
+            {/if}
+          </span>
+        </div>
+        <div class="setting-value">
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              checked={$security.singleSessionMode}
+              onchange={async (e) => {
+                const enabled = (e.target as HTMLInputElement).checked;
+                const result = await security.setSingleSessionMode(enabled);
+                if (!result.success) {
+                  toast.error(result.error || 'Failed to update setting');
+                  (e.target as HTMLInputElement).checked = !enabled;
+                } else {
+                  toast.success(enabled ? 'Single session mode enabled' : 'Single session mode disabled');
+                }
+              }}
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
           <label>Two-Factor Authentication</label>
           <span class="setting-description">
             {#if $auth.user?.mfaEnabled}

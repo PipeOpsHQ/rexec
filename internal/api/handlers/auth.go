@@ -534,7 +534,10 @@ func (h *AuthHandler) OAuthExchange(c *gin.Context) {
 
 // createUserSession records a new login session and returns its ID.
 // If session tracking fails, caller may choose to proceed without a session ID.
+// If single_session_mode is enabled, this will revoke all other sessions first.
 func (h *AuthHandler) createUserSession(c *gin.Context, user *models.User) (string, error) {
+	ctx := c.Request.Context()
+
 	session := &models.UserSession{
 		ID:         uuid.New().String(),
 		UserID:     user.ID,
@@ -543,9 +546,22 @@ func (h *AuthHandler) createUserSession(c *gin.Context, user *models.User) (stri
 		CreatedAt:  time.Now(),
 		LastSeenAt: time.Now(),
 	}
-	if err := h.store.CreateUserSession(c.Request.Context(), session); err != nil {
+
+	// Create the new session first
+	if err := h.store.CreateUserSession(ctx, session); err != nil {
 		return "", err
 	}
+
+	// If single session mode is enabled, revoke all other sessions
+	if user.SingleSessionMode {
+		if err := h.store.RevokeOtherUserSessions(ctx, user.ID, session.ID, "single_session_mode: new login"); err != nil {
+			log.Printf("[Auth] Failed to revoke other sessions for user %s: %v", user.ID, err)
+			// Don't fail the login, just log the error
+		} else {
+			log.Printf("[Auth] Revoked other sessions for user %s (single_session_mode enabled)", user.ID)
+		}
+	}
+
 	return session.ID, nil
 }
 

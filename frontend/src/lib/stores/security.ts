@@ -7,6 +7,7 @@ export interface SecurityState {
   lockAfterMinutes: number;
   lastActivity: number;
   passcodeSetupPromptDismissed: boolean;
+  singleSessionMode: boolean;
 }
 
 const initialState: SecurityState = {
@@ -15,6 +16,7 @@ const initialState: SecurityState = {
   lockAfterMinutes: 5,
   lastActivity: Date.now(),
   passcodeSetupPromptDismissed: false,
+  singleSessionMode: false,
 };
 
 function loadPersistedSecurity(): SecurityState {
@@ -82,6 +84,7 @@ function createSecurityStore() {
           ...state,
           enabled: !!data.enabled,
           lockAfterMinutes: data.lock_after_minutes || state.lockAfterMinutes,
+          singleSessionMode: !!data.single_session_mode,
         };
         persistLocal(newState);
         return newState;
@@ -250,6 +253,23 @@ function createSecurityStore() {
         persistLocal(newState);
         return newState;
       });
+    },
+
+    async setSingleSessionMode(enabled: boolean): Promise<{ success: boolean; error?: string }> {
+      const res = await authedFetch("/api/security/single-session", {
+        method: "POST",
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { success: false, error: data.error || "Failed to update setting" };
+      }
+      update((state) => {
+        const newState = { ...state, singleSessionMode: enabled };
+        persistLocal(newState);
+        return newState;
+      });
+      return { success: true };
     },
 
     checkInactivity(): boolean {

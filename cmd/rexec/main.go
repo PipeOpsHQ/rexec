@@ -629,6 +629,7 @@ func runServer() {
 		api.DELETE("/security/passcode", securityHandler.RemovePasscode)
 		api.POST("/security/lock", securityHandler.Lock)
 		api.POST("/security/unlock", securityHandler.Unlock)
+		api.POST("/security/single-session", securityHandler.SetSingleSessionMode)
 
 		// Auth sessions
 		sessions := api.Group("/sessions")

@@ -22,6 +22,7 @@ type User struct {
 	MFAEnabled         bool     `json:"mfa_enabled"`           // Whether MFA is enabled
 	MFASecret          string   `json:"-"`                     // TOTP secret (encrypted)
 	AllowedIPs         []string `json:"allowed_ips,omitempty"` // Whitelisted IPs/CIDRs
+	SingleSessionMode  bool     `json:"single_session_mode"`   // Hardened: only 1 active session at a time
 	// Screen lock (server-enforced, cross-session)
 	ScreenLockEnabled bool       `json:"screen_lock_enabled,omitempty"`
 	LockAfterMinutes  int        `json:"lock_after_minutes,omitempty"`
@@ -48,7 +49,7 @@ type UserSession struct {
 type AuditLog struct {
 	ID        string    `json:"id"`
 	UserID    *string   `json:"user_id"` // Nullable for anonymous actions
-	Action    string    `json:"action"` // e.g., "login", "container_create"
+	Action    string    `json:"action"`  // e.g., "login", "container_create"
 	IPAddress string    `json:"ip_address"`
 	UserAgent string    `json:"user_agent"`
 	Details   string    `json:"details,omitempty"` // JSON details

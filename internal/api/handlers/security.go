@@ -41,9 +41,17 @@ func (h *SecurityHandler) GetScreenLock(c *gin.Context) {
 		return
 	}
 
+	// Get user to check single_session_mode
+	user, err := h.store.GetUserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch user settings"})
+		return
+	}
+
 	resp := gin.H{
-		"enabled":            enabled && hash != "",
-		"lock_after_minutes": lockAfter,
+		"enabled":             enabled && hash != "",
+		"lock_after_minutes":  lockAfter,
+		"single_session_mode": user.SingleSessionMode,
 	}
 	if lockSince != nil {
 		resp["lock_required_since"] = lockSince
@@ -321,4 +329,43 @@ func (h *SecurityHandler) generateToken(user *models.User, sessionID string) (st
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(h.jwtSecret)
+}
+
+// SetSingleSessionMode enables or disables single session mode.
+// When enabled, logging in from a new device automatically revokes all other sessions.
+// POST /api/security/single-session
+func (h *SecurityHandler) SetSingleSessionMode(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	if err := h.store.SetSingleSessionMode(c.Request.Context(), userID, req.Enabled); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update setting"})
+		return
+	}
+
+	// If enabling single session mode, also revoke all other sessions now
+	if req.Enabled {
+		sessionID := c.GetString("sessionID")
+		if sessionID != "" {
+			if err := h.store.RevokeOtherUserSessions(c.Request.Context(), userID, sessionID, "single_session_mode enabled"); err != nil {
+				log.Printf("[Security] Failed to revoke other sessions: %v", err)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"single_session_mode": req.Enabled,
+		"message":             "Single session mode updated successfully",
+	})
 }
