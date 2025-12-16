@@ -1072,6 +1072,19 @@ function handleContainerEvent(event: {
       }
       break;
 
+    case "agent_stats":
+      // Agent stats updated - update the stats for the matching agent
+      containers.update((state) => ({
+        ...state,
+        containers: state.containers.map((c) => {
+          if (c.id === containerData.id) {
+            return { ...c, stats: containerData.stats };
+          }
+          return c;
+        }),
+      }));
+      break;
+
     default:
       break;
   }

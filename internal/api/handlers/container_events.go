@@ -38,7 +38,7 @@ type ContainerEventsHub struct {
 
 	// Redis Pub/Sub for horizontal scaling
 	pubsubHub *pubsub.Hub
-	
+
 	// Agent handler for getting online agents (set after creation to avoid circular deps)
 	agentHandler interface {
 		GetOnlineAgentsForUser(userID string) []gin.H
@@ -338,17 +338,17 @@ func (h *ContainerEventsHub) BroadcastToUser(userID string, event ContainerEvent
 	if h.pubsubHub != nil {
 		// Determine channel based on event type (agent events go to agent channel)
 		channel := pubsub.ChannelContainerEvents
-		if event.Type == "agent_connected" || event.Type == "agent_disconnected" {
+		if event.Type == "agent_connected" || event.Type == "agent_disconnected" || event.Type == "agent_stats" {
 			channel = pubsub.ChannelAgentEvents
 		}
-		
+
 		// Payload matches what PublishContainerEvent expects
 		payload := map[string]interface{}{
 			"user_id": userID,
 			"event":   event.Type,
 			"data":    event.Container,
 		}
-		
+
 		// Use raw Publish to control message structure matching handleContainerEventMessage expectations
 		h.pubsubHub.Publish(channel, event.Type, payload)
 	}
@@ -427,6 +427,18 @@ func (h *ContainerEventsHub) NotifyAgentDisconnected(userID string, agentID stri
 	h.BroadcastToUser(userID, ContainerEvent{
 		Type:      "agent_disconnected",
 		Container: gin.H{"id": "agent:" + agentID},
+		Timestamp: time.Now(),
+	})
+}
+
+// NotifyAgentStatsUpdated notifies a user that an agent's stats have been updated
+func (h *ContainerEventsHub) NotifyAgentStatsUpdated(userID string, agentID string, stats interface{}) {
+	h.BroadcastToUser(userID, ContainerEvent{
+		Type: "agent_stats",
+		Container: gin.H{
+			"id":    "agent:" + agentID,
+			"stats": stats,
+		},
 		Timestamp: time.Now(),
 	})
 }

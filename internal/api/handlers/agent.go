@@ -796,6 +796,11 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 					})
 				}
 				agentConn.sessionsMu.RUnlock()
+
+				// Also broadcast to events hub so dashboard updates without active terminal
+				if h.eventsHub != nil {
+					h.eventsHub.NotifyAgentStatsUpdated(agentConn.UserID, agentID, stats)
+				}
 			}
 
 		case "pong":
