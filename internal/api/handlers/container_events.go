@@ -322,10 +322,33 @@ func (h *ContainerEventsHub) broadcastLocal(userID string, event ContainerEvent)
 		return
 	}
 
+	// Track dead connections to clean up
+	var deadConns []*websocket.Conn
+
 	for _, conn := range connList {
+		// Set a short write deadline to avoid blocking on dead connections
+		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("[ContainerEvents] Failed to broadcast to user %s: %v", userID, err)
+			// Connection is dead, mark for cleanup (don't spam logs for broken pipe)
+			deadConns = append(deadConns, conn)
 		}
+	}
+
+	// Clean up dead connections
+	if len(deadConns) > 0 {
+		h.mu.Lock()
+		if userConns, ok := h.connections[userID]; ok {
+			for _, deadConn := range deadConns {
+				delete(userConns, deadConn)
+				deadConn.Close()
+			}
+			if len(userConns) == 0 {
+				delete(h.connections, userID)
+			}
+		}
+		h.mu.Unlock()
+		// Log once for all dead connections
+		log.Printf("[ContainerEvents] Cleaned up %d dead connection(s) for user %s", len(deadConns), userID)
 	}
 }
 
