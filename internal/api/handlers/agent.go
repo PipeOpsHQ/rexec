@@ -723,8 +723,11 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 		}
 	}()
 
-	// Set up ping/pong
+	// Set up ping/pong with read deadline for faster disconnect detection
+	pongWait := 45 * time.Second // Must be > ping interval
+	conn.SetReadDeadline(time.Now().Add(pongWait))
 	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(pongWait)) // Extend deadline on pong
 		agentConn.LastPing = time.Now()
 		// Update heartbeat in DB
 		h.store.UpdateAgentStatus(context.Background(), agentID)
@@ -739,9 +742,9 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 	done := make(chan struct{})
 	defer close(done)
 
-	// Start ping ticker
+	// Start ping ticker - ping every 15 seconds for faster disconnect detection
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -1279,7 +1282,7 @@ func (h *AgentHandler) GetAgentStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// GetOnlineAgentsForUser returns all online agents for a specific user
+// GetOnlineAgentsForUser returns all agents for a specific user (both online and offline)
 // Used by ContainerHandler to include agents in the containers list
 func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 	// Query DB for all agents for this user
@@ -1290,30 +1293,41 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 		return []gin.H{}
 	}
 
-	var onlineAgents []gin.H
+	var agents []gin.H
 	threshold := time.Now().Add(-2 * time.Minute) // Consider offline if no heartbeat for 2 mins
 
 	for _, agent := range allAgents {
 		// Check if agent is online based on LastPing (LastHeartbeat from DB)
 		isOnline := !agent.LastPing.IsZero() && agent.LastPing.After(threshold)
 
+		status := "offline"
 		if isOnline {
-			// Construct agent data
-			agentData := gin.H{
-				"id":           "agent:" + agent.ID,
-				"name":         agent.Name,
-				"image":        agent.OS + "/" + agent.Arch,
-				"status":       "running",
-				"session_type": "agent",
-				"created_at":   agent.CreatedAt, // Use DB creation time
-				"last_used_at": agent.LastPing,
-				"idle_seconds": time.Since(agent.LastPing).Seconds(), // Calculate idle time
-				"os":           agent.OS,
-				"arch":         agent.Arch,
-				"shell":        agent.Shell,
-			}
+			status = "running"
+		}
 
-			// If local connection exists, use its up-to-date stats/sysinfo
+		// Construct agent data
+		agentData := gin.H{
+			"id":           "agent:" + agent.ID,
+			"name":         agent.Name,
+			"image":        agent.OS + "/" + agent.Arch,
+			"status":       status,
+			"session_type": "agent",
+			"created_at":   agent.CreatedAt, // Use DB creation time
+			"last_used_at": agent.LastPing,
+			"os":           agent.OS,
+			"arch":         agent.Arch,
+			"shell":        agent.Shell,
+			"distro":       agent.Distro,
+			"description":  agent.Description,
+		}
+
+		// Calculate idle time only if we have a last ping
+		if !agent.LastPing.IsZero() {
+			agentData["idle_seconds"] = time.Since(agent.LastPing).Seconds()
+		}
+
+		// If online and local connection exists, use its up-to-date stats/sysinfo
+		if isOnline {
 			h.agentsMu.RLock()
 			localConn, isLocal := h.agents[agent.ID]
 			h.agentsMu.RUnlock()
@@ -1364,12 +1378,40 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 
 				agentData["resources"] = resources
 			}
+		} else {
+			// Offline agent - still show system info from DB if available
+			resources := gin.H{
+				"memory_mb":  0,
+				"cpu_shares": 1024,
+				"disk_mb":    0,
+			}
 
-			onlineAgents = append(onlineAgents, agentData)
+			if agent.SystemInfo != nil {
+				if numCPU, ok := agent.SystemInfo["num_cpu"].(float64); ok {
+					resources["cpu_shares"] = int(numCPU * 1024)
+				}
+				if mem, ok := agent.SystemInfo["memory"].(map[string]interface{}); ok {
+					if total, ok := mem["total"].(float64); ok {
+						resources["memory_mb"] = int(total / 1024 / 1024)
+					}
+				}
+				if disk, ok := agent.SystemInfo["disk"].(map[string]interface{}); ok {
+					if total, ok := disk["total"].(float64); ok {
+						resources["disk_mb"] = int(total / 1024 / 1024)
+					}
+				}
+				if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+					agentData["hostname"] = hostname
+				}
+			}
+
+			agentData["resources"] = resources
 		}
+
+		agents = append(agents, agentData)
 	}
 
-	return onlineAgents
+	return agents
 }
 
 // buildAgentData builds agent data in the same format as container data

@@ -272,6 +272,7 @@
             case "running":
                 return "status-running";
             case "stopped":
+            case "offline":
                 return "status-stopped";
             case "creating":
             case "starting":

@@ -1043,18 +1043,26 @@ function handleContainerEvent(event: {
       break;
 
     case "agent_connected":
-      // Agent connected - prepend to list if not exists, or update in place? 
-      // Usually "connected" means it's available now.
-      // If it reconnects, it might already be in list if we persist agents.
-      // But the container list only shows ONLINE agents (merged from backend).
-      // So if it connects, it's "new" to this list.
-      containers.update((state) => ({
-        ...state,
-        containers: [
-          containerData,
-          ...state.containers.filter((c) => c.id !== containerData.id),
-        ],
-      }));
+      // Agent connected - update in place if exists (reconnecting), or add if new
+      containers.update((state) => {
+        const existingIndex = state.containers.findIndex((c) => c.id === containerData.id);
+        if (existingIndex >= 0) {
+          // Agent exists - update in place, keeping position
+          const updatedContainers = [...state.containers];
+          updatedContainers[existingIndex] = {
+            ...updatedContainers[existingIndex],
+            ...containerData,
+            status: "running", // Mark as online/running
+          };
+          return { ...state, containers: updatedContainers };
+        } else {
+          // New agent - add to beginning of list
+          return {
+            ...state,
+            containers: [containerData, ...state.containers],
+          };
+        }
+      });
       // Dispatch event for agents store
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('container-agent-connected', { detail: containerData }));
@@ -1062,10 +1070,19 @@ function handleContainerEvent(event: {
       break;
 
     case "agent_disconnected":
-      // Agent disconnected - remove from containers list
+      // Agent disconnected - update status to offline but keep in list at same position
       containers.update((state) => ({
         ...state,
-        containers: state.containers.filter((c) => c.id !== containerData.id),
+        containers: state.containers.map((c) => {
+          if (c.id === containerData.id) {
+            return {
+              ...c,
+              status: "offline",
+              stats: undefined, // Clear stats when offline
+            };
+          }
+          return c;
+        }),
       }));
       // Dispatch event for agents store
       if (typeof window !== 'undefined') {
