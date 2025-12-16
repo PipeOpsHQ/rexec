@@ -50,6 +50,7 @@ export interface Container {
   distro?: string; // Linux distribution (ubuntu, debian, fedora, etc.)
   hostname?: string;
   region?: string;
+  description?: string; // Agent description
   stats?: {
     cpu_percent?: number;
     memory?: number;

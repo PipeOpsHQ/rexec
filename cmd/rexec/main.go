@@ -747,6 +747,7 @@ func runServer() {
 			agents.GET("", agentHandler.ListAgents)
 			agents.GET("/:id", agentHandler.GetAgent)
 			agents.GET("/:id/status", agentHandler.GetAgentStatus)
+			agents.PATCH("/:id", agentHandler.UpdateAgent)
 			agents.DELETE("/:id", agentHandler.DeleteAgent)
 		}
 

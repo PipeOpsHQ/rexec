@@ -492,6 +492,79 @@ func (h *AgentHandler) GetAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, agent)
 }
 
+// UpdateAgent updates an agent's name and description
+// PATCH /api/agents/:id
+func (h *AgentHandler) UpdateAgent(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	agentID := c.Param("id")
+	ctx := c.Request.Context()
+
+	// Verify ownership
+	agent, err := h.store.GetAgent(ctx, agentID)
+	if err != nil || agent == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		return
+	}
+
+	if agent.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Validate name
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = agent.Name // Keep existing name if not provided
+	}
+
+	description := strings.TrimSpace(req.Description)
+
+	// Update agent in database
+	if err := h.store.UpdateAgent(ctx, agentID, name, description, agent.Tags); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update agent"})
+		return
+	}
+
+	// Update in-memory agent connection if online
+	h.agentsMu.Lock()
+	if conn, ok := h.agents[agentID]; ok {
+		conn.Name = name
+		conn.Description = description
+	}
+	h.agentsMu.Unlock()
+
+	// Notify via events hub
+	if h.eventsHub != nil {
+		h.eventsHub.NotifyContainerUpdated(userID, gin.H{
+			"id":          "agent:" + agentID,
+			"name":        name,
+			"description": description,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":          agentID,
+		"name":        name,
+		"description": description,
+		"message":     "Agent updated successfully",
+	})
+}
+
 // DeleteAgent removes an agent
 func (h *AgentHandler) DeleteAgent(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -1304,6 +1377,7 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 	agentData := gin.H{
 		"id":           "agent:" + agent.ID,
 		"name":         agent.Name,
+		"description":  agent.Description,
 		"image":        agent.OS + "/" + agent.Arch,
 		"status":       "running",
 		"session_type": "agent",
@@ -1312,6 +1386,7 @@ func (h *AgentHandler) buildAgentData(agent *AgentConnection) gin.H {
 		"os":           agent.OS,
 		"arch":         agent.Arch,
 		"shell":        agent.Shell,
+		"distro":       agent.Distro,
 	}
 
 	resources := gin.H{

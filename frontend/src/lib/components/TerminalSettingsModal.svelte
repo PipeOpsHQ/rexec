@@ -24,11 +24,15 @@
 
     let activeTab: "settings" | "port-forwards" = "settings";
     let name = "";
+    let description = ""; // For agents
     let memoryMB = 512;
     let cpuShares = 512;
     let diskMB = 2048;
     let isSaving = false;
     let initialized = false;
+
+    // Check if this is an agent (id starts with "agent:")
+    $: isAgent = container?.id?.startsWith("agent:") ?? false;
 
     // Port Forwarding state
     let portForwards: PortForward[] = [];
@@ -107,6 +111,9 @@
         if (!container) return;
 
         name = container.name || "";
+
+        // For agents, also get description from the container data
+        description = container.description || "";
 
         // Get raw values from container resources
         const rawMemory = container.resources?.memory_mb ?? 512;
@@ -250,61 +257,88 @@
     async function handleSave() {
         if (!container) return;
 
-        // Use db_id if available, fallback to id (docker_id)
-        const containerId = container.db_id || container.id;
-        if (!containerId) {
-            toast.error("Terminal ID not found");
-            return;
-        }
-
         isSaving = true;
         try {
-            const response = await api.patch(
-                `/api/containers/${containerId}/settings`,
-                {
+            // Handle agent update differently
+            if (isAgent) {
+                // Extract agent ID from "agent:uuid" format
+                const agentId = container.id.replace("agent:", "");
+                const response = await api.patch(`/api/agents/${agentId}`, {
                     name: name.trim(),
-                    memory_mb: memoryMB,
-                    cpu_shares: cpuShares,
-                    disk_mb: diskMB,
-                },
-            );
+                    description: description.trim(),
+                });
 
-            if (response.ok) {
-                const responseData = response.data as {
-                    container: Container;
-                    restarted?: boolean;
-                };
-
-                // If container was restarted, trigger immediate reconnect
-                if (responseData.restarted && responseData.container) {
-                    const oldContainerId = container.id;
-                    const newContainerId = responseData.container.id;
-
-                    // Immediate reconnect - container is already running with new ID
-                    if (oldContainerId && newContainerId) {
-                        toast.success(
-                            "Settings updated - reconnecting to new container...",
-                        );
-                        // Always use updateSessionContainerId - it handles both same and different IDs
-                        // and properly finds sessions by container ID (not session ID)
-                        terminal.updateSessionContainerId(
-                            oldContainerId,
-                            newContainerId,
-                        );
-                    }
+                if (response.ok) {
+                    toast.success("Agent settings updated");
+                    // Update the container in the store
+                    containers.update((state) => ({
+                        ...state,
+                        containers: state.containers.map((c) =>
+                            c.id === container.id
+                                ? { ...c, name: name.trim() }
+                                : c
+                        ),
+                    }));
+                    handleClose();
+                    containers.fetchContainers();
                 } else {
-                    toast.success("Terminal settings updated");
+                    toast.error(response.error || "Failed to update agent settings");
+                }
+            } else {
+                // Regular container update
+                const containerId = container.db_id || container.id;
+                if (!containerId) {
+                    toast.error("Terminal ID not found");
+                    return;
                 }
 
-                if (responseData.container) {
-                    dispatch("updated", responseData.container);
+                const response = await api.patch(
+                    `/api/containers/${containerId}/settings`,
+                    {
+                        name: name.trim(),
+                        memory_mb: memoryMB,
+                        cpu_shares: cpuShares,
+                        disk_mb: diskMB,
+                    },
+                );
+
+                if (response.ok) {
+                    const responseData = response.data as {
+                        container: Container;
+                        restarted?: boolean;
+                    };
+
+                    // If container was restarted, trigger immediate reconnect
+                    if (responseData.restarted && responseData.container) {
+                        const oldContainerId = container.id;
+                        const newContainerId = responseData.container.id;
+
+                        // Immediate reconnect - container is already running with new ID
+                        if (oldContainerId && newContainerId) {
+                            toast.success(
+                                "Settings updated - reconnecting to new container...",
+                            );
+                            // Always use updateSessionContainerId - it handles both same and different IDs
+                            // and properly finds sessions by container ID (not session ID)
+                            terminal.updateSessionContainerId(
+                                oldContainerId,
+                                newContainerId,
+                            );
+                        }
+                    } else {
+                        toast.success("Terminal settings updated");
+                    }
+
+                    if (responseData.container) {
+                        dispatch("updated", responseData.container);
+                    }
+                    handleClose();
+                    // Clear any stuck creating state and refresh containers
+                    containers.clearCreating();
+                    containers.fetchContainers();
+                } else {
+                    toast.error(response.error || "Failed to update settings");
                 }
-                handleClose();
-                // Clear any stuck creating state and refresh containers
-                containers.clearCreating();
-                containers.fetchContainers();
-            } else {
-                toast.error(response.error || "Failed to update settings");
             }
         } catch (err) {
             console.error("Settings update error:", err);
@@ -357,7 +391,7 @@
                         />
                     </svg>
                 </div>
-                <h2 class="modal-title">Terminal Settings</h2>
+                <h2 class="modal-title">{isAgent ? 'Agent Settings' : 'Terminal Settings'}</h2>
                 <button class="close-btn" onclick={handleClose}>
                     <svg
                         viewBox="0 0 24 24"
@@ -370,6 +404,7 @@
                 </button>
             </div>
 
+            {#if !isAgent}
             <div class="tabs">
                 <button
                     class="tab-btn"
@@ -386,9 +421,66 @@
                     Port Forwarding
                 </button>
             </div>
+            {/if}
 
             <div class="modal-body">
-                {#if activeTab === "settings"}
+                {#if isAgent}
+                    <!-- Agent Settings: Name and Description only -->
+                    <div class="form-group">
+                        <label for="agent-name">Agent Name</label>
+                        <input
+                            id="agent-name"
+                            type="text"
+                            bind:value={name}
+                            placeholder="my-server"
+                            class="input"
+                        />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="agent-description">Description</label>
+                        <input
+                            id="agent-description"
+                            type="text"
+                            bind:value={description}
+                            placeholder="Production web server"
+                            class="input"
+                        />
+                        <span class="input-hint">Optional description for this agent</span>
+                    </div>
+
+                    {#if container.os || container.arch}
+                    <div class="agent-info-section">
+                        <span class="section-title">System Info</span>
+                        <div class="agent-info-grid">
+                            {#if container.os}
+                            <div class="info-item">
+                                <span class="info-label">OS</span>
+                                <span class="info-value">{container.distro || container.os}</span>
+                            </div>
+                            {/if}
+                            {#if container.arch}
+                            <div class="info-item">
+                                <span class="info-label">Arch</span>
+                                <span class="info-value">{container.arch}</span>
+                            </div>
+                            {/if}
+                            {#if container.shell}
+                            <div class="info-item">
+                                <span class="info-label">Shell</span>
+                                <span class="info-value">{container.shell}</span>
+                            </div>
+                            {/if}
+                            {#if container.hostname}
+                            <div class="info-item">
+                                <span class="info-label">Hostname</span>
+                                <span class="info-value">{container.hostname}</span>
+                            </div>
+                            {/if}
+                        </div>
+                    </div>
+                    {/if}
+                {:else if activeTab === "settings"}
                     <div class="form-group">
                         <label for="terminal-name">Terminal Name</label>
                         <input
@@ -1248,5 +1340,44 @@
     .modal-container {
         scrollbar-width: thin;
         scrollbar-color: var(--border, #1a1a1a) transparent;
+    }
+
+    /* Agent info section */
+    .agent-info-section {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border, #1a1a1a);
+    }
+
+    .agent-info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .info-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted, #666);
+    }
+
+    .info-value {
+        font-size: 12px;
+        color: var(--text, #e0e0e0);
+        font-family: var(--font-mono, monospace);
+    }
+
+    .input-hint {
+        font-size: 11px;
+        color: var(--text-muted, #666);
+        margin-top: 4px;
     }
 </style>
