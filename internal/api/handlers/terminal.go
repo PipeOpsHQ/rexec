@@ -299,20 +299,49 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 
 	// Verify user owns this container (lookup by Docker ID or terminal name)
 	containerInfo, ok := h.containerManager.GetContainer(containerIdOrName)
+	var dbContainer *storage.ContainerRecord
+	var dockerID string
 
 	if !ok {
-		// Optimization: Try to find by DB ID first before triggering slow Docker sync
-		// This handles cases where frontend uses DB UUID instead of Docker ID
-		if dbContainer, err := h.store.GetContainerByID(reqCtx, containerIdOrName); err == nil && dbContainer != nil && dbContainer.DockerID != "" {
+		// Try to find in database - could be DB UUID or Docker ID
+		var err error
+
+		// Check if it looks like a Docker ID (64 hex chars) or DB UUID (36 chars with dashes)
+		if len(containerIdOrName) == 64 {
+			// Looks like Docker ID - search by Docker ID
+			dbContainer, err = h.store.GetContainerByUserAndDockerID(reqCtx, userID.(string), containerIdOrName)
+		} else {
+			// Looks like DB UUID - search by DB ID
+			dbContainer, err = h.store.GetContainerByID(reqCtx, containerIdOrName)
+			// Verify ownership
+			if err == nil && dbContainer != nil && dbContainer.UserID != userID.(string) {
+				dbContainer = nil // Not owned by this user
+			}
+		}
+
+		if err == nil && dbContainer != nil && dbContainer.DockerID != "" {
 			// Found in DB, try getting from manager using the Docker ID
 			if info, found := h.containerManager.GetContainer(dbContainer.DockerID); found {
 				containerInfo = info
 				ok = true
+			} else {
+				// Container exists in DB but not in manager cache
+				// Quick verify it exists in Docker (fast check, no full sync)
+				_, dockerErr := h.containerManager.GetClient().ContainerInspect(reqCtx, dbContainer.DockerID)
+				if dockerErr == nil {
+					// Container exists in Docker - we can proceed with DB record
+					// Don't need to load into manager cache for terminal connection
+					// The DB record has all info we need
+					// Set dockerID now so we can use it later even if containerInfo is nil
+					dockerID = dbContainer.DockerID
+					ok = true // Mark as found so we skip the slow LoadExistingContainers below
+				}
 			}
 		}
 	}
 
 	if !ok {
+		// Only do slow Docker sync if we haven't found it in DB
 		// For newly created containers, they should be in cache immediately.
 		// Only do slow Docker sync as last resort (e.g., server restart, container from another instance).
 		// Use a short timeout to avoid blocking terminal connections for too long.
@@ -329,51 +358,93 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	// In that case, try to verify via Docker directly
 	isCollabUser := false
 	isOwner := false
-	var dockerID string
 
 	if !ok {
-		// Check if user has collab access to this container ID
-		if h.HasCollabAccess(reqCtx, userID.(string), containerIdOrName) {
-			// Verify container exists in Docker directly
-			dockerContainer, err := h.containerManager.GetClient().ContainerInspect(reqCtx, containerIdOrName)
-			if err != nil {
-				log.Printf("[Terminal] Collab container not found in Docker: %s (user: %s)", containerIdOrName, userID)
+		// If we found container in DB but not in manager, try to use Docker ID from DB
+		if dbContainer != nil && dbContainer.DockerID != "" {
+			// Verify container exists in Docker
+			_, err := h.containerManager.GetClient().ContainerInspect(reqCtx, dbContainer.DockerID)
+			if err == nil {
+				// Container exists in Docker - allow connection using DB record info
+				dockerID = dbContainer.DockerID
+				isOwner = dbContainer.UserID == userID.(string)
+				log.Printf("[Terminal] Container found in DB but not in cache, using Docker ID %s (user: %s)", dockerID[:12], userID)
+				// Set containerInfo to nil - we'll use dockerID directly
+				containerInfo = nil
+			} else {
+				// Container in DB but not in Docker - might be stopped/deleted
+				log.Printf("[Terminal] Container in DB but not in Docker: %s (user: %s)", containerIdOrName, userID)
 				c.JSON(http.StatusNotFound, gin.H{
 					"error":           "container not found",
 					"code":            "container_not_found",
-					"hint":            "The shared terminal may no longer exist.",
-					"action_required": "none",
+					"hint":            "Container may have been stopped or removed. Try starting it.",
+					"action_required": "start",
 				})
 				return
 			}
-			// Container exists in Docker, allow collab access
-			dockerID = dockerContainer.ID
-			isCollabUser = true
-			isOwner = false
-			log.Printf("[Terminal] Collab user %s accessing container %s via direct Docker lookup", userID, dockerID[:12])
 		} else {
-			log.Printf("[Terminal] Container not found: %s (user: %s)", containerIdOrName, userID)
-			c.JSON(http.StatusNotFound, gin.H{
-				"error":           "container not found",
-				"code":            "container_not_found",
-				"hint":            "Container may need to be recreated. Try starting it.",
-				"action_required": "start",
-			})
-			return
-		}
-	} else {
-		// Container found in manager
-		dockerID = containerInfo.ID
-		isOwner = containerInfo.UserID == userID.(string)
-
-		// Verify ownership or collab access
-		if !isOwner {
-			// Check if user has collab access
-			if !h.HasCollabAccess(reqCtx, userID.(string), dockerID) {
-				c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			// Check if user has collab access to this container ID
+			if h.HasCollabAccess(reqCtx, userID.(string), containerIdOrName) {
+				// Verify container exists in Docker directly
+				dockerContainer, err := h.containerManager.GetClient().ContainerInspect(reqCtx, containerIdOrName)
+				if err != nil {
+					log.Printf("[Terminal] Collab container not found in Docker: %s (user: %s)", containerIdOrName, userID)
+					c.JSON(http.StatusNotFound, gin.H{
+						"error":           "container not found",
+						"code":            "container_not_found",
+						"hint":            "The shared terminal may no longer exist.",
+						"action_required": "none",
+					})
+					return
+				}
+				// Container exists in Docker, allow collab access
+				dockerID = dockerContainer.ID
+				isCollabUser = true
+				isOwner = false
+				log.Printf("[Terminal] Collab user %s accessing container %s via direct Docker lookup", userID, dockerID[:12])
+			} else {
+				log.Printf("[Terminal] Container not found: %s (user: %s)", containerIdOrName, userID)
+				c.JSON(http.StatusNotFound, gin.H{
+					"error":           "container not found",
+					"code":            "container_not_found",
+					"hint":            "Container may need to be recreated. Try starting it.",
+					"action_required": "start",
+				})
 				return
 			}
-			isCollabUser = true
+		}
+	} else {
+		// Container found (either in manager cache or in DB)
+		if containerInfo != nil {
+			// Found in manager cache
+			dockerID = containerInfo.ID
+			isOwner = containerInfo.UserID == userID.(string)
+
+			// Verify ownership or collab access
+			if !isOwner {
+				// Check if user has collab access
+				if !h.HasCollabAccess(reqCtx, userID.(string), dockerID) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+					return
+				}
+				isCollabUser = true
+			}
+		} else if dbContainer != nil && dockerID != "" {
+			// Found in DB but not in manager cache - use DB record
+			isOwner = dbContainer.UserID == userID.(string)
+			log.Printf("[Terminal] Using container from DB (not in cache): %s (user: %s)", dockerID[:12], userID)
+		}
+	}
+
+	// Get image type - prefer from containerInfo, fallback to DB record, then Docker
+	var imageType string
+	if containerInfo != nil {
+		imageType = containerInfo.ImageType
+	} else if dbContainer != nil {
+		// Extract image type from DB record's image field (format: "ubuntu" or "custom:image:tag")
+		imageType = dbContainer.Image
+		if strings.HasPrefix(imageType, "custom:") {
+			imageType = "custom"
 		}
 	}
 
@@ -388,7 +459,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		containerStatus = containerInfo.Status
 		isRunning = (containerStatus == "running" || containerStatus == "configuring")
 	} else {
-		// Slow path: verify via Docker (for collab users)
+		// Slow path: verify via Docker (for collab users or containers not in cache)
 		dockerContainer, err := h.containerManager.GetClient().ContainerInspect(reqCtx, dockerID)
 		if err != nil {
 			if dockerclient.IsErrNotFound(err) {
@@ -414,6 +485,13 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 			containerStatus = "stopped"
 		}
 		isRunning = dockerContainer.State.Running
+
+		// Get image type from Docker labels if not already set
+		if imageType == "" && dockerContainer.Config != nil && dockerContainer.Config.Labels != nil {
+			if imgType, ok := dockerContainer.Config.Labels["rexec.image_type"]; ok {
+				imageType = imgType
+			}
+		}
 	}
 
 	// We allow connections during configuring state so users can connect during long role setups
@@ -472,7 +550,12 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 				h.joinSharedSession(sharedSession, conn, userID.(string), false)
 			} else {
 				// No shared session exists. Check if owner is connected in a private session.
-				ownerID := containerInfo.UserID
+				ownerID := userID.(string)
+				if containerInfo != nil {
+					ownerID = containerInfo.UserID
+				} else if dbContainer != nil {
+					ownerID = dbContainer.UserID
+				}
 				ownerSession, ownerConnected := h.GetActiveSession(dockerID, ownerID)
 
 				if ownerConnected && ownerSession != nil {
@@ -488,7 +571,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 
 					// 2. Create the shared session immediately
 					// The owner isn't in it yet, but will be when they reconnect.
-					sharedSession = h.getOrCreateSharedSession(dockerID, ownerID, containerInfo.ImageType)
+					sharedSession = h.getOrCreateSharedSession(dockerID, ownerID, imageType)
 
 					// 3. Join the collab user now
 					h.joinSharedSession(sharedSession, conn, userID.(string), false)
@@ -517,10 +600,6 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	// Check if owner is starting while there's an active VIEW mode collab session
 	if h.hasActiveCollabSession(dockerID) && collabMode == "view" {
 		// Create shared session for view-mode collab
-		imageType := ""
-		if containerInfo != nil {
-			imageType = containerInfo.ImageType
-		}
 		sharedSession = h.getOrCreateSharedSession(dockerID, userID.(string), imageType)
 		h.joinSharedSession(sharedSession, conn, userID.(string), isOwner)
 		return
@@ -632,7 +711,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 
 	// Start terminal session with auto-restart on exit
 
-	h.runTerminalSessionWithRestart(session, containerInfo.ImageType)
+	h.runTerminalSessionWithRestart(session, imageType)
 }
 
 // runTerminalSessionWithRestart runs the terminal session and restarts the shell if user types 'exit'
@@ -798,14 +877,36 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			isConfiguring = info.Status == "configuring"
 		}
 
-		if isConfiguring {
-			// Fast path: container is still setting up, use basic shell without tmux
-			// This allows instant terminal access while setup continues in background
-			// Skip DB lookup entirely for fastest possible connection
-			shell = "/bin/sh"
-			hasTmux = false
-			shellCached = true // Mark as cached to skip detection below
-			log.Printf("[Terminal] Container configuring, using fast /bin/sh path for %s", session.ContainerID[:12])
+		// For configuring containers, check if shell setup is already complete
+		// If setup is done, use the proper shell (zsh/bash) for better UX
+		// Only use /bin/sh if setup is still in progress
+		if isConfiguring && h.store != nil {
+			// Quick DB check for shell setup status (with very short timeout to avoid delay)
+			// session.ContainerID is Docker ID, need to look up DB UUID first
+			dbCtx, dbCancel := context.WithTimeout(ctx, 200*time.Millisecond)
+			var cachedShell, dbUUID string
+			var cachedTmux, setupDone bool
+			// Try to get DB UUID and shell metadata by Docker ID
+			if dbContainer, err := h.store.GetContainerByDockerID(dbCtx, session.ContainerID); err == nil && dbContainer != nil {
+				dbUUID = dbContainer.ID
+				// Now get shell metadata using DB UUID (same context, already has timeout)
+				cachedShell, cachedTmux, setupDone, _ = h.store.GetContainerShellMetadata(dbCtx, dbUUID)
+			}
+			dbCancel()
+
+			if setupDone && cachedShell != "" {
+				// Shell setup is complete - use the proper shell even though status is "configuring"
+				shell = cachedShell
+				hasTmux = cachedTmux
+				shellCached = true
+				log.Printf("[Terminal] Container configuring but shell setup complete, using %s for %s", shell, session.ContainerID[:12])
+			} else {
+				// Shell setup not complete or lookup timed out - use fast /bin/sh path
+				shell = "/bin/sh"
+				hasTmux = false
+				shellCached = true
+				log.Printf("[Terminal] Container configuring, shell setup in progress, using fast /bin/sh path for %s", session.ContainerID[:12])
+			}
 		} else if h.store != nil {
 			// Try to get cached shell metadata from database (only for non-configuring containers)
 			dbCtx, dbCancel := context.WithTimeout(ctx, 2*time.Second)
