@@ -781,9 +781,20 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			}
 		}
 
+		// Check if container is configuring
+		var isConfiguring bool
+		if info, ok := h.containerManager.GetContainer(session.ContainerID); ok {
+			isConfiguring = info.Status == "configuring"
+		}
+
 		// Fall back to detection if not cached
 		if !shellCached {
-			shell = h.detectShell(ctx, session.ContainerID, imageType)
+			if isConfiguring {
+				shell = "/bin/sh"
+				log.Printf("[Terminal] Container configuring, forcing /bin/sh for %s", session.ContainerID[:12])
+			} else {
+				shell = h.detectShell(ctx, session.ContainerID, imageType)
+			}
 
 			// Check tmux cache or detect
 			h.mu.RLock()
