@@ -1053,15 +1053,18 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			}
 		} else if h.store != nil {
 			// Try to get cached shell metadata from database (only for non-configuring containers)
-			dbCtx, dbCancel := context.WithTimeout(ctx, 2*time.Second)
-			cachedShell, cachedTmux, setupDone, err := h.store.GetContainerShellMetadata(dbCtx, session.ContainerID)
-			dbCancel()
-			if err == nil && setupDone && cachedShell != "" {
-				shell = cachedShell
-				hasTmux = cachedTmux
-				shellCached = true
-				log.Printf("[Terminal] Using cached shell metadata for %s: shell=%s, tmux=%v", session.ContainerID[:12], shell, hasTmux)
+			// session.ContainerID is Docker ID, need to look up DB UUID first
+			dbCtx, dbCancel := context.WithTimeout(ctx, 500*time.Millisecond)
+			if dbContainer, err := h.store.GetContainerByDockerID(dbCtx, session.ContainerID); err == nil && dbContainer != nil {
+				cachedShell, cachedTmux, setupDone, err := h.store.GetContainerShellMetadata(dbCtx, dbContainer.ID)
+				if err == nil && setupDone && cachedShell != "" {
+					shell = cachedShell
+					hasTmux = cachedTmux
+					shellCached = true
+					log.Printf("[Terminal] Using cached shell metadata for %s: shell=%s, tmux=%v", session.ContainerID[:12], shell, hasTmux)
+				}
 			}
+			dbCancel()
 		}
 
 		// Fall back to detection if not cached and not configuring
