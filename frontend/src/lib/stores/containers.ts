@@ -999,24 +999,36 @@ function handleContainerEvent(event: {
           };
         }
 
-        // Smart merge: preserve order of existing containers, update their data, add new ones
-        const existingIds = new Set(existingContainers.map((c) => c.id));
-        const newIds = new Set(newContainers.map((c: Container) => c.id));
+        // Create a map for quick lookup of new container data by ID
+        const newContainerMap = new Map<string, Container>();
+        for (const c of newContainers) {
+          newContainerMap.set(c.id, c);
+        }
 
-        // Update existing containers in place (preserving order)
-        const mergedContainers = existingContainers
-          .filter((existing) => newIds.has(existing.id)) // Remove deleted ones
+        const existingIds = new Set(existingContainers.map((c) => c.id));
+
+        // Update existing containers IN PLACE (preserving their exact order)
+        // Only update properties, don't recreate objects unless data changed
+        const updatedContainers = existingContainers
+          .filter((existing) => newContainerMap.has(existing.id)) // Remove deleted ones
           .map((existing) => {
-            const updated = newContainers.find((n: Container) => n.id === existing.id);
-            return updated ? { ...existing, ...updated } : existing;
+            const updated = newContainerMap.get(existing.id);
+            if (!updated) return existing;
+            // Only create new object if something actually changed
+            if (existing.status === updated.status &&
+                existing.name === updated.name &&
+                JSON.stringify(existing.stats) === JSON.stringify(updated.stats)) {
+              return existing; // No change, keep same reference
+            }
+            return { ...existing, ...updated };
           });
 
-        // Add any new containers to the beginning
+        // Add any new containers AT THE END (not beginning) to avoid re-ordering
         const addedContainers = newContainers.filter((n: Container) => !existingIds.has(n.id));
 
         return {
           ...state,
-          containers: [...addedContainers, ...mergedContainers],
+          containers: [...updatedContainers, ...addedContainers],
           limit: containerData.limit || 5,
           isLoading: false,
         };
@@ -1086,26 +1098,30 @@ function handleContainerEvent(event: {
     case "started":
     case "stopped":
     case "updated":
-      // Container status changed - update in place
+      // Container status changed - update in place without recreating array if possible
       containers.update((state) => {
-        const newContainers = state.containers.map((c) => {
-          if (matchesContainer(c, containerData)) {
-            // Create a completely new object to ensure reactivity
-            return { 
-              ...c, 
-              ...containerData,
-              status: containerData.status || c.status,
-              resources: containerData.resources || c.resources,
-            };
-          }
-          return c;
-        });
-        
-        // Return new state object
-        return {
-          ...state,
-          containers: newContainers,
+        const targetIndex = state.containers.findIndex((c) => matchesContainer(c, containerData));
+        if (targetIndex === -1) return state; // Container not found
+
+        const existing = state.containers[targetIndex];
+        const newStatus = containerData.status || existing.status;
+
+        // Check if anything actually changed
+        if (existing.status === newStatus &&
+            existing.name === (containerData.name || existing.name)) {
+          return state; // No change
+        }
+
+        // Only update the specific container
+        const updatedContainers = [...state.containers];
+        updatedContainers[targetIndex] = {
+          ...existing,
+          ...containerData,
+          status: newStatus,
+          resources: containerData.resources || existing.resources,
         };
+
+        return { ...state, containers: updatedContainers };
       });
       break;
 
@@ -1146,19 +1162,23 @@ function handleContainerEvent(event: {
 
     case "agent_disconnected":
       // Agent disconnected - update status to offline but keep in list at same position
-      containers.update((state) => ({
-        ...state,
-        containers: state.containers.map((c) => {
-          if (c.id === containerData.id) {
-            return {
-              ...c,
-              status: "offline",
-              stats: undefined, // Clear stats when offline
-            };
-          }
-          return c;
-        }),
-      }));
+      containers.update((state) => {
+        const targetIndex = state.containers.findIndex((c) => c.id === containerData.id);
+        if (targetIndex === -1) return state; // Agent not found
+
+        const existing = state.containers[targetIndex];
+        if (existing.status === "offline") return state; // Already offline, no change
+
+        // Only update the specific container
+        const updatedContainers = [...state.containers];
+        updatedContainers[targetIndex] = {
+          ...existing,
+          status: "offline",
+          stats: undefined,
+        };
+
+        return { ...state, containers: updatedContainers };
+      });
       // Dispatch event for agents store
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('container-agent-disconnected', { detail: containerData }));
@@ -1167,15 +1187,26 @@ function handleContainerEvent(event: {
 
     case "agent_stats":
       // Agent stats updated - update the stats for the matching agent
-      containers.update((state) => ({
-        ...state,
-        containers: state.containers.map((c) => {
-          if (c.id === containerData.id) {
-            return { ...c, stats: containerData.stats };
-          }
-          return c;
-        }),
-      }));
+      // Use minimal updates to avoid triggering re-renders
+      containers.update((state) => {
+        const targetIndex = state.containers.findIndex((c) => c.id === containerData.id);
+        if (targetIndex === -1) return state; // Agent not found, no change
+
+        const existing = state.containers[targetIndex];
+        // Check if stats actually changed
+        if (JSON.stringify(existing.stats) === JSON.stringify(containerData.stats)) {
+          return state; // No change, return same state reference
+        }
+
+        // Only update the specific container, keep array structure stable
+        const updatedContainers = [...state.containers];
+        updatedContainers[targetIndex] = { ...existing, stats: containerData.stats };
+
+        return {
+          ...state,
+          containers: updatedContainers,
+        };
+      });
       break;
 
     default:
