@@ -1,5 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
+    import { auth } from "$stores/auth";
+    import { toast } from "$stores/toast";
     import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
@@ -7,8 +9,30 @@
         navigate: { view: string };
     }>();
 
+    let isOAuthLoading = false;
+
     function handleGuestClick() {
         dispatch("guest");
+    }
+
+    async function handleOAuthLogin() {
+        if (isOAuthLoading) return;
+
+        isOAuthLoading = true;
+        try {
+            const url = await auth.getOAuthUrl();
+            if (url) {
+                window.location.href = url;
+            } else {
+                toast.error(
+                    "Unable to connect to PipeOps. Please try again later.",
+                );
+                isOAuthLoading = false;
+            }
+        } catch (e) {
+            toast.error("Failed to connect to PipeOps. Please try again.");
+            isOAuthLoading = false;
+        }
     }
 </script>
 
@@ -33,6 +57,18 @@
         <div class="landing-actions">
             <button class="btn btn-primary btn-lg" onclick={handleGuestClick}>
                 Try Now — No Sign Up
+            </button>
+            <button
+                class="btn btn-secondary btn-lg"
+                onclick={handleOAuthLogin}
+                disabled={isOAuthLoading}
+            >
+                {#if isOAuthLoading}
+                    <span class="btn-spinner"></span>
+                    Connecting...
+                {:else}
+                    Sign in with PipeOps
+                {/if}
             </button>
         </div>
 
@@ -195,6 +231,29 @@
         gap: 16px;
         justify-content: center;
         margin-bottom: 40px;
+    }
+
+    .btn-spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
     }
 
     .terminal-preview {

@@ -1,5 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
+    import { auth } from "$stores/auth";
+    import { toast } from "$stores/toast";
     import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
@@ -7,6 +9,7 @@
         navigate: { view: string };
     }>();
 
+    let isOAuthLoading = false;
     let animatedStats = { terminals: 0, uptime: 0, countries: 0 };
     let visibleSections: Set<string> = new Set();
     let heroLoaded = false;
@@ -27,6 +30,23 @@
 
     function navigateTo(view: string) {
         dispatch("navigate", { view });
+    }
+
+    async function handleOAuthLogin() {
+        if (isOAuthLoading) return;
+        isOAuthLoading = true;
+        try {
+            const url = await auth.getOAuthUrl();
+            if (url) {
+                window.location.href = url;
+            } else {
+                toast.error("Unable to connect. Please try again later.");
+                isOAuthLoading = false;
+            }
+        } catch (e) {
+            toast.error("Failed to connect. Please try again.");
+            isOAuthLoading = false;
+        }
     }
 
     // 3D Tilt effect for comparison cards
@@ -334,6 +354,13 @@
                         <span class="btn-icon">▶</span>
                         Start Free Terminal
                         <span class="btn-shine"></span>
+                    </button>
+                    <button class="btn-hero btn-secondary-hero" onclick={handleOAuthLogin} disabled={isOAuthLoading}>
+                        {#if isOAuthLoading}
+                            <span class="spinner"></span>
+                        {:else}
+                            Sign in with PipeOps
+                        {/if}
                     </button>
                 </div>
 

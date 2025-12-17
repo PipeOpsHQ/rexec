@@ -269,7 +269,7 @@
 
                 {#if showUserMenu}
                     <div class="user-menu">
-                        <div 
+                        <div
                             class="user-menu-header clickable"
                             onclick={() => {
                                 showUserMenu = false;
@@ -478,25 +478,6 @@
                     </div>
                 {/if}
             </div>
-        {:else}
-            <button
-                class="btn btn-secondary btn-sm"
-                onclick={handleGuestClick}
-            >
-                Try as Guest
-            </button>
-            <button
-                class="btn btn-primary btn-sm"
-                onclick={handleOAuthLogin}
-                disabled={isOAuthLoading}
-            >
-                {#if isOAuthLoading}
-                    <span class="btn-spinner-sm"></span>
-                    Connecting...
-                {:else}
-                    Sign in with PipeOps
-                {/if}
-            </button>
         {/if}
     </nav>
 </header>
