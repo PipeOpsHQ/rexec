@@ -30,6 +30,7 @@
     let errorMessage = "";
     let customName = "";
     let customImage = "";
+    let useTmux = false;
 
     // Resource customization
     let showResources = false;
@@ -509,6 +510,7 @@
             handleComplete,
             handleError,
             { memory_mb: memoryMB, cpu_shares: cpuShares, disk_mb: diskMB },
+            { use_tmux: useTmux },
         );
     }
 </script>
@@ -611,6 +613,18 @@
                         maxlength="64"
                     />
                 </div>
+            </div>
+
+            <!-- Terminal Settings -->
+            <div class="create-section">
+                <h4>Terminal Settings</h4>
+                <label class="setting-row">
+                    <input type="checkbox" bind:checked={useTmux} />
+                    <div class="setting-info">
+                        <span class="setting-label">Enable resumable session (tmux)</span>
+                        <span class="setting-desc">Keep processes running when you disconnect</span>
+                    </div>
+                </label>
             </div>
 
             <!-- Role Selection -->
@@ -2004,5 +2018,44 @@
         .copy-btn {
             align-self: flex-end;
         }
+    }
+    /* Terminal Settings */
+    .setting-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .setting-row:hover {
+        border-color: var(--text-muted);
+        background: var(--bg-card-hover);
+    }
+
+    .setting-row input[type="checkbox"] {
+        margin-top: 3px;
+        accent-color: var(--accent);
+    }
+
+    .setting-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .setting-label {
+        font-size: 13px;
+        color: var(--text);
+        font-weight: 500;
+    }
+
+    .setting-desc {
+        font-size: 11px;
+        color: var(--text-muted);
     }
 </style>

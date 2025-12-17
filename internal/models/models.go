@@ -249,38 +249,45 @@ func GetUserResourceLimits(tier string, subscriptionActive bool) ResourceLimits 
 
 // ShellConfig defines shell customization options
 type ShellConfig struct {
-	Enhanced        bool   `json:"enhanced"`         // Install oh-my-zsh + plugins (default: true)
+	Enhanced        *bool  `json:"enhanced"`         // Install oh-my-zsh + plugins (default: true)
 	Theme           string `json:"theme,omitempty"`  // zsh theme: "rexec" (default), "minimal", "powerlevel10k"
-	Autosuggestions bool   `json:"autosuggestions"`  // Enable zsh-autosuggestions (default: true)
-	SyntaxHighlight bool   `json:"syntax_highlight"` // Enable zsh-syntax-highlighting (default: true)
-	HistorySearch   bool   `json:"history_search"`   // Enable history-substring-search (default: true)
-	GitAliases      bool   `json:"git_aliases"`      // Enable git shortcuts (default: true)
-	SystemStats     bool   `json:"system_stats"`     // Show system stats on login (default: true)
+	Autosuggestions *bool  `json:"autosuggestions"`  // Enable zsh-autosuggestions (default: true)
+	SyntaxHighlight *bool  `json:"syntax_highlight"` // Enable zsh-syntax-highlighting (default: true)
+	HistorySearch   *bool  `json:"history_search"`   // Enable history-substring-search (default: true)
+	GitAliases      *bool  `json:"git_aliases"`      // Enable git shortcuts (default: true)
+	SystemStats     *bool  `json:"system_stats"`     // Show system stats on login (default: true)
+	UseTmux         *bool  `json:"use_tmux,omitempty"` // Enable tmux session persistence (default: true)
+}
+
+func boolPtr(b bool) *bool {
+	return &b
 }
 
 // DefaultShellConfig returns the default shell configuration
 func DefaultShellConfig() ShellConfig {
 	return ShellConfig{
-		Enhanced:        true,
+		Enhanced:        boolPtr(true),
 		Theme:           "rexec",
-		Autosuggestions: true,
-		SyntaxHighlight: true,
-		HistorySearch:   true,
-		GitAliases:      true,
-		SystemStats:     true,
+		Autosuggestions: boolPtr(true),
+		SyntaxHighlight: boolPtr(true),
+		HistorySearch:   boolPtr(true),
+		GitAliases:      boolPtr(true),
+		SystemStats:     boolPtr(true),
+		UseTmux:         boolPtr(true),
 	}
 }
 
 // MinimalShellConfig returns a minimal shell configuration (for "use Arch btw" users)
 func MinimalShellConfig() ShellConfig {
 	return ShellConfig{
-		Enhanced:        false,
+		Enhanced:        boolPtr(false),
 		Theme:           "",
-		Autosuggestions: false,
-		SyntaxHighlight: false,
-		HistorySearch:   false,
-		GitAliases:      false,
-		SystemStats:     false,
+		Autosuggestions: boolPtr(false),
+		SyntaxHighlight: boolPtr(false),
+		HistorySearch:   boolPtr(false),
+		GitAliases:      boolPtr(false),
+		SystemStats:     boolPtr(false),
+		UseTmux:         boolPtr(false),
 	}
 }
 

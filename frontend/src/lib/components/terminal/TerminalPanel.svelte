@@ -361,18 +361,12 @@
 
     // Split pane resizing
     let isResizingSplit = false;
-    let resizeIndex = 0;
-    let resizeStartPos = 0;
-    let resizeStartSizes: number[] = [];
     let splitContainerEl: HTMLDivElement;
 
-    function handleSplitResizeStart(event: MouseEvent, index: number) {
+    function handleSplitResizeStart(event: MouseEvent, _index: number) {
         event.preventDefault();
         isResizingSplit = true;
-        resizeIndex = index;
-        resizeStartSizes = [...(splitLayout?.sizes || [50, 50])];
-        resizeStartPos = splitLayout?.direction === 'horizontal' ? event.clientX : event.clientY;
-        
+
         window.addEventListener('mousemove', handleSplitResizeMove);
         window.addEventListener('mouseup', handleSplitResizeEnd);
     }
@@ -445,7 +439,7 @@
                 <span class="status-indicator"></span>
                 {status}
             </span>
-            {#if isConnected && (session.stats.cpu > 0 || session.stats.memory > 0)}
+            {#if isConnected && (session.stats.memoryLimit > 0 || session.stats.memory > 0 || session.stats.cpu > 0)}
                 <span class="terminal-stats">
                     <span class="stat-item stat-cpu" title="CPU Usage ({session.stats.cpu.toFixed(1)}%)">
                         <span class="stat-label">CPU</span>
@@ -474,6 +468,12 @@
                             <span class="stat-io-item stat-rx" class:pulse={netRxChanged}>RX:{formatMemoryBytes(session.stats.netRx)}</span>
                             <span class="stat-io-item stat-tx" class:pulse={netTxChanged}>TX:{formatMemoryBytes(session.stats.netTx)}</span>
                         </span>
+                    </span>
+                </span>
+            {:else if isConnected}
+                <span class="terminal-stats stats-loading">
+                    <span class="stat-item">
+                        <span class="stat-label">Loading metrics...</span>
                     </span>
                 </span>
             {/if}
@@ -890,6 +890,19 @@
         border: 1px solid var(--border);
         color: var(--text-muted);
         font-family: var(--font-mono);
+    }
+
+    .terminal-stats.stats-loading {
+        opacity: 0.6;
+    }
+
+    .terminal-stats.stats-loading .stat-label {
+        animation: pulse-loading 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-loading {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
     }
 
     .stat-item {

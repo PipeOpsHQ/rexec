@@ -373,6 +373,11 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	}
 
 	// Prepare container config
+	useTmux := "true"
+	if req.Shell != nil && req.Shell.UseTmux != nil && !*req.Shell.UseTmux {
+		useTmux = "false"
+	}
+
 	cfg := container.ContainerConfig{
 		UserID:        userID,
 		ContainerName: containerName,
@@ -380,9 +385,10 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		CustomImage:   req.CustomImage,
 		Role:          req.Role,
 		Labels: map[string]string{
-			"rexec.tier":    tier,
-			"rexec.user_id": userID,
-			"rexec.role":    req.Role,
+			"rexec.tier":     tier,
+			"rexec.user_id":  userID,
+			"rexec.role":     req.Role,
+			"rexec.use_tmux": useTmux,
 		},
 	}
 
@@ -406,22 +412,33 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	// Apply resource limits to container config (use validated request values)
 	cfg.MemoryLimit = limits.MemoryMB * 1024 * 1024 // Convert MB to bytes
 	cfg.CPULimit = limits.CPUShares                 // Already in millicores (500 = 0.5 CPU)
-	cfg.DiskQuota = limits.DiskMB * 1024 * 1024     // Convert MB to bytes
-
-	// Determine shell configuration - use request or defaults based on role
-	shellCfg := container.DefaultShellSetupConfig()
-	if req.Shell != nil {
-		shellCfg = container.ShellSetupConfig{
-			Enhanced:        req.Shell.Enhanced,
-			Theme:           req.Shell.Theme,
-			Autosuggestions: req.Shell.Autosuggestions,
-			SyntaxHighlight: req.Shell.SyntaxHighlight,
-			HistorySearch:   req.Shell.HistorySearch,
-			GitAliases:      req.Shell.GitAliases,
-			SystemStats:     req.Shell.SystemStats,
+	    cfg.DiskQuota = limits.DiskMB * 1024 * 1024     // Convert MB to bytes
+	
+		// Determine shell configuration - use request or defaults based on role
+		shellCfg := container.DefaultShellSetupConfig()
+		if req.Shell != nil {
+			if req.Shell.Enhanced != nil {
+				shellCfg.Enhanced = *req.Shell.Enhanced
+			}
+			if req.Shell.Theme != "" {
+				shellCfg.Theme = req.Shell.Theme
+			}
+			if req.Shell.Autosuggestions != nil {
+				shellCfg.Autosuggestions = *req.Shell.Autosuggestions
+			}
+			if req.Shell.SyntaxHighlight != nil {
+				shellCfg.SyntaxHighlight = *req.Shell.SyntaxHighlight
+			}
+			if req.Shell.HistorySearch != nil {
+				shellCfg.HistorySearch = *req.Shell.HistorySearch
+			}
+			if req.Shell.GitAliases != nil {
+				shellCfg.GitAliases = *req.Shell.GitAliases
+			}
+			if req.Shell.SystemStats != nil {
+				shellCfg.SystemStats = *req.Shell.SystemStats
+			}
 		}
-	}
-
 	// Send validating complete progress event via WebSocket immediately
 	// This ensures the frontend UI updates before the async creation starts
 	if h.eventsHub != nil {
@@ -1674,14 +1691,20 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 	})
 
 	// Create container config
+	useTmux := "true"
+	if req.Shell != nil && req.Shell.UseTmux != nil && !*req.Shell.UseTmux {
+		useTmux = "false"
+	}
+
 	cfg := container.ContainerConfig{
 		UserID:        userID,
 		ContainerName: containerName,
 		ImageType:     req.Image,
 		CustomImage:   req.CustomImage,
 		Labels: map[string]string{
-			"rexec.tier":    tier,
-			"rexec.user_id": userID,
+			"rexec.tier":     tier,
+			"rexec.user_id":  userID,
+			"rexec.use_tmux": useTmux,
 		},
 	}
 
@@ -1787,14 +1810,26 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 	// Determine shell configuration - use request or defaults based on role
 	shellCfg := container.DefaultShellSetupConfig()
 	if req.Shell != nil {
-		shellCfg = container.ShellSetupConfig{
-			Enhanced:        req.Shell.Enhanced,
-			Theme:           req.Shell.Theme,
-			Autosuggestions: req.Shell.Autosuggestions,
-			SyntaxHighlight: req.Shell.SyntaxHighlight,
-			HistorySearch:   req.Shell.HistorySearch,
-			GitAliases:      req.Shell.GitAliases,
-			SystemStats:     req.Shell.SystemStats,
+		if req.Shell.Enhanced != nil {
+			shellCfg.Enhanced = *req.Shell.Enhanced
+		}
+		if req.Shell.Theme != "" {
+			shellCfg.Theme = req.Shell.Theme
+		}
+		if req.Shell.Autosuggestions != nil {
+			shellCfg.Autosuggestions = *req.Shell.Autosuggestions
+		}
+		if req.Shell.SyntaxHighlight != nil {
+			shellCfg.SyntaxHighlight = *req.Shell.SyntaxHighlight
+		}
+		if req.Shell.HistorySearch != nil {
+			shellCfg.HistorySearch = *req.Shell.HistorySearch
+		}
+		if req.Shell.GitAliases != nil {
+			shellCfg.GitAliases = *req.Shell.GitAliases
+		}
+		if req.Shell.SystemStats != nil {
+			shellCfg.SystemStats = *req.Shell.SystemStats
 		}
 	}
 

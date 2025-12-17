@@ -240,6 +240,7 @@ function createContainersStore() {
       onComplete?: (container: Container) => void,
       onError?: (error: string) => void,
       resources?: { memory_mb?: number; cpu_shares?: number; disk_mb?: number },
+      shellOptions?: { use_tmux?: boolean },
     ) {
       const authToken = getToken();
       if (!authToken) {
@@ -340,6 +341,7 @@ function createContainersStore() {
         onComplete,
         onError,
         resources,
+        shellOptions,
       );
     },
 
@@ -353,6 +355,7 @@ function createContainersStore() {
       onComplete?: (container: Container) => void,
       onError?: (error: string) => void,
       resources?: { memory_mb?: number; cpu_shares?: number; disk_mb?: number },
+      shellOptions?: { use_tmux?: boolean },
     ) {
       const authToken = getToken();
       if (!authToken) {
@@ -378,7 +381,7 @@ function createContainersStore() {
         progress: 5,
       });
 
-      const body: Record<string, string | number> = { name, image };
+      const body: Record<string, any> = { name, image };
       if (image === "custom" && customImage) {
         body.custom_image = customImage;
       }
@@ -395,6 +398,12 @@ function createContainersStore() {
       }
       if (resources?.disk_mb) {
         body.disk_mb = resources.disk_mb;
+      }
+      // Add shell options if provided
+      if (shellOptions) {
+        body.shell = {
+          use_tmux: shellOptions.use_tmux
+        };
       }
 
       try {

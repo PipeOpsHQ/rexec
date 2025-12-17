@@ -797,6 +797,14 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			}
 		}
 
+		// Check for user preference via label (disable tmux if requested)
+		if info, ok := h.containerManager.GetContainer(session.ContainerID); ok {
+			if val, ok := info.Labels["rexec.use_tmux"]; ok && val == "false" {
+				hasTmux = false
+				log.Printf("[Terminal] tmux disabled by user preference for %s", session.ContainerID[:12])
+			}
+		}
+
 		// Determine tmux session name
 		// - For owner/single user: use "main" (allows reconnecting to same session)
 		// - For control-mode collab users: use unique session per user (independent sessions)

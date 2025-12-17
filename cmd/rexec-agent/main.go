@@ -935,6 +935,10 @@ func (a *Agent) connect() error {
 	// Send system info on connect
 	a.sendSystemInfo()
 
+	// Send initial stats immediately so user sees metrics right away
+	stats := a.collectStats()
+	a.sendMessage("stats", stats)
+
 	// Start periodic stats reporting
 	go a.reportStats()
 
@@ -1374,7 +1378,7 @@ func (a *Agent) sendSystemInfo() {
 
 // reportStats periodically sends system stats
 func (a *Agent) reportStats() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for a.running {

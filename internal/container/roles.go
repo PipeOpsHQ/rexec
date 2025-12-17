@@ -17,6 +17,13 @@ type RoleInfo struct {
 func AvailableRoles() []RoleInfo {
 	return []RoleInfo{
 		{
+			ID:          "minimal",
+			Name:        "Minimal",
+			Description: "Just a shell. No AI tools installed by default.",
+			Icon:        "🪶",
+			Packages:    []string{"zsh", "git", "curl", "wget", "vim", "nano", "htop", "jq"},
+		},
+		{
 			ID:          "standard",
 			Name:        "The Minimalist",
 			Description: "I use Arch btw. Just give me a shell + AI tools.",
@@ -1247,16 +1254,18 @@ echo "[[REXEC_STATUS]]Configuring shell..."
 configure_zsh
 
 # 4. Install AI tools
-echo "[[REXEC_STATUS]]Installing AI tools..."
-install_free_ai_tools
-echo "  Verifying AI tools..."
-for tool in tgpt aichat mods gum gh opencode aider; do
-    if command -v $tool >/dev/null 2>&1 || [ -x /root/.local/bin/$tool ] || [ -x /usr/local/bin/$tool ]; then
-        echo "    ✓ $tool available"
-    else
-        echo "    ✗ $tool NOT found"
-    fi
-done
+if [ "%s" != "Minimal" ]; then
+    echo "[[REXEC_STATUS]]Installing AI tools..."
+    install_free_ai_tools
+    echo "  Verifying AI tools..."
+    for tool in tgpt aichat mods gum gh opencode aider; do
+        if command -v $tool >/dev/null 2>&1 || [ -x /root/.local/bin/$tool ] || [ -x /usr/local/bin/$tool ]; then
+            echo "    ✓ $tool available"
+        else
+            echo "    ✗ $tool NOT found"
+        fi
+    done
+fi
 
 # Special handling for Vibe Coder role - install additional AI CLI tools
 if [ "%s" = "Vibe Coder" ]; then
@@ -1318,7 +1327,7 @@ if [ "%s" = "Vibe Coder" ]; then
 fi
 
 echo "[[REXEC_STATUS]]Setup complete."
-`, role.Name, packages, role.Name, role.Name)
+`, role.Name, packages, role.Name, role.Name, role.Name)
 
 	return script, nil
 }
