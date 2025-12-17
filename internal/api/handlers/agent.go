@@ -829,7 +829,7 @@ func (h *AgentHandler) HandleAgentWebSocket(c *gin.Context) {
 				log.Printf("Failed to unmarshal shell_output: %v", err)
 			}
 
-		case "shell_started", "shell_stopped", "shell_error":
+		case "shell_starting", "shell_started", "shell_stopped", "shell_error":
 			// Forward status to sessions
 			agentConn.sessionsMu.RLock()
 			for _, session := range agentConn.sessions {

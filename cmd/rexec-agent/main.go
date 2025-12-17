@@ -130,6 +130,8 @@ func main() {
 		handleInstall()
 	case "refresh-token":
 		handleRefreshToken(cmdArgs[1:])
+	case "prep-shell":
+		handlePrepShell()
 	default:
 		fmt.Printf("%sUnknown command: %s%s\n", Red, cmdArgs[0], Reset)
 		showHelp()
@@ -155,6 +157,7 @@ func showHelp() {
   unregister     Remove this machine from Rexec
   install        Install as a system service
   refresh-token  Update token for existing agent (fixes 401 errors)
+  prep-shell     Pre-install enhanced shell (zsh + oh-my-zsh) for faster first connect
 
 %sREGISTER OPTIONS:%s
   --name, -n       Name for this terminal (default: hostname)
@@ -1564,6 +1567,9 @@ func (a *Agent) handleConnection() {
 // startShellSession starts a shell session with the given ID
 // Each session gets its own independent shell/PTY
 func (a *Agent) startShellSession(sessionID string, newSession bool) {
+	// Send immediate ACK so client knows we received the request
+	a.sendMessage("shell_starting", map[string]string{"session_id": sessionID})
+
 	a.mu.Lock()
 	if a.sessions == nil {
 		a.sessions = make(map[string]*ShellSession)
@@ -1577,19 +1583,25 @@ func (a *Agent) startShellSession(sessionID string, newSession bool) {
 	// Check if session already exists
 	if _, exists := a.sessions[sessionID]; exists {
 		a.mu.Unlock()
+		// Session exists, just notify it's ready
+		a.sendMessage("shell_started", map[string]string{"session_id": sessionID})
 		return
 	}
 
 	// For main session, check if mainCmd is already running
 	if !newSession && a.mainCmd != nil {
 		a.mu.Unlock()
+		// Already running, notify ready
+		a.sendMessage("shell_started", map[string]string{"session_id": sessionID})
 		return
 	}
 	a.mu.Unlock()
 
-	// Start a plain interactive shell - no tmux, just direct PTY.
-	// Prefer a full-featured shell (bash/zsh) so readline/history works.
-	shellPath := resolveInteractiveShell(a.config.Shell)
+	// Use cached shell path from config (resolved once at startup)
+	shellPath := a.config.Shell
+	if shellPath == "" {
+		shellPath = "/bin/bash"
+	}
 	args := []string{"-l", "-i"}
 	// Avoid login mode for plain sh: it commonly sources /etc/profile where
 	// bashisms or CRLF can produce noisy "not found" errors.
@@ -1943,6 +1955,116 @@ func handleRefreshToken(args []string) {
 
 	fmt.Printf("\n%s✓ Token updated successfully!%s\n", Green, Reset)
 	fmt.Printf("Restart the agent: %ssudo systemctl restart rexec-agent%s\n", Cyan, Reset)
+}
+
+func handlePrepShell() {
+	fmt.Printf("\n%s%sPreparing Enhanced Shell%s\n\n", Bold, Cyan, Reset)
+	fmt.Printf("This will install zsh + oh-my-zsh for a better terminal experience.\n\n")
+
+	// Check if already installed
+	homeDir, _ := os.UserHomeDir()
+	ohmyzshPath := filepath.Join(homeDir, ".oh-my-zsh")
+	if _, err := os.Stat(ohmyzshPath); err == nil {
+		fmt.Printf("%s✓ Oh-my-zsh already installed at %s%s\n", Green, ohmyzshPath, Reset)
+		return
+	}
+
+	// Check for zsh
+	zshPath, err := exec.LookPath("zsh")
+	if err != nil {
+		fmt.Printf("%s[1/3] Installing zsh...%s\n", Dim, Reset)
+		if err := installZsh(); err != nil {
+			fmt.Printf("%sError installing zsh: %v%s\n", Red, err, Reset)
+			fmt.Printf("Please install zsh manually and re-run this command.\n")
+			os.Exit(1)
+		}
+		zshPath, _ = exec.LookPath("zsh")
+	} else {
+		fmt.Printf("%s[1/3] zsh already installed at %s%s\n", Green, zshPath, Reset)
+	}
+
+	// Install oh-my-zsh
+	fmt.Printf("%s[2/3] Installing oh-my-zsh...%s\n", Dim, Reset)
+	ohmyzshCmd := exec.Command("sh", "-c",
+		`git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh" 2>/dev/null`)
+	ohmyzshCmd.Env = os.Environ()
+	if err := ohmyzshCmd.Run(); err != nil {
+		fmt.Printf("%sError installing oh-my-zsh: %v%s\n", Red, err, Reset)
+		os.Exit(1)
+	}
+
+	// Install plugins
+	fmt.Printf("%s[3/3] Installing plugins...%s\n", Dim, Reset)
+	plugins := []struct {
+		name string
+		repo string
+	}{
+		{"zsh-autosuggestions", "https://github.com/zsh-users/zsh-autosuggestions"},
+		{"zsh-syntax-highlighting", "https://github.com/zsh-users/zsh-syntax-highlighting"},
+		{"zsh-completions", "https://github.com/zsh-users/zsh-completions"},
+	}
+
+	pluginsDir := filepath.Join(homeDir, ".oh-my-zsh", "custom", "plugins")
+	for _, plugin := range plugins {
+		pluginPath := filepath.Join(pluginsDir, plugin.name)
+		if _, err := os.Stat(pluginPath); err == nil {
+			continue // Already installed
+		}
+		cmd := exec.Command("git", "clone", "--depth=1", plugin.repo, pluginPath)
+		_ = cmd.Run() // Best effort
+	}
+
+	// Create .zshrc if it doesn't exist
+	zshrcPath := filepath.Join(homeDir, ".zshrc")
+	if _, err := os.Stat(zshrcPath); os.IsNotExist(err) {
+		zshrc := `export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="robbyrussell"
+plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-completions)
+source $ZSH/oh-my-zsh.sh
+`
+		if err := os.WriteFile(zshrcPath, []byte(zshrc), 0644); err != nil {
+			fmt.Printf("%sWarning: Could not create .zshrc: %v%s\n", Yellow, err, Reset)
+		}
+	}
+
+	fmt.Printf("\n%s✓ Enhanced shell installed successfully!%s\n", Green, Reset)
+	fmt.Printf("Your terminal sessions will now use zsh with oh-my-zsh.\n")
+	if zshPath != "" {
+		fmt.Printf("To use it now: %sexec %s%s\n", Cyan, zshPath, Reset)
+	}
+}
+
+func installZsh() error {
+	// Detect package manager and install zsh
+	var cmd *exec.Cmd
+
+	switch {
+	case commandExists("apt-get"):
+		cmd = exec.Command("sh", "-c", "sudo apt-get update && sudo apt-get install -y zsh git")
+	case commandExists("dnf"):
+		cmd = exec.Command("sh", "-c", "sudo dnf install -y zsh git")
+	case commandExists("yum"):
+		cmd = exec.Command("sh", "-c", "sudo yum install -y zsh git")
+	case commandExists("pacman"):
+		cmd = exec.Command("sh", "-c", "sudo pacman -Sy --noconfirm zsh git")
+	case commandExists("apk"):
+		cmd = exec.Command("sh", "-c", "sudo apk add --no-cache zsh git")
+	case commandExists("zypper"):
+		cmd = exec.Command("sh", "-c", "sudo zypper install -y zsh git")
+	case commandExists("brew"):
+		cmd = exec.Command("sh", "-c", "brew install zsh git")
+	default:
+		return fmt.Errorf("unsupported package manager")
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func commandExists(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
 }
 
 func handleInstall() {

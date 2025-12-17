@@ -968,6 +968,17 @@ function createTerminalStore() {
             } catch (e) {
               console.error("Failed to parse stats:", e);
             }
+          } else if (msg.type === "shell_starting") {
+            // Agent acknowledged shell_start - show immediate feedback
+            session.terminal.writeln("\x1b[38;5;243m› Starting shell...\x1b[0m");
+          } else if (msg.type === "shell_started") {
+            // Shell is ready - no action needed, output will follow
+          } else if (msg.type === "shell_stopped") {
+            session.terminal.writeln("\r\n\x1b[33m› Shell session ended\x1b[0m");
+          } else if (msg.type === "shell_error") {
+            const errorData = msg.data as { error?: string } | undefined;
+            const errorMsg = errorData?.error || "Shell error";
+            session.terminal.writeln(`\r\n\x1b[31m› Error: ${errorMsg}\x1b[0m`);
           }
         } catch {
           // Raw data fallback - also buffer this
