@@ -471,6 +471,15 @@ function createContainersStore() {
         }
 
         const pollStatus = async (): Promise<void> => {
+          // Optimization: If WebSocket is connected and receiving events, stop polling
+          // This avoids redundant network requests and ensures we rely on real-time updates
+          if (get(wsConnected) && receivedWsProgress) {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('container-progress', wsProgressHandler);
+            }
+            return;
+          }
+
           attempts++;
 
           try {
