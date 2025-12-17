@@ -865,19 +865,35 @@ function createTerminalStore() {
         rafId = null;
       };
 
-      // Schedule buffer flush - uses RAF for smooth 60fps rendering
+      // Schedule buffer flush - uses RAF for smooth rendering with timeout fallback
+      // The timeout guarantees flush even when RAF is throttled (inactive tab, etc.)
       const scheduleFlush = () => {
-        if (flushTimeout || rafId) return;
+        if (flushTimeout) return;
 
         const timeSinceLastFlush = performance.now() - lastFlushTime;
 
-        // If we haven't flushed recently, use RAF for immediate smooth render
+        // If we haven't flushed recently, try RAF for smooth render
         if (timeSinceLastFlush > OUTPUT_FLUSH_INTERVAL) {
-          rafId = requestAnimationFrame(flushBuffer);
-        } else {
-          // Otherwise schedule for next frame
+          // Use RAF but with a guaranteed timeout fallback
+          rafId = requestAnimationFrame(() => {
+            if (flushTimeout) {
+              clearTimeout(flushTimeout);
+              flushTimeout = null;
+            }
+            flushBuffer();
+          });
+          // Fallback timeout in case RAF doesn't fire (throttled tab, etc.)
           flushTimeout = setTimeout(() => {
-            rafId = requestAnimationFrame(flushBuffer);
+            if (rafId) {
+              cancelAnimationFrame(rafId);
+              rafId = null;
+            }
+            flushBuffer();
+          }, 50); // 50ms max delay guarantees prompt appears
+        } else {
+          // Schedule for next frame with guaranteed timeout
+          flushTimeout = setTimeout(() => {
+            flushBuffer();
           }, OUTPUT_FLUSH_INTERVAL);
         }
       };
@@ -2282,14 +2298,32 @@ function createTerminalStore() {
         rafId = null;
       };
 
+      // Schedule buffer flush - uses RAF for smooth rendering with timeout fallback
       const scheduleFlush = () => {
-        if (flushTimeout || rafId) return;
+        if (flushTimeout) return;
+
         const timeSinceLastFlush = performance.now() - lastFlushTime;
+
         if (timeSinceLastFlush > OUTPUT_FLUSH_INTERVAL) {
-          rafId = requestAnimationFrame(flushBuffer);
+          // Use RAF but with a guaranteed timeout fallback
+          rafId = requestAnimationFrame(() => {
+            if (flushTimeout) {
+              clearTimeout(flushTimeout);
+              flushTimeout = null;
+            }
+            flushBuffer();
+          });
+          // Fallback timeout in case RAF doesn't fire (throttled tab, etc.)
+          flushTimeout = setTimeout(() => {
+            if (rafId) {
+              cancelAnimationFrame(rafId);
+              rafId = null;
+            }
+            flushBuffer();
+          }, 50); // 50ms max delay guarantees prompt appears
         } else {
           flushTimeout = setTimeout(() => {
-            rafId = requestAnimationFrame(flushBuffer);
+            flushBuffer();
           }, OUTPUT_FLUSH_INTERVAL);
         }
       };
