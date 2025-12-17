@@ -412,33 +412,33 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 	// Apply resource limits to container config (use validated request values)
 	cfg.MemoryLimit = limits.MemoryMB * 1024 * 1024 // Convert MB to bytes
 	cfg.CPULimit = limits.CPUShares                 // Already in millicores (500 = 0.5 CPU)
-	    cfg.DiskQuota = limits.DiskMB * 1024 * 1024     // Convert MB to bytes
-	
-		// Determine shell configuration - use request or defaults based on role
-		shellCfg := container.DefaultShellSetupConfig()
-		if req.Shell != nil {
-			if req.Shell.Enhanced != nil {
-				shellCfg.Enhanced = *req.Shell.Enhanced
-			}
-			if req.Shell.Theme != "" {
-				shellCfg.Theme = req.Shell.Theme
-			}
-			if req.Shell.Autosuggestions != nil {
-				shellCfg.Autosuggestions = *req.Shell.Autosuggestions
-			}
-			if req.Shell.SyntaxHighlight != nil {
-				shellCfg.SyntaxHighlight = *req.Shell.SyntaxHighlight
-			}
-			if req.Shell.HistorySearch != nil {
-				shellCfg.HistorySearch = *req.Shell.HistorySearch
-			}
-			if req.Shell.GitAliases != nil {
-				shellCfg.GitAliases = *req.Shell.GitAliases
-			}
-			if req.Shell.SystemStats != nil {
-				shellCfg.SystemStats = *req.Shell.SystemStats
-			}
+	cfg.DiskQuota = limits.DiskMB * 1024 * 1024     // Convert MB to bytes
+
+	// Determine shell configuration - use request or defaults based on role
+	shellCfg := container.DefaultShellSetupConfig()
+	if req.Shell != nil {
+		if req.Shell.Enhanced != nil {
+			shellCfg.Enhanced = *req.Shell.Enhanced
 		}
+		if req.Shell.Theme != "" {
+			shellCfg.Theme = req.Shell.Theme
+		}
+		if req.Shell.Autosuggestions != nil {
+			shellCfg.Autosuggestions = *req.Shell.Autosuggestions
+		}
+		if req.Shell.SyntaxHighlight != nil {
+			shellCfg.SyntaxHighlight = *req.Shell.SyntaxHighlight
+		}
+		if req.Shell.HistorySearch != nil {
+			shellCfg.HistorySearch = *req.Shell.HistorySearch
+		}
+		if req.Shell.GitAliases != nil {
+			shellCfg.GitAliases = *req.Shell.GitAliases
+		}
+		if req.Shell.SystemStats != nil {
+			shellCfg.SystemStats = *req.Shell.SystemStats
+		}
+	}
 	// Send validating complete progress event via WebSocket immediately
 	// This ensures the frontend UI updates before the async creation starts
 	if h.eventsHub != nil {
@@ -624,7 +624,16 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	}
 
 	// Mark container as ready immediately - setup will continue in background
-	sendProgress("configuring", "Container started - setting up shell...", 90)
+	// Include container_id so frontend can start terminal connection early
+	if h.eventsHub != nil {
+		h.eventsHub.NotifyContainerProgress(userID, gin.H{
+			"id":           recordID,
+			"stage":        "configuring",
+			"message":      "Container started - setting up shell...",
+			"progress":     90,
+			"container_id": info.ID,
+		})
+	}
 
 	// Notify via WebSocket that container is created (will be in 'configuring' state)
 	// Sending this BEFORE background setup ensures frontend adds the card immediately

@@ -57,3 +57,19 @@ export async function loadXtermWebgl(): Promise<XtermWebglModule> {
   return xtermWebglPromise;
 }
 
+/**
+ * Preload xterm modules eagerly without waiting.
+ * Call this when user initiates container creation to reduce
+ * perceived latency when terminal becomes ready.
+ */
+export function preloadXterm(): void {
+  // Start loading core modules immediately (fire-and-forget)
+  loadXtermCore().catch(() => {
+    // Ignore errors - will be handled when actually needed
+  });
+
+  // Also preload WebGL addon
+  loadXtermWebgl().catch(() => {
+    // WebGL is optional, ignore errors
+  });
+}

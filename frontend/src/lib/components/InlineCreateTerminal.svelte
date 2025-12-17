@@ -5,6 +5,7 @@
     import { roles } from "$stores/roles";
     import { userTier, subscriptionActive } from "$stores/auth";
     import { formatMemory, formatStorage, formatCPU } from "$utils/api";
+    import { preloadXterm } from "$utils/xterm";
     import PlatformIcon from "./icons/PlatformIcon.svelte";
     import StatusIcon from "./icons/StatusIcon.svelte";
 
@@ -17,8 +18,12 @@
     }>();
 
     // Get current host for install commands
-    const currentHost = typeof window !== 'undefined' ? window.location.host : 'rexec.pipeops.io';
-    const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    const currentHost =
+        typeof window !== "undefined"
+            ? window.location.host
+            : "rexec.pipeops.io";
+    const protocol =
+        typeof window !== "undefined" ? window.location.protocol : "https:";
     const installUrl = `${protocol}//${currentHost}`;
 
     let selectedImage = "";
@@ -28,6 +33,7 @@
     let progressMessage = "";
     let progressStage = "";
     let errorMessage = "";
+    let hasDispatchedEarly = false;
     let customName = "";
     let customImage = "";
     let useTmux = false;
@@ -41,44 +47,92 @@
     // Resource limits based on plan tier
     $: resourceLimits = (() => {
         if ($subscriptionActive) {
-            return { minMemory: 256, maxMemory: 4096, minCPU: 250, maxCPU: 4000, minDisk: 1024, maxDisk: 20480 };
+            return {
+                minMemory: 256,
+                maxMemory: 4096,
+                minCPU: 250,
+                maxCPU: 4000,
+                minDisk: 1024,
+                maxDisk: 20480,
+            };
         }
         switch ($userTier) {
             case "guest":
-                return { minMemory: 256, maxMemory: 512, minCPU: 250, maxCPU: 500, minDisk: 1024, maxDisk: 2048 };
+                return {
+                    minMemory: 256,
+                    maxMemory: 512,
+                    minCPU: 250,
+                    maxCPU: 500,
+                    minDisk: 1024,
+                    maxDisk: 2048,
+                };
             case "free":
-                return { minMemory: 256, maxMemory: 2048, minCPU: 250, maxCPU: 2000, minDisk: 1024, maxDisk: 10240 };
+                return {
+                    minMemory: 256,
+                    maxMemory: 2048,
+                    minCPU: 250,
+                    maxCPU: 2000,
+                    minDisk: 1024,
+                    maxDisk: 10240,
+                };
             case "pro":
-                return { minMemory: 256, maxMemory: 4096, minCPU: 250, maxCPU: 4000, minDisk: 1024, maxDisk: 20480 };
+                return {
+                    minMemory: 256,
+                    maxMemory: 4096,
+                    minCPU: 250,
+                    maxCPU: 4000,
+                    minDisk: 1024,
+                    maxDisk: 20480,
+                };
             case "enterprise":
-                return { minMemory: 256, maxMemory: 8192, minCPU: 250, maxCPU: 8000, minDisk: 1024, maxDisk: 51200 };
+                return {
+                    minMemory: 256,
+                    maxMemory: 8192,
+                    minCPU: 250,
+                    maxCPU: 8000,
+                    minDisk: 1024,
+                    maxDisk: 51200,
+                };
             default: // Free fallback
-                return { minMemory: 256, maxMemory: 2048, minCPU: 250, maxCPU: 2000, minDisk: 1024, maxDisk: 10240 };
+                return {
+                    minMemory: 256,
+                    maxMemory: 2048,
+                    minCPU: 250,
+                    maxCPU: 2000,
+                    minDisk: 1024,
+                    maxDisk: 10240,
+                };
         }
     })();
 
     // Clamp values when limits change
     $: {
-        if (memoryMB > resourceLimits.maxMemory) memoryMB = resourceLimits.maxMemory;
-        if (cpuShares > resourceLimits.maxCPU) cpuShares = resourceLimits.maxCPU;
+        if (memoryMB > resourceLimits.maxMemory)
+            memoryMB = resourceLimits.maxMemory;
+        if (cpuShares > resourceLimits.maxCPU)
+            cpuShares = resourceLimits.maxCPU;
         if (diskMB > resourceLimits.maxDisk) diskMB = resourceLimits.maxDisk;
     }
 
     // Check if user can upgrade to get more resources
-    $: canUpgrade = !$subscriptionActive && ($userTier === "guest" || $userTier === "free" || $userTier === "pro");
+    $: canUpgrade =
+        !$subscriptionActive &&
+        ($userTier === "guest" || $userTier === "free" || $userTier === "pro");
     $: nextTierName = (() => {
-        if ($subscriptionActive && $userTier !== "enterprise") return "Enterprise";
+        if ($subscriptionActive && $userTier !== "enterprise")
+            return "Enterprise";
         if ($userTier === "guest") return "Free";
         if ($userTier === "free") return "Pro";
         if ($userTier === "pro") return "Enterprise";
         return null;
     })();
-    
+
     // Check if user is at max resources for their tier
     $: isAtMaxMemory = memoryMB >= resourceLimits.maxMemory;
     $: isAtMaxCPU = cpuShares >= resourceLimits.maxCPU;
     $: isAtMaxDisk = diskMB >= resourceLimits.maxDisk;
-    $: showUpgradeHint = canUpgrade && (isAtMaxMemory || isAtMaxCPU || isAtMaxDisk);
+    $: showUpgradeHint =
+        canUpgrade && (isAtMaxMemory || isAtMaxCPU || isAtMaxDisk);
 
     // Get next tier limits for comparison
     $: nextTierLimits = (() => {
@@ -428,7 +482,6 @@
         }
     }
 
-
     function getRoleRecommendedOS(roleId: string): string {
         const osMap: Record<string, string> = {
             standard: "Alpine",
@@ -469,6 +522,10 @@
         progress = 0;
         progressMessage = "Starting...";
         progressStage = "validating";
+        hasDispatchedEarly = false;
+
+        // Preload xterm modules immediately to reduce latency when terminal is ready
+        preloadXterm();
 
         // Use custom name or generate a unique name
         const containerName = customName.trim()
@@ -479,14 +536,35 @@
             progress = event.progress;
             progressMessage = event.message;
             progressStage = event.stage;
+
+            // Dispatch created event early when we have a container_id
+            // This allows terminal to start connecting while setup continues
+            if (
+                event.container_id &&
+                !hasDispatchedEarly &&
+                (event.stage === "configuring" ||
+                    event.stage === "ready" ||
+                    event.complete)
+            ) {
+                hasDispatchedEarly = true;
+                // Dispatch immediately so terminal can start connecting
+                dispatch("created", {
+                    id: event.container_id,
+                    name: containerName,
+                });
+            }
         }
 
         function handleComplete(container: { id: string; name: string }) {
-            dispatch("created", { id: container.id, name: container.name });
+            // Only dispatch if we haven't already dispatched early
+            if (!hasDispatchedEarly) {
+                dispatch("created", { id: container.id, name: container.name });
+            }
             isCreating = false;
             progress = 0;
             progressMessage = "";
             progressStage = "";
+            hasDispatchedEarly = false;
         }
 
         function handleError(error: string) {
@@ -600,7 +678,7 @@
     {:else}
         <div class="create-content">
             <h1 class="create-title">Create New Terminal</h1>
-            
+
             <!-- Terminal Name -->
             <div class="create-section">
                 <h4>Terminal Name</h4>
@@ -624,8 +702,12 @@
                         <StatusIcon status="clock" size={18} />
                     </div>
                     <div class="setting-info">
-                        <span class="setting-label">Enable resumable session (tmux)</span>
-                        <span class="setting-desc">Keep processes running when you disconnect</span>
+                        <span class="setting-label"
+                            >Enable resumable session (tmux)</span
+                        >
+                        <span class="setting-desc"
+                            >Keep processes running when you disconnect</span
+                        >
                     </div>
                 </label>
             </div>
@@ -644,7 +726,7 @@
                                 class="role-card"
                                 class:selected={selectedRole === role.id}
                                 onclick={() => (selectedRole = role.id)}
-                                title={role.description || ''}
+                                title={role.description || ""}
                             >
                                 <PlatformIcon platform={role.id} size={28} />
                                 <span class="role-name">{role.name}</span>
@@ -659,7 +741,9 @@
                             <span class="role-name-sm">{currentRole.name}</span>
                             <span class="role-os-badge">
                                 <PlatformIcon
-                                    platform={getRoleRecommendedOS(currentRole.id).toLowerCase()}
+                                    platform={getRoleRecommendedOS(
+                                        currentRole.id,
+                                    ).toLowerCase()}
                                     size={14}
                                 />
                                 {getRoleRecommendedOS(currentRole.id)}
@@ -683,7 +767,12 @@
                     onclick={() => (showResources = !showResources)}
                 >
                     <span class="toggle-icon">
-                        <StatusIcon status={showResources ? "chevron-down" : "chevron-right"} size={12} />
+                        <StatusIcon
+                            status={showResources
+                                ? "chevron-down"
+                                : "chevron-right"}
+                            size={12}
+                        />
                     </span>
                     <h4>Resources</h4>
                     <span class="resource-preview">
@@ -780,13 +869,22 @@
                                     <StatusIcon status="bolt" size={16} />
                                 </div>
                                 <div class="upgrade-content">
-                                    <span class="upgrade-title">Need more resources?</span>
+                                    <span class="upgrade-title"
+                                        >Need more resources?</span
+                                    >
                                     <span class="upgrade-desc">
-                                        Upgrade to {nextTierName} for up to {formatMemory(nextTierLimits.maxMemory)} RAM, 
-                                        {formatCPU(nextTierLimits.maxCPU)}, and {formatStorage(nextTierLimits.maxDisk)} storage.
+                                        Upgrade to {nextTierName} for up to {formatMemory(
+                                            nextTierLimits.maxMemory,
+                                        )} RAM,
+                                        {formatCPU(nextTierLimits.maxCPU)}, and {formatStorage(
+                                            nextTierLimits.maxDisk,
+                                        )} storage.
                                     </span>
                                 </div>
-                                <button class="upgrade-btn" onclick={() => dispatch("upgrade")}>
+                                <button
+                                    class="upgrade-btn"
+                                    onclick={() => dispatch("upgrade")}
+                                >
                                     Upgrade
                                 </button>
                             </div>
@@ -795,8 +893,16 @@
                                 {#if $userTier === "enterprise"}
                                     Enterprise plan resources
                                 {:else}
-                                    {$userTier === "guest" ? "Guest" : $userTier === "free" ? "Free" : "Pro"} plan limits — 
-                                    <button class="upgrade-link" onclick={() => dispatch("upgrade")}>upgrade for more</button>
+                                    {$userTier === "guest"
+                                        ? "Guest"
+                                        : $userTier === "free"
+                                          ? "Free"
+                                          : "Pro"} plan limits —
+                                    <button
+                                        class="upgrade-link"
+                                        onclick={() => dispatch("upgrade")}
+                                        >upgrade for more</button
+                                    >
                                 {/if}
                             </p>
                         {/if}
@@ -864,31 +970,43 @@
                     <span class="divider-text">OR</span>
                     <span class="divider-line"></span>
                 </div>
-                
+
                 <div class="connect-own-card">
                     <div class="connect-own-header">
                         <StatusIcon status="connected" size={24} />
                         <div class="connect-own-title">
                             <h4>Connect Your Own Machine</h4>
-                            <p>Turn any server, VM, or local machine into a rexec terminal</p>
+                            <p>
+                                Turn any server, VM, or local machine into a
+                                rexec terminal
+                            </p>
                         </div>
                     </div>
-                    
+
                     <div class="connect-methods">
                         <div class="connect-method">
                             <div class="method-header">
                                 <StatusIcon status="terminal" size={16} />
-                                <span class="method-title">Quick Install (One-liner)</span>
+                                <span class="method-title"
+                                    >Quick Install (One-liner)</span
+                                >
                             </div>
                             <div class="code-block">
-                                <code>curl -fsSL {installUrl}/install-agent.sh | sudo bash</code>
+                                <code
+                                    >curl -fsSL {installUrl}/install-agent.sh |
+                                    sudo bash</code
+                                >
                                 <button
                                     class="copy-btn"
                                     onclick={() => {
-                                        navigator.clipboard.writeText(`curl -fsSL ${installUrl}/install-agent.sh | sudo bash`);
+                                        navigator.clipboard.writeText(
+                                            `curl -fsSL ${installUrl}/install-agent.sh | sudo bash`,
+                                        );
                                         const btn = document.activeElement;
-                                        if (btn) btn.textContent = 'Copied!';
-                                        setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 2000);
+                                        if (btn) btn.textContent = "Copied!";
+                                        setTimeout(() => {
+                                            if (btn) btn.textContent = "Copy";
+                                        }, 2000);
                                     }}
                                     title="Copy to clipboard"
                                 >
@@ -900,17 +1018,23 @@
                         <div class="connect-method">
                             <div class="method-header">
                                 <StatusIcon status="wrench" size={16} />
-                                <span class="method-title">Using rexec CLI</span>
+                                <span class="method-title">Using rexec CLI</span
+                                >
                             </div>
                             <div class="code-block">
-                                <code>rexec agent start --token YOUR_TOKEN</code>
-                                <button 
-                                    class="copy-btn" 
+                                <code>rexec agent start --token YOUR_TOKEN</code
+                                >
+                                <button
+                                    class="copy-btn"
                                     onclick={() => {
-                                        navigator.clipboard.writeText('rexec agent start --token YOUR_TOKEN');
+                                        navigator.clipboard.writeText(
+                                            "rexec agent start --token YOUR_TOKEN",
+                                        );
                                         const btn = document.activeElement;
-                                        if (btn) btn.textContent = 'Copied!';
-                                        setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 2000);
+                                        if (btn) btn.textContent = "Copied!";
+                                        setTimeout(() => {
+                                            if (btn) btn.textContent = "Copy";
+                                        }, 2000);
                                     }}
                                     title="Copy to clipboard"
                                 >
@@ -922,17 +1046,22 @@
                         <div class="connect-method">
                             <div class="method-header">
                                 <StatusIcon status="ai" size={16} />
-                                <span class="method-title">Interactive TUI</span>
+                                <span class="method-title">Interactive TUI</span
+                                >
                             </div>
                             <div class="code-block">
                                 <code>rexec -i</code>
-                                <button 
-                                    class="copy-btn" 
+                                <button
+                                    class="copy-btn"
                                     onclick={() => {
-                                        navigator.clipboard.writeText('rexec -i');
+                                        navigator.clipboard.writeText(
+                                            "rexec -i",
+                                        );
                                         const btn = document.activeElement;
-                                        if (btn) btn.textContent = 'Copied!';
-                                        setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 2000);
+                                        if (btn) btn.textContent = "Copied!";
+                                        setTimeout(() => {
+                                            if (btn) btn.textContent = "Copy";
+                                        }, 2000);
                                     }}
                                     title="Copy to clipboard"
                                 >
@@ -953,7 +1082,9 @@
                         </div>
                         <div class="feature-item">
                             <StatusIcon status="ready" size={14} />
-                            <span>Cloud VMs, Raspberry Pi, local dev machines</span>
+                            <span
+                                >Cloud VMs, Raspberry Pi, local dev machines</span
+                            >
                         </div>
                     </div>
 
@@ -1636,7 +1767,11 @@
         align-items: center;
         gap: 12px;
         padding: 12px 14px;
-        background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+        background: linear-gradient(
+            135deg,
+            rgba(0, 212, 255, 0.1) 0%,
+            rgba(139, 92, 246, 0.1) 100%
+        );
         border: 1px solid rgba(0, 212, 255, 0.3);
         border-radius: 8px;
         margin-top: 12px;
@@ -1695,17 +1830,17 @@
         width: 100%;
     }
 
-	    .name-input {
-	        width: 100%;
-	        padding: 10px 12px;
-	        background: var(--bg-tertiary);
-	        border: 1px solid var(--border);
-	        border-radius: 4px;
-	        color: var(--text);
-	        font-family: var(--font-mono);
-	        font-size: 13px;
-	        transition: all 0.15s ease;
-	    }
+    .name-input {
+        width: 100%;
+        padding: 10px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 13px;
+        transition: all 0.15s ease;
+    }
 
     .name-input:focus {
         outline: none;
@@ -1733,13 +1868,13 @@
     }
 
     /* Custom Image Input */
-	    .custom-image-input {
-	        margin-top: 12px;
-	        padding: 12px;
-	        background: var(--bg-tertiary);
-	        border: 1px solid var(--border);
-	        border-radius: 6px;
-	    }
+    .custom-image-input {
+        margin-top: 12px;
+        padding: 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+    }
 
     .custom-image-input label {
         display: block;
@@ -1756,16 +1891,16 @@
         gap: 8px;
     }
 
-	    .input-row input {
-	        flex: 1;
-	        padding: 8px 12px;
-	        background: var(--bg-tertiary);
-	        border: 1px solid var(--border);
-	        border-radius: 4px;
-	        color: var(--text);
-	        font-family: var(--font-mono);
-	        font-size: 13px;
-	    }
+    .input-row input {
+        flex: 1;
+        padding: 8px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 13px;
+    }
 
     .input-row input:focus {
         outline: none;
@@ -1816,11 +1951,16 @@
         margin-bottom: 20px;
     }
 
-	    .divider-line {
-	        flex: 1;
-	        height: 1px;
-	        background: linear-gradient(90deg, transparent, var(--border), transparent);
-	    }
+    .divider-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            var(--border),
+            transparent
+        );
+    }
 
     .divider-text {
         font-size: 12px;
@@ -1830,23 +1970,32 @@
         font-weight: 500;
     }
 
-	    .connect-own-card {
-	        background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-card-secondary) 100%);
-	        border: 1px solid var(--border);
-	        border-radius: 12px;
-	        padding: 24px;
-	        position: relative;
-	        overflow: hidden;
-	    }
+    .connect-own-card {
+        background: linear-gradient(
+            135deg,
+            var(--bg-card) 0%,
+            var(--bg-card-secondary) 100%
+        );
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+    }
 
     .connect-own-card::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
         right: 0;
         height: 2px;
-        background: linear-gradient(90deg, var(--accent), #00d4ff, var(--accent));
+        background: linear-gradient(
+            90deg,
+            var(--accent),
+            #00d4ff,
+            var(--accent)
+        );
         opacity: 0.6;
     }
 
@@ -1883,12 +2032,12 @@
         margin-bottom: 20px;
     }
 
-	    .connect-method {
-	        background: var(--bg-tertiary);
-	        border: 1px solid var(--border);
-	        border-radius: 8px;
-	        padding: 12px;
-	    }
+    .connect-method {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+    }
 
     .method-header {
         display: flex;
@@ -1909,16 +2058,16 @@
         letter-spacing: 0.5px;
     }
 
-	    .code-block {
-	        display: flex;
-	        align-items: center;
-	        gap: 8px;
-	        background: var(--code-bg);
-	        border: 1px solid var(--border-muted);
-	        border-radius: 6px;
-	        padding: 8px 12px;
-	        overflow-x: auto;
-	    }
+    .code-block {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--code-bg);
+        border: 1px solid var(--border-muted);
+        border-radius: 6px;
+        padding: 8px 12px;
+        overflow-x: auto;
+    }
 
     .code-block code {
         flex: 1;
@@ -1928,18 +2077,18 @@
         white-space: nowrap;
     }
 
-	    .copy-btn {
-	        flex-shrink: 0;
-	        padding: 4px 10px;
-	        background: transparent;
-	        border: 1px solid var(--border);
-	        border-radius: 4px;
-	        color: var(--text-muted);
-	        font-size: 11px;
-	        font-family: var(--font-mono);
-	        cursor: pointer;
-	        transition: all 0.15s ease;
-	    }
+    .copy-btn {
+        flex-shrink: 0;
+        padding: 4px 10px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-family: var(--font-mono);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
 
     .copy-btn:hover {
         border-color: var(--accent);
@@ -1947,14 +2096,14 @@
         background: rgba(0, 255, 65, 0.05);
     }
 
-	    .connect-features {
-	        display: flex;
-	        flex-wrap: wrap;
-	        gap: 12px;
-	        margin-bottom: 16px;
-	        padding-top: 16px;
-	        border-top: 1px solid var(--border-muted);
-	    }
+    .connect-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-muted);
+    }
 
     .feature-item {
         display: flex;
@@ -2058,7 +2207,7 @@
         align-items: center;
         justify-content: center;
     }
-    
+
     .setting-row.active .setting-icon {
         color: var(--accent);
     }

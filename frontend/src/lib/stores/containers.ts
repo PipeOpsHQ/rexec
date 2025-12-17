@@ -30,12 +30,12 @@ export interface Container {
   image: string;
   role?: string; // Role/environment: devops, node, python, go, etc.
   status:
-  | "running"
-  | "stopped"
-  | "creating"
-  | "starting"
-  | "stopping"
-  | "error";
+    | "running"
+    | "stopped"
+    | "creating"
+    | "starting"
+    | "stopping"
+    | "error";
   created_at: string;
   last_used_at?: string;
   idle_seconds?: number;
@@ -155,7 +155,11 @@ function createContainersStore() {
       }>("/api/containers");
 
       if (error) {
-        update((state) => ({ ...state, isLoading: false, error: silent ? state.error : error }));
+        update((state) => ({
+          ...state,
+          isLoading: false,
+          error: silent ? state.error : error,
+        }));
         return { success: false, error };
       }
 
@@ -222,7 +226,12 @@ function createContainersStore() {
       // Add new container to store (dedupe by id)
       update((state) => ({
         ...state,
-        containers: [data!, ...state.containers.filter(c => c.id !== data!.id && c.db_id !== data!.id)],
+        containers: [
+          data!,
+          ...state.containers.filter(
+            (c) => c.id !== data!.id && c.db_id !== data!.id,
+          ),
+        ],
         isLoading: false,
         error: null,
       }));
@@ -264,18 +273,20 @@ function createContainersStore() {
       const handleProgress = (e: CustomEvent) => {
         const data = e.detail;
         // Call the onProgress callback with WebSocket progress data
+        // Include container_id so terminal can connect early
         onProgress?.({
           stage: data.stage,
           message: data.message,
           progress: data.progress,
           complete: data.complete,
+          container_id: data.container_id,
         });
       };
 
       const handleCreated = (e: CustomEvent) => {
         const container = e.detail;
         cleanup();
-        
+
         const containerObj: Container = {
           id: container.id,
           db_id: container.db_id || container.id,
@@ -290,13 +301,16 @@ function createContainersStore() {
 
         update((state) => ({
           ...state,
-          containers: [containerObj, ...state.containers.filter(c => {
-            // Robust deduplication: check all ID combinations
-            if (c.id === containerObj.id) return false;
-            if (c.db_id && c.db_id === containerObj.db_id) return false;
-            if (c.id === containerObj.db_id) return false; // Existing ID matches new DB_ID
-            return true;
-          })],
+          containers: [
+            containerObj,
+            ...state.containers.filter((c) => {
+              // Robust deduplication: check all ID combinations
+              if (c.id === containerObj.id) return false;
+              if (c.db_id && c.db_id === containerObj.db_id) return false;
+              if (c.id === containerObj.db_id) return false; // Existing ID matches new DB_ID
+              return true;
+            }),
+          ],
           creating: null,
         }));
 
@@ -318,17 +332,35 @@ function createContainersStore() {
       };
 
       const cleanup = () => {
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('container-progress', handleProgress as EventListener);
-          window.removeEventListener('container-created', handleCreated as EventListener);
-          window.removeEventListener('container-error', handleError as EventListener);
+        if (typeof window !== "undefined") {
+          window.removeEventListener(
+            "container-progress",
+            handleProgress as EventListener,
+          );
+          window.removeEventListener(
+            "container-created",
+            handleCreated as EventListener,
+          );
+          window.removeEventListener(
+            "container-error",
+            handleError as EventListener,
+          );
         }
       };
 
-      if (typeof window !== 'undefined') {
-        window.addEventListener('container-progress', handleProgress as EventListener);
-        window.addEventListener('container-created', handleCreated as EventListener);
-        window.addEventListener('container-error', handleError as EventListener);
+      if (typeof window !== "undefined") {
+        window.addEventListener(
+          "container-progress",
+          handleProgress as EventListener,
+        );
+        window.addEventListener(
+          "container-created",
+          handleCreated as EventListener,
+        );
+        window.addEventListener(
+          "container-error",
+          handleError as EventListener,
+        );
       }
 
       // Use polling-based creation (which the backend sends WebSocket progress events for)
@@ -402,7 +434,7 @@ function createContainersStore() {
       // Add shell options if provided
       if (shellOptions) {
         body.shell = {
-          use_tmux: shellOptions.use_tmux
+          use_tmux: shellOptions.use_tmux,
         };
       }
 
@@ -433,11 +465,11 @@ function createContainersStore() {
           ...state,
           creating: state.creating
             ? {
-              ...state.creating,
-              progress: 15,
-              message: "Pulling image...",
-              stage: "pulling",
-            }
+                ...state.creating,
+                progress: 15,
+                message: "Pulling image...",
+                stage: "pulling",
+              }
             : null,
         }));
 
@@ -455,7 +487,10 @@ function createContainersStore() {
         let attempts = 0;
 
         // Stage definitions (used for fallback when WebSocket isn't working)
-        const stageConfig: Record<string, { progress: number; message: string }> = {
+        const stageConfig: Record<
+          string,
+          { progress: number; message: string }
+        > = {
           pulling: { progress: 15, message: "Pulling image..." },
           creating: { progress: 35, message: "Creating container..." },
           starting: { progress: 55, message: "Starting container..." },
@@ -465,17 +500,22 @@ function createContainersStore() {
 
         // Track if we're receiving WebSocket progress events
         let receivedWsProgress = false;
-        const wsProgressHandler = () => { receivedWsProgress = true; };
-        if (typeof window !== 'undefined') {
-          window.addEventListener('container-progress', wsProgressHandler);
+        const wsProgressHandler = () => {
+          receivedWsProgress = true;
+        };
+        if (typeof window !== "undefined") {
+          window.addEventListener("container-progress", wsProgressHandler);
         }
 
         const pollStatus = async (): Promise<void> => {
           // Optimization: If WebSocket is connected and receiving events, stop polling
           // This avoids redundant network requests and ensures we rely on real-time updates
           if (get(wsConnected) && receivedWsProgress) {
-            if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+            if (typeof window !== "undefined") {
+              window.removeEventListener(
+                "container-progress",
+                wsProgressHandler,
+              );
             }
             return;
           }
@@ -512,11 +552,14 @@ function createContainersStore() {
               }
             });
             unsub();
-            
+
             if (creatingCleared) {
               // Already completed via WebSocket event
-              if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+              if (typeof window !== "undefined") {
+                window.removeEventListener(
+                  "container-progress",
+                  wsProgressHandler,
+                );
               }
               return;
             }
@@ -528,11 +571,11 @@ function createContainersStore() {
                 ...state,
                 creating: state.creating
                   ? {
-                    ...state.creating,
-                    progress: stageInfo.progress,
-                    message: stageInfo.message,
-                    stage: status,
-                  }
+                      ...state.creating,
+                      progress: stageInfo.progress,
+                      message: stageInfo.message,
+                      stage: status,
+                    }
                   : null,
               }));
               onProgress?.({
@@ -545,10 +588,13 @@ function createContainersStore() {
             // If stuck in configuring for too long (30+ seconds), treat as ready
             // Shell setup continues in background but user can connect
             if (status === "configuring" && attempts >= 30) {
-              if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+              if (typeof window !== "undefined") {
+                window.removeEventListener(
+                  "container-progress",
+                  wsProgressHandler,
+                );
               }
-              
+
               const container: Container = {
                 id: containerData.id || containerData.docker_id || containerId,
                 db_id: containerData.db_id || containerId,
@@ -556,19 +602,23 @@ function createContainersStore() {
                 name: containerData.name || name,
                 image: containerData.image || image,
                 status: "running",
-                created_at: containerData.created_at || new Date().toISOString(),
+                created_at:
+                  containerData.created_at || new Date().toISOString(),
                 ip_address: containerData.ip_address,
                 resources: containerData.resources,
               };
 
               update((state) => ({
                 ...state,
-                containers: [container, ...state.containers.filter(c => {
-                  if (c.id === container.id) return false;
-                  if (c.db_id && c.db_id === container.db_id) return false;
-                  if (c.id === container.db_id) return false;
-                  return true;
-                })],
+                containers: [
+                  container,
+                  ...state.containers.filter((c) => {
+                    if (c.id === container.id) return false;
+                    if (c.db_id && c.db_id === container.db_id) return false;
+                    if (c.id === container.db_id) return false;
+                    return true;
+                  }),
+                ],
                 creating: null,
               }));
 
@@ -586,11 +636,14 @@ function createContainersStore() {
             if (status === "running") {
               // Container is running - complete immediately
               // Shell setup runs in background, user can connect right away
-              
-              if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+
+              if (typeof window !== "undefined") {
+                window.removeEventListener(
+                  "container-progress",
+                  wsProgressHandler,
+                );
               }
-              
+
               const container: Container = {
                 id: containerData.id || containerData.docker_id || containerId,
                 db_id: containerData.db_id || containerId,
@@ -598,19 +651,23 @@ function createContainersStore() {
                 name: containerData.name || name,
                 image: containerData.image || image,
                 status: "running",
-                created_at: containerData.created_at || new Date().toISOString(),
+                created_at:
+                  containerData.created_at || new Date().toISOString(),
                 ip_address: containerData.ip_address,
                 resources: containerData.resources,
               };
 
               update((state) => ({
                 ...state,
-                containers: [container, ...state.containers.filter(c => {
-                  if (c.id === container.id) return false;
-                  if (c.db_id && c.db_id === container.db_id) return false;
-                  if (c.id === container.db_id) return false;
-                  return true;
-                })],
+                containers: [
+                  container,
+                  ...state.containers.filter((c) => {
+                    if (c.id === container.id) return false;
+                    if (c.db_id && c.db_id === container.db_id) return false;
+                    if (c.id === container.db_id) return false;
+                    return true;
+                  }),
+                ],
                 creating: null,
               }));
 
@@ -627,8 +684,11 @@ function createContainersStore() {
             }
 
             if (status === "error") {
-              if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+              if (typeof window !== "undefined") {
+                window.removeEventListener(
+                  "container-progress",
+                  wsProgressHandler,
+                );
               }
               update((state) => ({ ...state, creating: null }));
               onError?.("Terminal creation failed. Please try again.");
@@ -636,8 +696,11 @@ function createContainersStore() {
             }
 
             if (attempts >= maxAttempts) {
-              if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+              if (typeof window !== "undefined") {
+                window.removeEventListener(
+                  "container-progress",
+                  wsProgressHandler,
+                );
               }
               update((state) => ({ ...state, creating: null }));
               onError?.(
@@ -650,8 +713,11 @@ function createContainersStore() {
             setTimeout(pollStatus, pollInterval);
           } catch (e) {
             if (attempts >= maxAttempts) {
-              if (typeof window !== 'undefined') {
-                window.removeEventListener('container-progress', wsProgressHandler);
+              if (typeof window !== "undefined") {
+                window.removeEventListener(
+                  "container-progress",
+                  wsProgressHandler,
+                );
               }
               update((state) => ({ ...state, creating: null }));
               onError?.(
@@ -670,9 +736,7 @@ function createContainersStore() {
         setTimeout(pollStatus, pollInterval);
       } catch (e) {
         update((state) => ({ ...state, creating: null }));
-        onError?.(
-          e instanceof Error ? e.message : "Failed to create terminal",
-        );
+        onError?.(e instanceof Error ? e.message : "Failed to create terminal");
       }
     },
 
@@ -705,11 +769,13 @@ function createContainersStore() {
       if (data?.recreated && data.id !== id) {
         // Update any active terminal sessions for this container
         import("./terminal")
-          .then(({ terminal }) => terminal.updateSessionContainerId(id, data.id))
+          .then(({ terminal }) =>
+            terminal.updateSessionContainerId(id, data.id),
+          )
           .catch(() => {
             // Ignore - terminal store may not be loaded in some flows
           });
-        
+
         update((state) => ({
           ...state,
           containers: state.containers.map((c) =>
@@ -769,7 +835,7 @@ function createContainersStore() {
       if (!deleteId) {
         return { success: false, error: "No terminal ID provided" };
       }
-      
+
       const { error } = await apiCall(`/api/containers/${deleteId}`, {
         method: "DELETE",
       });
@@ -780,7 +846,10 @@ function createContainersStore() {
 
       update((state) => ({
         ...state,
-        containers: state.containers.filter((c) => c.id !== id && c.id !== dbId && c.db_id !== id && c.db_id !== dbId),
+        containers: state.containers.filter(
+          (c) =>
+            c.id !== id && c.id !== dbId && c.db_id !== id && c.db_id !== dbId,
+        ),
       }));
 
       return { success: true };
@@ -834,9 +903,9 @@ export const containers = createContainersStore();
 // WebSocket connection for real-time updates
 let eventsSocket: WebSocket | null = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 15;           // More attempts for resilience
-const RECONNECT_BASE_DELAY = 250;            // Start with 250ms for fast reconnect
-const RECONNECT_MAX_DELAY = 30000;           // Max 30s between retries
+const MAX_RECONNECT_ATTEMPTS = 15; // More attempts for resilience
+const RECONNECT_BASE_DELAY = 250; // Start with 250ms for fast reconnect
+const RECONNECT_MAX_DELAY = 30000; // Max 30s between retries
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let pingInterval: ReturnType<typeof setInterval> | null = null;
 let lastPongTime = 0;
@@ -853,7 +922,10 @@ export const wsConnected = writable(false);
 
 // Calculate exponential backoff delay
 function getReconnectDelay(): number {
-  return Math.min(RECONNECT_BASE_DELAY * Math.pow(1.5, reconnectAttempts), RECONNECT_MAX_DELAY);
+  return Math.min(
+    RECONNECT_BASE_DELAY * Math.pow(1.5, reconnectAttempts),
+    RECONNECT_MAX_DELAY,
+  );
 }
 
 // Start WebSocket connection for real-time container updates
@@ -863,8 +935,11 @@ export function startContainerEvents() {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
-  
-  if (eventsSocket?.readyState === WebSocket.OPEN || eventsSocket?.readyState === WebSocket.CONNECTING) {
+
+  if (
+    eventsSocket?.readyState === WebSocket.OPEN ||
+    eventsSocket?.readyState === WebSocket.CONNECTING
+  ) {
     return;
   }
 
@@ -891,7 +966,9 @@ export function startContainerEvents() {
 
           // Check if we haven't received activity in too long (2.5 minutes)
           if (lastPongTime && Date.now() - lastPongTime > 150000) {
-            console.warn("[ContainerEvents] No activity in 2.5 minutes, reconnecting...");
+            console.warn(
+              "[ContainerEvents] No activity in 2.5 minutes, reconnecting...",
+            );
             eventsSocket?.close(4000, "Ping timeout");
           }
         }
@@ -929,7 +1006,7 @@ export function startContainerEvents() {
       // Don't reconnect if intentionally closed or auth issue
       const isIntentionalClose = event.code === 1000;
       const isAuthError = event.code === 4001 || event.code === 4003;
-      
+
       if (isIntentionalClose || isAuthError) {
         reconnectAttempts = 0;
         return;
@@ -984,11 +1061,16 @@ export function stopContainerEvents() {
 function matchesContainer(container: Container, eventData: any): boolean {
   const eventId = eventData.id;
   const eventDbId = eventData.db_id;
-  
+
   // Match by docker ID or db_id
-  if (eventId && (container.id === eventId || container.db_id === eventId)) return true;
-  if (eventDbId && (container.id === eventDbId || container.db_id === eventDbId)) return true;
-  
+  if (eventId && (container.id === eventId || container.db_id === eventId))
+    return true;
+  if (
+    eventDbId &&
+    (container.id === eventDbId || container.db_id === eventDbId)
+  )
+    return true;
+
   return false;
 }
 
@@ -1033,16 +1115,20 @@ function handleContainerEvent(event: {
             const updated = newContainerMap.get(existing.id);
             if (!updated) return existing;
             // Only create new object if something actually changed
-            if (existing.status === updated.status &&
-                existing.name === updated.name &&
-                JSON.stringify(existing.stats) === JSON.stringify(updated.stats)) {
+            if (
+              existing.status === updated.status &&
+              existing.name === updated.name &&
+              JSON.stringify(existing.stats) === JSON.stringify(updated.stats)
+            ) {
               return existing; // No change, keep same reference
             }
             return { ...existing, ...updated };
           });
 
         // Add any new containers AT THE END (not beginning) to avoid re-ordering
-        const addedContainers = newContainers.filter((n: Container) => !existingIds.has(n.id));
+        const addedContainers = newContainers.filter(
+          (n: Container) => !existingIds.has(n.id),
+        );
 
         return {
           ...state,
@@ -1058,7 +1144,7 @@ function handleContainerEvent(event: {
       containers.update((state) => {
         // Only update if we're currently creating something
         if (!state.creating) return state;
-        
+
         return {
           ...state,
           creating: {
@@ -1069,34 +1155,41 @@ function handleContainerEvent(event: {
           },
         };
       });
-      
+
       // Dispatch progress event for any listeners (e.g., createContainerWithProgress callbacks)
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('container-progress', {
-          detail: {
-            id: containerData.id,
-            stage: containerData.stage,
-            message: containerData.message,
-            progress: containerData.progress,
-            complete: containerData.complete,
-          }
-        }));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("container-progress", {
+            detail: {
+              id: containerData.id,
+              stage: containerData.stage,
+              message: containerData.message,
+              progress: containerData.progress,
+              complete: containerData.complete,
+              container_id: containerData.container_id,
+            },
+          }),
+        );
       }
-      
+
       // If this is a completion event with container data, dispatch to any listeners
       if (containerData.complete && containerData.container) {
         // Dispatch a custom event for components listening for container creation
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('container-created', {
-            detail: containerData.container
-          }));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("container-created", {
+              detail: containerData.container,
+            }),
+          );
         }
       } else if (containerData.complete && containerData.error) {
         // Dispatch error event
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('container-error', {
-            detail: { error: containerData.error, id: containerData.id }
-          }));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("container-error", {
+              detail: { error: containerData.error, id: containerData.id },
+            }),
+          );
         }
       }
       break;
@@ -1107,7 +1200,9 @@ function handleContainerEvent(event: {
         ...state,
         containers: [
           containerData,
-          ...state.containers.filter((c) => !matchesContainer(c, containerData)),
+          ...state.containers.filter(
+            (c) => !matchesContainer(c, containerData),
+          ),
         ],
         creating: null, // Clear creating state
       }));
@@ -1118,15 +1213,19 @@ function handleContainerEvent(event: {
     case "updated":
       // Container status changed - update in place without recreating array if possible
       containers.update((state) => {
-        const targetIndex = state.containers.findIndex((c) => matchesContainer(c, containerData));
+        const targetIndex = state.containers.findIndex((c) =>
+          matchesContainer(c, containerData),
+        );
         if (targetIndex === -1) return state; // Container not found
 
         const existing = state.containers[targetIndex];
         const newStatus = containerData.status || existing.status;
 
         // Check if anything actually changed
-        if (existing.status === newStatus &&
-            existing.name === (containerData.name || existing.name)) {
+        if (
+          existing.status === newStatus &&
+          existing.name === (containerData.name || existing.name)
+        ) {
           return state; // No change
         }
 
@@ -1147,14 +1246,18 @@ function handleContainerEvent(event: {
       // Container deleted
       containers.update((state) => ({
         ...state,
-        containers: state.containers.filter((c) => !matchesContainer(c, containerData)),
+        containers: state.containers.filter(
+          (c) => !matchesContainer(c, containerData),
+        ),
       }));
       break;
 
     case "agent_connected":
       // Agent connected - update in place if exists (reconnecting), or add if new
       containers.update((state) => {
-        const existingIndex = state.containers.findIndex((c) => c.id === containerData.id);
+        const existingIndex = state.containers.findIndex(
+          (c) => c.id === containerData.id,
+        );
         if (existingIndex >= 0) {
           // Agent exists - update in place, keeping position
           const updatedContainers = [...state.containers];
@@ -1173,15 +1276,21 @@ function handleContainerEvent(event: {
         }
       });
       // Dispatch event for agents store
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('container-agent-connected', { detail: containerData }));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("container-agent-connected", {
+            detail: containerData,
+          }),
+        );
       }
       break;
 
     case "agent_disconnected":
       // Agent disconnected - update status to offline but keep in list at same position
       containers.update((state) => {
-        const targetIndex = state.containers.findIndex((c) => c.id === containerData.id);
+        const targetIndex = state.containers.findIndex(
+          (c) => c.id === containerData.id,
+        );
         if (targetIndex === -1) return state; // Agent not found
 
         const existing = state.containers[targetIndex];
@@ -1198,8 +1307,12 @@ function handleContainerEvent(event: {
         return { ...state, containers: updatedContainers };
       });
       // Dispatch event for agents store
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('container-agent-disconnected', { detail: containerData }));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("container-agent-disconnected", {
+            detail: containerData,
+          }),
+        );
       }
       break;
 
@@ -1207,18 +1320,25 @@ function handleContainerEvent(event: {
       // Agent stats updated - update the stats for the matching agent
       // Use minimal updates to avoid triggering re-renders
       containers.update((state) => {
-        const targetIndex = state.containers.findIndex((c) => c.id === containerData.id);
+        const targetIndex = state.containers.findIndex(
+          (c) => c.id === containerData.id,
+        );
         if (targetIndex === -1) return state; // Agent not found, no change
 
         const existing = state.containers[targetIndex];
         // Check if stats actually changed
-        if (JSON.stringify(existing.stats) === JSON.stringify(containerData.stats)) {
+        if (
+          JSON.stringify(existing.stats) === JSON.stringify(containerData.stats)
+        ) {
           return state; // No change, return same state reference
         }
 
         // Only update the specific container, keep array structure stable
         const updatedContainers = [...state.containers];
-        updatedContainers[targetIndex] = { ...existing, stats: containerData.stats };
+        updatedContainers[targetIndex] = {
+          ...existing,
+          stats: containerData.stats,
+        };
 
         return {
           ...state,
