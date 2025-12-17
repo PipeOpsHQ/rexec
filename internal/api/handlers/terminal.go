@@ -425,12 +425,12 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// Upgrade to WebSocket
-	    conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	    if err != nil {
-	        log.Printf("[Terminal] WebSocket upgrade failed for %s (user %s): %v", containerIdOrName, userID, err)
-	        return
-	    }
-	    log.Printf("[Terminal] WebSocket upgraded successfully for %s (user %s)", containerIdOrName, userID)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Printf("[Terminal] WebSocket upgrade failed for %s (user %s): %v", containerIdOrName, userID, err)
+		return
+	}
+	log.Printf("[Terminal] WebSocket upgraded successfully for %s (user %s)", containerIdOrName, userID)
 	// Configure WebSocket for large data handling
 	// Allow up to 100MB messages for "vibe coding" (extreme AI contexts/pastes)
 	conn.SetReadLimit(100 * 1024 * 1024)
@@ -809,24 +809,27 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		// Fall back to detection if not cached
 		if !shellCached {
 			if isConfiguring {
+				// Fast path: container is still setting up, use basic shell without tmux
+				// This allows instant terminal access while setup continues in background
 				shell = "/bin/sh"
-				log.Printf("[Terminal] Container configuring, forcing /bin/sh for %s", session.ContainerID[:12])
+				hasTmux = false
+				log.Printf("[Terminal] Container configuring, using fast /bin/sh path for %s", session.ContainerID[:12])
 			} else {
 				shell = h.detectShell(ctx, session.ContainerID, imageType)
-			}
 
-			// Check tmux cache or detect
-			h.mu.RLock()
-			tmuxCached, tmuxInCache := h.tmuxCache[session.ContainerID]
-			h.mu.RUnlock()
+				// Check tmux cache or detect (only when not configuring)
+				h.mu.RLock()
+				tmuxCached, tmuxInCache := h.tmuxCache[session.ContainerID]
+				h.mu.RUnlock()
 
-			if tmuxInCache {
-				hasTmux = tmuxCached
-			} else {
-				hasTmux = h.commandExists(ctx, session.ContainerID, "tmux")
-				h.mu.Lock()
-				h.tmuxCache[session.ContainerID] = hasTmux
-				h.mu.Unlock()
+				if tmuxInCache {
+					hasTmux = tmuxCached
+				} else {
+					hasTmux = h.commandExists(ctx, session.ContainerID, "tmux")
+					h.mu.Lock()
+					h.tmuxCache[session.ContainerID] = hasTmux
+					h.mu.Unlock()
+				}
 			}
 		}
 

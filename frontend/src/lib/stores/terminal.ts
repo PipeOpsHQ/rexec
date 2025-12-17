@@ -120,115 +120,147 @@ const REXEC_BANNER =
 // Helper to handle custom key events (prevent browser defaults, map macOS keys)
 function createCustomKeyHandler(term: Terminal) {
   return (event: KeyboardEvent): boolean => {
-    if (event.type !== 'keydown') return true;
+    if (event.type !== "keydown") return true;
 
-    const platform = typeof navigator !== 'undefined' ? (navigator.platform || '') : '';
-    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const isMac = /Mac|iPod|iPhone|iPad/.test(platform) || /Macintosh/.test(userAgent);
+    const platform =
+      typeof navigator !== "undefined" ? navigator.platform || "" : "";
+    const userAgent =
+      typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isMac =
+      /Mac|iPod|iPhone|iPad/.test(platform) || /Macintosh/.test(userAgent);
     const isFirefox = /Firefox/.test(userAgent);
     const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
 
     // Firefox-specific: Handle Backquote key (`) which Firefox sometimes mishandles
-    if (isFirefox && event.code === 'Backquote' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (
+      isFirefox &&
+      event.code === "Backquote" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
       return true; // Let xterm handle it
     }
 
     // Prevent browser defaults for common terminal shortcuts on ALL platforms
     // Ctrl+S (save/xoff), Ctrl+P (print/up), Ctrl+F (find/forward), Ctrl+R (refresh/search), etc.
     if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
-        const key = event.key.toLowerCase();
-        // Block browser defaults for keys essential to terminal usage
-        const preventedKeys = ['s', 'p', 'f', 'r', 'o', 'g', 'b', 'h', 'i', 'u', 'l', 'k', 'j'];
-        if (preventedKeys.includes(key)) {
-             event.preventDefault();
-             // Return true to let xterm process it
-             return true;
-        }
-        
-        // Ctrl+C: Special handling - copy if there's terminal selection, else interrupt
-        if (key === 'c') {
-          // Check terminal's own selection (not window.getSelection)
-          if (term.hasSelection()) {
-            // Has selection in terminal - copy to clipboard
-            const selection = term.getSelection();
-            if (selection) {
-              navigator.clipboard.writeText(selection).catch(() => {});
-            }
-            event.preventDefault();
-            return false;
+      const key = event.key.toLowerCase();
+      // Block browser defaults for keys essential to terminal usage
+      const preventedKeys = [
+        "s",
+        "p",
+        "f",
+        "r",
+        "o",
+        "g",
+        "b",
+        "h",
+        "i",
+        "u",
+        "l",
+        "k",
+        "j",
+      ];
+      if (preventedKeys.includes(key)) {
+        event.preventDefault();
+        // Return true to let xterm process it
+        return true;
+      }
+
+      // Ctrl+C: Special handling - copy if there's terminal selection, else interrupt
+      if (key === "c") {
+        // Check terminal's own selection (not window.getSelection)
+        if (term.hasSelection()) {
+          // Has selection in terminal - copy to clipboard
+          const selection = term.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection).catch(() => {});
           }
-          // No selection - this is Ctrl+C for interrupt, let terminal handle it
           event.preventDefault();
-          return true;
+          return false;
         }
+        // No selection - this is Ctrl+C for interrupt, let terminal handle it
+        event.preventDefault();
+        return true;
+      }
     }
 
     // Safari-specific: Prevent default on certain key combos that Safari intercepts
     if (isSafari) {
-      if (event.ctrlKey && ['a', 'e', 'k', 'u', 'w'].includes(event.key.toLowerCase())) {
+      if (
+        event.ctrlKey &&
+        ["a", "e", "k", "u", "w"].includes(event.key.toLowerCase())
+      ) {
         event.preventDefault();
         return true;
       }
     }
 
     // macOS specific handling: Map Cmd+Key -> Ctrl+Key
-    if (isMac && event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
-        const key = event.key.toLowerCase();
-        
-        // Cmd+C: Copy if terminal has selection, else send Ctrl+C interrupt
-        if (key === 'c') {
-          if (term.hasSelection()) {
-            // Has selection in terminal - copy to clipboard
-            const selection = term.getSelection();
-            if (selection) {
-              navigator.clipboard.writeText(selection).catch(() => {});
-            }
-            event.preventDefault();
-            return false;
+    if (
+      isMac &&
+      event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.shiftKey
+    ) {
+      const key = event.key.toLowerCase();
+
+      // Cmd+C: Copy if terminal has selection, else send Ctrl+C interrupt
+      if (key === "c") {
+        if (term.hasSelection()) {
+          // Has selection in terminal - copy to clipboard
+          const selection = term.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection).catch(() => {});
           }
-          // No selection - send Ctrl+C to interrupt running process
           event.preventDefault();
-          event.stopPropagation();
-          term.input("\x03"); // Ctrl+C
           return false;
         }
-        
-        // Preserve standard clipboard shortcuts (Cmd+V, Cmd+X, Cmd+A)
-        if (key === 'v' || key === 'x' || key === 'a') return true;
+        // No selection - send Ctrl+C to interrupt running process
+        event.preventDefault();
+        event.stopPropagation();
+        term.input("\x03"); // Ctrl+C
+        return false;
+      }
 
-        // Ghostty-style shortcuts to pass through to UI handler (TerminalView.svelte)
-        // d = split, t = tab, w = close, n = new window
-        const reserved = ['d', 't', 'w', 'n', 'enter'];
-        if (reserved.includes(key)) {
-            return false;
-        }
-        
-        // Prevent Cmd+Q (quit browser) from being sent to terminal
-        if (key === 'q') {
-            return false;
-        }
-        
-        // Map A-Z keys: Cmd+X -> Ctrl+X
-        if (key.length === 1 && key >= 'a' && key <= 'z') {
-             // Calculate control character (a=1, z=26)
-             const charCode = key.charCodeAt(0) - 96;
-             
-             // Prevent default browser actions (e.g., Cmd+S, Cmd+F, Cmd+P)
-             event.preventDefault();
-             event.stopPropagation();
-             
-             // Send control character to terminal
-             term.input(String.fromCharCode(charCode));
-             
-             // Stop xterm from processing the original event
-             return false;
-        }
+      // Preserve standard clipboard shortcuts (Cmd+V, Cmd+X, Cmd+A)
+      if (key === "v" || key === "x" || key === "a") return true;
+
+      // Ghostty-style shortcuts to pass through to UI handler (TerminalView.svelte)
+      // d = split, t = tab, w = close, n = new window
+      const reserved = ["d", "t", "w", "n", "enter"];
+      if (reserved.includes(key)) {
+        return false;
+      }
+
+      // Prevent Cmd+Q (quit browser) from being sent to terminal
+      if (key === "q") {
+        return false;
+      }
+
+      // Map A-Z keys: Cmd+X -> Ctrl+X
+      if (key.length === 1 && key >= "a" && key <= "z") {
+        // Calculate control character (a=1, z=26)
+        const charCode = key.charCodeAt(0) - 96;
+
+        // Prevent default browser actions (e.g., Cmd+S, Cmd+F, Cmd+P)
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Send control character to terminal
+        term.input(String.fromCharCode(charCode));
+
+        // Stop xterm from processing the original event
+        return false;
+      }
     }
-    
+
     // Windows/Linux: Handle Alt key combinations that might conflict with browser
     if (!isMac && event.altKey && !event.ctrlKey && !event.metaKey) {
       // Alt+F4, Alt+Tab etc should go to OS, not terminal
-      if (['F4', 'Tab'].includes(event.key)) {
+      if (["F4", "Tab"].includes(event.key)) {
         return false;
       }
       // Let terminal handle other Alt combos (for readline alt-b, alt-f, etc.)
@@ -317,7 +349,7 @@ const LIGHT_TERMINAL_THEME = {
 // Get current terminal theme based on app theme
 function getCurrentTerminalTheme() {
   const currentTheme = get(theme);
-  return currentTheme === 'light' ? LIGHT_TERMINAL_THEME : DARK_TERMINAL_THEME;
+  return currentTheme === "light" ? LIGHT_TERMINAL_THEME : DARK_TERMINAL_THEME;
 }
 
 // Terminal configuration - Production-grade like Google Cloud Shell
@@ -457,7 +489,10 @@ function createTerminalStore() {
     getState,
 
     // Create a new terminal session (reuses existing session for same container)
-    async createSession(containerId: string, name: string): Promise<string | null> {
+    async createSession(
+      containerId: string,
+      name: string,
+    ): Promise<string | null> {
       const currentState = getState();
 
       // Validate inputs
@@ -493,7 +528,10 @@ function createTerminalStore() {
     },
 
     // Create a new tab (always creates a new session, even for same container)
-    async createNewTab(containerId: string, name: string): Promise<string | null> {
+    async createNewTab(
+      containerId: string,
+      name: string,
+    ): Promise<string | null> {
       const authToken = get(token);
       if (!authToken) return null;
 
@@ -537,8 +575,8 @@ function createTerminalStore() {
       try {
         // Ensure we use the current theme state, not the module-load-time state
         const currentOptions = {
-            ...TERMINAL_OPTIONS,
-            theme: getCurrentTerminalTheme(),
+          ...TERMINAL_OPTIONS,
+          theme: getCurrentTerminalTheme(),
         };
         terminal = new XtermTerminal(currentOptions);
         fitAddon = new XtermFitAddon();
@@ -643,12 +681,18 @@ function createTerminalStore() {
     },
 
     // Create an agent session (external machine connected via agent)
-    async createAgentSession(agentId: string, name: string): Promise<string | null> {
+    async createAgentSession(
+      agentId: string,
+      name: string,
+    ): Promise<string | null> {
       const authToken = get(token);
       if (!authToken) return null;
 
       // Use agentId as the containerId for consistency
-      const sessionId = await this.createNewTab(`agent:${agentId}`, `[Agent] ${name}`);
+      const sessionId = await this.createNewTab(
+        `agent:${agentId}`,
+        `[Agent] ${name}`,
+      );
       if (!sessionId) return null;
 
       // Mark as agent session
@@ -677,13 +721,13 @@ function createTerminalStore() {
     },
 
     // Connect WebSocket for a session
-	    connectWebSocket(sessionId: string) {
-	      const state = getState();
-	      const session = state.sessions.get(sessionId);
-	      if (!session) return;
+    connectWebSocket(sessionId: string) {
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      if (!session) return;
 
-	      const authToken = get(token);
-	      if (!authToken) return;
+      const authToken = get(token);
+      if (!authToken) return;
 
       // Prevent duplicate connections
       if (
@@ -698,20 +742,20 @@ function createTerminalStore() {
       if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
       if (session.pingInterval) clearInterval(session.pingInterval);
 
-	      // Build WebSocket URL - different endpoint for agent sessions
-	      const agentId =
-	        session.agentId ||
-	        (session.containerId.startsWith("agent:")
-	          ? session.containerId.slice("agent:".length)
-	          : null);
-	      let wsUrl: string;
-	      if (session.isAgentSession || agentId) {
-	        if (!agentId) return;
-	        wsUrl = `${getWsUrl()}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(sessionId)}`;
-	      } else {
-	        wsUrl = `${getWsUrl()}/ws/terminal/${encodeURIComponent(session.containerId)}?id=${encodeURIComponent(sessionId)}`;
-	      }
-	      const ws = createRexecWebSocket(wsUrl, authToken);
+      // Build WebSocket URL - different endpoint for agent sessions
+      const agentId =
+        session.agentId ||
+        (session.containerId.startsWith("agent:")
+          ? session.containerId.slice("agent:".length)
+          : null);
+      let wsUrl: string;
+      if (session.isAgentSession || agentId) {
+        if (!agentId) return;
+        wsUrl = `${getWsUrl()}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(sessionId)}`;
+      } else {
+        wsUrl = `${getWsUrl()}/ws/terminal/${encodeURIComponent(session.containerId)}?id=${encodeURIComponent(sessionId)}`;
+      }
+      const ws = createRexecWebSocket(wsUrl, authToken);
 
       updateSession(sessionId, (s) => ({ ...s, ws, status: "connecting" }));
 
@@ -719,7 +763,7 @@ function createTerminalStore() {
         // Check if this is a reconnect (hasConnectedOnce tracks if we've ever connected)
         const currentState = getState().sessions.get(sessionId);
         const isReconnect = currentState?.hasConnectedOnce === true;
-        
+
         updateSession(sessionId, (s) => ({
           ...s,
           status: "connected",
@@ -757,8 +801,10 @@ function createTerminalStore() {
           session.terminal.write(REXEC_BANNER);
           session.terminal.writeln("\x1b[32m› Connected\x1b[0m");
           session.terminal.writeln(
-            "\x1b[38;5;243m  Type 'help' for tips & shortcuts · Ctrl+C to interrupt\x1b[0m\r\n",
+            "\x1b[38;5;243m  Type 'help' for tips & shortcuts · Ctrl+C to interrupt\x1b[0m",
           );
+          // Show shell starting indicator - will be cleared when first output arrives
+          session.terminal.write("\x1b[38;5;243m› Starting shell...\x1b[0m");
         }
 
         // Setup ping interval
@@ -776,6 +822,7 @@ function createTerminalStore() {
       let flushTimeout: ReturnType<typeof setTimeout> | null = null;
       let rafId: number | null = null;
       let lastFlushTime = 0;
+      let hasReceivedFirstOutput = false;
 
       // Filter mouse tracking sequences from output to prevent echo artifacts
       const sanitizeOutput = (data: string): string => {
@@ -785,6 +832,12 @@ function createTerminalStore() {
       // Immediate write for small, interactive output (like keystrokes)
       const writeImmediate = (data: string) => {
         if (session.terminal) {
+          // Clear "Starting shell..." on first output
+          if (!hasReceivedFirstOutput) {
+            hasReceivedFirstOutput = true;
+            // Clear line and move to start, then write newline
+            session.terminal.write("\r\x1b[K\r\n");
+          }
           const sanitized = sanitizeOutput(data);
           if (sanitized) {
             session.terminal.write(sanitized);
@@ -795,6 +848,12 @@ function createTerminalStore() {
       // Flush buffer using requestAnimationFrame for smooth rendering
       const flushBuffer = () => {
         if (outputBuffer && session.terminal) {
+          // Clear "Starting shell..." on first output
+          if (!hasReceivedFirstOutput) {
+            hasReceivedFirstOutput = true;
+            // Clear line and move to start, then write newline
+            session.terminal.write("\r\x1b[K\r\n");
+          }
           const sanitized = sanitizeOutput(outputBuffer);
           if (sanitized) {
             session.terminal.write(sanitized);
@@ -840,45 +899,49 @@ function createTerminalStore() {
             if (statusMatch) {
               const statusMsg = statusMatch[1].trim();
               if (statusMsg === "Setup complete.") {
-                 // Setup complete - clear status and do a soft terminal refresh
-                 setTimeout(() => {
-                    updateSession(sessionId, (s) => ({
-                      ...s,
-                      isSettingUp: false,
-                      setupMessage: "",
-                    }));
-                    
-                    // Auto-reload: send Enter to get a fresh prompt with tools loaded
-                    const currentSession = getState().sessions.get(sessionId);
-                    if (currentSession?.ws?.readyState === WebSocket.OPEN) {
-                      // Clear terminal and show refreshed state
-                      currentSession.terminal.writeln("\r\n\x1b[32m✓ Environment ready! Press Enter for a fresh prompt.\x1b[0m\r\n");
-                      // Send Enter key to trigger a fresh shell prompt
-                      currentSession.ws.send(JSON.stringify({ type: "input", data: "\n" }));
-                    }
-                 }, 500);
-              } else {
-                 updateSession(sessionId, (s) => ({
+                // Setup complete - clear status and do a soft terminal refresh
+                setTimeout(() => {
+                  updateSession(sessionId, (s) => ({
                     ...s,
-                    isSettingUp: true,
-                    setupMessage: statusMsg,
-                 }));
+                    isSettingUp: false,
+                    setupMessage: "",
+                  }));
+
+                  // Auto-reload: send Enter to get a fresh prompt with tools loaded
+                  const currentSession = getState().sessions.get(sessionId);
+                  if (currentSession?.ws?.readyState === WebSocket.OPEN) {
+                    // Clear terminal and show refreshed state
+                    currentSession.terminal.writeln(
+                      "\r\n\x1b[32m✓ Environment ready! Press Enter for a fresh prompt.\x1b[0m\r\n",
+                    );
+                    // Send Enter key to trigger a fresh shell prompt
+                    currentSession.ws.send(
+                      JSON.stringify({ type: "input", data: "\n" }),
+                    );
+                  }
+                }, 500);
+              } else {
+                updateSession(sessionId, (s) => ({
+                  ...s,
+                  isSettingUp: true,
+                  setupMessage: statusMsg,
+                }));
               }
-              // Don't show the internal status tag line in the terminal if possible, 
+              // Don't show the internal status tag line in the terminal if possible,
               // but since it's mixed with other output, we might leave it or filter it.
               // Filtering it from the buffer prevents it from showing in the terminal.
               // Let's filter it out from the display output.
               const cleanData = data.replace(/\[\[REXEC_STATUS\]\].*\n?/g, "");
               if (cleanData) {
-                  // Buffer the rest
-                  outputBuffer += cleanData;
-                  if (outputBuffer.length >= OUTPUT_MAX_BUFFER) {
-                    if (flushTimeout) clearTimeout(flushTimeout);
-                    if (rafId) cancelAnimationFrame(rafId);
-                    flushBuffer();
-                  } else {
-                    scheduleFlush();
-                  }
+                // Buffer the rest
+                outputBuffer += cleanData;
+                if (outputBuffer.length >= OUTPUT_MAX_BUFFER) {
+                  if (flushTimeout) clearTimeout(flushTimeout);
+                  if (rafId) cancelAnimationFrame(rafId);
+                  flushBuffer();
+                } else {
+                  scheduleFlush();
+                }
               }
               return;
             }
@@ -955,7 +1018,8 @@ function createTerminalStore() {
             // Handle stats updates
             try {
               // Stats can come as string (from container) or object (from agent)
-              const statsData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+              const statsData =
+                typeof msg.data === "string" ? JSON.parse(msg.data) : msg.data;
               updateSession(sessionId, (s) => ({
                 ...s,
                 stats: {
@@ -975,11 +1039,15 @@ function createTerminalStore() {
             }
           } else if (msg.type === "shell_starting") {
             // Agent acknowledged shell_start - show immediate feedback
-            session.terminal.writeln("\x1b[38;5;243m› Starting shell...\x1b[0m");
+            session.terminal.writeln(
+              "\x1b[38;5;243m› Starting shell...\x1b[0m",
+            );
           } else if (msg.type === "shell_started") {
             // Shell is ready - no action needed, output will follow
           } else if (msg.type === "shell_stopped") {
-            session.terminal.writeln("\r\n\x1b[33m› Shell session ended\x1b[0m");
+            session.terminal.writeln(
+              "\r\n\x1b[33m› Shell session ended\x1b[0m",
+            );
           } else if (msg.type === "shell_error") {
             const errorData = msg.data as { error?: string } | undefined;
             const errorMsg = errorData?.error || "Shell error";
@@ -1062,7 +1130,6 @@ function createTerminalStore() {
             );
           } else {
             // Silent reconnect - just log to console
-
           }
 
           const timer = setTimeout(() => {
@@ -1092,7 +1159,6 @@ function createTerminalStore() {
 
       ws.onerror = () => {
         // WebSocket errors are handled by onclose - just log silently
-
       };
 
       // Handle terminal input with chunking for large pastes
@@ -1227,7 +1293,6 @@ function createTerminalStore() {
           const newContainerId = data.id || oldContainerId;
 
           if (newContainerId !== oldContainerId) {
-
             // Update session with new container ID
             updateSession(sessionId, (s) => ({
               ...s,
@@ -1299,11 +1364,8 @@ function createTerminalStore() {
       }
 
       if (sessionsToUpdate.length === 0) {
-
         return;
       }
-
-
 
       // Update all sessions first with new container ID
       sessionsToUpdate.forEach((sessionId) => {
@@ -1538,7 +1600,10 @@ function createTerminalStore() {
 
     // Set specific font size for all terminals
     setFontSize(newFontSize: number) {
-      currentFontSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, newFontSize));
+      currentFontSize = Math.max(
+        MIN_FONT_SIZE,
+        Math.min(MAX_FONT_SIZE, newFontSize),
+      );
       const state = getState();
       state.sessions.forEach((session) => {
         try {
@@ -1579,13 +1644,13 @@ function createTerminalStore() {
     updateTheme(isDarkMode: boolean) {
       const newTheme = isDarkMode ? DARK_TERMINAL_THEME : LIGHT_TERMINAL_THEME;
       const state = getState();
-      
+
       // Update all terminal sessions
       state.sessions.forEach((session) => {
         session.terminal.options.theme = newTheme;
         // Force terminal to refresh with new theme
         session.terminal.refresh(0, session.terminal.rows - 1);
-        
+
         // Update split panes as well
         session.splitPanes.forEach((pane) => {
           pane.terminal.options.theme = newTheme;
@@ -1919,7 +1984,8 @@ function createTerminalStore() {
     sendCtrlC(sessionId: string) {
       const state = getState();
       const session = state.sessions.get(sessionId);
-      if (!session || !session.ws || session.ws.readyState !== WebSocket.OPEN) return;
+      if (!session || !session.ws || session.ws.readyState !== WebSocket.OPEN)
+        return;
 
       // Ctrl+C is ASCII 0x03
       session.ws.send(JSON.stringify({ type: "input", data: "\x03" }));
@@ -1929,17 +1995,21 @@ function createTerminalStore() {
     sendInput(sessionId: string, data: string) {
       const state = getState();
       const session = state.sessions.get(sessionId);
-      
+
       if (session && session.ws && session.ws.readyState === WebSocket.OPEN) {
         session.ws.send(JSON.stringify({ type: "input", data: data }));
       }
     },
 
     // Navigate between split panes
-    navigateSplitPanes(sessionId: string, direction: 'left' | 'right' | 'up' | 'down') {
+    navigateSplitPanes(
+      sessionId: string,
+      direction: "left" | "right" | "up" | "down",
+    ) {
       const state = getState();
       const session = state.sessions.get(sessionId);
-      if (!session || !session.splitLayout || session.splitPanes.size === 0) return;
+      if (!session || !session.splitLayout || session.splitPanes.size === 0)
+        return;
 
       const currentActivePaneId = session.activePaneId || "main";
       const currentLayout = session.splitLayout;
@@ -1947,7 +2017,9 @@ function createTerminalStore() {
       const currentIndex = panes.indexOf(currentActivePaneId);
 
       if (currentIndex === -1) {
-        console.warn(`[Terminal] Active pane ${currentActivePaneId} not found in layout.`);
+        console.warn(
+          `[Terminal] Active pane ${currentActivePaneId} not found in layout.`,
+        );
         return;
       }
 
@@ -1956,16 +2028,17 @@ function createTerminalStore() {
       // Determine next index based on direction and layout
       // For horizontal splits, left/right navigate along the row
       // For vertical splits, up/down navigate along the column
-      if (currentLayout.direction === 'horizontal') {
-        if (direction === 'left') {
+      if (currentLayout.direction === "horizontal") {
+        if (direction === "left") {
           nextIndex = (currentIndex - 1 + panes.length) % panes.length;
-        } else if (direction === 'right') {
+        } else if (direction === "right") {
           nextIndex = (currentIndex + 1) % panes.length;
         }
-      } else { // Default to vertical if not explicitly horizontal
-        if (direction === 'up') {
+      } else {
+        // Default to vertical if not explicitly horizontal
+        if (direction === "up") {
           nextIndex = (currentIndex - 1 + panes.length) % panes.length;
-        } else if (direction === 'down') {
+        } else if (direction === "down") {
           nextIndex = (currentIndex + 1) % panes.length;
         }
       }
@@ -1973,7 +2046,10 @@ function createTerminalStore() {
       const nextActivePaneId = panes[nextIndex];
 
       if (nextActivePaneId && nextActivePaneId !== currentActivePaneId) {
-        updateSession(sessionId, (s) => ({ ...s, activePaneId: nextActivePaneId }));
+        updateSession(sessionId, (s) => ({
+          ...s,
+          activePaneId: nextActivePaneId,
+        }));
         // Focus the new active terminal
         requestAnimationFrame(() => {
           if (nextActivePaneId === "main") {
@@ -2027,8 +2103,8 @@ function createTerminalStore() {
       try {
         // Ensure we use the current theme state
         const currentOptions = {
-            ...TERMINAL_OPTIONS,
-            theme: getCurrentTerminalTheme(),
+          ...TERMINAL_OPTIONS,
+          theme: getCurrentTerminalTheme(),
         };
         newTerminal = new XtermTerminal(currentOptions);
         newFitAddon = new XtermFitAddon();
@@ -2111,10 +2187,10 @@ function createTerminalStore() {
     },
 
     // Connect a split pane to its own independent WebSocket session
-	    connectSplitPaneWebSocket(sessionId: string, paneId: string) {
-	      const state = getState();
-	      const session = state.sessions.get(sessionId);
-	      if (!session) return;
+    connectSplitPaneWebSocket(sessionId: string, paneId: string) {
+      const state = getState();
+      const session = state.sessions.get(sessionId);
+      if (!session) return;
 
       const pane = session.splitPanes.get(paneId);
       if (!pane) return;
@@ -2134,21 +2210,21 @@ function createTerminalStore() {
       // Clear existing timer
       if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
 
-	      // Create independent WebSocket connection for this pane with unique ID
-	      // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
-	      const agentId =
-	        session.agentId ||
-	        (session.containerId.startsWith("agent:")
-	          ? session.containerId.slice("agent:".length)
-	          : null);
-	      let wsUrl: string;
-	      if (session.isAgentSession || agentId) {
-	        if (!agentId) return;
-	        wsUrl = `${getWsUrl()}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(paneId)}&newSession=true`;
-	      } else {
-	        wsUrl = `${getWsUrl()}/ws/terminal/${encodeURIComponent(session.containerId)}?id=${encodeURIComponent(paneId)}&newSession=true`;
-	      }
-	      const ws = createRexecWebSocket(wsUrl, authToken);
+      // Create independent WebSocket connection for this pane with unique ID
+      // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
+      const agentId =
+        session.agentId ||
+        (session.containerId.startsWith("agent:")
+          ? session.containerId.slice("agent:".length)
+          : null);
+      let wsUrl: string;
+      if (session.isAgentSession || agentId) {
+        if (!agentId) return;
+        wsUrl = `${getWsUrl()}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(paneId)}&newSession=true`;
+      } else {
+        wsUrl = `${getWsUrl()}/ws/terminal/${encodeURIComponent(session.containerId)}?id=${encodeURIComponent(paneId)}&newSession=true`;
+      }
+      const ws = createRexecWebSocket(wsUrl, authToken);
 
       ws.onopen = () => {
         // Reset reconnect attempts on successful connection
@@ -2306,7 +2382,6 @@ function createTerminalStore() {
               `\r\n\x1b[33m⟳ Split session reconnecting (${attemptNum}/${WS_MAX_RECONNECT})...\x1b[0m`,
             );
           } else {
-
           }
 
           const timer = setTimeout(() => {
@@ -2340,9 +2415,7 @@ function createTerminalStore() {
         }
       };
 
-      ws.onerror = () => {
-
-      };
+      ws.onerror = () => {};
 
       // Handle terminal input for split pane
       pane.terminal.onData((data) => {
