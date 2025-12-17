@@ -27,6 +27,7 @@ export interface SplitPane {
   webglAddon: WebglAddon | null;
   resizeObserver: ResizeObserver | null;
   ws: WebSocket | null; // Each split pane has its own independent WebSocket
+  status: "connecting" | "connected" | "disconnected" | "error";
   reconnectAttempts: number;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -2175,6 +2176,7 @@ function createTerminalStore() {
         webglAddon: null,
         resizeObserver: null,
         ws: null, // Each pane gets its own WebSocket
+        status: "connecting",
         reconnectAttempts: 0,
         reconnectTimer: null,
       };
@@ -2251,6 +2253,19 @@ function createTerminalStore() {
       // Clear existing timer
       if (pane.reconnectTimer) clearTimeout(pane.reconnectTimer);
 
+      // Update status to connecting and show message
+      updateSession(sessionId, (s) => {
+        const newPanes = new Map(s.splitPanes);
+        const p = newPanes.get(paneId);
+        if (p) {
+          newPanes.set(paneId, { ...p, status: "connecting" });
+        }
+        return { ...s, splitPanes: newPanes };
+      });
+
+      // Show connecting message
+      pane.terminal.writeln("\x1b[38;5;243m⌘ rexec - Connecting...\x1b[0m");
+
       // Create independent WebSocket connection for this pane with unique ID
       // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
       const agentId =
@@ -2268,12 +2283,12 @@ function createTerminalStore() {
       const ws = createRexecWebSocket(wsUrl, authToken);
 
       ws.onopen = () => {
-        // Reset reconnect attempts on successful connection
+        // Reset reconnect attempts and update status on successful connection
         updateSession(sessionId, (s) => {
           const newPanes = new Map(s.splitPanes);
           const p = newPanes.get(paneId);
           if (p) {
-            newPanes.set(paneId, { ...p, reconnectAttempts: 0 });
+            newPanes.set(paneId, { ...p, status: "connected", reconnectAttempts: 0 });
           }
           return { ...s, splitPanes: newPanes };
         });
@@ -2425,12 +2440,12 @@ function createTerminalStore() {
                   WS_RECONNECT_MAX_DELAY,
                 );
 
-          // Update reconnect attempts
+          // Update reconnect attempts and status
           updateSession(sessionId, (s) => {
             const newPanes = new Map(s.splitPanes);
             const p = newPanes.get(paneId);
             if (p) {
-              newPanes.set(paneId, { ...p, reconnectAttempts: attemptNum });
+              newPanes.set(paneId, { ...p, status: "connecting", reconnectAttempts: attemptNum });
             }
             return { ...s, splitPanes: newPanes };
           });
@@ -2457,6 +2472,16 @@ function createTerminalStore() {
             return { ...s, splitPanes: newPanes };
           });
         } else {
+          // Update status to disconnected/error
+          updateSession(sessionId, (s) => {
+            const newPanes = new Map(s.splitPanes);
+            const p = newPanes.get(paneId);
+            if (p) {
+              newPanes.set(paneId, { ...p, status: isContainerGone ? "error" : "disconnected" });
+            }
+            return { ...s, splitPanes: newPanes };
+          });
+
           // Show appropriate message based on reason
           if (isContainerGone) {
             pane.terminal.writeln(

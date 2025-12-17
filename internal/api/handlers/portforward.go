@@ -316,8 +316,13 @@ func (h *PortForwardHandler) HandlePortForwardWebSocket(c *gin.Context) {
 		return
 	}
 
-	// Upgrade HTTP connection to WebSocket
-	wsConn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+	// Upgrade HTTP connection to WebSocket with subprotocol support
+	responseHeader := http.Header{}
+	requestedProtocols := c.GetHeader("Sec-WebSocket-Protocol")
+	if strings.Contains(requestedProtocols, "rexec.v1") {
+		responseHeader.Set("Sec-WebSocket-Protocol", "rexec.v1")
+	}
+	wsConn, err := h.upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
 		log.Printf("Failed to upgrade WebSocket for port forward %s: %v", forwardID, err)
 		return

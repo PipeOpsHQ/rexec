@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +104,13 @@ func (h *AdminEventsHub) run() {
 
 // HandleWebSocket upgrades the HTTP connection to a WebSocket and registers the client
 func (h *AdminEventsHub) HandleWebSocket(c *gin.Context) {
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	// Add subprotocol support
+	responseHeader := http.Header{}
+	requestedProtocols := c.GetHeader("Sec-WebSocket-Protocol")
+	if strings.Contains(requestedProtocols, "rexec.v1") {
+		responseHeader.Set("Sec-WebSocket-Protocol", "rexec.v1")
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
 		log.Printf("AdminEventsHub: WebSocket upgrade failed: %v", err)
 		return

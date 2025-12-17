@@ -36,7 +36,9 @@
     }
 
     $: isActive = session.activePaneId === pane.id;
-    $: isConnected = pane.ws?.readyState === WebSocket.OPEN;
+    $: status = pane.status || "disconnected";
+    $: isConnected = status === "connected";
+    $: isConnecting = status === "connecting";
 </script>
 
 <div 
@@ -49,8 +51,11 @@
 >
     <div class="split-pane-header">
         <span class="pane-label">
-            <span class="status-dot" class:connected={isConnected}></span>
+            <span class="status-dot" class:connected={isConnected} class:connecting={isConnecting}></span>
             Session {pane.id.slice(-4)}
+            {#if isConnecting}
+                <span class="status-text">connecting...</span>
+            {/if}
         </span>
         <button class="close-pane" onclick={(e) => { e.stopPropagation(); handleClose(); }} title="Close split">
             ×
@@ -97,6 +102,12 @@
         text-transform: uppercase;
     }
 
+    .status-text {
+        font-size: 9px;
+        color: var(--yellow);
+        text-transform: lowercase;
+    }
+
     .status-dot {
         width: 6px;
         height: 6px;
@@ -106,6 +117,16 @@
 
     .status-dot.connected {
         background: var(--green);
+    }
+
+    .status-dot.connecting {
+        background: var(--yellow);
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
     }
 
     .close-pane {

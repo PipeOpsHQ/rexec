@@ -368,8 +368,13 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 		log.Printf("[Collab] Restored session %s from database", shareCode)
 	}
 
-	// Upgrade to WebSocket
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	// Upgrade to WebSocket with subprotocol support
+	responseHeader := http.Header{}
+	requestedProtocols := c.GetHeader("Sec-WebSocket-Protocol")
+	if strings.Contains(requestedProtocols, "rexec.v1") {
+		responseHeader.Set("Sec-WebSocket-Protocol", "rexec.v1")
+	}
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, responseHeader)
 	if err != nil {
 		log.Printf("Collab WebSocket upgrade failed: %v", err)
 		return
