@@ -686,6 +686,31 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	go func(containerID, dbID, userID string, shellCfg container.ShellSetupConfig, role, imageType string) {
 		bgCtx := context.Background()
 
+		// "instant" role: skip ALL setup for fastest possible startup
+		if role == "instant" {
+			log.Printf("[Container] Instant role: skipping all setup for %s", containerID[:12])
+			// Just detect shell and update status
+			cacheCtx, cacheCancel := context.WithTimeout(bgCtx, 10*time.Second)
+			shellPath, hasTmux := container.DetectShellAndTmux(cacheCtx, h.manager.GetClient(), containerID)
+			if shellPath != "" {
+				h.store.UpdateContainerShellMetadata(cacheCtx, dbID, shellPath, hasTmux, true)
+			}
+			cacheCancel()
+			// Mark as running immediately
+			h.manager.UpdateContainerStatus(containerID, "running")
+			updateCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			h.store.UpdateContainerStatus(updateCtx, dbID, "running")
+			cancel()
+			if h.eventsHub != nil {
+				h.eventsHub.NotifyContainerUpdated(userID, gin.H{
+					"id":     containerID,
+					"db_id":  dbID,
+					"status": "running",
+				})
+			}
+			return
+		}
+
 		// 1. Run shell setup if enhanced mode is enabled
 		if shellCfg.Enhanced && imageType != "macos" {
 			log.Printf("[Container] Starting async shell setup for %s", containerID[:12])

@@ -95,7 +95,8 @@ func TestAvailableRoles(t *testing.T) {
 		if role.Name == "" {
 			t.Errorf("Role Name cannot be empty for ID %s", role.ID)
 		}
-		if len(role.Packages) == 0 {
+		// "instant" role intentionally has no packages for fastest startup
+		if len(role.Packages) == 0 && role.ID != "instant" {
 			t.Errorf("Role %s must have packages", role.ID)
 		}
 	}

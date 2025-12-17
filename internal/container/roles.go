@@ -17,6 +17,13 @@ type RoleInfo struct {
 func AvailableRoles() []RoleInfo {
 	return []RoleInfo{
 		{
+			ID:          "instant",
+			Name:        "Instant",
+			Description: "Zero setup. Shell ready in under 1 second.",
+			Icon:        "⚡",
+			Packages:    []string{}, // Nothing - use base image as-is
+		},
+		{
 			ID:          "minimal",
 			Name:        "Minimal",
 			Description: "Just a shell. No AI tools installed by default.",
@@ -87,6 +94,13 @@ func GenerateRoleScript(roleID string) (string, error) {
 
 	if role == nil {
 		return "", fmt.Errorf("role not found: %s", roleID)
+	}
+
+	// Instant role: no setup at all - just mark as complete immediately
+	if roleID == "instant" {
+		return `#!/bin/sh
+echo "[[REXEC_STATUS]]Setup complete."
+`, nil
 	}
 
 	// Build the script reusing the package manager detection from shell_setup.go
