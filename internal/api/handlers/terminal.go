@@ -448,18 +448,27 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		}
 	}
 
-	// Check container status - optimized path
-	// For local owners, we use cached info to avoid blocking on Docker daemon latency.
-	// For collab/remote users, we must verify via Docker since we might not have local cache.
+	// Check container status - always verify from DB/Docker for multi-replica support
+	// Manager cache might be stale (container created on different replica)
+	// Priority: DB status (most accurate) > Docker state > Manager cache
 	var containerStatus string
 	var isRunning bool
 
-	if containerInfo != nil {
-		// Fast path: use cached info
+	// First, try to get status from DB (most accurate, reflects actual setup completion)
+	if dbContainer != nil {
+		containerStatus = dbContainer.Status
+		// DB status "configuring" means setup in progress, "running" means ready
+		isRunning = (containerStatus == "running" || containerStatus == "configuring")
+		log.Printf("[Terminal] Using DB status for %s: %s (multi-replica safe)", dockerID[:12], containerStatus)
+	} else if containerInfo != nil {
+		// Fallback to manager cache if DB lookup failed
 		containerStatus = containerInfo.Status
 		isRunning = (containerStatus == "running" || containerStatus == "configuring")
-	} else {
-		// Slow path: verify via Docker (for collab users or containers not in cache)
+		log.Printf("[Terminal] Using manager cache status for %s: %s", dockerID[:12], containerStatus)
+	}
+
+	// Always verify Docker state as final check (for multi-replica: container might exist but not in this instance's cache)
+	if dockerID != "" {
 		dockerContainer, err := h.containerManager.GetClient().ContainerInspect(reqCtx, dockerID)
 		if err != nil {
 			if dockerclient.IsErrNotFound(err) {
@@ -479,12 +488,22 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 			return
 		}
 
-		if dockerContainer.State.Running {
-			containerStatus = "running"
-		} else {
-			containerStatus = "stopped"
-		}
+		// Docker is source of truth for running state
 		isRunning = dockerContainer.State.Running
+		// If DB says "configuring" but Docker says running, container is actually ready
+		// (setup completed on another replica, DB might not be updated yet)
+		if containerStatus == "configuring" && dockerContainer.State.Running {
+			// Check if shell setup is complete - if so, treat as "running"
+			if dbContainer != nil && h.store != nil {
+				quickCtx, quickCancel := context.WithTimeout(reqCtx, 200*time.Millisecond)
+				_, _, setupDone, _ := h.store.GetContainerShellMetadata(quickCtx, dbContainer.ID)
+				quickCancel()
+				if setupDone {
+					containerStatus = "running"
+					log.Printf("[Terminal] Container %s setup complete, upgrading status from configuring to running", dockerID[:12])
+				}
+			}
+		}
 
 		// Get image type from Docker labels if not already set
 		if imageType == "" && dockerContainer.Config != nil && dockerContainer.Config.Labels != nil {
@@ -703,6 +722,24 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	})
 	log.Printf("[Terminal] Sent 'connected' message for session %s (user %s), status=%s", session.ContainerID[:12], userID, containerStatus)
 
+	// Refresh container status from DB and update manager cache if stale (multi-replica support)
+	// This ensures the status is accurate even if container was created on another replica
+	if dbContainer != nil && containerInfo != nil && containerInfo.Status != dbContainer.Status {
+		// Status mismatch - DB is source of truth, update manager cache
+		h.containerManager.UpdateContainerStatus(dockerID, dbContainer.Status)
+		log.Printf("[Terminal] Updated manager cache status for %s: %s -> %s (from DB)", dockerID[:12], containerInfo.Status, dbContainer.Status)
+		containerStatus = dbContainer.Status
+	}
+
+	// Send current container status to frontend so it can update UI
+	// This helps with multi-replica scenarios where status might have changed
+	if containerStatus != "" {
+		session.SendMessage(TerminalMessage{
+			Type: "container_status",
+			Data: containerStatus,
+		})
+	}
+
 	// Kill any orphaned package manager processes from previous sessions
 	// Only if NOT configuring (to avoid killing active role setup)
 	if containerStatus != "configuring" {
@@ -734,6 +771,49 @@ func (h *TerminalHandler) runTerminalSessionWithRestart(session *TerminalSession
 				Type: "stats",
 				Data: string(statsData),
 			})
+		}
+	}()
+
+	// Start periodic status refresh for multi-replica support
+	// Checks DB status every 5 seconds and updates frontend if status changed
+	statusCtx, statusCancel := context.WithCancel(context.Background())
+	defer statusCancel()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		lastStatus := ""
+		for {
+			select {
+			case <-statusCtx.Done():
+				return
+			case <-session.Done:
+				return
+			case <-ticker.C:
+				// Quick DB lookup to get current status (multi-replica safe)
+				if h.store != nil {
+					ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+					// Try to get container by Docker ID
+					if dbContainer, err := h.store.GetContainerByDockerID(ctx, session.ContainerID); err == nil && dbContainer != nil {
+						currentStatus := dbContainer.Status
+						// Update manager cache if status changed
+						if info, ok := h.containerManager.GetContainer(session.ContainerID); ok && info.Status != currentStatus {
+							h.containerManager.UpdateContainerStatus(session.ContainerID, currentStatus)
+							log.Printf("[Terminal] Status refresh: updated %s from %s to %s", session.ContainerID[:12], info.Status, currentStatus)
+						}
+						// Notify frontend if status changed
+						if currentStatus != lastStatus && currentStatus != "" {
+							session.SendMessage(TerminalMessage{
+								Type: "container_status",
+								Data: currentStatus,
+							})
+							lastStatus = currentStatus
+						}
+					}
+					cancel()
+				}
+			}
 		}
 	}()
 
@@ -1013,6 +1093,12 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			}
 		}
 	}
+
+	// Send shell_starting message right before creating exec (no delay)
+	session.SendMessage(TerminalMessage{
+		Type: "shell_starting",
+		Data: "Starting shell...",
+	})
 
 	execStartTime := time.Now()
 	execResp, err := client.ContainerExecCreate(ctx, session.ContainerID, execConfig)

@@ -803,8 +803,7 @@ function createTerminalStore() {
           session.terminal.writeln(
             "\x1b[38;5;243m  Type 'help' for tips & shortcuts · Ctrl+C to interrupt\x1b[0m",
           );
-          // Show shell starting indicator - will be cleared when first output arrives
-          session.terminal.write("\x1b[38;5;243m› Starting shell...\x1b[0m");
+          // Don't show "Starting shell..." here - wait for backend to send shell_starting message
         }
 
         // Setup ping interval
@@ -1053,11 +1052,37 @@ function createTerminalStore() {
             } catch (e) {
               console.error("Failed to parse stats:", e);
             }
+          } else if (msg.type === "container_status") {
+            // Container status update (e.g., configuring -> running)
+            // This helps with multi-replica scenarios and status refresh
+            const newStatus = msg.data as string;
+            // Update container status in containers store if available
+            import("./containers").then(({ containers }) => {
+              // Find container by ID and update status
+              containers.update((state) => {
+                const containerIndex = state.containers.findIndex(
+                  (c) => c.id === session.containerId || c.db_id === session.containerId,
+                );
+                if (containerIndex >= 0) {
+                  const container = state.containers[containerIndex];
+                  if (container.status !== newStatus) {
+                    const updatedContainers = [...state.containers];
+                    updatedContainers[containerIndex] = {
+                      ...container,
+                      status: newStatus as any,
+                    };
+                    return { ...state, containers: updatedContainers };
+                  }
+                }
+                return state;
+              });
+            }).catch(() => {
+              // Containers store might not be loaded, ignore
+            });
           } else if (msg.type === "shell_starting") {
-            // Agent acknowledged shell_start - show immediate feedback
-            session.terminal.writeln(
-              "\x1b[38;5;243m› Starting shell...\x1b[0m",
-            );
+            // Show "Starting shell..." right before actual shell startup (sent from backend)
+            // This will be cleared when first output arrives
+            session.terminal.write("\x1b[38;5;243m› Starting shell...\x1b[0m");
           } else if (msg.type === "shell_started") {
             // Shell is ready - no action needed, output will follow
           } else if (msg.type === "shell_stopped") {
