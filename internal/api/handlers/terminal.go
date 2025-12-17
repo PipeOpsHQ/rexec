@@ -313,10 +313,14 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	if !ok {
-		// Try to sync from Docker in case container exists but wasn't loaded
-		if err := h.containerManager.LoadExistingContainers(reqCtx); err != nil {
+		// For newly created containers, they should be in cache immediately.
+		// Only do slow Docker sync as last resort (e.g., server restart, container from another instance).
+		// Use a short timeout to avoid blocking terminal connections for too long.
+		syncCtx, syncCancel := context.WithTimeout(reqCtx, 2*time.Second)
+		if err := h.containerManager.LoadExistingContainers(syncCtx); err != nil {
 			log.Printf("[Terminal] Failed to sync containers: %v", err)
 		}
+		syncCancel()
 		// Try again after sync
 		containerInfo, ok = h.containerManager.GetContainer(containerIdOrName)
 	}
@@ -618,7 +622,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		Type: "connected",
 		Data: "Terminal session established",
 	})
-	log.Printf("[Terminal] Sent 'connected' message for session %s (user %s)", session.ContainerID[:12], userID)
+	log.Printf("[Terminal] Sent 'connected' message for session %s (user %s), status=%s", session.ContainerID[:12], userID, containerStatus)
 
 	// Kill any orphaned package manager processes from previous sessions
 	// Only if NOT configuring (to avoid killing active role setup)
@@ -909,16 +913,25 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		}
 	}
 
+	execStartTime := time.Now()
 	execResp, err := client.ContainerExecCreate(ctx, session.ContainerID, execConfig)
 	if err != nil {
 		session.SendError("Failed to create terminal session: " + err.Error())
 		return false
 	}
+	execCreateDuration := time.Since(execStartTime)
+	// Check container status for logging
+	containerStatusForLog := "unknown"
+	if info, ok := h.containerManager.GetContainer(session.ContainerID); ok {
+		containerStatusForLog = info.Status
+	}
+	log.Printf("[Terminal] Exec created for %s in %v (status=%s)", session.ContainerID[:12], execCreateDuration, containerStatusForLog)
 
 	session.ExecID = execResp.ID
 
 	// Attach to exec (this also starts it for Podman compatibility)
 	// ContainerExecAttach implicitly starts the exec session
+	attachStartTime := time.Now()
 	attachResp, err := client.ContainerExecAttach(ctx, execResp.ID, container.ExecAttachOptions{
 		Tty: true,
 	})
@@ -926,6 +939,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		session.SendError("Failed to attach to terminal: " + err.Error())
 		return false
 	}
+	attachDuration := time.Since(attachStartTime)
+	log.Printf("[Terminal] Exec attached for %s in %v", session.ContainerID[:12], attachDuration)
 	defer attachResp.Close()
 
 	// Set initial terminal size immediately after attach
