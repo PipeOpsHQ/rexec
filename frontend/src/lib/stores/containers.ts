@@ -239,7 +239,7 @@ function createContainersStore() {
       return { success: true, container: data };
     },
 
-    // Create container with progress via WebSocket events (uses polling as primary method)
+    // Create container with progress via WebSocket events
     createContainerWithProgress(
       name: string,
       image: string,
@@ -1093,21 +1093,13 @@ function handleContainerEvent(event: {
   }
 }
 
-// Legacy polling functions (kept for fallback)
-let refreshInterval: ReturnType<typeof setInterval> | null = null;
-
+// Auto-refresh via WebSocket
 export function startAutoRefresh() {
-  // Use WebSocket for real-time updates
   startContainerEvents();
 }
 
 export function stopAutoRefresh() {
   stopContainerEvents();
-
-  if (refreshInterval) {
-    clearInterval(refreshInterval);
-    refreshInterval = null;
-  }
 }
 
 // Derived stores
