@@ -535,7 +535,12 @@ function createTerminalStore() {
       let terminal: Terminal;
       let fitAddon: FitAddon;
       try {
-        terminal = new XtermTerminal(TERMINAL_OPTIONS);
+        // Ensure we use the current theme state, not the module-load-time state
+        const currentOptions = {
+            ...TERMINAL_OPTIONS,
+            theme: getCurrentTerminalTheme(),
+        };
+        terminal = new XtermTerminal(currentOptions);
         fitAddon = new XtermFitAddon();
         terminal.loadAddon(fitAddon);
         terminal.loadAddon(new XtermWebLinksAddon());
@@ -2020,7 +2025,12 @@ function createTerminalStore() {
       let newTerminal: Terminal;
       let newFitAddon: FitAddon;
       try {
-        newTerminal = new XtermTerminal(TERMINAL_OPTIONS);
+        // Ensure we use the current theme state
+        const currentOptions = {
+            ...TERMINAL_OPTIONS,
+            theme: getCurrentTerminalTheme(),
+        };
+        newTerminal = new XtermTerminal(currentOptions);
         newFitAddon = new XtermFitAddon();
         newTerminal.loadAddon(newFitAddon);
         newTerminal.loadAddon(new XtermWebLinksAddon());
