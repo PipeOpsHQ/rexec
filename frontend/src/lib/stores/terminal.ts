@@ -2263,9 +2263,6 @@ function createTerminalStore() {
         return { ...s, splitPanes: newPanes };
       });
 
-      // Show connecting message
-      pane.terminal.writeln("\x1b[38;5;243m⌘ rexec - Connecting...\x1b[0m");
-
       // Create independent WebSocket connection for this pane with unique ID
       // Add newSession=true to tell backend to create a fresh tmux session (not resume main)
       const agentId =

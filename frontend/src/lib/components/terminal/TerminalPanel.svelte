@@ -477,12 +477,6 @@
                     </span>
                 </span>
             {/if}
-            {#if isSettingUp}
-                <span class="setup-indicator">
-                    <span class="setup-spinner"></span>
-                    Installing...
-                </span>
-            {/if}
         </div>
 
         <div class="toolbar-actions">
@@ -706,14 +700,8 @@
         {/if}
     </div>
 
-    <!-- Connection status - minimal, non-blocking -->
-    {#if isConnecting}
-        <div class="connection-status">
-            <span class="rexec-logo">⌘</span>
-            <span class="connection-text">rexec</span>
-            <span class="connection-dots">...</span>
-        </div>
-    {:else if showConnectedIndicator}
+    <!-- Connection status removed - terminal is usable immediately -->
+    {#if showConnectedIndicator}
         <div class="connection-status connected">
             <span class="rexec-logo">⌘</span>
             <span class="connection-text">rexec</span>
@@ -752,15 +740,7 @@
         </div>
     {/if}
 
-    {#if isSettingUp}
-        <div class="setup-overlay">
-            <div class="setup-content">
-                <div class="setup-spinner-large"></div>
-                <span class="setup-title">Installing packages...</span>
-                <span class="setup-detail">{setupMessage}</span>
-            </div>
-        </div>
-    {/if}
+    <!-- Setup overlay removed - installation happens in background, user can use terminal immediately -->
     
     <!-- Download Modal -->
     {#if showDownloadModal}

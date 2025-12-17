@@ -53,9 +53,6 @@
         <span class="pane-label">
             <span class="status-dot" class:connected={isConnected} class:connecting={isConnecting}></span>
             Session {pane.id.slice(-4)}
-            {#if isConnecting}
-                <span class="status-text">connecting...</span>
-            {/if}
         </span>
         <button class="close-pane" onclick={(e) => { e.stopPropagation(); handleClose(); }} title="Close split">
             ×
@@ -100,12 +97,6 @@
         color: var(--text-muted);
         font-family: var(--font-mono);
         text-transform: uppercase;
-    }
-
-    .status-text {
-        font-size: 9px;
-        color: var(--yellow);
-        text-transform: lowercase;
     }
 
     .status-dot {
