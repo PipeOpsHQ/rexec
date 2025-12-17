@@ -2431,19 +2431,21 @@
     max-width: 300px;
   }
 
-  /* Toggle Switch */
+  /* Toggle Switch - Cross-browser compatible */
   .toggle-switch {
     position: relative;
     display: inline-block;
     width: 44px;
     height: 24px;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .toggle-switch input {
     opacity: 0;
     width: 0;
     height: 0;
+    position: absolute;
   }
 
   .toggle-slider {
@@ -2454,6 +2456,9 @@
     right: 0;
     bottom: 0;
     background-color: var(--border);
+    -webkit-transition: 0.3s;
+    -moz-transition: 0.3s;
+    -o-transition: 0.3s;
     transition: 0.3s;
     border-radius: 24px;
   }
@@ -2466,6 +2471,9 @@
     left: 3px;
     bottom: 3px;
     background-color: var(--text-muted);
+    -webkit-transition: 0.3s;
+    -moz-transition: 0.3s;
+    -o-transition: 0.3s;
     transition: 0.3s;
     border-radius: 50%;
   }
@@ -2475,12 +2483,23 @@
   }
 
   .toggle-switch input:checked + .toggle-slider:before {
+    -webkit-transform: translateX(20px);
+    -moz-transform: translateX(20px);
+    -ms-transform: translateX(20px);
+    -o-transform: translateX(20px);
     transform: translateX(20px);
     background-color: var(--bg);
   }
 
   .toggle-switch input:focus + .toggle-slider {
     box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  /* Safari-specific fix for checkbox appearance */
+  .toggle-switch input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
   }
 
   /* Offline Agent Card Styling */
