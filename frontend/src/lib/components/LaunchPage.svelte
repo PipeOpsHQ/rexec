@@ -1,15 +1,11 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
-    import { auth } from "$stores/auth";
-    import { toast } from "$stores/toast";
     import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
         guest: void;
         navigate: { view: string };
     }>();
-
-    let isOAuthLoading = false;
 
     // Get current host for install commands
     const currentHost = typeof window !== 'undefined' ? window.location.host : 'rexec.pipeops.io';
@@ -18,23 +14,6 @@
 
     function handleGuestClick() {
         dispatch("guest");
-    }
-
-    async function handleOAuthLogin() {
-        if (isOAuthLoading) return;
-        isOAuthLoading = true;
-        try {
-            const url = await auth.getOAuthUrl();
-            if (url) {
-                window.location.href = url;
-            } else {
-                toast.error("Unable to connect. Please try again later.");
-                isOAuthLoading = false;
-            }
-        } catch (e) {
-            toast.error("Failed to connect. Please try again.");
-            isOAuthLoading = false;
-        }
     }
 
     const useCases = [
@@ -119,18 +98,6 @@
             <button class="btn btn-primary btn-xl" onclick={handleGuestClick}>
                 <StatusIcon status="bolt" size={18} />
                 Try Free — No Sign Up
-            </button>
-            <button
-                class="btn btn-secondary btn-xl"
-                onclick={handleOAuthLogin}
-                disabled={isOAuthLoading}
-            >
-                {#if isOAuthLoading}
-                    <span class="spinner"></span>
-                {:else}
-                    <StatusIcon status="user" size={18} />
-                {/if}
-                Sign in with PipeOps
             </button>
         </div>
 
@@ -314,7 +281,7 @@
     <!-- Pricing Teaser -->
     <section class="pricing-section">
         <h2>Start Free, Scale When Ready</h2>
-        <p class="section-subtitle">Sign in with PipeOps to unlock persistent terminals, SSH keys, snippets, and more</p>
+        <p class="section-subtitle">Sign in to unlock persistent terminals, SSH keys, snippets, and more</p>
         <div class="pricing-cards">
             <div class="pricing-card slide-in-up delay-1">
                 <h3>Guest</h3>
@@ -339,12 +306,8 @@
                     <li><StatusIcon status="check" size={14} /> Snippets library</li>
                     <li><StatusIcon status="check" size={14} /> Session recordings</li>
                 </ul>
-                <button class="btn btn-primary" onclick={handleOAuthLogin} disabled={isOAuthLoading}>
-                    {#if isOAuthLoading}
-                        <span class="spinner"></span>
-                    {:else}
-                        Sign in with PipeOps
-                    {/if}
+                <button class="btn btn-primary" onclick={() => dispatch('navigate', { view: 'pricing' })}>
+                    View Plans
                 </button>
             </div>
             <div class="pricing-card featured slide-in-up delay-3 glow">

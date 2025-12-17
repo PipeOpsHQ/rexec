@@ -1,7 +1,5 @@
 <script lang="ts">
     import { createEventDispatcher, onMount } from "svelte";
-    import { auth } from "$stores/auth";
-    import { toast } from "$stores/toast";
     import StatusIcon from "./icons/StatusIcon.svelte";
 
     const dispatch = createEventDispatcher<{
@@ -9,7 +7,6 @@
         navigate: { view: string };
     }>();
 
-    let isOAuthLoading = false;
     let animatedStats = { terminals: 0, uptime: 0, countries: 0 };
     let visibleSections: Set<string> = new Set();
     let heroLoaded = false;
@@ -19,7 +16,7 @@
 
     // Realistic early-stage stats
     const targetStats = { terminals: 150, uptime: 99.5, countries: 8 };
-    
+
     // Rotating era words
     const eraWords = ["AI", "Cloud", "DevOps", "Remote"];
     const eraColors = ["#00ff88", "#00d4ff", "#ff6b6b", "#ffd93d"];
@@ -32,23 +29,6 @@
         dispatch("navigate", { view });
     }
 
-    async function handleOAuthLogin() {
-        if (isOAuthLoading) return;
-        isOAuthLoading = true;
-        try {
-            const url = await auth.getOAuthUrl();
-            if (url) {
-                window.location.href = url;
-            } else {
-                toast.error("Unable to connect. Please try again later.");
-                isOAuthLoading = false;
-            }
-        } catch (e) {
-            toast.error("Failed to connect. Please try again.");
-            isOAuthLoading = false;
-        }
-    }
-
     // 3D Tilt effect for comparison cards
     function handleCardTilt(event: MouseEvent) {
         const cardEl = event.currentTarget as HTMLElement;
@@ -57,10 +37,10 @@
         const y = event.clientY - rect.top;
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-        
+
         const rotateX = ((y - centerY) / centerY) * -12;
         const rotateY = ((x - centerX) / centerX) * 12;
-        
+
         cardEl.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
     }
 
@@ -71,41 +51,41 @@
 
     // 3D effect for hero terminal - tracks mouse across entire hero section
     let terminalEl: HTMLElement | null = null;
-    
+
     function handleTerminalMouseMove(event: MouseEvent) {
         if (!terminalEl) return;
         const rect = terminalEl.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        
+
         // Calculate distance from center of terminal
         const deltaX = event.clientX - centerX;
         const deltaY = event.clientY - centerY;
-        
+
         // Limit rotation based on distance (max ~15 degrees)
         const maxRotation = 15;
         const maxDistance = 500;
-        
+
         const rotateY = (deltaX / maxDistance) * maxRotation;
         const rotateX = -(deltaY / maxDistance) * maxRotation;
-        
+
         // Clamp values
         const clampedRotateX = Math.max(-maxRotation, Math.min(maxRotation, rotateX));
         const clampedRotateY = Math.max(-maxRotation, Math.min(maxRotation, rotateY));
-        
+
         // Add subtle translation for depth
         const translateX = (deltaX / maxDistance) * 10;
         const translateY = (deltaY / maxDistance) * 10;
-        
+
         terminalEl.style.transform = `
-            perspective(1500px) 
-            rotateX(${clampedRotateX}deg) 
-            rotateY(${clampedRotateY}deg) 
-            translateX(${translateX}px) 
+            perspective(1500px)
+            rotateX(${clampedRotateX}deg)
+            rotateY(${clampedRotateY}deg)
+            translateX(${translateX}px)
             translateY(${translateY}px)
             scale(1.02)
         `;
-        
+
         // Add dynamic shadow based on tilt
         const shadowX = -rotateY * 2;
         const shadowY = rotateX * 2;
@@ -114,7 +94,7 @@
             0 25px 80px rgba(0, 0, 0, 0.5)
         `;
     }
-    
+
     function handleTerminalMouseLeave() {
         if (!terminalEl) return;
         terminalEl.style.transform = 'perspective(1500px) rotateX(0deg) rotateY(0deg) translateX(0) translateY(0) scale(1)';
@@ -149,7 +129,7 @@
             step++;
             const progress = step / steps;
             const eased = 1 - Math.pow(1 - progress, 3);
-            
+
             animatedStats = {
                 terminals: Math.round(targetStats.terminals * eased),
                 uptime: Math.round(targetStats.uptime * eased * 10) / 10,
@@ -263,22 +243,22 @@
     ];
 
     const moreFeatures = [
-        { 
+        {
             title: "Instant Environment Provisioning",
             desc: "No more waiting for VMs. Spin up fully-configured Linux environments in milliseconds, not minutes.",
             icon: "bolt"
         },
-        { 
+        {
             title: "Zero Configuration Required",
             desc: "Everything works out of the box. Pre-installed dev tools, languages, and utilities ready to use.",
             icon: "check"
         },
-        { 
+        {
             title: "Access From Any Device",
             desc: "Work from your laptop, tablet, or phone. Your terminal follows you everywhere with full functionality.",
             icon: "globe"
         },
-        { 
+        {
             title: "Enterprise-Grade Security",
             desc: "Container isolation, encrypted connections, and audit trails. Your code never touches our servers.",
             icon: "shield"
@@ -330,7 +310,7 @@
         </div>
 
 
-        
+
         <div class="hero-inner">
             <div class="hero-content">
                 <div class="hero-badge animate-fade-up" style="--delay: 0.1s">
@@ -345,7 +325,7 @@
                 </h1>
 
                 <p class="hero-description animate-fade-up" style="--delay: 0.3s">
-                    Instant Linux environments in your browser. No setup. No downloads. 
+                    Instant Linux environments in your browser. No setup. No downloads.
                     Just powerful, isolated terminals ready when you are.
                 </p>
 
@@ -354,13 +334,6 @@
                         <span class="btn-icon">▶</span>
                         Start Free Terminal
                         <span class="btn-shine"></span>
-                    </button>
-                    <button class="btn-hero btn-secondary-hero" onclick={handleOAuthLogin} disabled={isOAuthLoading}>
-                        {#if isOAuthLoading}
-                            <span class="spinner"></span>
-                        {:else}
-                            Sign in with PipeOps
-                        {/if}
                     </button>
                 </div>
 
@@ -429,9 +402,9 @@
     <section id="problem" class="promo-section problem-section" class:visible={visibleSections.has('problem')}>
         <div class="section-content">
             <h2 class="section-title">The Old Way vs <span class="accent">The Rexec Way</span></h2>
-            
+
             <div class="comparison">
-                <div 
+                <div
                     class="comparison-card old-way tilt-card"
                     onmousemove={handleCardTilt}
                     onmouseleave={handleCardReset}
@@ -452,8 +425,8 @@
                         <li>Configuration drift across team</li>
                     </ul>
                 </div>
-                
-                <div 
+
+                <div
                     class="comparison-card new-way tilt-card"
                     onmousemove={handleCardTilt}
                     onmouseleave={handleCardReset}
@@ -483,7 +456,7 @@
         <div class="section-content">
             <h2 class="section-title">Built for <span class="accent">Every Workflow</span></h2>
             <p class="section-subtitle">From solo developers to enterprise teams</p>
-            
+
             <div class="usecases-grid">
                 {#each useCases as useCase, i}
                     <div class="usecase-card" style="--accent-color: {useCase.color}" style:animation-delay="{i * 100}ms">
@@ -505,11 +478,11 @@
     <section id="features" class="promo-section features-section" class:visible={visibleSections.has('features')}>
         <div class="section-content">
             <h2 class="section-title">Everything You Need, <span class="accent">Nothing You Don't</span></h2>
-            
+
             <div class="features-grid">
                 {#each features as feature, i}
-                    <div 
-                        class="feature-card" 
+                    <div
+                        class="feature-card"
                         style:animation-delay="{i * 50}ms"
                         role="article"
                     >
@@ -529,7 +502,7 @@
         <div class="section-content">
             <h2 class="section-title">Why Choose <span class="accent">Rexec</span></h2>
             <p class="section-subtitle">Built by developers, for developers</p>
-            
+
             <div class="whychoose-grid">
                 {#each moreFeatures as feature, i}
                     <div class="whychoose-card" style:animation-delay="{i * 100}ms">
@@ -550,7 +523,7 @@
     <section id="testimonials" class="promo-section testimonials-section" class:visible={visibleSections.has('testimonials')}>
         <div class="section-content">
             <h2 class="section-title">Loved by <span class="accent">Developers</span></h2>
-            
+
             <div class="testimonials-grid">
                 {#each testimonials as testimonial, i}
                     <div class="testimonial-card" style:animation-delay="{i * 100}ms">
@@ -573,7 +546,7 @@
         <div class="cta-content">
             <h2>Ready to Transform Your Workflow?</h2>
             <p>Start with our free tier. No credit card required.</p>
-            
+
             <div class="cta-actions">
                 <button class="btn-hero btn-primary-hero btn-large" onclick={handleGuestClick}>
                     <span class="btn-icon">▶</span>
@@ -663,7 +636,7 @@
     .grid-lines {
         position: absolute;
         inset: 0;
-        background-image: 
+        background-image:
             linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
             linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
         background-size: 60px 60px;
@@ -756,7 +729,7 @@
     .animate-fade-up {
         opacity: 0;
         transform: translateY(30px);
-        transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), 
+        transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
                     transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         transition-delay: var(--delay, 0s);
     }
@@ -995,7 +968,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px;
         overflow: hidden;
-        box-shadow: 
+        box-shadow:
             0 25px 100px rgba(0, 0, 0, 0.5),
             0 0 0 1px rgba(255, 255, 255, 0.05) inset;
         backdrop-filter: blur(10px);
@@ -1206,7 +1179,7 @@
     }
 
     .tilt-card:hover {
-        box-shadow: 
+        box-shadow:
             0 25px 50px rgba(0, 0, 0, 0.5),
             0 0 30px rgba(0, 255, 136, 0.1);
     }
@@ -1238,7 +1211,7 @@
 
     .old-way:hover {
         border-color: rgba(255, 100, 100, 0.5);
-        box-shadow: 
+        box-shadow:
             0 25px 50px rgba(0, 0, 0, 0.5),
             0 0 30px rgba(255, 100, 100, 0.15);
     }

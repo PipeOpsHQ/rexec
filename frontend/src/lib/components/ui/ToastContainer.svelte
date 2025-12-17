@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fly, fade } from "svelte/transition";
+    import { flip } from "svelte/animate";
     import { activeToasts, toast, type Toast } from "$stores/toast";
     import StatusIcon from "../icons/StatusIcon.svelte";
 
