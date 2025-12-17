@@ -348,19 +348,26 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 
 		if err == nil && dbContainer != nil && dbContainer.DockerID != "" {
 			// Found in DB, try getting from manager using the Docker ID
+			// This handles single-replica case efficiently (container in cache)
 			if info, found := h.containerManager.GetContainer(dbContainer.DockerID); found {
 				log.Printf("[Terminal] Container found in manager cache after DB lookup: %s", dbContainer.DockerID[:12])
 				containerInfo = info
 				ok = true
 			} else {
 				// Container exists in DB but not in manager cache
+				// This is normal for multi-replica setups or after server restart
 				// Quick verify it exists in Docker (fast check, no full sync)
-				log.Printf("[Terminal] Container not in manager cache, verifying in Docker: %s", dbContainer.DockerID[:12])
+				log.Printf("[Terminal] Container not in manager cache (multi-replica or restart), verifying in Docker: %s", dbContainer.DockerID[:12])
 				dockerInspectStart := time.Now()
 				_, dockerErr := h.containerManager.GetClient().ContainerInspect(reqCtx, dbContainer.DockerID)
 				dockerInspectDuration := time.Since(dockerInspectStart)
 				if dockerErr == nil {
-					log.Printf("[Terminal] Container verified in Docker after %v: %s", dockerInspectDuration, dbContainer.DockerID[:12])
+					// Log slow Docker API calls
+					if dockerInspectDuration > 500*time.Millisecond {
+						log.Printf("[Terminal] SLOW Docker inspect for %s: %v - Docker daemon may be busy", dbContainer.DockerID[:12], dockerInspectDuration)
+					} else {
+						log.Printf("[Terminal] Container verified in Docker after %v: %s", dockerInspectDuration, dbContainer.DockerID[:12])
+					}
 					// Container exists in Docker - we can proceed with DB record
 					// Don't need to load into manager cache for terminal connection
 					// The DB record has all info we need
@@ -372,20 +379,31 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 				}
 			}
 		}
+
+		// Log slow DB lookups
+		if lookupDuration > 500*time.Millisecond {
+			log.Printf("[Terminal] SLOW database lookup for %s: %v - DB may be under load", containerIdOrName, lookupDuration)
+		}
 	}
 
 	if !ok {
-		log.Printf("[Terminal] Container %s still not found, attempting Docker sync...", containerIdOrName)
+		log.Printf("[Terminal] Container %s still not found, attempting Docker sync (last resort)...", containerIdOrName)
 		// Only do slow Docker sync if we haven't found it in DB
-		// For newly created containers, they should be in cache immediately.
-		// Only do slow Docker sync as last resort (e.g., server restart, container from another instance).
+		// For newly created containers, they should be in cache immediately (single-replica)
+		// For multi-replica, container should be found via DB lookup above
+		// Only do Docker sync as last resort (e.g., server restart, orphaned container)
 		// Use a short timeout to avoid blocking terminal connections for too long.
 		syncStart := time.Now()
 		syncCtx, syncCancel := context.WithTimeout(reqCtx, 2*time.Second)
 		if err := h.containerManager.LoadExistingContainers(syncCtx); err != nil {
 			log.Printf("[Terminal] Failed to sync containers after %v: %v", time.Since(syncStart), err)
 		} else {
-			log.Printf("[Terminal] Docker sync completed in %v", time.Since(syncStart))
+			syncDuration := time.Since(syncStart)
+			if syncDuration > 1*time.Second {
+				log.Printf("[Terminal] SLOW Docker sync completed in %v - consider checking Docker daemon performance", syncDuration)
+			} else {
+				log.Printf("[Terminal] Docker sync completed in %v", syncDuration)
+			}
 		}
 		syncCancel()
 		// Try again after sync
@@ -1048,9 +1066,14 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 
 		// Fall back to detection if not cached and not configuring
 		if !shellCached {
+			detectStart := time.Now()
 			shell = h.detectShell(ctx, session.ContainerID, imageType)
+			detectDuration := time.Since(detectStart)
+			if detectDuration > 500*time.Millisecond {
+				log.Printf("[Terminal] Slow shell detection for %s: %v", session.ContainerID[:12], detectDuration)
+			}
 
-			// Check tmux cache or detect
+			// Check tmux cache or detect (tmux is optional, not default)
 			h.mu.RLock()
 			tmuxCached, tmuxInCache := h.tmuxCache[session.ContainerID]
 			h.mu.RUnlock()
@@ -1058,11 +1081,35 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			if tmuxInCache {
 				hasTmux = tmuxCached
 			} else {
+				tmuxCheckStart := time.Now()
 				hasTmux = h.commandExists(ctx, session.ContainerID, "tmux")
+				tmuxCheckDuration := time.Since(tmuxCheckStart)
+				if tmuxCheckDuration > 300*time.Millisecond {
+					log.Printf("[Terminal] Slow tmux detection for %s: %v", session.ContainerID[:12], tmuxCheckDuration)
+				}
 				h.mu.Lock()
 				h.tmuxCache[session.ContainerID] = hasTmux
 				h.mu.Unlock()
 			}
+
+			// Cache shell metadata to DB for future connections (async to avoid delay)
+			// This helps with multi-replica scenarios and reconnections
+			if h.store != nil && shell != "" {
+				go func(dockerID, detectedShell string, detectedTmux bool) {
+					cacheCtx, cacheCancel := context.WithTimeout(context.Background(), 3*time.Second)
+					defer cacheCancel()
+					// Look up DB UUID by Docker ID
+					if dbContainer, err := h.store.GetContainerByDockerID(cacheCtx, dockerID); err == nil && dbContainer != nil {
+						if err := h.store.UpdateContainerShellMetadata(cacheCtx, dbContainer.ID, detectedShell, detectedTmux, true); err != nil {
+							log.Printf("[Terminal] Failed to cache shell metadata for %s: %v", dockerID[:12], err)
+						} else {
+							log.Printf("[Terminal] Cached detected shell metadata for %s: shell=%s, tmux=%v", dockerID[:12], detectedShell, detectedTmux)
+						}
+					}
+				}(session.ContainerID, shell, hasTmux)
+			}
+
+			log.Printf("[Terminal] Detected shell for %s: shell=%s, tmux=%v (detection took %v)", session.ContainerID[:12], shell, hasTmux, detectDuration)
 		}
 
 		// Check for user preference via label (disable tmux if requested)
@@ -1121,8 +1168,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				WorkingDir: "/home/user",
 			}
 		} else {
-			// Fallback: direct shell without tmux (no session persistence)
-			log.Printf("[Terminal] tmux not found, using direct shell in %s", session.ContainerID[:12])
+			// Direct shell without tmux - tmux is optional, not default
+			log.Printf("[Terminal] Using direct shell (no tmux) for %s: %s", session.ContainerID[:12], shell)
 			execConfig = container.ExecOptions{
 				AttachStdin:  true,
 				AttachStdout: true,
@@ -1158,7 +1205,12 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 	if info, ok := h.containerManager.GetContainer(session.ContainerID); ok {
 		containerStatusForLog = info.Status
 	}
-	log.Printf("[Terminal] Exec created for %s in %v (status=%s)", session.ContainerID[:12], execCreateDuration, containerStatusForLog)
+	// Log Docker API latency - warn if slow (Docker daemon may be busy)
+	if execCreateDuration > 500*time.Millisecond {
+		log.Printf("[Terminal] SLOW Docker exec create for %s: %v (status=%s) - Docker daemon may be busy", session.ContainerID[:12], execCreateDuration, containerStatusForLog)
+	} else {
+		log.Printf("[Terminal] Exec created for %s in %v (status=%s)", session.ContainerID[:12], execCreateDuration, containerStatusForLog)
+	}
 
 	session.ExecID = execResp.ID
 
@@ -1173,7 +1225,12 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 		return false
 	}
 	attachDuration := time.Since(attachStartTime)
-	log.Printf("[Terminal] Exec attached for %s in %v", session.ContainerID[:12], attachDuration)
+	// Log Docker API latency - warn if slow
+	if attachDuration > 500*time.Millisecond {
+		log.Printf("[Terminal] SLOW Docker exec attach for %s: %v - Docker daemon may be busy", session.ContainerID[:12], attachDuration)
+	} else {
+		log.Printf("[Terminal] Exec attached for %s in %v", session.ContainerID[:12], attachDuration)
+	}
 	defer attachResp.Close()
 
 	// Set initial terminal size immediately after attach
