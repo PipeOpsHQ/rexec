@@ -360,42 +360,47 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		}
 	}
 
-	// Check if container actually exists in Docker (may have been removed externally)
-	dockerContainer, err := h.containerManager.GetClient().ContainerInspect(reqCtx, dockerID)
-	if err != nil {
-		if dockerclient.IsErrNotFound(err) {
-			c.JSON(http.StatusGone, gin.H{
-				"error":           "container was removed from server",
-				"code":            "container_removed",
-				"hint":            "Container was removed from Docker. Click Start to recreate it.",
-				"action_required": "start",
-				"container_id":    dockerID,
+	// Check container status - optimized path
+	// For local owners, we use cached info to avoid blocking on Docker daemon latency.
+	// For collab/remote users, we must verify via Docker since we might not have local cache.
+	var containerStatus string
+	var isRunning bool
+
+	if containerInfo != nil {
+		// Fast path: use cached info
+		containerStatus = containerInfo.Status
+		isRunning = (containerStatus == "running" || containerStatus == "configuring")
+	} else {
+		// Slow path: verify via Docker (for collab users)
+		dockerContainer, err := h.containerManager.GetClient().ContainerInspect(reqCtx, dockerID)
+		if err != nil {
+			if dockerclient.IsErrNotFound(err) {
+				c.JSON(http.StatusGone, gin.H{
+					"error":           "container was removed from server",
+					"code":            "container_removed",
+					"hint":            "Container was removed from Docker. Click Start to recreate it.",
+					"action_required": "start",
+					"container_id":    dockerID,
+				})
+				return
+			}
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"error": "failed to verify container status: " + err.Error(),
+				"code":  "docker_error",
 			})
 			return
 		}
-		// Other Docker errors
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error": "failed to verify container status: " + err.Error(),
-			"code":  "docker_error",
-		})
-		return
-	}
 
-	// Check if container is running (use Docker state for collab users, containerInfo for owners)
-	containerStatus := ""
-	if containerInfo != nil {
-		containerStatus = containerInfo.Status
-	} else {
-		// For collab users without containerInfo, derive status from Docker state
 		if dockerContainer.State.Running {
 			containerStatus = "running"
 		} else {
 			containerStatus = "stopped"
 		}
+		isRunning = dockerContainer.State.Running
 	}
 
 	// We allow connections during configuring state so users can connect during long role setups
-	if containerStatus != "running" && containerStatus != "configuring" {
+	if !isRunning && containerStatus != "configuring" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":           "container is not running",
 			"code":            "container_stopped",
