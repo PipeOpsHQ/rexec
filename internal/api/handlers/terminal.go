@@ -425,12 +425,12 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 	}
 
 	// Upgrade to WebSocket
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
-		return
-	}
-
+	    conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	    if err != nil {
+	        log.Printf("[Terminal] WebSocket upgrade failed for %s (user %s): %v", containerIdOrName, userID, err)
+	        return
+	    }
+	    log.Printf("[Terminal] WebSocket upgraded successfully for %s (user %s)", containerIdOrName, userID)
 	// Configure WebSocket for large data handling
 	// Allow up to 100MB messages for "vibe coding" (extreme AI contexts/pastes)
 	conn.SetReadLimit(100 * 1024 * 1024)
@@ -618,6 +618,7 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 		Type: "connected",
 		Data: "Terminal session established",
 	})
+	log.Printf("[Terminal] Sent 'connected' message for session %s (user %s)", session.ContainerID[:12], userID)
 
 	// Kill any orphaned package manager processes from previous sessions
 	// Only if NOT configuring (to avoid killing active role setup)
