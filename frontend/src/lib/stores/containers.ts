@@ -479,13 +479,119 @@ function createContainersStore() {
           progress: 15,
         });
 
-        // Now we wait for WebSocket events (progress, created, or error)
-        // The timeout in createContainerWithProgress will handle if nothing arrives
+        // Start polling as fallback in case WebSocket events don't arrive
+        const containerId = data.db_id || data.id;
+        this.pollContainerStatus(containerId, name, image, onProgress, cleanup);
       } catch (e) {
         cleanup?.();
         update((state) => ({ ...state, creating: null }));
         onError?.(e instanceof Error ? e.message : "Failed to create terminal");
       }
+    },
+
+    // Poll container status as fallback when WebSocket isn't working
+    async pollContainerStatus(
+      containerId: string,
+      name: string,
+      image: string,
+      onProgress?: (event: ProgressEvent) => void,
+      cleanup?: () => void,
+    ) {
+      const authToken = getToken();
+      if (!authToken) return;
+
+      const maxAttempts = 60; // 1 minute max (1s intervals)
+      let attempts = 0;
+
+      const poll = async () => {
+        // Stop if creation was completed via WebSocket
+        const state = get(containers);
+        if (!state.creating) return;
+
+        attempts++;
+        if (attempts > maxAttempts) return;
+
+        try {
+          const response = await fetch(`/api/containers/${containerId}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          if (!response.ok) {
+            if (attempts < 5) setTimeout(poll, 1000);
+            return;
+          }
+
+          const data = await response.json();
+          const status = data.status;
+
+          // Update progress based on status
+          const stageConfig: Record<string, { progress: number; message: string }> = {
+            pulling: { progress: 25, message: "Pulling image..." },
+            creating: { progress: 40, message: "Creating container..." },
+            starting: { progress: 55, message: "Starting container..." },
+            configuring: { progress: 75, message: "Configuring environment..." },
+            running: { progress: 100, message: "Ready!" },
+          };
+
+          if (status in stageConfig) {
+            const info = stageConfig[status];
+            update((s) => ({
+              ...s,
+              creating: s.creating ? { ...s.creating, ...info, stage: status } : null,
+            }));
+
+            // If configuring or running, dispatch with container_id for early terminal connection
+            if (status === "configuring" || status === "running") {
+              onProgress?.({
+                stage: status,
+                message: info.message,
+                progress: info.progress,
+                container_id: data.id, // Docker ID
+                complete: status === "running",
+              });
+            }
+          }
+
+          if (status === "running") {
+            // Complete - WebSocket should have handled this, but just in case
+            cleanup?.();
+            const container: Container = {
+              id: data.id,
+              db_id: data.db_id || containerId,
+              user_id: data.user_id || "",
+              name: data.name || name,
+              image: data.image || image,
+              status: "running",
+              created_at: data.created_at || new Date().toISOString(),
+              ip_address: data.ip_address,
+              resources: data.resources,
+            };
+
+            update((s) => ({
+              ...s,
+              containers: [container, ...s.containers.filter((c) => c.id !== container.id && c.db_id !== container.db_id)],
+              creating: null,
+            }));
+
+            onProgress?.({
+              stage: "ready",
+              message: "Terminal ready!",
+              progress: 100,
+              complete: true,
+              container_id: data.id,
+            });
+            return;
+          }
+
+          // Keep polling
+          setTimeout(poll, 1000);
+        } catch {
+          if (attempts < maxAttempts) setTimeout(poll, 1000);
+        }
+      };
+
+      // Start polling after a short delay to give WebSocket a chance
+      setTimeout(poll, 2000);
     },
 
     // Start a container
