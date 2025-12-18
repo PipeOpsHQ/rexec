@@ -547,6 +547,11 @@
                     event.complete)
             ) {
                 hasDispatchedEarly = true;
+                // Close the progress modal immediately - terminal is ready
+                isCreating = false;
+                progress = 0;
+                progressMessage = "";
+                progressStage = "";
                 // Dispatch immediately so terminal can start connecting
                 dispatch("created", {
                     id: event.container_id,
