@@ -240,7 +240,7 @@ function createContainersStore() {
     },
 
     // Create container with progress via WebSocket events
-    createContainerWithProgress(
+    async createContainerWithProgress(
       name: string,
       image: string,
       customImage?: string,
@@ -255,6 +255,13 @@ function createContainersStore() {
       if (!authToken) {
         onError?.("Not authenticated");
         return;
+      }
+
+      // Ensure container events WebSocket is connected
+      if (!get(wsConnected)) {
+        startContainerEvents();
+        // Give WebSocket time to connect
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Set creating state
