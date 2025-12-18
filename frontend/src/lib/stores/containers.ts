@@ -260,7 +260,20 @@ function createContainersStore() {
       // Ensure container events WebSocket is connected
       if (!get(wsConnected)) {
         startContainerEvents();
-        // WebSocket connects asynchronously - events will queue if not connected yet
+        // Wait for WebSocket to actually connect, not a fixed delay
+        await new Promise<void>((resolve) => {
+          const unsubscribe = wsConnected.subscribe((connected) => {
+            if (connected) {
+              unsubscribe();
+              resolve();
+            }
+          });
+          // Fallback timeout if connection fails
+          setTimeout(() => {
+            unsubscribe();
+            resolve();
+          }, 2000);
+        });
       }
 
       // Set creating state
