@@ -28,7 +28,7 @@
 
     let selectedImage = "";
     let isCreating = false;
-    let selectedRole = "minimal";
+    let selectedRole = "barebone";
     let progress = 0;
     let progressMessage = "";
     let progressStage = "";

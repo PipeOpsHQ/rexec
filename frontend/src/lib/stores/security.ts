@@ -30,7 +30,8 @@ function loadPersistedSecurity(): SecurityState {
         isLocked: parsed.isLocked === true,
         lockAfterMinutes: parsed.lockAfterMinutes || 5,
         lastActivity: parsed.lastActivity || Date.now(),
-        passcodeSetupPromptDismissed: parsed.passcodeSetupPromptDismissed || false,
+        passcodeSetupPromptDismissed:
+          parsed.passcodeSetupPromptDismissed || false,
         singleSessionMode: parsed.singleSessionMode || false,
       };
     }
@@ -54,7 +55,7 @@ function createSecurityStore() {
         lastActivity: state.lastActivity,
         passcodeSetupPromptDismissed: state.passcodeSetupPromptDismissed,
         singleSessionMode: state.singleSessionMode,
-      })
+      }),
     );
   }
 
@@ -82,9 +83,12 @@ function createSecurityStore() {
       if (!res.ok) return;
       const data = await res.json();
       update((state) => {
+        // Server returned 200 OK (not 423), so session is NOT locked
+        // This fixes conflicts when localStorage has stale isLocked:true from another tab
         const newState = {
           ...state,
           enabled: !!data.enabled,
+          isLocked: false, // 200 OK means not locked; 423 is handled above
           lockAfterMinutes: data.lock_after_minutes || state.lockAfterMinutes,
           singleSessionMode: !!data.single_session_mode,
         };
@@ -93,7 +97,11 @@ function createSecurityStore() {
       });
     },
 
-    async setPasscode(newPasscode: string, currentPasscode?: string, lockAfterMinutes?: number) {
+    async setPasscode(
+      newPasscode: string,
+      currentPasscode?: string,
+      lockAfterMinutes?: number,
+    ) {
       const res = await authedFetch("/api/security/passcode", {
         method: "POST",
         body: JSON.stringify({
@@ -108,7 +116,10 @@ function createSecurityStore() {
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        return { success: false, error: data.error || "Failed to set passcode" };
+        return {
+          success: false,
+          error: data.error || "Failed to set passcode",
+        };
       }
       update((state) => {
         const newState = {
@@ -133,7 +144,10 @@ function createSecurityStore() {
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        return { success: false, error: data.error || "Failed to disable screen lock" };
+        return {
+          success: false,
+          error: data.error || "Failed to disable screen lock",
+        };
       }
       update((state) => {
         const newState = { ...state, enabled: false, isLocked: false };
@@ -154,7 +168,10 @@ function createSecurityStore() {
       }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        return { success: false, error: data.error || "Failed to update lock timeout" };
+        return {
+          success: false,
+          error: data.error || "Failed to update lock timeout",
+        };
       }
       update((state) => {
         const newState = { ...state, lockAfterMinutes: minutes };
@@ -197,7 +214,9 @@ function createSecurityStore() {
             ...currentAuth.user,
             tier: data.user?.tier ?? currentAuth.user.tier,
             isAdmin: data.user?.is_admin ?? currentAuth.user.isAdmin,
-            subscriptionActive: data.user?.subscription_active ?? currentAuth.user.subscriptionActive,
+            subscriptionActive:
+              data.user?.subscription_active ??
+              currentAuth.user.subscriptionActive,
             allowedIPs: data.user?.allowed_ips ?? currentAuth.user.allowedIPs,
             mfaEnabled: data.user?.mfa_enabled ?? currentAuth.user.mfaEnabled,
           });
@@ -218,7 +237,11 @@ function createSecurityStore() {
       }
 
       update((state) => {
-        const newState = { ...state, isLocked: false, lastActivity: Date.now() };
+        const newState = {
+          ...state,
+          isLocked: false,
+          lastActivity: Date.now(),
+        };
         persistLocal(newState);
         return newState;
       });
@@ -230,7 +253,8 @@ function createSecurityStore() {
       update((state) => {
         const newState = { ...state, lastActivity: Date.now() };
         if (typeof window !== "undefined") {
-          const lastPersist = (window as any).__rexec_last_activity_persist || 0;
+          const lastPersist =
+            (window as any).__rexec_last_activity_persist || 0;
           const now = Date.now();
           if (now - lastPersist > 30000) {
             persistLocal(newState);
@@ -257,14 +281,19 @@ function createSecurityStore() {
       });
     },
 
-    async setSingleSessionMode(enabled: boolean): Promise<{ success: boolean; error?: string }> {
+    async setSingleSessionMode(
+      enabled: boolean,
+    ): Promise<{ success: boolean; error?: string }> {
       const res = await authedFetch("/api/security/single-session", {
         method: "POST",
         body: JSON.stringify({ enabled }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        return { success: false, error: data.error || "Failed to update setting" };
+        return {
+          success: false,
+          error: data.error || "Failed to update setting",
+        };
       }
       update((state) => {
         const newState = { ...state, singleSessionMode: enabled };
@@ -294,5 +323,5 @@ export const hasPasscode = derived(security, ($security) => $security.enabled);
 export const isLocked = derived(security, ($security) => $security.isLocked);
 export const shouldPromptPasscode = derived(
   security,
-  ($security) => !$security.enabled && !$security.passcodeSetupPromptDismissed
+  ($security) => !$security.enabled && !$security.passcodeSetupPromptDismissed,
 );
