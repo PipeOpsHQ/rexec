@@ -17,8 +17,8 @@ type RoleInfo struct {
 func AvailableRoles() []RoleInfo {
 	return []RoleInfo{
 		{
-			ID:          "minimal",
-			Name:        "Minimal",
+			ID:          "barebone",
+			Name:        "Barebone",
 			Description: "Zero setup. Shell ready in under 1 second.",
 			Icon:        "⚡",
 			Packages:    []string{}, // Nothing - use base image as-is for fastest startup
@@ -89,8 +89,8 @@ func GenerateRoleScript(roleID string) (string, error) {
 		return "", fmt.Errorf("role not found: %s", roleID)
 	}
 
-	// Minimal role: no setup at all - just mark as complete immediately
-	if roleID == "minimal" {
+	// Barebone role: no setup at all - just mark as complete immediately
+	if roleID == "barebone" {
 		return `#!/bin/sh
 echo "[[REXEC_STATUS]]Setup complete."
 `, nil

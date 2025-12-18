@@ -698,9 +698,9 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 	go func(containerID, dbID, userID string, shellCfg container.ShellSetupConfig, role, imageType string) {
 		bgCtx := context.Background()
 
-		// "minimal" role: skip ALL setup for fastest possible startup
-		if role == "minimal" {
-			log.Printf("[Container] Minimal role: skipping all setup for %s", containerID[:12])
+		// "barebone" role: skip ALL setup for fastest possible startup
+		if role == "barebone" {
+			log.Printf("[Container] Barebone role: skipping all setup for %s", containerID[:12])
 			// Just detect shell and update status
 			cacheCtx, cacheCancel := context.WithTimeout(bgCtx, 10*time.Second)
 			shellPath, hasTmux := container.DetectShellAndTmux(cacheCtx, h.manager.GetClient(), containerID)
