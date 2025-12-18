@@ -1053,11 +1053,16 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				shellCached = true
 				log.Printf("[Terminal] Container configuring but shell setup complete, using %s for %s", shell, session.ContainerID[:12])
 			} else {
-				// Shell setup not complete or lookup timed out - use fast /bin/sh path
-				shell = "/bin/sh"
+				// Shell setup not complete or lookup timed out - use fast path
+				// Prefer bash for better UX (arrow keys), but fallback to sh for Alpine
+				if imageType == "alpine" || imageType == "alpine-3.18" {
+					shell = "/bin/sh"
+				} else {
+					shell = "/bin/bash"
+				}
 				hasTmux = false
 				shellCached = true
-				log.Printf("[Terminal] Container configuring, shell setup in progress, using fast /bin/sh path for %s", session.ContainerID[:12])
+				log.Printf("[Terminal] Container configuring, shell setup in progress, using fast path (%s) for %s", shell, session.ContainerID[:12])
 			}
 		} else if h.store != nil {
 			// Try to get cached shell metadata from database (only for non-configuring containers)
@@ -1075,13 +1080,17 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			dbCancel()
 		}
 
-		// Fall back to /bin/sh for immediate connection if not cached
+		// Fall back to fast path if not cached
 		// Do detection in background for future connections
 		if !shellCached {
-			// Use /bin/sh immediately for fastest connection
-			shell = "/bin/sh"
+			// Use bash if possible for better UX, otherwise sh (Alpine)
+			if imageType == "alpine" || imageType == "alpine-3.18" {
+				shell = "/bin/sh"
+			} else {
+				shell = "/bin/bash"
+			}
 			hasTmux = false
-			log.Printf("[Terminal] Using fast /bin/sh for immediate connection to %s", session.ContainerID[:12])
+			log.Printf("[Terminal] Using fast path (%s) for immediate connection to %s", shell, session.ContainerID[:12])
 
 			// Detect proper shell in background and cache for next connection
 			go func(containerID, imgType string) {
