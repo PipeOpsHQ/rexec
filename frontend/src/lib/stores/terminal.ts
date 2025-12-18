@@ -994,13 +994,13 @@ function createTerminalStore() {
                 setupMessage: setupMsg,
               }));
 
-              setTimeout(() => {
-                updateSession(sessionId, (s) => ({
-                  ...s,
-                  isSettingUp: false,
-                  setupMessage: "",
-                }));
-              }, 3000);
+              // Clear immediately - setup message auto-clears when setup completes
+              // No artificial delay needed
+              updateSession(sessionId, (s) => ({
+                ...s,
+                isSettingUp: false,
+                setupMessage: "",
+              }));
             }
 
             // Buffer larger outputs for batched writes
