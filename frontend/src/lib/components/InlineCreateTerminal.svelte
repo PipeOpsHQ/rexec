@@ -542,7 +542,8 @@
             if (
                 event.container_id &&
                 !hasDispatchedEarly &&
-                (event.stage === "configuring" ||
+                (event.stage === "starting" ||
+                    event.stage === "configuring" ||
                     event.stage === "ready" ||
                     event.complete)
             ) {

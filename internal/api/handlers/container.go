@@ -580,10 +580,22 @@ func (h *ContainerHandler) createContainerAsync(recordID string, cfg container.C
 		return
 	}
 
+	// IMMEDIATELY send container_id to frontend so terminal can connect while we do DB updates
+	// This eliminates the delay between container creation and terminal connection
+	if h.eventsHub != nil {
+		h.eventsHub.NotifyContainerProgress(userID, gin.H{
+			"id":           recordID,
+			"stage":        "starting",
+			"message":      "Container created - connecting terminal...",
+			"progress":     85,
+			"container_id": info.ID,
+		})
+	}
+
 	// Send starting progress
 	sendProgress("starting", "Starting container...", 55)
 
-	// Update the record with Docker container info
+	// Update the record with Docker container info (happens in parallel with terminal connection)
 	h.store.UpdateContainerDockerID(ctx, recordID, info.ID)
 	h.store.UpdateContainerStatus(ctx, recordID, info.Status)
 
