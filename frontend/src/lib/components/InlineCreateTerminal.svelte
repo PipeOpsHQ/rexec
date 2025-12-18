@@ -518,7 +518,8 @@
     async function createContainer() {
         if (!selectedImage || isCreating) return;
 
-        isCreating = true;
+        // Skip modal UI entirely - terminal will appear immediately when container_id arrives
+        // isCreating = true;  // Commented out to prevent modal from showing
         progress = 0;
         progressMessage = "Starting...";
         progressStage = "validating";
@@ -548,11 +549,6 @@
                     event.complete)
             ) {
                 hasDispatchedEarly = true;
-                // Close the progress modal immediately - terminal is ready
-                isCreating = false;
-                progress = 0;
-                progressMessage = "";
-                progressStage = "";
                 // Dispatch immediately so terminal can start connecting
                 dispatch("created", {
                     id: event.container_id,
