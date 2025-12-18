@@ -1359,10 +1359,7 @@ function createTerminalStore() {
             }));
           }
 
-          // Small delay to ensure container is ready
-          await new Promise((resolve) => setTimeout(resolve, 500));
-
-          // Reconnect
+          // Connect immediately - backend sends container_id as soon as it's ready
           this.connectWebSocket(sessionId);
         } else {
           console.error(
@@ -1428,17 +1425,15 @@ function createTerminalStore() {
         }));
       });
 
-      // Use setTimeout to ensure state is updated before reconnecting
-      setTimeout(() => {
-        sessionsToUpdate.forEach((sessionId) => {
-          this.connectWebSocket(sessionId);
-        });
+      // Connect immediately - state updates are synchronous
+      sessionsToUpdate.forEach((sessionId) => {
+        this.connectWebSocket(sessionId);
+      });
 
-        // Reconnect split panes
-        splitPanesToReconnect.forEach(({ sessionId, paneId }) => {
-          this.connectSplitPaneWebSocket(sessionId, paneId);
-        });
-      }, 100);
+      // Reconnect split panes
+      splitPanesToReconnect.forEach(({ sessionId, paneId }) => {
+        this.connectSplitPaneWebSocket(sessionId, paneId);
+      });
     },
 
     // Close a session
