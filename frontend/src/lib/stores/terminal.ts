@@ -1030,8 +1030,10 @@ function createTerminalStore() {
               isSettingUp: false,
               setupMessage: "",
             }));
-          } else if (msg.type === "shell_ready") {
+          } else if (msg.type === "shell_ready" || msg.type === "shell_started") {
             // Shell is now ready for input - update status to connected
+            // shell_ready: sent by container terminals after exec attach
+            // shell_started: sent by agent terminals after PTY is ready
             updateSession(sessionId, (s) => ({
               ...s,
               status: "connected",
@@ -2402,8 +2404,10 @@ function createTerminalStore() {
             pane.terminal.writeln(`\r\n\x1b[31mError: ${msg.data}\x1b[0m`);
           } else if (msg.type === "ping") {
             ws.send(JSON.stringify({ type: "pong" }));
-          } else if (msg.type === "shell_ready") {
+          } else if (msg.type === "shell_ready" || msg.type === "shell_started") {
             // Shell is now ready for input - update status to connected
+            // shell_ready: sent by container terminals after exec attach
+            // shell_started: sent by agent terminals after PTY is ready
             updateSession(sessionId, (s) => {
               const newPanes = new Map(s.splitPanes);
               const p = newPanes.get(paneId);
