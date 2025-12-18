@@ -518,8 +518,8 @@
     async function createContainer() {
         if (!selectedImage || isCreating) return;
 
-        // Skip modal UI entirely - terminal will appear immediately when container_id arrives
-        // isCreating = true;  // Commented out to prevent modal from showing
+        // Show progress UI while container is being created
+        isCreating = true;
         progress = 0;
         progressMessage = "Starting...";
         progressStage = "validating";
