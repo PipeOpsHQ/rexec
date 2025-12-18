@@ -765,9 +765,9 @@ function createTerminalStore() {
         const currentState = getState().sessions.get(sessionId);
         const isReconnect = currentState?.hasConnectedOnce === true;
 
+        // Don't set status to "connected" yet - wait for shell_ready message
         updateSession(sessionId, (s) => ({
           ...s,
-          status: "connected",
           reconnectAttempts: 0,
           hasConnectedOnce: true,
         }));
@@ -1029,6 +1029,12 @@ function createTerminalStore() {
               ...s,
               isSettingUp: false,
               setupMessage: "",
+            }));
+          } else if (msg.type === "shell_ready") {
+            // Shell is now ready for input - update status to connected
+            updateSession(sessionId, (s) => ({
+              ...s,
+              status: "connected",
             }));
           } else if (msg.type === "stats") {
             // Handle stats updates
@@ -2280,12 +2286,13 @@ function createTerminalStore() {
       const ws = createRexecWebSocket(wsUrl, authToken);
 
       ws.onopen = () => {
-        // Reset reconnect attempts and update status on successful connection
+        // Don't set status to "connected" yet - wait for shell_ready message
+        // Reset reconnect attempts on successful connection
         updateSession(sessionId, (s) => {
           const newPanes = new Map(s.splitPanes);
           const p = newPanes.get(paneId);
           if (p) {
-            newPanes.set(paneId, { ...p, status: "connected", reconnectAttempts: 0 });
+            newPanes.set(paneId, { ...p, reconnectAttempts: 0 });
           }
           return { ...s, splitPanes: newPanes };
         });
@@ -2395,6 +2402,16 @@ function createTerminalStore() {
             pane.terminal.writeln(`\r\n\x1b[31mError: ${msg.data}\x1b[0m`);
           } else if (msg.type === "ping") {
             ws.send(JSON.stringify({ type: "pong" }));
+          } else if (msg.type === "shell_ready") {
+            // Shell is now ready for input - update status to connected
+            updateSession(sessionId, (s) => {
+              const newPanes = new Map(s.splitPanes);
+              const p = newPanes.get(paneId);
+              if (p) {
+                newPanes.set(paneId, { ...p, status: "connected" });
+              }
+              return { ...s, splitPanes: newPanes };
+            });
           }
         } catch {
           outputBuffer += eventData;
