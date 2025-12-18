@@ -1110,11 +1110,24 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			}(session.ContainerID, imageType)
 		}
 
-		// Check for user preference via label (disable tmux if requested)
+		// Check for user preference via label
 		if info, ok := h.containerManager.GetContainer(session.ContainerID); ok {
-			if val, ok := info.Labels["rexec.use_tmux"]; ok && val == "false" {
-				hasTmux = false
-				log.Printf("[Terminal] tmux disabled by user preference for %s", session.ContainerID[:12])
+			if val, ok := info.Labels["rexec.use_tmux"]; ok {
+				if val == "false" {
+					hasTmux = false
+					log.Printf("[Terminal] tmux disabled by user preference for %s", session.ContainerID[:12])
+				} else if val == "true" && !hasTmux {
+					// User explicitly enabled tmux but hasTmux is false (fast path or not cached)
+					// Quick check if tmux actually exists in the container
+					checkCtx, checkCancel := context.WithTimeout(ctx, 500*time.Millisecond)
+					if h.commandExists(checkCtx, session.ContainerID, "tmux") {
+						hasTmux = true
+						log.Printf("[Terminal] tmux enabled by user preference for %s", session.ContainerID[:12])
+					} else {
+						log.Printf("[Terminal] tmux requested but not available in container %s", session.ContainerID[:12])
+					}
+					checkCancel()
+				}
 			}
 		}
 
