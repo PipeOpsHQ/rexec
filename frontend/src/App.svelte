@@ -11,6 +11,7 @@
     import { collab } from "$stores/collab";
     import { theme } from "$stores/theme";
     import { syncCanonicalTags, syncSocialImageTags } from "$utils/seo";
+    import { preloadXterm } from "$utils/xterm";
 
     // Components (eager)
     import Header from "$components/Header.svelte";
@@ -29,6 +30,8 @@
     async function ensureTerminalStore() {
         if (terminalStoreModule) return terminalStoreModule;
         if (!terminalStorePromise) {
+            // Preload xterm modules in parallel with terminal store load
+            preloadXterm();
             terminalStorePromise = import("$stores/terminal")
                 .then((mod) => {
                     terminalStoreModule = mod;
@@ -250,21 +253,27 @@
     const seoConfig: Record<string, PageSEO> = {
         landing: {
             title: "Rexec - Terminal as a Service | Instant Linux Terminals",
-            description: "Launch secure Linux terminals instantly in your browser. No setup required. Choose from Ubuntu, Debian, Alpine, and more. Perfect for developers, learning, and testing.",
-            keywords: "terminal, linux, cloud terminal, web terminal, ubuntu, debian, docker, containers, developer tools",
+            description:
+                "Launch secure Linux terminals instantly in your browser. No setup required. Choose from Ubuntu, Debian, Alpine, and more. Perfect for developers, learning, and testing.",
+            keywords:
+                "terminal, linux, cloud terminal, web terminal, ubuntu, debian, docker, containers, developer tools",
         },
         promo: {
             title: "Rexec - The Future of Cloud Terminals",
-            description: "Experience the next generation of cloud terminals. Instant access to powerful Linux environments with no setup required.",
+            description:
+                "Experience the next generation of cloud terminals. Instant access to powerful Linux environments with no setup required.",
         },
         launch: {
             title: "Rexec Launch - Terminal as a Service | Cloud Terminals & Secure Agent",
-            description: "Instant cloud terminals for developers. Safely run AI-generated code, access servers without SSH exposure, and spin up dev environments in seconds. Try free today.",
-            keywords: "terminal as a service, cloud terminal, AI code execution, secure jump box, developer tools, linux terminal, docker containers, remote server access",
+            description:
+                "Instant cloud terminals for developers. Safely run AI-generated code, access servers without SSH exposure, and spin up dev environments in seconds. Try free today.",
+            keywords:
+                "terminal as a service, cloud terminal, AI code execution, secure jump box, developer tools, linux terminal, docker containers, remote server access",
         },
         dashboard: {
             title: "Dashboard - Rexec",
-            description: "Manage your cloud terminals and containers. Create, monitor, and control your Linux environments.",
+            description:
+                "Manage your cloud terminals and containers. Create, monitor, and control your Linux environments.",
             robots: "noindex, nofollow",
         },
         admin: {
@@ -274,8 +283,10 @@
         },
         pricing: {
             title: "Pricing - Rexec | Simple, Transparent Plans",
-            description: "Simple, transparent pricing for instant Linux terminals. Free tier available. Scale your infrastructure as you grow with Pro and Enterprise plans.",
-            keywords: "pricing, plans, cloud terminal pricing, linux terminal cost",
+            description:
+                "Simple, transparent pricing for instant Linux terminals. Free tier available. Scale your infrastructure as you grow with Pro and Enterprise plans.",
+            keywords:
+                "pricing, plans, cloud terminal pricing, linux terminal cost",
         },
         billing: {
             title: "Billing - Rexec",
@@ -284,13 +295,17 @@
         },
         guides: {
             title: "Guides & Tutorials - Rexec",
-            description: "Learn how to use Rexec with AI tools like Claude, ChatGPT, and GitHub Copilot. Step-by-step tutorials for terminal automation.",
-            keywords: "tutorials, guides, AI tools, Claude, ChatGPT, terminal automation",
+            description:
+                "Learn how to use Rexec with AI tools like Claude, ChatGPT, and GitHub Copilot. Step-by-step tutorials for terminal automation.",
+            keywords:
+                "tutorials, guides, AI tools, Claude, ChatGPT, terminal automation",
         },
         "use-cases": {
             title: "Use Cases - Rexec | Terminal as a Service",
-            description: "Discover how developers, teams, and enterprises use Rexec for development, testing, training, and AI agent workflows.",
-            keywords: "use cases, agentic, AI agents, development, testing, training",
+            description:
+                "Discover how developers, teams, and enterprises use Rexec for development, testing, training, and AI agent workflows.",
+            keywords:
+                "use cases, agentic, AI agents, development, testing, training",
         },
         "use-case-detail": {
             title: "Use Case - Rexec",
@@ -298,37 +313,45 @@
         },
         docs: {
             title: "Documentation - Rexec",
-            description: "Complete documentation for Rexec. Learn about features, security, API, CLI, and agent integration.",
+            description:
+                "Complete documentation for Rexec. Learn about features, security, API, CLI, and agent integration.",
             keywords: "documentation, docs, API, CLI, agent, security",
         },
         "cli-docs": {
             title: "CLI Documentation - Rexec",
-            description: "Install and use the Rexec CLI for terminal access from your command line. SSH, exec, and manage containers.",
+            description:
+                "Install and use the Rexec CLI for terminal access from your command line. SSH, exec, and manage containers.",
             keywords: "CLI, command line, terminal, SSH, rexec-cli",
         },
         "agent-docs": {
             title: "Agent Documentation - Rexec",
-            description: "Connect your own servers to Rexec with the agent. Bring your own server (BYOS) for terminal access anywhere.",
-            keywords: "agent, BYOS, bring your own server, remote terminal, rexec-agent",
+            description:
+                "Connect your own servers to Rexec with the agent. Bring your own server (BYOS) for terminal access anywhere.",
+            keywords:
+                "agent, BYOS, bring your own server, remote terminal, rexec-agent",
         },
         marketplace: {
             title: "Marketplace - Rexec",
-            description: "Browse and use pre-built terminal environments and configurations shared by the community.",
+            description:
+                "Browse and use pre-built terminal environments and configurations shared by the community.",
             keywords: "marketplace, templates, environments, community",
         },
         snippets: {
             title: "Snippets - Rexec",
-            description: "Manage your command snippets. Save, organize, and quickly execute frequently used commands.",
+            description:
+                "Manage your command snippets. Save, organize, and quickly execute frequently used commands.",
             robots: "noindex, nofollow",
         },
         account: {
             title: "Account - Rexec",
-            description: "Manage your Rexec account settings, profile, and preferences.",
+            description:
+                "Manage your Rexec account settings, profile, and preferences.",
             robots: "noindex, nofollow",
         },
         "account-settings": {
             title: "Settings - Rexec",
-            description: "Configure your Rexec account settings, MFA, and connected agents.",
+            description:
+                "Configure your Rexec account settings, MFA, and connected agents.",
             robots: "noindex, nofollow",
         },
         "account-ssh": {
@@ -353,7 +376,8 @@
         },
         "account-api": {
             title: "API Tokens - Rexec",
-            description: "Manage your API tokens for CLI and programmatic access.",
+            description:
+                "Manage your API tokens for CLI and programmatic access.",
             robots: "noindex, nofollow",
         },
         settings: {
@@ -368,7 +392,8 @@
         },
         create: {
             title: "Create Terminal - Rexec",
-            description: "Create a new cloud terminal. Choose from Ubuntu, Debian, Alpine, Kali, and more.",
+            description:
+                "Create a new cloud terminal. Choose from Ubuntu, Debian, Alpine, Kali, and more.",
             robots: "noindex, nofollow",
         },
         join: {
@@ -411,23 +436,23 @@
     // Explicit function to update SEO - can be called after route changes
     function updateSEO(view: string) {
         if (typeof document === "undefined") return;
-        
+
         const seo = seoConfig[view] || seoConfig.landing;
-        
+
         // Update title
         document.title = seo.title;
-        
+
         // Update description
         updateMeta("description", seo.description);
-        
+
         // Update robots
         updateMeta("robots", seo.robots || "index, follow");
-        
+
         // Update keywords if provided
         if (seo.keywords) {
             updateMeta("keywords", seo.keywords);
         }
-        
+
         // Update Open Graph tags (content-specific fields)
         updateOGMeta("og:title", seo.ogTitle || seo.title);
         updateOGMeta("og:description", seo.description);
@@ -435,7 +460,7 @@
         // Update Twitter tags (content-specific fields)
         updateMeta("twitter:title", seo.ogTitle || seo.title);
         updateMeta("twitter:description", seo.description);
-        
+
         const pathname =
             typeof window !== "undefined" ? window.location.pathname : "/";
         syncCanonicalTags(pathname);
@@ -553,7 +578,7 @@
                 };
 
                 auth.login(token, user);
-                
+
                 // Check for CLI callback - redirect with token
                 const cliCallback = localStorage.getItem("cli_callback");
                 if (cliCallback) {
@@ -561,7 +586,7 @@
                     window.location.href = `${cliCallback}?token=${encodeURIComponent(token)}`;
                     return;
                 }
-                
+
                 currentView = "dashboard";
                 containers.fetchContainers();
                 toast.success(`Welcome, ${user.name}!`);
@@ -579,7 +604,9 @@
         try {
             const authToken = get(token);
             const response = await fetch(`/api/agents/${agentId}/status`, {
-                headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+                headers: authToken
+                    ? { Authorization: `Bearer ${authToken}` }
+                    : {},
             });
             if (response.ok) {
                 const status = await response.json();
@@ -662,7 +689,9 @@
 
         // Check for /billing/cancel route (Stripe checkout cancelled)
         if (path === "/billing/cancel") {
-            toast.info("Checkout cancelled. No changes were made to your plan.");
+            toast.info(
+                "Checkout cancelled. No changes were made to your plan.",
+            );
             window.history.replaceState({}, "", "/billing");
             if (get(isAuthenticated)) {
                 currentView = "billing";
@@ -899,7 +928,7 @@
         if (match && get(isAuthenticated)) {
             // Preload terminal assets for instant load
             preloadComponent("terminalView");
-            import("$utils/xterm").then(mod => mod.loadXtermCore());
+            import("$utils/xterm").then((mod) => mod.loadXtermCore());
 
             const containerId = match[1];
             // Fetch container info and create session - TerminalPanel handles WebSocket
@@ -1065,7 +1094,7 @@
                     // Fetch containers for authenticated users
                     await containers.fetchContainers();
                     startAutoRefresh(); // Start polling for container updates
-                    
+
                     // Refresh security state
                     import("$stores/security").then(({ security }) => {
                         security.refreshFromServer();
@@ -1112,12 +1141,13 @@
         startAutoRefresh(); // Start polling when authenticated
     }
 
-        $: if (isInitialized && !$isAuthenticated && 
-
-               currentView !== "landing" && 
-               currentView !== "launch" &&
-               currentView !== "promo" &&
-               currentView !== "guides" && 
+    $: if (
+        isInitialized &&
+        !$isAuthenticated &&
+        currentView !== "landing" &&
+        currentView !== "launch" &&
+        currentView !== "promo" &&
+        currentView !== "guides" &&
         currentView !== "use-cases" &&
         currentView !== "use-case-detail" &&
         currentView !== "marketplace" &&
@@ -1266,7 +1296,10 @@
             if ($isAuthenticated) {
                 if (path === "/account/settings") {
                     currentView = "account-settings";
-                } else if (path === "/account/ssh" || path === "/account/sshkeys") {
+                } else if (
+                    path === "/account/ssh" ||
+                    path === "/account/sshkeys"
+                ) {
                     currentView = "account-ssh";
                 } else if (path === "/account/billing") {
                     currentView = "account-billing";
@@ -1274,7 +1307,10 @@
                     currentView = "account-snippets";
                 } else if (path === "/account/recordings") {
                     currentView = "account-recordings";
-                } else if (path === "/account/api" || path === "/account/tokens") {
+                } else if (
+                    path === "/account/api" ||
+                    path === "/account/tokens"
+                ) {
                     currentView = "account-api";
                 } else {
                     currentView = "account";
@@ -1284,7 +1320,9 @@
             }
         } else if (path === "/profile") {
             currentView = $isAuthenticated ? "account" : "landing";
-        } else if (path.match(/^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i)) {
+        } else if (
+            path.match(/^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i)
+        ) {
             currentView = $isAuthenticated ? "dashboard" : "landing";
         } else if (path === "/marketplace") {
             currentView = "marketplace";
@@ -1294,7 +1332,8 @@
     // Preload view components when needed (keeps landing bundle small)
     $: if (hasTerminalSessions) preloadComponent("terminalView");
     $: if ($isAuthenticated) preloadComponent("screenLock");
-    $: if (showPricing || currentView === "pricing") preloadComponent("pricing");
+    $: if (showPricing || currentView === "pricing")
+        preloadComponent("pricing");
 
     $: {
         switch (currentView) {
@@ -1302,7 +1341,7 @@
                 preloadComponent("dashboard");
                 // Preload terminal assets for instant open
                 preloadComponent("terminalView");
-                import("$utils/xterm").then(mod => mod.loadXtermCore());
+                import("$utils/xterm").then((mod) => mod.loadXtermCore());
                 break;
             case "admin":
                 preloadComponent("adminDashboard");
@@ -1311,7 +1350,7 @@
                 preloadComponent("createTerminal");
                 // Preload terminal assets
                 preloadComponent("terminalView");
-                import("$utils/xterm").then(mod => mod.loadXtermCore());
+                import("$utils/xterm").then((mod) => mod.loadXtermCore());
                 break;
             case "settings":
                 preloadComponent("settings");
@@ -1439,11 +1478,20 @@
                         on:create={goToCreate}
                         on:connect={(e) => {
                             if (e.detail.id.startsWith("agent:")) {
-                                const agentId = e.detail.id.replace("agent:", "");
-                                void openTerminalForAgent(agentId, e.detail.name);
+                                const agentId = e.detail.id.replace(
+                                    "agent:",
+                                    "",
+                                );
+                                void openTerminalForAgent(
+                                    agentId,
+                                    e.detail.name,
+                                );
                                 return;
                             }
-                            void openTerminalForContainer(e.detail.id, e.detail.name);
+                            void openTerminalForContainer(
+                                e.detail.id,
+                                e.detail.name,
+                            );
                         }}
                         on:showAgentDocs={goToAgents}
                     />
@@ -1600,7 +1648,11 @@
                                 );
                             } else if (view === "sshkeys") {
                                 currentView = "account-ssh";
-                                window.history.pushState({}, "", "/account/ssh");
+                                window.history.pushState(
+                                    {},
+                                    "",
+                                    "/account/ssh",
+                                );
                             } else if (view === "billing") {
                                 currentView = "account-billing";
                                 window.history.pushState(
@@ -1763,7 +1815,9 @@
                             if (view === "dashboard") goToDashboard();
                         }}
                     >
-                        <svelte:component this={lazyComponents.recordingsPage} />
+                        <svelte:component
+                            this={lazyComponents.recordingsPage}
+                        />
                     </svelte:component>
                 {:else}
                     <div class="view-loading">Loading...</div>
@@ -1864,7 +1918,10 @@
                 {/if}
             {:else if currentView === "pricing"}
                 {#if lazyComponents.pricing}
-                    <svelte:component this={lazyComponents.pricing} mode="page" />
+                    <svelte:component
+                        this={lazyComponents.pricing}
+                        mode="page"
+                    />
                 {:else}
                     <div class="view-loading">Loading...</div>
                 {/if}

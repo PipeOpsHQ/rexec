@@ -529,6 +529,7 @@ function createTerminalStore() {
     },
 
     // Create a new tab (always creates a new session, even for same container)
+    // OPTIMIZED: Starts WebSocket connection in parallel with xterm loading for instant terminal access
     async createNewTab(
       containerId: string,
       name: string,
@@ -554,60 +555,20 @@ function createTerminalStore() {
         (s) => s.containerId === containerId,
       ).length;
 
-      // Create terminal instance
-      let XtermTerminal: (typeof import("@xterm/xterm"))["Terminal"];
-      let XtermFitAddon: (typeof import("@xterm/addon-fit"))["FitAddon"];
-      let XtermUnicode11Addon: (typeof import("@xterm/addon-unicode11"))["Unicode11Addon"];
-      let XtermWebLinksAddon: (typeof import("@xterm/addon-web-links"))["WebLinksAddon"];
-      try {
-        ({
-          Terminal: XtermTerminal,
-          FitAddon: XtermFitAddon,
-          Unicode11Addon: XtermUnicode11Addon,
-          WebLinksAddon: XtermWebLinksAddon,
-        } = await loadXtermCore());
-      } catch (e) {
-        console.error("[Terminal] Failed to load xterm:", e);
-        toast.error("Failed to load terminal. Please refresh and try again.");
-        return null;
-      }
-      let terminal: Terminal;
-      let fitAddon: FitAddon;
-      try {
-        // Ensure we use the current theme state, not the module-load-time state
-        const currentOptions = {
-          ...TERMINAL_OPTIONS,
-          theme: getCurrentTerminalTheme(),
-        };
-        terminal = new XtermTerminal(currentOptions);
-        fitAddon = new XtermFitAddon();
-        terminal.loadAddon(fitAddon);
-        terminal.loadAddon(new XtermWebLinksAddon());
-        // Unicode11 addon for proper Unicode character widths (emojis, CJK, etc.)
-        const unicode11Addon = new XtermUnicode11Addon();
-        terminal.loadAddon(unicode11Addon);
-        terminal.unicode.activeVersion = "11";
-
-        // Attach custom key handler (browser overrides + macOS mapping)
-        terminal.attachCustomKeyEventHandler(createCustomKeyHandler(terminal));
-      } catch (e) {
-        console.error("[Terminal] Failed to initialize terminal:", e);
-        toast.error("Failed to initialize terminal. Please try again.");
-        return null;
-      }
-
-      // WebGL addon will be loaded after terminal is attached to DOM
-
+      // Generate session ID immediately so we can start WebSocket connection in parallel
       const sessionId = generateSessionId();
       const tabName =
         existingCount > 0 ? `${validName} (${existingCount + 1})` : validName;
+
+      // Create session placeholder with null terminal - will be populated after xterm loads
+      // This allows WebSocket to connect immediately while xterm loads in parallel
       const session: TerminalSession = {
         id: sessionId,
         containerId,
         name: tabName,
-        terminal,
-        fitAddon,
-        webglAddon: null, // Will be set when attached to DOM
+        terminal: null as unknown as Terminal, // Temporarily null, set after xterm loads
+        fitAddon: null as unknown as FitAddon, // Temporarily null, set after xterm loads
+        webglAddon: null,
         ws: null,
         status: "connecting",
         reconnectAttempts: 0,
@@ -642,8 +603,8 @@ function createTerminalStore() {
         activePaneId: null,
       };
 
+      // Add session to state immediately so UI updates
       update((state) => {
-        // Create a new Map to ensure Svelte reactivity
         const newSessions = new Map(state.sessions);
         newSessions.set(sessionId, session);
         return {
@@ -654,12 +615,82 @@ function createTerminalStore() {
         };
       });
 
-      // Connect WebSocket immediately - don't wait for component mount
-      // This starts the connection while xterm is still being attached to DOM
-      this.connectWebSocket(sessionId);
-
-      // Update URL to reflect active terminal
+      // Update URL immediately
       this.updateUrl(containerId);
+
+      // Start WebSocket connection AND xterm loading in parallel
+      // WebSocket connects immediately; xterm loads in background
+      const connectWebSocketAsync = () => {
+        // Connect WebSocket immediately - messages will be buffered until terminal is ready
+        this.connectWebSocket(sessionId);
+      };
+
+      const loadXtermAsync = async () => {
+        // Load xterm modules
+        let XtermTerminal: (typeof import("@xterm/xterm"))["Terminal"];
+        let XtermFitAddon: (typeof import("@xterm/addon-fit"))["FitAddon"];
+        let XtermUnicode11Addon: (typeof import("@xterm/addon-unicode11"))["Unicode11Addon"];
+        let XtermWebLinksAddon: (typeof import("@xterm/addon-web-links"))["WebLinksAddon"];
+        try {
+          ({
+            Terminal: XtermTerminal,
+            FitAddon: XtermFitAddon,
+            Unicode11Addon: XtermUnicode11Addon,
+            WebLinksAddon: XtermWebLinksAddon,
+          } = await loadXtermCore());
+        } catch (e) {
+          console.error("[Terminal] Failed to load xterm:", e);
+          toast.error("Failed to load terminal. Please refresh and try again.");
+          // Close the session on failure
+          this.closeSession(sessionId);
+          return false;
+        }
+
+        let terminal: Terminal;
+        let fitAddon: FitAddon;
+        try {
+          // Ensure we use the current theme state, not the module-load-time state
+          const currentOptions = {
+            ...TERMINAL_OPTIONS,
+            theme: getCurrentTerminalTheme(),
+          };
+          terminal = new XtermTerminal(currentOptions);
+          fitAddon = new XtermFitAddon();
+          terminal.loadAddon(fitAddon);
+          terminal.loadAddon(new XtermWebLinksAddon());
+          // Unicode11 addon for proper Unicode character widths (emojis, CJK, etc.)
+          const unicode11Addon = new XtermUnicode11Addon();
+          terminal.loadAddon(unicode11Addon);
+          terminal.unicode.activeVersion = "11";
+
+          // Attach custom key handler (browser overrides + macOS mapping)
+          terminal.attachCustomKeyEventHandler(
+            createCustomKeyHandler(terminal),
+          );
+        } catch (e) {
+          console.error("[Terminal] Failed to initialize terminal:", e);
+          toast.error("Failed to initialize terminal. Please try again.");
+          this.closeSession(sessionId);
+          return false;
+        }
+
+        // Update session with the real terminal and fitAddon
+        updateSession(sessionId, (s) => ({
+          ...s,
+          terminal,
+          fitAddon,
+        }));
+
+        return true;
+      };
+
+      // Start both operations in parallel - WebSocket first (instant), then xterm (may take time)
+      connectWebSocketAsync();
+
+      // Load xterm in background - don't await here to return sessionId immediately
+      loadXtermAsync().catch((e) => {
+        console.error("[Terminal] Xterm load failed:", e);
+      });
 
       return sessionId;
     },
@@ -726,6 +757,7 @@ function createTerminalStore() {
     },
 
     // Connect WebSocket for a session
+    // OPTIMIZED: Handles case where terminal may not be loaded yet (parallel loading)
     connectWebSocket(sessionId: string) {
       const state = getState();
       const session = state.sessions.get(sessionId);
@@ -764,10 +796,33 @@ function createTerminalStore() {
 
       updateSession(sessionId, (s) => ({ ...s, ws, status: "connecting" }));
 
+      // Helper to get current session state (terminal may be loaded after WS connects)
+      const getCurrentSession = () => getState().sessions.get(sessionId);
+
+      // Helper to wait for terminal to be ready (with timeout)
+      const waitForTerminal = (
+        callback: (terminal: Terminal) => void,
+        maxWait = 5000,
+      ) => {
+        const startTime = Date.now();
+        const check = () => {
+          const currentSession = getCurrentSession();
+          if (currentSession?.terminal) {
+            callback(currentSession.terminal);
+          } else if (Date.now() - startTime < maxWait) {
+            // Check again in 50ms
+            setTimeout(check, 50);
+          } else {
+            console.warn("[Terminal] Timeout waiting for terminal to be ready");
+          }
+        };
+        check();
+      };
+
       ws.onopen = () => {
         // Check if this is a reconnect (hasConnectedOnce tracks if we've ever connected)
-        const currentState = getState().sessions.get(sessionId);
-        const isReconnect = currentState?.hasConnectedOnce === true;
+        const currentSession = getCurrentSession();
+        const isReconnect = currentSession?.hasConnectedOnce === true;
 
         // Set to connected immediately - shell setup happens in background
         updateSession(sessionId, (s) => ({
@@ -777,39 +832,58 @@ function createTerminalStore() {
           hasConnectedOnce: true,
         }));
 
-        // Fit terminal first to get accurate dimensions
-        try {
-          session.fitAddon.fit();
-        } catch (e) {
-          // Ignore fit errors on initial connection
-        }
+        // Wait for terminal to be ready, then do terminal-specific initialization
+        waitForTerminal((terminal) => {
+          const sess = getCurrentSession();
+          if (!sess) return;
 
-        // Send resize with correct dimensions
-        ws.send(
-          JSON.stringify({
-            type: "resize",
-            cols: session.terminal.cols,
-            rows: session.terminal.rows,
-          }),
-        );
+          // Fit terminal first to get accurate dimensions
+          try {
+            sess.fitAddon?.fit();
+          } catch (e) {
+            // Ignore fit errors on initial connection
+          }
 
-        if (isReconnect) {
-          // On reconnect, don't clear/reset - just send Ctrl+L to refresh the display
-          // This preserves TUI apps like opencode that are running in tmux
-          session.terminal.writeln("\r\n\x1b[32m› Reconnected\x1b[0m\r\n");
-          // Send Ctrl+L (form feed) to trigger a screen redraw in tmux/shell
-          ws.send(JSON.stringify({ type: "input", data: "\x0c" }));
-        } else {
-          // First connect - clear terminal and show banner
-          session.terminal.clear();
-          // Reset terminal state: clear screen, reset attributes, show cursor
-          session.terminal.write("\x1b[0m\x1b[?25h\x1b[H\x1b[2J");
-          session.terminal.write(REXEC_BANNER);
-          session.terminal.writeln("\x1b[32m› Connected\x1b[0m");
-          session.terminal.writeln(
-            "\x1b[38;5;243m  Type 'help' for tips & shortcuts · Ctrl+C to interrupt\x1b[0m",
+          // Send resize with correct dimensions
+          ws.send(
+            JSON.stringify({
+              type: "resize",
+              cols: terminal.cols || 80,
+              rows: terminal.rows || 24,
+            }),
           );
-          // Don't show "Starting shell..." here - wait for backend to send shell_starting message
+
+          if (isReconnect) {
+            // On reconnect, don't clear/reset - just send Ctrl+L to refresh the display
+            // This preserves TUI apps like opencode that are running in tmux
+            terminal.writeln("\r\n\x1b[32m› Reconnected\x1b[0m\r\n");
+            // Send Ctrl+L (form feed) to trigger a screen redraw in tmux/shell
+            ws.send(JSON.stringify({ type: "input", data: "\x0c" }));
+          } else {
+            // First connect - clear terminal and show banner
+            terminal.clear();
+            // Reset terminal state: clear screen, reset attributes, show cursor
+            terminal.write("\x1b[0m\x1b[?25h\x1b[H\x1b[2J");
+            terminal.write(REXEC_BANNER);
+            terminal.writeln("\x1b[32m› Connected\x1b[0m");
+            terminal.writeln(
+              "\x1b[38;5;243m  Type 'help' for tips & shortcuts · Ctrl+C to interrupt\x1b[0m",
+            );
+            // Don't show "Starting shell..." here - wait for backend to send shell_starting message
+          }
+        });
+
+        // Send default resize immediately even if terminal isn't ready
+        // (ensures backend doesn't hang waiting for resize)
+        const sess = getCurrentSession();
+        if (!sess?.terminal) {
+          ws.send(
+            JSON.stringify({
+              type: "resize",
+              cols: 80,
+              rows: 24,
+            }),
+          );
         }
 
         // Setup ping interval
@@ -823,6 +897,7 @@ function createTerminalStore() {
       };
 
       // Output buffer for batching writes - optimized for smooth rendering
+      // Also buffers output when terminal isn't ready yet
       let outputBuffer = "";
       let flushTimeout: ReturnType<typeof setTimeout> | null = null;
       let rafId: number | null = null;
@@ -836,35 +911,44 @@ function createTerminalStore() {
 
       // Immediate write for small, interactive output (like keystrokes)
       const writeImmediate = (data: string) => {
-        if (session.terminal) {
+        const currentSession = getCurrentSession();
+        if (currentSession?.terminal) {
           // Clear "Starting shell..." on first output
           if (!hasReceivedFirstOutput) {
             hasReceivedFirstOutput = true;
             // Clear line and move to start, then write newline
-            session.terminal.write("\r\x1b[K\r\n");
+            currentSession.terminal.write("\r\x1b[K\r\n");
           }
           const sanitized = sanitizeOutput(data);
           if (sanitized) {
-            session.terminal.write(sanitized);
+            currentSession.terminal.write(sanitized);
           }
+        } else {
+          // Terminal not ready - buffer the data
+          outputBuffer += data;
         }
       };
 
       // Flush buffer using requestAnimationFrame for smooth rendering
       const flushBuffer = () => {
-        if (outputBuffer && session.terminal) {
+        const currentSession = getCurrentSession();
+        if (outputBuffer && currentSession?.terminal) {
           // Clear "Starting shell..." on first output
           if (!hasReceivedFirstOutput) {
             hasReceivedFirstOutput = true;
             // Clear line and move to start, then write newline
-            session.terminal.write("\r\x1b[K\r\n");
+            currentSession.terminal.write("\r\x1b[K\r\n");
           }
           const sanitized = sanitizeOutput(outputBuffer);
           if (sanitized) {
-            session.terminal.write(sanitized);
+            currentSession.terminal.write(sanitized);
           }
           outputBuffer = "";
           lastFlushTime = performance.now();
+        } else if (outputBuffer && !currentSession?.terminal) {
+          // Terminal still not ready - reschedule flush
+          setTimeout(flushBuffer, 50);
+          return;
         }
         flushTimeout = null;
         rafId = null;
@@ -928,8 +1012,11 @@ function createTerminalStore() {
                 }));
 
                 // Auto-reload: send Enter to get a fresh prompt with tools loaded
-                const currentSession = getState().sessions.get(sessionId);
-                if (currentSession?.ws?.readyState === WebSocket.OPEN) {
+                const currentSession = getCurrentSession();
+                if (
+                  currentSession?.ws?.readyState === WebSocket.OPEN &&
+                  currentSession.terminal
+                ) {
                   // Clear terminal and show refreshed state
                   currentSession.terminal.writeln(
                     "\r\n\x1b[32m✓ Environment ready! Press Enter for a fresh prompt.\x1b[0m\r\n",
@@ -1017,7 +1104,12 @@ function createTerminalStore() {
               scheduleFlush();
             }
           } else if (msg.type === "error") {
-            session.terminal.writeln(`\r\n\x1b[31mError: ${msg.data}\x1b[0m`);
+            const currentSession = getCurrentSession();
+            if (currentSession?.terminal) {
+              currentSession.terminal.writeln(
+                `\r\n\x1b[31mError: ${msg.data}\x1b[0m`,
+              );
+            }
           } else if (msg.type === "ping") {
             ws.send(JSON.stringify({ type: "pong" }));
           } else if (msg.type === "setup") {
@@ -1033,7 +1125,10 @@ function createTerminalStore() {
               isSettingUp: false,
               setupMessage: "",
             }));
-          } else if (msg.type === "shell_ready" || msg.type === "shell_started") {
+          } else if (
+            msg.type === "shell_ready" ||
+            msg.type === "shell_started"
+          ) {
             // Shell is now ready for input - update status to connected
             // shell_ready: sent by container terminals after exec attach
             // shell_started: sent by agent terminals after PTY is ready
@@ -1069,42 +1164,59 @@ function createTerminalStore() {
             // This helps with multi-replica scenarios and status refresh
             const newStatus = msg.data as string;
             // Update container status in containers store if available
-            import("./containers").then(({ containers }) => {
-              // Find container by ID and update status
-              containers.update((state) => {
-                const containerIndex = state.containers.findIndex(
-                  (c) => c.id === session.containerId || c.db_id === session.containerId,
-                );
-                if (containerIndex >= 0) {
-                  const container = state.containers[containerIndex];
-                  if (container.status !== newStatus) {
-                    const updatedContainers = [...state.containers];
-                    updatedContainers[containerIndex] = {
-                      ...container,
-                      status: newStatus as any,
-                    };
-                    return { ...state, containers: updatedContainers };
+            import("./containers")
+              .then(({ containers }) => {
+                // Find container by ID and update status
+                containers.update((state) => {
+                  const containerIndex = state.containers.findIndex(
+                    (c) =>
+                      c.id === session.containerId ||
+                      c.db_id === session.containerId,
+                  );
+                  if (containerIndex >= 0) {
+                    const container = state.containers[containerIndex];
+                    if (container.status !== newStatus) {
+                      const updatedContainers = [...state.containers];
+                      updatedContainers[containerIndex] = {
+                        ...container,
+                        status: newStatus as any,
+                      };
+                      return { ...state, containers: updatedContainers };
+                    }
                   }
-                }
-                return state;
+                  return state;
+                });
+              })
+              .catch(() => {
+                // Containers store might not be loaded, ignore
               });
-            }).catch(() => {
-              // Containers store might not be loaded, ignore
-            });
           } else if (msg.type === "shell_starting") {
             // Show "Starting shell..." right before actual shell startup (sent from backend)
             // This will be cleared when first output arrives
-            session.terminal.write("\x1b[38;5;243m› Starting shell...\x1b[0m");
+            const currentSession = getCurrentSession();
+            if (currentSession?.terminal) {
+              currentSession.terminal.write(
+                "\x1b[38;5;243m› Starting shell...\x1b[0m",
+              );
+            }
           } else if (msg.type === "shell_started") {
             // Shell is ready - no action needed, output will follow
           } else if (msg.type === "shell_stopped") {
-            session.terminal.writeln(
-              "\r\n\x1b[33m› Shell session ended\x1b[0m",
-            );
+            const currentSession = getCurrentSession();
+            if (currentSession?.terminal) {
+              currentSession.terminal.writeln(
+                "\r\n\x1b[33m› Shell session ended\x1b[0m",
+              );
+            }
           } else if (msg.type === "shell_error") {
             const errorData = msg.data as { error?: string } | undefined;
             const errorMsg = errorData?.error || "Shell error";
-            session.terminal.writeln(`\r\n\x1b[31m› Error: ${errorMsg}\x1b[0m`);
+            const currentSession = getCurrentSession();
+            if (currentSession?.terminal) {
+              currentSession.terminal.writeln(
+                `\r\n\x1b[31m› Error: ${errorMsg}\x1b[0m`,
+              );
+            }
           }
         } catch {
           // Raw data fallback - also buffer this
@@ -2291,7 +2403,11 @@ function createTerminalStore() {
           const newPanes = new Map(s.splitPanes);
           const p = newPanes.get(paneId);
           if (p) {
-            newPanes.set(paneId, { ...p, status: "connected", reconnectAttempts: 0 });
+            newPanes.set(paneId, {
+              ...p,
+              status: "connected",
+              reconnectAttempts: 0,
+            });
           }
           return { ...s, splitPanes: newPanes };
         });
@@ -2401,7 +2517,10 @@ function createTerminalStore() {
             pane.terminal.writeln(`\r\n\x1b[31mError: ${msg.data}\x1b[0m`);
           } else if (msg.type === "ping") {
             ws.send(JSON.stringify({ type: "pong" }));
-          } else if (msg.type === "shell_ready" || msg.type === "shell_started") {
+          } else if (
+            msg.type === "shell_ready" ||
+            msg.type === "shell_started"
+          ) {
             // Shell is now ready for input - update status to connected
             // shell_ready: sent by container terminals after exec attach
             // shell_started: sent by agent terminals after PTY is ready
@@ -2460,7 +2579,11 @@ function createTerminalStore() {
             const newPanes = new Map(s.splitPanes);
             const p = newPanes.get(paneId);
             if (p) {
-              newPanes.set(paneId, { ...p, status: "connecting", reconnectAttempts: attemptNum });
+              newPanes.set(paneId, {
+                ...p,
+                status: "connecting",
+                reconnectAttempts: attemptNum,
+              });
             }
             return { ...s, splitPanes: newPanes };
           });
@@ -2492,7 +2615,10 @@ function createTerminalStore() {
             const newPanes = new Map(s.splitPanes);
             const p = newPanes.get(paneId);
             if (p) {
-              newPanes.set(paneId, { ...p, status: isContainerGone ? "error" : "disconnected" });
+              newPanes.set(paneId, {
+                ...p,
+                status: isContainerGone ? "error" : "disconnected",
+              });
             }
             return { ...s, splitPanes: newPanes };
           });

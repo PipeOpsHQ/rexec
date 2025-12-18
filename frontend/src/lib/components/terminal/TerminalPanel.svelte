@@ -10,39 +10,40 @@
     import SplitTerminalView from "./SplitTerminalView.svelte";
 
     export let session: TerminalSession;
-    
+
     // Check if current user is a guest in this session
     $: isGuest = session.isCollabSession === true;
-    $: isViewOnly = session.collabMode === 'view';
-    
+    $: isViewOnly = session.collabMode === "view";
+
     // Check if this session has active sharing (for pulsing indicator)
-    $: hasActiveSharing = $collab.activeSession?.containerId === session.containerId && 
-                          $collab.participants.length > 0;
+    $: hasActiveSharing =
+        $collab.activeSession?.containerId === session.containerId &&
+        $collab.participants.length > 0;
 
     const dispatch = createEventDispatcher();
 
     // Track connected status for showing brief "connected" indicator
     let showConnectedIndicator = false;
     let previousStatus = session?.status;
-    
+
     // More actions dropdown state
     let showMoreMenu = false;
     let moreButtonEl: HTMLButtonElement;
     let menuPosition = { top: 0, right: 0 };
-    
+
     function toggleMoreMenu() {
         if (!showMoreMenu && moreButtonEl) {
             const rect = moreButtonEl.getBoundingClientRect();
             menuPosition = {
                 top: rect.bottom + 4,
-                right: window.innerWidth - rect.right
+                right: window.innerWidth - rect.right,
             };
         }
         showMoreMenu = !showMoreMenu;
     }
-    
+
     // Show connected indicator briefly when status changes to connected
-    $: if (session?.status === 'connected' && previousStatus === 'connecting') {
+    $: if (session?.status === "connected" && previousStatus === "connecting") {
         showConnectedIndicator = true;
         setTimeout(() => {
             showConnectedIndicator = false;
@@ -51,21 +52,24 @@
     $: previousStatus = session?.status;
 
     // Check if recording this terminal
-    $: isRecording = $recordings.activeRecordings.get(session.containerId)?.recording || false;
+    $: isRecording =
+        $recordings.activeRecordings.get(session.containerId)?.recording ||
+        false;
 
     // Get usage color based on percentage
     function getUsageColor(percent: number): string {
-        if (percent >= 90) return '#ff4444';      // Red - critical
-        if (percent >= 75) return '#ff8800';      // Orange - warning  
-        if (percent >= 50) return '#ffcc00';      // Yellow - moderate
-        return '#44ff44';                          // Green - healthy
+        if (percent >= 90) return "#ff4444"; // Red - critical
+        if (percent >= 75) return "#ff8800"; // Orange - warning
+        if (percent >= 50) return "#ffcc00"; // Yellow - moderate
+        return "#44ff44"; // Green - healthy
     }
 
     // Calculate memory percentage
-    $: memoryPercent = session.stats.memoryLimit > 0 
-        ? (session.stats.memory / session.stats.memoryLimit) * 100 
-        : 0;
-    
+    $: memoryPercent =
+        session.stats.memoryLimit > 0
+            ? (session.stats.memory / session.stats.memoryLimit) * 100
+            : 0;
+
     // CPU is already a percentage (0-100+)
     $: cpuColor = getUsageColor(session.stats.cpu);
     $: memColor = getUsageColor(memoryPercent);
@@ -80,12 +84,12 @@
         if (session.stats.netRx !== prevNetRx) {
             netRxChanged = true;
             prevNetRx = session.stats.netRx;
-            setTimeout(() => netRxChanged = false, 500);
+            setTimeout(() => (netRxChanged = false), 500);
         }
         if (session.stats.netTx !== prevNetTx) {
             netTxChanged = true;
             prevNetTx = session.stats.netTx;
-            setTimeout(() => netTxChanged = false, 500);
+            setTimeout(() => (netTxChanged = false), 500);
         }
     }
 
@@ -114,25 +118,64 @@
         }
     }
 
+    // Wait for terminal to be loaded (supports parallel loading)
+    async function waitForTerminalAndAttach() {
+        if (!containerElement || !session) return;
+
+        // Wait up to 5 seconds for terminal to load
+        const maxWait = 5000;
+        const startTime = Date.now();
+
+        while (!session.terminal && Date.now() - startTime < maxWait) {
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            // Re-fetch session from store to get latest
+            const currentSession = $terminal.sessions.get(session.id);
+            if (currentSession?.terminal) {
+                session = currentSession;
+                break;
+            }
+        }
+
+        if (!session.terminal) {
+            console.warn("[TerminalPanel] Terminal not loaded after waiting");
+            return;
+        }
+
+        if (session.terminal.element) {
+            // Terminal already attached elsewhere, reattach to this container
+            terminal.reattachTerminal(session.id, containerElement);
+            attachedToContainer = containerElement;
+        } else {
+            // First time - attach terminal to DOM
+            terminal.attachTerminal(session.id, containerElement);
+            attachedToContainer = containerElement;
+        }
+    }
+
     onMount(async () => {
         if (containerElement && session) {
-            if (session.terminal?.element) {
-                // Terminal already exists, reattach to new container
-                terminal.reattachTerminal(session.id, containerElement);
-                attachedToContainer = containerElement;
-            } else {
-                // First time - let the store create and attach the terminal
-                terminal.attachTerminal(session.id, containerElement);
-                attachedToContainer = containerElement;
-            }
-
-            // Connect WebSocket if not already connected
+            // Connect WebSocket immediately if not already connected
+            // This happens first for instant connection (WebSocket handles buffering)
             if (
                 !session.ws ||
                 (session.ws.readyState !== WebSocket.OPEN &&
                     session.ws.readyState !== WebSocket.CONNECTING)
             ) {
                 terminal.connectWebSocket(session.id);
+            }
+
+            // Then wait for terminal and attach (may be loading in parallel)
+            if (session.terminal?.element) {
+                // Terminal already exists, reattach to new container
+                terminal.reattachTerminal(session.id, containerElement);
+                attachedToContainer = containerElement;
+            } else if (session.terminal) {
+                // Terminal loaded but not attached yet
+                terminal.attachTerminal(session.id, containerElement);
+                attachedToContainer = containerElement;
+            } else {
+                // Terminal still loading - wait for it
+                await waitForTerminalAndAttach();
             }
         }
     });
@@ -179,34 +222,47 @@
     }
 
     function handlePaste() {
-        navigator.clipboard.readText().then((text) => {
-            if (session.ws && session.ws.readyState === WebSocket.OPEN) {
-                const CHUNK_SIZE = 4096;
-                if (text.length > CHUNK_SIZE) {
-                    // Send in chunks for large pastes
-                    const chunks: string[] = [];
-                    for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-                        chunks.push(text.slice(i, i + CHUNK_SIZE));
-                    }
-                    let i = 0;
-                    const sendChunk = () => {
-                        if (i < chunks.length && session.ws?.readyState === WebSocket.OPEN) {
-                            session.ws.send(JSON.stringify({ type: "input", data: chunks[i] }));
-                            i++;
-                            if (i < chunks.length) {
-                                setTimeout(sendChunk, 10);
-                            }
+        navigator.clipboard
+            .readText()
+            .then((text) => {
+                if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+                    const CHUNK_SIZE = 4096;
+                    if (text.length > CHUNK_SIZE) {
+                        // Send in chunks for large pastes
+                        const chunks: string[] = [];
+                        for (let i = 0; i < text.length; i += CHUNK_SIZE) {
+                            chunks.push(text.slice(i, i + CHUNK_SIZE));
                         }
-                    };
-                    sendChunk();
-                } else {
-                    session.ws.send(JSON.stringify({ type: "input", data: text }));
+                        let i = 0;
+                        const sendChunk = () => {
+                            if (
+                                i < chunks.length &&
+                                session.ws?.readyState === WebSocket.OPEN
+                            ) {
+                                session.ws.send(
+                                    JSON.stringify({
+                                        type: "input",
+                                        data: chunks[i],
+                                    }),
+                                );
+                                i++;
+                                if (i < chunks.length) {
+                                    setTimeout(sendChunk, 10);
+                                }
+                            }
+                        };
+                        sendChunk();
+                    } else {
+                        session.ws.send(
+                            JSON.stringify({ type: "input", data: text }),
+                        );
+                    }
                 }
-            }
-        }).catch((err) => {
-            console.error("Failed to read clipboard:", err);
-            toast.error("Failed to paste - clipboard access denied");
-        });
+            })
+            .catch((err) => {
+                console.error("Failed to read clipboard:", err);
+                toast.error("Failed to paste - clipboard access denied");
+            });
     }
 
     function handleCopyLink() {
@@ -225,7 +281,7 @@
     let fileInput: HTMLInputElement;
     let isUploading = false;
     let showDownloadModal = false;
-    let downloadPath = '/home/user/';
+    let downloadPath = "/home/user/";
 
     function handleUploadClick() {
         fileInput?.click();
@@ -238,41 +294,44 @@
 
         // Check file size (max 100MB)
         if (file.size > 100 * 1024 * 1024) {
-            toast.error('File too large (max 100MB)');
+            toast.error("File too large (max 100MB)");
             return;
         }
 
         isUploading = true;
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append("file", file);
 
         try {
             const authToken = get(token);
             if (!authToken) {
-                toast.error('Not authenticated');
+                toast.error("Not authenticated");
                 isUploading = false;
                 return;
             }
-            const response = await fetch(`/api/containers/${session.containerId}/files?path=/home/user/`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
+            const response = await fetch(
+                `/api/containers/${session.containerId}/files?path=/home/user/`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${authToken}`,
+                    },
+                    body: formData,
                 },
-                body: formData
-            });
+            );
 
             if (response.ok) {
                 const result = await response.json();
                 toast.success(`Uploaded ${result.filename} to ${result.path}`);
             } else {
                 const error = await response.json();
-                toast.error(error.error || 'Upload failed');
+                toast.error(error.error || "Upload failed");
             }
         } catch (err) {
-            toast.error('Upload failed');
+            toast.error("Upload failed");
         } finally {
             isUploading = false;
-            input.value = ''; // Reset input
+            input.value = ""; // Reset input
         }
     }
 
@@ -282,51 +341,53 @@
 
     async function handleDownload() {
         if (!downloadPath.trim()) {
-            toast.error('Please enter a file path');
+            toast.error("Please enter a file path");
             return;
         }
 
         try {
             const authToken = get(token);
             if (!authToken) {
-                toast.error('Not authenticated');
+                toast.error("Not authenticated");
                 return;
             }
-            const response = await fetch(`/api/containers/${session.containerId}/files?path=${encodeURIComponent(downloadPath)}`, {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
+            const response = await fetch(
+                `/api/containers/${session.containerId}/files?path=${encodeURIComponent(downloadPath)}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${authToken}`,
+                    },
+                },
+            );
 
             if (response.ok) {
                 const blob = await response.blob();
-                const filename = downloadPath.split('/').pop() || 'download';
-                
+                const filename = downloadPath.split("/").pop() || "download";
+
                 // Create download link
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
+                const a = document.createElement("a");
                 a.href = url;
                 a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
                 document.body.removeChild(a);
-                
+
                 toast.success(`Downloaded ${filename}`);
                 showDownloadModal = false;
             } else {
                 const error = await response.json();
-                toast.error(error.error || 'Download failed');
+                toast.error(error.error || "Download failed");
             }
         } catch (err) {
-            toast.error('Download failed');
+            toast.error("Download failed");
         }
     }
 
     // Collab and Recording handlers
     function handleCollab() {
-
-        dispatch('openCollab', { containerId: session.containerId });
+        dispatch("openCollab", { containerId: session.containerId });
     }
 
     async function handleRecording() {
@@ -336,16 +397,17 @@
                 toast.success(`Recording saved (${result.duration})`);
             }
         } else {
-            const recordingId = await recordings.startRecording(session.containerId);
+            const recordingId = await recordings.startRecording(
+                session.containerId,
+            );
             if (recordingId) {
-                toast.success('Recording started');
+                toast.success("Recording started");
             }
         }
     }
 
     function handleRecordingsPanel() {
-
-        dispatch('openRecordings', { containerId: session.containerId });
+        dispatch("openRecordings", { containerId: session.containerId });
     }
 
     // Split pane handlers
@@ -367,24 +429,29 @@
         event.preventDefault();
         isResizingSplit = true;
 
-        window.addEventListener('mousemove', handleSplitResizeMove);
-        window.addEventListener('mouseup', handleSplitResizeEnd);
+        window.addEventListener("mousemove", handleSplitResizeMove);
+        window.addEventListener("mouseup", handleSplitResizeEnd);
     }
 
     function handleSplitResizeMove(event: MouseEvent) {
         if (!isResizingSplit || !splitContainerEl) return;
 
         const rect = splitContainerEl.getBoundingClientRect();
-        const totalSize = splitLayout?.direction === 'horizontal' ? rect.width : rect.height;
-        const currentPos = splitLayout?.direction === 'horizontal' ? event.clientX : event.clientY;
-        const startOffset = splitLayout?.direction === 'horizontal' ? rect.left : rect.top;
-        
+        const totalSize =
+            splitLayout?.direction === "horizontal" ? rect.width : rect.height;
+        const currentPos =
+            splitLayout?.direction === "horizontal"
+                ? event.clientX
+                : event.clientY;
+        const startOffset =
+            splitLayout?.direction === "horizontal" ? rect.left : rect.top;
+
         // Calculate the position as a percentage
         const posPercent = ((currentPos - startOffset) / totalSize) * 100;
-        
+
         // Clamp between 20% and 80%
         const clampedPercent = Math.max(20, Math.min(80, posPercent));
-        
+
         // Update sizes
         const newSizes = [clampedPercent, 100 - clampedPercent];
         terminal.setSplitPaneSizes(session.id, newSizes);
@@ -392,9 +459,9 @@
 
     function handleSplitResizeEnd() {
         isResizingSplit = false;
-        window.removeEventListener('mousemove', handleSplitResizeMove);
-        window.removeEventListener('mouseup', handleSplitResizeEnd);
-        
+        window.removeEventListener("mousemove", handleSplitResizeMove);
+        window.removeEventListener("mouseup", handleSplitResizeEnd);
+
         // Fit terminals after resize
         setTimeout(() => terminal.fitSession(session.id), 50);
     }
@@ -414,7 +481,9 @@
     $: isSettingUp = session?.isSettingUp || false;
     $: setupMessage = session?.setupMessage || "";
     $: hasSplitPanes = session?.splitPanes?.size > 0;
-    $: splitPanes = session?.splitPanes ? Array.from(session.splitPanes.values()) : [];
+    $: splitPanes = session?.splitPanes
+        ? Array.from(session.splitPanes.values())
+        : [];
     $: splitLayout = session?.splitLayout;
 </script>
 
@@ -422,10 +491,20 @@
     <div class="terminal-toolbar">
         <div class="toolbar-left">
             <span class="terminal-name">{session.name}</span>
-            {#if session.isCollabSession && session.collabMode === 'view'}
-                <span class="view-only-badge" title="View Only - You can watch but cannot type">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            {#if session.isCollabSession && session.collabMode === "view"}
+                <span
+                    class="view-only-badge"
+                    title="View Only - You can watch but cannot type"
+                >
+                    <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"
+                        />
                     </svg>
                     VIEW ONLY
                 </span>
@@ -441,32 +520,87 @@
             </span>
             {#if isConnected && (session.stats.memoryLimit > 0 || session.stats.memory > 0 || session.stats.cpu > 0)}
                 <span class="terminal-stats">
-                    <span class="stat-item stat-cpu" title="CPU Usage ({session.stats.cpu.toFixed(1)}%)">
+                    <span
+                        class="stat-item stat-cpu"
+                        title="CPU Usage ({session.stats.cpu.toFixed(1)}%)"
+                    >
                         <span class="stat-label">CPU</span>
-                        <span class="stat-value" style="color: {cpuColor}">{session.stats.cpu.toFixed(1)}%</span>
+                        <span class="stat-value" style="color: {cpuColor}"
+                            >{session.stats.cpu.toFixed(1)}%</span
+                        >
                     </span>
                     <span class="stat-divider">|</span>
-                    <span class="stat-item stat-mem" title="Memory: {formatMemoryBytes(session.stats.memory)} / {formatMemoryBytes(session.stats.memoryLimit)} ({memoryPercent.toFixed(0)}%)">
+                    <span
+                        class="stat-item stat-mem"
+                        title="Memory: {formatMemoryBytes(
+                            session.stats.memory,
+                        )} / {formatMemoryBytes(
+                            session.stats.memoryLimit,
+                        )} ({memoryPercent.toFixed(0)}%)"
+                    >
                         <span class="stat-label">MEM</span>
-                        <span class="stat-value" style="color: {memColor}">{formatMemoryBytes(session.stats.memory)}</span>
+                        <span class="stat-value" style="color: {memColor}"
+                            >{formatMemoryBytes(session.stats.memory)}</span
+                        >
                         {#if session.stats.memoryLimit > 0}
-                            <span class="stat-limit">/ {formatMemoryBytes(session.stats.memoryLimit)}</span>
+                            <span class="stat-limit"
+                                >/ {formatMemoryBytes(
+                                    session.stats.memoryLimit,
+                                )}</span
+                            >
                         {/if}
                     </span>
                     <span class="stat-divider">|</span>
-                    <span class="stat-item stat-disk" title="Storage: {formatMemoryBytes(session.stats.diskUsage || session.stats.diskWrite)} used{session.stats.diskLimit > 0 ? ' / ' + formatMemoryBytes(session.stats.diskLimit) + ' limit' : ''} (IO: R:{formatMemoryBytes(session.stats.diskRead)} W:{formatMemoryBytes(session.stats.diskWrite)})">
+                    <span
+                        class="stat-item stat-disk"
+                        title="Storage: {formatMemoryBytes(
+                            session.stats.diskUsage || session.stats.diskWrite,
+                        )} used{session.stats.diskLimit > 0
+                            ? ' / ' +
+                              formatMemoryBytes(session.stats.diskLimit) +
+                              ' limit'
+                            : ''} (IO: R:{formatMemoryBytes(
+                            session.stats.diskRead,
+                        )} W:{formatMemoryBytes(session.stats.diskWrite)})"
+                    >
                         <span class="stat-label">DISK</span>
-                        <span class="stat-value">{formatMemoryBytes(session.stats.diskUsage || session.stats.diskWrite)}</span>
+                        <span class="stat-value"
+                            >{formatMemoryBytes(
+                                session.stats.diskUsage ||
+                                    session.stats.diskWrite,
+                            )}</span
+                        >
                         {#if session.stats.diskLimit > 0}
-                            <span class="stat-limit">/ {formatMemoryBytes(session.stats.diskLimit)}</span>
+                            <span class="stat-limit"
+                                >/ {formatMemoryBytes(
+                                    session.stats.diskLimit,
+                                )}</span
+                            >
                         {/if}
                     </span>
                     <span class="stat-divider">|</span>
-                    <span class="stat-item stat-net" title="Network: RX {formatMemoryBytes(session.stats.netRx)} / TX {formatMemoryBytes(session.stats.netTx)}">
+                    <span
+                        class="stat-item stat-net"
+                        title="Network: RX {formatMemoryBytes(
+                            session.stats.netRx,
+                        )} / TX {formatMemoryBytes(session.stats.netTx)}"
+                    >
                         <span class="stat-label">NET</span>
                         <span class="stat-io">
-                            <span class="stat-io-item stat-rx" class:pulse={netRxChanged}>RX:{formatMemoryBytes(session.stats.netRx)}</span>
-                            <span class="stat-io-item stat-tx" class:pulse={netTxChanged}>TX:{formatMemoryBytes(session.stats.netTx)}</span>
+                            <span
+                                class="stat-io-item stat-rx"
+                                class:pulse={netRxChanged}
+                                >RX:{formatMemoryBytes(
+                                    session.stats.netRx,
+                                )}</span
+                            >
+                            <span
+                                class="stat-io-item stat-tx"
+                                class:pulse={netTxChanged}
+                                >TX:{formatMemoryBytes(
+                                    session.stats.netTx,
+                                )}</span
+                            >
                         </span>
                     </span>
                 </span>
@@ -486,30 +620,73 @@
                     onclick={handleReconnect}
                     title="Reconnect"
                 >
-                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
-                        <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"
+                        />
+                        <path
+                            fill-rule="evenodd"
+                            d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"
+                        />
                     </svg>
                 </button>
             {/if}
-            
+
             <!-- Primary Actions (Icons Only) - Only for owners -->
             {#if !isGuest}
-                <button class="toolbar-btn icon-btn" onclick={handleSplitHorizontal} title="Split Horizontal">
-                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                        <line x1="8" y1="1" x2="8" y2="15" stroke="currentColor" stroke-width="1"/>
+                <button
+                    class="toolbar-btn icon-btn"
+                    onclick={handleSplitHorizontal}
+                    title="Split Horizontal"
+                >
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"
+                        />
+                        <line
+                            x1="8"
+                            y1="1"
+                            x2="8"
+                            y2="15"
+                            stroke="currentColor"
+                            stroke-width="1"
+                        />
                     </svg>
                 </button>
-                <button class="toolbar-btn icon-btn" onclick={handleSplitVertical} title="Split Vertical">
-                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-                        <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1"/>
+                <button
+                    class="toolbar-btn icon-btn"
+                    onclick={handleSplitVertical}
+                    title="Split Vertical"
+                >
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"
+                        />
+                        <line
+                            x1="1"
+                            y1="8"
+                            x2="15"
+                            y2="8"
+                            stroke="currentColor"
+                            stroke-width="1"
+                        />
                     </svg>
                 </button>
-                
+
                 <span class="toolbar-divider"></span>
-                
+
                 <!-- Recording - Owner only -->
                 <button
                     class="toolbar-btn icon-btn"
@@ -517,36 +694,53 @@
                     onclick={handleRecording}
                     title={isRecording ? "Stop Recording" : "Start Recording"}
                 >
-                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
                         {#if isRecording}
-                            <rect x="4" y="4" width="8" height="8" rx="1"/>
+                            <rect x="4" y="4" width="8" height="8" rx="1" />
                         {:else}
-                            <circle cx="8" cy="8" r="5"/>
+                            <circle cx="8" cy="8" r="5" />
                         {/if}
                     </svg>
                 </button>
-                
+
                 <!-- Collaborate - Owner only (with pulsing when active) -->
                 <button
                     class="toolbar-btn icon-btn collab-btn"
                     class:has-participants={hasActiveSharing}
                     onclick={handleCollab}
-                    title={hasActiveSharing ? `Collaborate (${$collab.participants.length} connected)` : "Collaborate"}
+                    title={hasActiveSharing
+                        ? `Collaborate (${$collab.participants.length} connected)`
+                        : "Collaborate"}
                 >
-                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                        <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
-                        <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"
+                        />
+                        <path
+                            fill-rule="evenodd"
+                            d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"
+                        />
+                        <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" />
                     </svg>
                     {#if hasActiveSharing}
-                        <span class="collab-badge">{$collab.participants.length}</span>
+                        <span class="collab-badge"
+                            >{$collab.participants.length}</span
+                        >
                     {/if}
                 </button>
-                
+
                 <!-- File Upload - Owner only -->
-                <input 
-                    type="file" 
-                    bind:this={fileInput} 
+                <input
+                    type="file"
+                    bind:this={fileInput}
                     onchange={handleFileUpload}
                     style="display: none;"
                 />
@@ -559,14 +753,23 @@
                     {#if isUploading}
                         <div class="mini-spinner"></div>
                     {:else}
-                        <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 0a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 12.293V.5A.5.5 0 0 1 8 0z" transform="rotate(180 8 8)"/>
-                            <path d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                        <svg
+                            class="toolbar-icon"
+                            viewBox="0 0 16 16"
+                            fill="currentColor"
+                        >
+                            <path
+                                d="M8 0a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 12.293V.5A.5.5 0 0 1 8 0z"
+                                transform="rotate(180 8 8)"
+                            />
+                            <path
+                                d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"
+                            />
                         </svg>
                     {/if}
                 </button>
             {/if}
-            
+
             <!-- File Download - Available to all -->
             <button
                 class="toolbar-btn icon-btn download-btn"
@@ -574,82 +777,202 @@
                 disabled={!isConnected}
                 title="Download File from Terminal"
             >
-                <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 15a.5.5 0 0 1-.5-.5V1.707L4.354 4.854a.5.5 0 1 1-.708-.708l4-4a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1-.708.708L8.5 1.707V14.5a.5.5 0 0 1-.5.5z" transform="rotate(180 8 8)"/>
-                    <path d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                <svg
+                    class="toolbar-icon"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
+                >
+                    <path
+                        d="M8 15a.5.5 0 0 1-.5-.5V1.707L4.354 4.854a.5.5 0 1 1-.708-.708l4-4a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1-.708.708L8.5 1.707V14.5a.5.5 0 0 1-.5.5z"
+                        transform="rotate(180 8 8)"
+                    />
+                    <path
+                        d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C13.979 10 15 8.988 15 7.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 2.825 10.328 1 8 1a4.53 4.53 0 0 0-2.941 1.1c-.757.652-1.153 1.438-1.153 2.055v.448l-.445.049C2.064 4.805 1 5.952 1 7.318 1 8.785 2.23 10 3.781 10H6a.5.5 0 0 1 0 1H3.781C1.708 11 0 9.366 0 7.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"
+                    />
                 </svg>
             </button>
-            
+
             <span class="toolbar-divider"></span>
-            
+
             <!-- More Actions Dropdown -->
             <div class="more-dropdown">
-                <button bind:this={moreButtonEl} class="toolbar-btn icon-btn more-btn" onclick={toggleMoreMenu} title="More actions">
-                    <svg class="toolbar-icon" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                <button
+                    bind:this={moreButtonEl}
+                    class="toolbar-btn icon-btn more-btn"
+                    onclick={toggleMoreMenu}
+                    title="More actions"
+                >
+                    <svg
+                        class="toolbar-icon"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                    >
+                        <path
+                            d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"
+                        />
                     </svg>
                 </button>
                 {#if showMoreMenu}
-                    <div 
-                        class="more-menu" 
+                    <div
+                        class="more-menu"
                         style="top: {menuPosition.top}px; right: {menuPosition.right}px;"
-                        onmouseleave={() => showMoreMenu = false}
+                        onmouseleave={() => (showMoreMenu = false)}
                     >
                         {#if !isGuest}
-                            <button class="menu-item" onclick={() => { handleCopyLink(); showMoreMenu = false; }}>
-                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
-                                    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+                            <button
+                                class="menu-item"
+                                onclick={() => {
+                                    handleCopyLink();
+                                    showMoreMenu = false;
+                                }}
+                            >
+                                <svg
+                                    class="menu-icon"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"
+                                    />
+                                    <path
+                                        d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"
+                                    />
                                 </svg>
                                 Copy Link
                             </button>
                         {/if}
-                        <button class="menu-item" onclick={() => { handleCopy(); showMoreMenu = false; }}>
-                            <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-                                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                        <button
+                            class="menu-item"
+                            onclick={() => {
+                                handleCopy();
+                                showMoreMenu = false;
+                            }}
+                        >
+                            <svg
+                                class="menu-icon"
+                                viewBox="0 0 16 16"
+                                fill="currentColor"
+                            >
+                                <path
+                                    d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"
+                                />
+                                <path
+                                    d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"
+                                />
                             </svg>
                             Copy Selection
                         </button>
                         {#if !isViewOnly}
-                            <button class="menu-item" onclick={() => { handlePaste(); showMoreMenu = false; }}>
-                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M3.5 2a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5H12a.5.5 0 0 1 0-1h.5A1.5 1.5 0 0 1 14 2.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-12A1.5 1.5 0 0 1 3.5 1H4a.5.5 0 0 1 0 1h-.5z"/>
-                                    <path d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5z"/>
+                            <button
+                                class="menu-item"
+                                onclick={() => {
+                                    handlePaste();
+                                    showMoreMenu = false;
+                                }}
+                            >
+                                <svg
+                                    class="menu-icon"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M3.5 2a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-12a.5.5 0 0 0-.5-.5H12a.5.5 0 0 1 0-1h.5A1.5 1.5 0 0 1 14 2.5v12a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 14.5v-12A1.5 1.5 0 0 1 3.5 1H4a.5.5 0 0 1 0 1h-.5z"
+                                    />
+                                    <path
+                                        d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5z"
+                                    />
                                 </svg>
                                 Paste
                             </button>
-                            <button class="menu-item" onclick={() => { handleClear(); showMoreMenu = false; }}>
-                                <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            <button
+                                class="menu-item"
+                                onclick={() => {
+                                    handleClear();
+                                    showMoreMenu = false;
+                                }}
+                            >
+                                <svg
+                                    class="menu-icon"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
+                                    />
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
+                                    />
                                 </svg>
-                                                            Clear Terminal
-                                                        </button>
-                                                                                    <button class="menu-item" onclick={() => { handleReset(); showMoreMenu = false; }}>
-                                                                                        <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                                                                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-                                                                                            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-                                                                                        </svg>
-                                                                                        Reset Terminal
-                                                                                    </button>
-                                                                                {/if}
-                                                                                {#if !isGuest}
-                                                                                    <div class="menu-divider"></div>
-                                                                                    <button class="menu-item" onclick={() => { dispatch('openSnippets', { containerId: session.containerId }); showMoreMenu = false; }}>
-                                                                                        <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                                                                            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
-                                                                                            <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8zm0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
-                                                                                        </svg>
-                                                                                        Run Snippet
-                                                                                    </button>
-                                                                                    <button class="menu-item" onclick={() => { handleRecordingsPanel(); showMoreMenu = false; }}>
-                                                                                        <svg class="menu-icon" viewBox="0 0 16 16" fill="currentColor">
-                                                                                            <path d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z"/>
-                                                                                        </svg>
-                                                                                        View Recordings
-                                                                                    </button>
-                                                                                {/if}
+                                Clear Terminal
+                            </button>
+                            <button
+                                class="menu-item"
+                                onclick={() => {
+                                    handleReset();
+                                    showMoreMenu = false;
+                                }}
+                            >
+                                <svg
+                                    class="menu-icon"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        fill-rule="evenodd"
+                                        d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"
+                                    />
+                                    <path
+                                        d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"
+                                    />
+                                </svg>
+                                Reset Terminal
+                            </button>
+                        {/if}
+                        {#if !isGuest}
+                            <div class="menu-divider"></div>
+                            <button
+                                class="menu-item"
+                                onclick={() => {
+                                    dispatch("openSnippets", {
+                                        containerId: session.containerId,
+                                    });
+                                    showMoreMenu = false;
+                                }}
+                            >
+                                <svg
+                                    class="menu-icon"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"
+                                    />
+                                    <path
+                                        d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8zm0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"
+                                    />
+                                </svg>
+                                Run Snippet
+                            </button>
+                            <button
+                                class="menu-item"
+                                onclick={() => {
+                                    handleRecordingsPanel();
+                                    showMoreMenu = false;
+                                }}
+                            >
+                                <svg
+                                    class="menu-icon"
+                                    viewBox="0 0 16 16"
+                                    fill="currentColor"
+                                >
+                                    <path
+                                        d="M0 1a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V1zm4 0v6h8V1H4zm8 8H4v6h8V9zM1 1v2h2V1H1zm2 3H1v2h2V4zM1 7v2h2V7H1zm2 3H1v2h2v-2zm-2 3v2h2v-2H1zM15 1h-2v2h2V1zm-2 3v2h2V4h-2zm2 3h-2v2h2V7zm-2 3v2h2v-2h-2zm2 3h-2v2h2v-2z"
+                                    />
+                                </svg>
+                                View Recordings
+                            </button>
+                        {/if}
                     </div>
                 {/if}
             </div>
@@ -657,18 +980,20 @@
     </div>
 
     <!-- Terminal Container - single wrapper, layout changes around the main terminal -->
-    <div 
+    <div
         class="terminal-wrapper"
         class:has-splits={hasSplitPanes && splitLayout}
-        class:horizontal={splitLayout?.direction === 'horizontal'}
-        class:vertical={splitLayout?.direction === 'vertical'}
+        class:horizontal={splitLayout?.direction === "horizontal"}
+        class:vertical={splitLayout?.direction === "vertical"}
         class:resizing={isResizingSplit}
         bind:this={splitContainerEl}
     >
         <!-- Main terminal pane - always present, never recreated -->
-        <div 
+        <div
             class="terminal-pane main-pane"
-            style:flex={hasSplitPanes && splitLayout ? (splitLayout?.sizes[0] || 50) : 1}
+            style:flex={hasSplitPanes && splitLayout
+                ? splitLayout?.sizes[0] || 50
+                : 1}
         >
             <div
                 class="terminal-container"
@@ -680,17 +1005,17 @@
                 tabindex="0"
             ></div>
         </div>
-        
+
         <!-- Additional split panes (only rendered when splits exist) -->
         {#if hasSplitPanes && splitLayout}
             {#each splitPanes as pane, index (pane.id)}
-                <div 
+                <div
                     class="split-resizer"
                     onmousedown={(e) => handleSplitResizeStart(e, index)}
                     role="separator"
                     tabindex="-1"
                 ></div>
-                <div 
+                <div
                     class="terminal-pane"
                     style="flex: {splitLayout.sizes[index + 1] || 50};"
                 >
@@ -741,29 +1066,50 @@
     {/if}
 
     <!-- Setup overlay removed - installation happens in background, user can use terminal immediately -->
-    
+
     <!-- Download Modal -->
     {#if showDownloadModal}
-        <div class="download-modal-overlay" onclick={() => showDownloadModal = false} onkeydown={(e) => e.key === 'Escape' && (showDownloadModal = false)} role="presentation">
-            <div class="download-modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div
+            class="download-modal-overlay"
+            onclick={() => (showDownloadModal = false)}
+            onkeydown={(e) => e.key === "Escape" && (showDownloadModal = false)}
+            role="presentation"
+        >
+            <div
+                class="download-modal"
+                onclick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+            >
                 <div class="download-modal-header">
                     <h3>Download File</h3>
-                    <button class="close-btn" onclick={() => showDownloadModal = false}>×</button>
+                    <button
+                        class="close-btn"
+                        onclick={() => (showDownloadModal = false)}>×</button
+                    >
                 </div>
                 <div class="download-modal-body">
                     <label for="download-path">File Path</label>
-                    <input 
-                        type="text" 
+                    <input
+                        type="text"
                         id="download-path"
                         bind:value={downloadPath}
                         placeholder="/home/user/filename.txt"
-                        onkeydown={(e) => e.key === 'Enter' && handleDownload()}
+                        onkeydown={(e) => e.key === "Enter" && handleDownload()}
                     />
-                    <p class="download-hint">Enter the full path to the file you want to download</p>
+                    <p class="download-hint">
+                        Enter the full path to the file you want to download
+                    </p>
                 </div>
                 <div class="download-modal-footer">
-                    <button class="btn-cancel" onclick={() => showDownloadModal = false}>Cancel</button>
-                    <button class="btn-download" onclick={handleDownload}>Download</button>
+                    <button
+                        class="btn-cancel"
+                        onclick={() => (showDownloadModal = false)}
+                        >Cancel</button
+                    >
+                    <button class="btn-download" onclick={handleDownload}
+                        >Download</button
+                    >
                 </div>
             </div>
         </div>
@@ -881,8 +1227,13 @@
     }
 
     @keyframes pulse-loading {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 1; }
+        0%,
+        100% {
+            opacity: 0.5;
+        }
+        50% {
+            opacity: 1;
+        }
     }
 
     .stat-item {
@@ -944,14 +1295,20 @@
         font-weight: 500;
     }
 
-    .stat-read, .stat-rx {
+    .stat-read,
+    .stat-rx {
         color: #88ccff;
-        transition: color 0.2s, text-shadow 0.2s;
+        transition:
+            color 0.2s,
+            text-shadow 0.2s;
     }
 
-    .stat-write, .stat-tx {
+    .stat-write,
+    .stat-tx {
         color: #ffaa88;
-        transition: color 0.2s, text-shadow 0.2s;
+        transition:
+            color 0.2s,
+            text-shadow 0.2s;
     }
 
     .stat-rx.pulse {
@@ -1063,8 +1420,13 @@
     }
 
     @keyframes pulse-red {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
     }
 
     /* Collaborate Button */
@@ -1073,7 +1435,7 @@
         border-color: var(--green);
         background: rgba(0, 255, 136, 0.1);
     }
-    
+
     /* Collab button with active participants - pulsing effect */
     .toolbar-btn.collab-btn.has-participants {
         color: var(--green);
@@ -1082,9 +1444,9 @@
         animation: collab-pulse 2s ease-in-out infinite;
         position: relative;
     }
-    
+
     .toolbar-btn.collab-btn.has-participants::before {
-        content: '';
+        content: "";
         position: absolute;
         inset: -2px;
         border-radius: 4px;
@@ -1092,29 +1454,31 @@
         animation: collab-ring 2s ease-in-out infinite;
         pointer-events: none;
     }
-    
+
     @keyframes collab-pulse {
-        0%, 100% { 
+        0%,
+        100% {
             background: rgba(0, 255, 136, 0.15);
             box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.4);
         }
-        50% { 
+        50% {
             background: rgba(0, 255, 136, 0.25);
             box-shadow: 0 0 8px 2px rgba(0, 255, 136, 0.3);
         }
     }
-    
+
     @keyframes collab-ring {
-        0%, 100% { 
+        0%,
+        100% {
             opacity: 0.3;
             transform: scale(1);
         }
-        50% { 
+        50% {
             opacity: 0.6;
             transform: scale(1.05);
         }
     }
-    
+
     /* Participant count badge */
     .collab-badge {
         position: absolute;
@@ -1201,7 +1565,7 @@
         overflow: hidden;
         animation: menuFadeIn 0.15s ease;
     }
-    
+
     /* Ensure menu displays above terminal on mobile */
     @media (max-width: 768px) {
         .more-menu {
@@ -1314,7 +1678,7 @@
     }
 
     .split-resizer::before {
-        content: '';
+        content: "";
         position: absolute;
         inset: -4px;
     }
@@ -1405,10 +1769,24 @@
     }
 
     @keyframes dots {
-        0%, 20% { content: ''; opacity: 0.3; }
-        40% { content: '.'; opacity: 0.6; }
-        60% { content: '..'; opacity: 0.8; }
-        80%, 100% { content: '...'; opacity: 1; }
+        0%,
+        20% {
+            content: "";
+            opacity: 0.3;
+        }
+        40% {
+            content: ".";
+            opacity: 0.6;
+        }
+        60% {
+            content: "..";
+            opacity: 0.8;
+        }
+        80%,
+        100% {
+            content: "...";
+            opacity: 1;
+        }
     }
 
     .connection-status.connected {
@@ -1426,10 +1804,18 @@
     }
 
     @keyframes fadeInOut {
-        0% { opacity: 0; }
-        20% { opacity: 1; }
-        80% { opacity: 1; }
-        100% { opacity: 0; }
+        0% {
+            opacity: 0;
+        }
+        20% {
+            opacity: 1;
+        }
+        80% {
+            opacity: 1;
+        }
+        100% {
+            opacity: 0;
+        }
     }
 
     /* Disconnected Overlay */
@@ -1718,7 +2104,8 @@
         border-top: 1px solid var(--border);
     }
 
-    .btn-cancel, .btn-download {
+    .btn-cancel,
+    .btn-download {
         padding: 10px 20px;
         font-size: 12px;
         font-weight: 600;
