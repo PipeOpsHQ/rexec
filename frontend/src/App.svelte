@@ -1431,7 +1431,34 @@
         } else if (
             path.match(/^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i)
         ) {
-            currentView = $isAuthenticated ? "dashboard" : "landing";
+            // Container terminal URL - re-run full routing to connect
+            if ($isAuthenticated) {
+                const containerMatch = path.match(
+                    /^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i,
+                );
+                if (containerMatch) {
+                    const containerId = containerMatch[1];
+                    preloadComponent("terminalView");
+                    import("$utils/xterm").then((mod) => mod.loadXtermCore());
+                    containers.getContainer(containerId).then((result) => {
+                        if (result.success && result.container) {
+                            void openTerminalForContainer(
+                                containerId,
+                                result.container.name,
+                                "docked",
+                            );
+                            currentView = "dashboard";
+                        } else {
+                            currentView = "404";
+                            toast.error(
+                                "Terminal session not found or has expired",
+                            );
+                        }
+                    });
+                }
+            } else {
+                currentView = "landing";
+            }
         } else if (path === "/marketplace") {
             currentView = "marketplace";
         }
