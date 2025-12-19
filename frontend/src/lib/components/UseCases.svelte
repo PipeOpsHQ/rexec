@@ -1,15 +1,19 @@
 <script lang="ts">
-    import { createEventDispatcher, onMount } from "svelte";
+    import { createEventDispatcher } from "svelte";
     import StatusIcon from "./icons/StatusIcon.svelte";
-    
+
     const dispatch = createEventDispatcher<{
         tryNow: void;
         navigate: { slug: string };
     }>();
 
     // Get current host for install commands
-    const currentHost = typeof window !== 'undefined' ? window.location.host : 'rexec.pipeops.io';
-    const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    const currentHost =
+        typeof window !== "undefined"
+            ? window.location.host
+            : "rexec.pipeops.io";
+    const protocol =
+        typeof window !== "undefined" ? window.location.protocol : "https:";
     const installUrl = `${protocol}//${currentHost}`;
 
     function handleTryNow() {
@@ -25,184 +29,204 @@
             slug: "ephemeral-dev-environments",
             title: "Ephemeral Dev Environments",
             icon: "bolt",
-            description: "The future is disposable. Spin up a fresh, clean environment for every task, PR, or experiment. No drift, no cleanup.",
+            description:
+                "The future is disposable. Spin up a fresh, clean environment for every task, PR, or experiment. No drift, no cleanup.",
             points: [
                 "Zero setup time - milliseconds to code",
                 "Immutable infrastructure patterns applied to dev",
                 "Always clean state - avoid 'works on my machine'",
-                "Perfect for testing dangerous scripts"
-            ]
+                "Perfect for testing dangerous scripts",
+            ],
         },
         {
             slug: "collaborative-intelligence",
             title: "Collaborative Intelligence",
             icon: "ai",
-            description: "A shared workspace for humans and AI agents. Let LLMs execute code in a real, safe environment while you supervise.",
+            description:
+                "A shared workspace for humans and AI agents. Let LLMs execute code in a real, safe environment while you supervise.",
             points: [
                 "Sandboxed execution for autonomous agents",
                 "Human-in-the-loop oversight",
                 "Resumable sessions - disconnect and reconnect anytime",
-                "Standardized toolchain for consistent AI output"
-            ]
+                "Standardized toolchain for consistent AI output",
+            ],
         },
         {
             slug: "universal-jump-host",
             title: "Secure Jump Host & Gateway",
             icon: "shield",
-            description: "Zero-trust access to your private infrastructure. Replace VPNs with a secure, audited browser-based gateway.",
+            description:
+                "Zero-trust access to your private infrastructure. Replace VPNs with a secure, audited browser-based gateway.",
             points: [
                 "Enforce MFA and IP Whitelisting",
                 "Audit logs for every command executed",
                 "Access private VPCs securely",
-                "No SSH key management required"
-            ]
+                "No SSH key management required",
+            ],
         },
         {
             slug: "rexec-agent",
             title: "Hybrid Cloud & Remote Agents",
             icon: "connected",
-            description: "Unify your infrastructure. Connect any Linux server, IoT device, or cloud instance to your Rexec dashboard.",
+            description:
+                "Unify your infrastructure. Connect any Linux server, IoT device, or cloud instance to your Rexec dashboard.",
             points: [
                 "Real-time resource monitoring (CPU/RAM)",
                 "Secure outbound WebSocket tunnels",
                 "Manage on-prem and cloud side-by-side",
-                "Works on AWS, Azure, or Raspberry Pi"
-            ]
+                "Works on AWS, Azure, or Raspberry Pi",
+            ],
         },
         {
             slug: "instant-education-onboarding",
             title: "Instant Education & Onboarding",
             icon: "book",
-            description: "Onboard new engineers in seconds, not days. Provide pre-configured environments for workshops and tutorials.",
+            description:
+                "Onboard new engineers in seconds, not days. Provide pre-configured environments for workshops and tutorials.",
             points: [
                 "Standardized team environments",
                 "Interactive documentation that runs",
                 "Zero friction for workshop attendees",
-                "Focus on learning, not configuring"
-            ]
+                "Focus on learning, not configuring",
+            ],
         },
         {
             slug: "technical-interviews",
             title: "Technical Interviews",
             icon: "terminal",
-            description: "Conduct real-time coding interviews in a real Linux environment, not a constrained web editor.",
+            description:
+                "Conduct real-time coding interviews in a real Linux environment, not a constrained web editor.",
             points: [
                 "Full shell access for realistic assessment",
                 "Multiplayer mode for pair programming",
                 "Pre-install custom challenges/repos",
-                "Review candidate approach in real-time"
-            ]
+                "Review candidate approach in real-time",
+            ],
         },
         {
             slug: "open-source-review",
             title: "Open Source Review",
             icon: "connected",
-            description: "Review Pull Requests by instantly spinning up the branch in a clean container. Test without polluting your local machine.",
+            description:
+                "Review Pull Requests by instantly spinning up the branch in a clean container. Test without polluting your local machine.",
             points: [
                 "One-click environment for any PR",
                 "Verify build/test scripts safely",
                 "No dependency conflicts with local setup",
-                "Dispose immediately after review"
-            ]
+                "Dispose immediately after review",
+            ],
         },
         {
             slug: "gpu-terminals",
             title: "GPU Terminals for AI/ML (Coming Soon)",
             icon: "gpu",
-            description: "Rexec will provide instant-on, powerful GPU-enabled terminals for your team's AI/ML model development, training, and fine-tuning. Manage and share these dedicated GPU resources securely, eliminating the complexities of direct infrastructure access and SSH key sharing.",
+            description:
+                "Rexec will provide instant-on, powerful GPU-enabled terminals for your team's AI/ML model development, training, and fine-tuning. Manage and share these dedicated GPU resources securely, eliminating the complexities of direct infrastructure access and SSH key sharing.",
             points: [
                 "On-demand access to GPU-accelerated terminals",
                 "Centralized team management of GPU resources",
                 "Pre-configured with ML frameworks (TensorFlow, PyTorch)",
                 "Isolated for reproducible experiments and data security",
                 "Securely share running GPU sessions with collaborators",
-                "Flexible scaling and collaborative resource allocation"
+                "Flexible scaling and collaborative resource allocation",
             ],
-            comingSoon: true
+            comingSoon: true,
         },
         {
             slug: "edge-device-development",
             title: "Edge Device Development",
             icon: "wifi",
-            description: "Develop and test applications for IoT and edge devices in a simulated or emulated environment.",
+            description:
+                "Develop and test applications for IoT and edge devices in a simulated or emulated environment.",
             points: [
                 "Cross-compilation toolchains ready",
                 "Test on various architectures (ARM, RISC-V)",
                 "Secure remote access to virtual devices",
-                "Rapid prototyping for embedded systems"
-            ]
+                "Rapid prototyping for embedded systems",
+            ],
         },
         {
             slug: "real-time-data-processing",
             title: "Real-time Data Processing",
             icon: "data",
-            description: "Build, test, and deploy streaming ETL pipelines and real-time analytics applications.",
+            description:
+                "Build, test, and deploy streaming ETL pipelines and real-time analytics applications.",
             points: [
                 "High-performance data ingress/egress",
                 "Integrated with Kafka, Flink, Spark (coming soon)",
                 "Monitor data flows in isolation",
-                "Secure access to data sources"
-            ]
+                "Secure access to data sources",
+            ],
         },
         {
             slug: "resumable-sessions",
             title: "Resumable Terminal Sessions",
             icon: "reconnect",
-            description: "Start long-running tasks, close your browser, and come back later. Your terminal session keeps running in the background with full output history.",
+            description:
+                "Start long-running tasks, close your browser, and come back later. Your terminal session keeps running in the background with full output history.",
             points: [
                 "50,000 lines of scrollback history",
                 "Sessions persist across disconnects",
                 "See all output that happened while away",
-                "Perfect for builds, training, and deployments"
-            ]
+                "Perfect for builds, training, and deployments",
+            ],
         },
         {
             slug: "rexec-cli",
             title: "Rexec CLI & TUI",
             icon: "terminal",
-            description: "Manage your terminals from anywhere using our powerful command-line interface with an interactive TUI mode.",
+            description:
+                "Manage your terminals from anywhere using our powerful command-line interface with an interactive TUI mode.",
             points: [
                 "Full terminal management from your shell",
                 "Interactive TUI dashboard (rexec -i)",
                 "Create, connect, and manage terminals",
                 "Run snippets and macros directly",
-                `Install via: curl -fsSL ${installUrl}/install.sh | bash`
-            ]
+                `Install via: curl -fsSL ${installUrl}/install.sh | bash`,
+            ],
         },
         {
             slug: "hybrid-infrastructure",
             title: "Hybrid Infrastructure Access",
             icon: "shield",
-            description: "Mix cloud-managed terminals with your own infrastructure. Access everything through a single, unified interface.",
+            description:
+                "Mix cloud-managed terminals with your own infrastructure. Access everything through a single, unified interface.",
             points: [
                 "Combine Rexec terminals with self-hosted",
                 "Unified access control and audit logging",
                 "No VPN or complex networking required",
                 "Share access without sharing SSH keys",
-                "Perfect for multi-cloud environments"
-            ]
+                "Perfect for multi-cloud environments",
+            ],
         },
         {
             slug: "remote-debugging",
             title: "Remote Debugging & Troubleshooting",
             icon: "bug",
-            description: "Debug production issues directly from your browser. Connect to any server running the Rexec agent for instant access.",
+            description:
+                "Debug production issues directly from your browser. Connect to any server running the Rexec agent for instant access.",
             points: [
                 "Instant shell access to production servers",
                 "No SSH key distribution needed",
                 "Browser-based with full terminal capabilities",
                 "Share sessions for pair debugging",
-                "Complete audit trail of all commands"
-            ]
-        }
+                "Complete audit trail of all commands",
+            ],
+        },
     ];
 </script>
 
 <svelte:head>
     <title>Rexec Use Cases - The Future of Development</title>
-    <meta name="description" content="Discover how Rexec powers ephemeral development environments, AI agent execution, collaborative coding, and secure cloud access." />
+    <meta
+        name="description"
+        content="Discover how Rexec powers ephemeral development environments, AI agent execution, collaborative coding, and secure cloud access."
+    />
     <meta property="og:title" content="Rexec Use Cases" />
-    <meta property="og:description" content="Discover how Rexec powers ephemeral development environments, AI agent execution, collaborative coding, and secure cloud access." />
+    <meta
+        property="og:description"
+        content="Discover how Rexec powers ephemeral development environments, AI agent execution, collaborative coding, and secure cloud access."
+    />
 </svelte:head>
 
 <div class="usecases-page">
@@ -213,14 +237,15 @@
         </div>
         <h1>Powerful <span class="accent">Use Cases</span></h1>
         <p class="subtitle">
-            Rexec is more than just a terminal. It's an ephemeral computing platform designed for modern workflows.
+            Rexec is more than just a terminal. It's an ephemeral computing
+            platform designed for modern workflows.
         </p>
     </div>
 
     <div class="cases-grid">
         {#each useCases as useCase, i}
-            <button 
-                class="case-card" 
+            <button
+                class="case-card"
                 class:coming-soon={useCase.comingSoon}
                 style="animation-delay: {i * 50}ms"
                 onclick={() => navigateToCase(useCase.slug)}
@@ -239,7 +264,9 @@
                     {/each}
                 </ul>
                 <div class="card-footer">
-                    <span class="learn-more">Learn more <span class="arrow">→</span></span>
+                    <span class="learn-more"
+                        >Learn more <span class="arrow">→</span></span
+                    >
                 </div>
             </button>
         {/each}
@@ -339,7 +366,12 @@
         left: 0;
         right: 0;
         height: 1px;
-        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        background: linear-gradient(
+            90deg,
+            transparent,
+            var(--accent),
+            transparent
+        );
         opacity: 0;
         transition: opacity 0.3s ease;
     }
@@ -348,7 +380,11 @@
         transform: translateY(-8px) scale(1.02);
         border-color: var(--accent);
         box-shadow: 0 20px 40px rgba(0, 255, 65, 0.1);
-        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 255, 65, 0.05) 100%);
+        background: linear-gradient(
+            135deg,
+            var(--bg-card) 0%,
+            rgba(0, 255, 65, 0.05) 100%
+        );
     }
 
     .case-card:hover::before {
@@ -383,7 +419,11 @@
     .case-card.coming-soon:hover {
         border-color: var(--yellow);
         box-shadow: 0 10px 30px rgba(252, 238, 10, 0.1);
-        background: linear-gradient(135deg, var(--bg-card) 0%, rgba(252, 238, 10, 0.05) 100%);
+        background: linear-gradient(
+            135deg,
+            var(--bg-card) 0%,
+            rgba(252, 238, 10, 0.05) 100%
+        );
         transform: translateY(-4px);
     }
 
@@ -472,8 +512,13 @@
     }
 
     @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0;
+        }
     }
 
     @keyframes fadeInUp {
@@ -511,5 +556,71 @@
         .cases-grid {
             grid-template-columns: 1fr;
         }
+    }
+
+    /* Light mode overrides */
+    :global([data-theme="light"]) .usecases-page {
+        --bg-card: #ffffff;
+        --border: #e0e0e0;
+        --text: #1a1a1a;
+        --text-secondary: #555;
+        --text-muted: #777;
+    }
+
+    :global([data-theme="light"]) h1,
+    :global([data-theme="light"]) h3,
+    :global([data-theme="light"]) .cta-section h2 {
+        color: #1a1a1a;
+    }
+
+    :global([data-theme="light"]) .subtitle,
+    :global([data-theme="light"]) .cta-section p {
+        color: #666;
+    }
+
+    :global([data-theme="light"]) .case-description {
+        color: #555;
+    }
+
+    :global([data-theme="light"]) .case-points li {
+        color: #666;
+    }
+
+    :global([data-theme="light"]) .case-card,
+    :global([data-theme="light"]) .cta-section {
+        background: #ffffff;
+        border-color: #e0e0e0;
+    }
+
+    :global([data-theme="light"]) .case-card:hover {
+        box-shadow: 0 20px 40px rgba(0, 200, 100, 0.15);
+        background: linear-gradient(
+            135deg,
+            #ffffff 0%,
+            rgba(0, 200, 100, 0.08) 100%
+        );
+    }
+
+    :global([data-theme="light"]) .case-card.coming-soon:hover {
+        box-shadow: 0 10px 30px rgba(252, 238, 10, 0.15);
+        background: linear-gradient(
+            135deg,
+            #ffffff 0%,
+            rgba(252, 238, 10, 0.08) 100%
+        );
+    }
+
+    :global([data-theme="light"]) .header-badge {
+        background: #f5f5f5;
+        border-color: #e0e0e0;
+        color: #666;
+    }
+
+    :global([data-theme="light"]) .learn-more {
+        color: #666;
+    }
+
+    :global([data-theme="light"]) .card-footer {
+        border-top-color: #e0e0e0;
     }
 </style>
