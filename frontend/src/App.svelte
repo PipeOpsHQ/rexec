@@ -970,14 +970,17 @@
             return;
         }
 
-        // Handle agent URL routing (/agent:agentId)
-        const agentMatch = path.match(/^\/agent:([a-f0-9-]{36})$/i);
+        // Handle agent URL routing (/agent:agentId or /terminal/agent:agentId)
+        const agentMatch = path.match(
+            /^\/(?:terminal\/)?agent:([a-f0-9-]{36})$/i,
+        );
         if (agentMatch) {
             const agentId = agentMatch[1];
             if (get(isAuthenticated)) {
                 await connectToAgent(agentId);
             } else {
                 localStorage.setItem("pendingAgentId", agentId);
+                currentView = "landing";
                 // Fall through to landing/login
                 setTimeout(() => {
                     toast.info("Please login to access this agent");
@@ -1063,6 +1066,7 @@
             path.startsWith("/join/") ||
             path.startsWith("/terminal/") ||
             path.startsWith("/agent:") ||
+            path.match(/^\/(?:terminal\/)?agent:[a-f0-9-]{36}$/i) ||
             path.match(/^\/[a-f0-9]{64}$/i) ||
             path.match(/^\/[a-f0-9-]{36}$/i);
 
@@ -1412,6 +1416,18 @@
             }
         } else if (path === "/profile") {
             currentView = $isAuthenticated ? "account" : "landing";
+        } else if (path.match(/^\/(?:terminal\/)?agent:([a-f0-9-]{36})$/i)) {
+            // Agent URL - re-run full routing to connect
+            if ($isAuthenticated) {
+                const agentMatch = path.match(
+                    /^\/(?:terminal\/)?agent:([a-f0-9-]{36})$/i,
+                );
+                if (agentMatch) {
+                    void connectToAgent(agentMatch[1]);
+                }
+            } else {
+                currentView = "landing";
+            }
         } else if (
             path.match(/^\/(?:terminal\/)?([a-f0-9]{64}|[a-f0-9-]{36})$/i)
         ) {
