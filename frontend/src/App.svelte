@@ -637,6 +637,11 @@
     // Helper to connect to an agent
     async function connectToAgent(agentId: string) {
         try {
+            // Preload terminal and dashboard assets for instant load
+            preloadComponent("terminalView");
+            preloadComponent("dashboard");
+            import("$utils/xterm").then((mod) => mod.loadXtermCore());
+
             const authToken = get(token);
             const response = await fetch(`/api/agents/${agentId}/status`, {
                 headers: authToken
@@ -646,7 +651,7 @@
             if (response.ok) {
                 const status = await response.json();
                 if (status.status === "online") {
-                    void openTerminalForAgent(
+                    await openTerminalForAgent(
                         agentId,
                         `Agent ${agentId.slice(0, 8)}`,
                         "docked",
@@ -935,10 +940,11 @@
             if (termMatch) {
                 const containerId = termMatch[1];
                 preloadComponent("terminalView");
+                preloadComponent("dashboard");
                 import("$utils/xterm").then((mod) => mod.loadXtermCore());
                 const result = await containers.getContainer(containerId);
                 if (result.success && result.container) {
-                    void openTerminalForContainer(
+                    await openTerminalForContainer(
                         containerId,
                         result.container.name,
                         "docked",
@@ -998,15 +1004,16 @@
             const containerId = match[1];
 
             if (get(isAuthenticated)) {
-                // Preload terminal assets for instant load
+                // Preload terminal and dashboard assets for instant load
                 preloadComponent("terminalView");
+                preloadComponent("dashboard");
                 import("$utils/xterm").then((mod) => mod.loadXtermCore());
 
                 // Fetch container info and create session - TerminalPanel handles WebSocket
                 const result = await containers.getContainer(containerId);
                 if (result.success && result.container) {
                     // Set terminal to docked mode for direct URL access (full screen)
-                    void openTerminalForContainer(
+                    await openTerminalForContainer(
                         containerId,
                         result.container.name,
                         "docked",
@@ -1439,22 +1446,25 @@
                 if (containerMatch) {
                     const containerId = containerMatch[1];
                     preloadComponent("terminalView");
+                    preloadComponent("dashboard");
                     import("$utils/xterm").then((mod) => mod.loadXtermCore());
-                    containers.getContainer(containerId).then((result) => {
-                        if (result.success && result.container) {
-                            void openTerminalForContainer(
-                                containerId,
-                                result.container.name,
-                                "docked",
-                            );
-                            currentView = "dashboard";
-                        } else {
-                            currentView = "404";
-                            toast.error(
-                                "Terminal session not found or has expired",
-                            );
-                        }
-                    });
+                    containers
+                        .getContainer(containerId)
+                        .then(async (result) => {
+                            if (result.success && result.container) {
+                                await openTerminalForContainer(
+                                    containerId,
+                                    result.container.name,
+                                    "docked",
+                                );
+                                currentView = "dashboard";
+                            } else {
+                                currentView = "404";
+                                toast.error(
+                                    "Terminal session not found or has expired",
+                                );
+                            }
+                        });
                 }
             } else {
                 currentView = "landing";
