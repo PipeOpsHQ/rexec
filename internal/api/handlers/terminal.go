@@ -1014,6 +1014,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			Env: []string{
 				"TERM=xterm-256color",
 				"COLORTERM=truecolor",
+				"LANG=C.UTF-8",
+				"LC_ALL=C.UTF-8",
 				"PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 			},
 		}
@@ -1082,7 +1084,7 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 			// Use /bin/sh immediately for fastest connection - it exists on all distros
 			shell = "/bin/sh"
 			hasTmux = false
-			log.Printf("[Terminal] Using fast /bin/sh for immediate connection to %s", shell, session.ContainerID[:12])
+			log.Printf("[Terminal] Using fast /bin/sh for immediate connection to %s", session.ContainerID[:12])
 
 			// Detect proper shell in background and cache for next connection
 			go func(containerID, imgType string) {
@@ -1173,6 +1175,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				Env: []string{
 					"TERM=xterm-256color",
 					"COLORTERM=truecolor",
+					"LANG=C.UTF-8",
+					"LC_ALL=C.UTF-8",
 					"HOME=/home/user",
 					"PATH=/home/user/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 				},
@@ -1190,6 +1194,8 @@ func (h *TerminalHandler) runTerminalSession(session *TerminalSession, imageType
 				Env: []string{
 					"TERM=xterm-256color",
 					"COLORTERM=truecolor",
+					"LANG=C.UTF-8",
+					"LC_ALL=C.UTF-8",
 					"HOME=/home/user",
 					"PATH=/home/user/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
 				},

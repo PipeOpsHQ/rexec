@@ -115,7 +115,7 @@ func (s *PostgresStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 	CREATE INDEX IF NOT EXISTS idx_ssh_keys_user_id ON ssh_keys(user_id);
 	CREATE INDEX IF NOT EXISTS idx_ssh_keys_fingerprint ON ssh_keys(fingerprint);
-	
+
 	CREATE TABLE IF NOT EXISTS remote_hosts (
 		id VARCHAR(36) PRIMARY KEY,
 		user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -126,7 +126,7 @@ func (s *PostgresStore) migrate() error {
 		identity_file VARCHAR(255),
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 	);
-	
+
 	CREATE INDEX IF NOT EXISTS idx_remote_hosts_user_id ON remote_hosts(user_id);
 
 	CREATE TABLE IF NOT EXISTS port_forwards (
@@ -414,7 +414,7 @@ func (s *PostgresStore) migrate() error {
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		expires_at TIMESTAMP WITH TIME ZONE
 	);
-	
+
 	-- Add data column if missing (for existing installations)
 	DO $$ BEGIN
 		ALTER TABLE terminal_recordings ADD COLUMN IF NOT EXISTS data BYTEA;
@@ -465,9 +465,9 @@ func (s *PostgresStore) migrate() error {
 		last_heartbeat TIMESTAMP WITH TIME ZONE,
 		connected_instance_id VARCHAR(255)
 	);
-	
+
 	CREATE INDEX IF NOT EXISTS idx_agents_user_id ON agents(user_id);
-	
+
 	-- API tokens table for CLI/API authentication
 	CREATE TABLE IF NOT EXISTS api_tokens (
 		id VARCHAR(36) PRIMARY KEY,
@@ -481,10 +481,10 @@ func (s *PostgresStore) migrate() error {
 		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 		revoked_at TIMESTAMP WITH TIME ZONE
 	);
-	
+
 	CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
 	CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
-	
+
 	-- Add new columns if missing (for existing installations)
 	DO $$ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='agents' AND column_name='last_heartbeat') THEN
@@ -620,6 +620,11 @@ func (s *PostgresStore) seedExampleSnippets() error {
 		{"seed-028", "OpenCode Quick Start", "#!/bin/bash\necho 'Starting OpenCode AI coding assistant...'\necho ''\necho 'Tips:'\necho '  - Use /help to see available commands'\necho '  - Use /compact for token-efficient mode'\necho '  - Press Ctrl+C to exit'\necho ''\nopencode", "bash", "Launch OpenCode AI assistant with helpful tips", "code", "ai", "go install github.com/opencode-ai/opencode@latest", true},
 		{"seed-029", "Aider Code Review", "#!/bin/bash\n# Use Aider for AI pair programming\necho 'Starting Aider AI pair programmer...'\necho ''\necho 'Tips:'\necho '  - Add files with /add filename'\necho '  - Ask for changes naturally'\necho '  - Use /diff to see changes'\necho ''\naider", "bash", "Launch Aider AI pair programming assistant", "ai", "ai", "pip install aider-chat", true},
 		{"seed-030", "Gemini CLI", "#!/bin/bash\necho 'Gemini CLI - Google AI in your terminal'\necho ''\necho 'Usage:'\necho '  gemini \"your question here\"'\necho '  echo \"code\" | gemini \"explain this\"'\necho ''\ngemini \"What can you help me with?\"", "bash", "Use Google Gemini AI from the command line", "ai", "ai", "npm install -g @google/generative-ai-cli", true},
+		{"seed-030-tgpt", "Install tgpt", "#!/bin/bash\necho 'Installing tgpt - Terminal GPT without API keys...'\ncurl -sSL https://raw.githubusercontent.com/aandrew-me/tgpt/main/install | bash -s /usr/local/bin\ntgpt --version\necho ''\necho 'Usage:'\necho '  tgpt \"your question here\"'\necho '  tgpt -i  # interactive mode'\necho '  tgpt -c \"generate code\"  # code mode'", "bash", "Install tgpt - ChatGPT in terminal without API keys", "ai", "ai", "", false},
+		{"seed-030-aichat", "Install aichat", "#!/bin/bash\necho 'Installing aichat - All-in-one AI CLI tool...'\ncargo install aichat\necho ''\necho 'aichat installed!'\necho ''\necho 'Usage:'\necho '  aichat \"your question\"'\necho '  aichat -r coder \"write a function\"  # use coder role'\necho '  aichat -s  # start REPL session'", "bash", "Install aichat - All-in-one AI CLI supporting multiple LLM providers", "ai", "ai", "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && source $HOME/.cargo/env", true},
+		{"seed-030-mods", "Install mods", "#!/bin/bash\necho 'Installing mods - AI on the command line...'\ngo install github.com/charmbracelet/mods@latest\necho ''\necho 'mods installed!'\necho ''\necho 'Usage:'\necho '  mods \"summarize this\"'\necho '  cat file.go | mods \"explain this code\"'\necho '  mods -f  # format output as markdown'", "bash", "Install mods - AI for the command line by Charm", "ai", "ai", "", false},
+		{"seed-030-llm", "Install llm", "#!/bin/bash\necho 'Installing llm - CLI tool for LLMs...'\npip install --user llm\nllm --version\necho ''\necho 'Usage:'\necho '  llm \"your prompt\"'\necho '  llm -m gpt-4 \"complex question\"'\necho '  cat file.txt | llm \"summarize\"'\necho '  llm keys set openai  # set API key'", "bash", "Install llm - CLI utility for interacting with Large Language Models", "ai", "ai", "", false},
+		{"seed-030-sgpt", "Install sgpt", "#!/bin/bash\necho 'Installing shell-gpt (sgpt)...'\npip install --user shell-gpt\necho ''\necho 'sgpt installed!'\necho ''\necho 'Usage:'\necho '  sgpt \"your question\"'\necho '  sgpt --shell \"list large files\"  # generate shell commands'\necho '  sgpt --code \"python function for...\"  # generate code'", "bash", "Install shell-gpt (sgpt) - ChatGPT in your terminal", "ai", "ai", "", false},
 
 		// Tool Installations - Languages & Runtimes
 		{"seed-031", "Install Rust", "#!/bin/bash\ncurl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y\nsource $HOME/.cargo/env\nrustc --version\ncargo --version\necho 'Rust installed successfully!'", "bash", "Install Rust programming language via rustup", "rust", "install", "", false},
@@ -1487,7 +1492,7 @@ func (s *PostgresStore) GetRecordingByShareToken(ctx context.Context, token stri
 	var r RecordingRecord
 	query := `
 		SELECT id, user_id, container_id, title, duration_ms, size_bytes, share_token, is_public, created_at, expires_at
-		FROM terminal_recordings 
+		FROM terminal_recordings
 		WHERE share_token = $1 AND is_public = true AND (expires_at IS NULL OR expires_at > NOW())
 	`
 	row := s.db.QueryRowContext(ctx, query, token)
@@ -1601,7 +1606,7 @@ func (s *PostgresStore) GetCollabSessionByShareCode(ctx context.Context, code st
 	var session CollabSessionRecord
 	query := `
 		SELECT id, container_id, owner_id, share_code, mode, max_users, is_active, created_at, expires_at
-		FROM collab_sessions 
+		FROM collab_sessions
 		WHERE share_code = $1 AND is_active = true AND expires_at > NOW()
 	`
 	row := s.db.QueryRowContext(ctx, query, code)
@@ -1630,7 +1635,7 @@ func (s *PostgresStore) GetCollabSessionByContainerID(ctx context.Context, conta
 	var session CollabSessionRecord
 	query := `
 		SELECT id, container_id, owner_id, share_code, mode, max_users, is_active, created_at, expires_at
-		FROM collab_sessions 
+		FROM collab_sessions
 		WHERE container_id = $1 AND is_active = true AND expires_at > NOW()
 	`
 	row := s.db.QueryRowContext(ctx, query, containerID)
@@ -1659,7 +1664,7 @@ func (s *PostgresStore) GetCollabSessionByID(ctx context.Context, id string) (*C
 	var session CollabSessionRecord
 	query := `
 		SELECT id, container_id, owner_id, share_code, mode, max_users, is_active, created_at, expires_at
-		FROM collab_sessions 
+		FROM collab_sessions
 		WHERE id = $1
 	`
 	row := s.db.QueryRowContext(ctx, query, id)
@@ -1711,7 +1716,7 @@ func (s *PostgresStore) AddCollabParticipant(ctx context.Context, p *CollabParti
 func (s *PostgresStore) GetCollabParticipants(ctx context.Context, sessionID string) ([]*CollabParticipantRecord, error) {
 	query := `
 		SELECT id, session_id, user_id, username, role, joined_at, left_at
-		FROM collab_participants 
+		FROM collab_participants
 		WHERE session_id = $1 AND left_at IS NULL
 		ORDER BY joined_at
 	`
@@ -2108,7 +2113,7 @@ func (s *PostgresStore) UpdateSnippet(ctx context.Context, snippet *models.Snipp
 	}
 
 	query := `
-		UPDATE snippets 
+		UPDATE snippets
 		SET name = $1, content = $2, language = $3, is_public = $4, description = $5, icon = $6, category = $7, install_command = $8, requires_install = $9
 		WHERE id = $10
 	`
@@ -2133,7 +2138,7 @@ func (s *PostgresStore) GetPublicSnippets(ctx context.Context, language, search,
 	argIdx := 1
 
 	query := `
-		SELECT s.id, s.user_id, COALESCE(u.username, 'Anonymous') as username, s.name, s.content, s.language, 
+		SELECT s.id, s.user_id, COALESCE(u.username, 'Anonymous') as username, s.name, s.content, s.language,
 		       COALESCE(s.description, ''), COALESCE(s.icon, ''), COALESCE(s.category, ''), COALESCE(s.install_command, ''), COALESCE(s.requires_install, false), COALESCE(s.usage_count, 0), s.created_at
 		FROM snippets s
 		LEFT JOIN users u ON s.user_id = u.id

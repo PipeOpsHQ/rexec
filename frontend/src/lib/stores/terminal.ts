@@ -911,9 +911,17 @@ function createTerminalStore() {
       let lastFlushTime = 0;
       let hasReceivedFirstOutput = false;
 
-      // Filter mouse tracking sequences from output to prevent echo artifacts
+      // Filter problematic escape sequences from output to prevent artifacts
       const sanitizeOutput = (data: string): string => {
-        return data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        // Filter mouse tracking sequences
+        let result = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        // Filter OSC (Operating System Command) query responses that leak into input
+        // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
+        // Common ones: OSC 10/11 (foreground/background color queries)
+        result = result.replace(/\x1b\]\d+;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
+        // Also filter partial/malformed OSC sequences that might appear at boundaries
+        result = result.replace(/\]\d+;rgb:[0-9a-f/]+/gi, "");
+        return result;
       };
 
       // Immediate write for small, interactive output (like keystrokes)
@@ -2449,8 +2457,17 @@ function createTerminalStore() {
       let rafId: number | null = null;
       let lastFlushTime = 0;
 
+      // Filter problematic escape sequences from output to prevent artifacts
       const sanitizeOutput = (data: string): string => {
-        return data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        // Filter mouse tracking sequences
+        let result = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        // Filter OSC (Operating System Command) query responses that leak into input
+        // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
+        // Common ones: OSC 10/11 (foreground/background color queries)
+        result = result.replace(/\x1b\]\d+;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
+        // Also filter partial/malformed OSC sequences that might appear at boundaries
+        result = result.replace(/\]\d+;rgb:[0-9a-f/]+/gi, "");
+        return result;
       };
 
       const writeImmediate = (data: string) => {
