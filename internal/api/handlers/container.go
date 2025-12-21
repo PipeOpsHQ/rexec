@@ -1065,7 +1065,7 @@ func (h *ContainerHandler) Start(c *gin.Context) {
 			if time.Since(info.CreatedAt) > GuestMaxContainerDuration {
 				c.JSON(http.StatusForbidden, gin.H{
 					"error":   "guest session expired",
-					"message": "Guest containers are limited to 5 hours. Sign in with PipeOps for unlimited sessions.",
+					"message": "Guest containers are limited to 50 hours. Sign in with PipeOps for unlimited sessions.",
 					"upgrade": true,
 				})
 				return

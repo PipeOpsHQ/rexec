@@ -518,7 +518,7 @@
                 localStorage.removeItem("pendingTerminalUrl");
                 window.history.replaceState({}, "", pendingTerminalUrl);
                 await handleTerminalUrl();
-                toast.success("Guest access started! You have 5 hours.");
+                toast.success("Guest access started! You have 50 hours.");
                 return;
             }
 
@@ -532,7 +532,7 @@
                     toast.success("Welcome back!");
                 }
             } else {
-                toast.success("Guest access started! You have 5 hours.");
+                toast.success("Guest access started! You have 50 hours.");
             }
         }
     }
@@ -2224,7 +2224,7 @@
 
                         <p class="modal-hint">
                             <StatusIcon status="validating" size={14} /> Guest access
-                            lasts 5 hours. Sign in with PipeOps for unlimited access.
+                            lasts 50 hours. Sign in with PipeOps for unlimited access.
                         </p>
                     </div>
 

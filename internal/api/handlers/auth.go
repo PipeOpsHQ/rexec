@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	// GuestSessionDuration is the maximum session time for guest users (5 hours)
-	GuestSessionDuration = 5 * time.Hour
+	// GuestSessionDuration is the maximum session time for guest users (50 hours)
+	GuestSessionDuration = 50 * time.Hour
 )
 
 // AuthHandler handles authentication endpoints
@@ -47,7 +47,7 @@ func NewAuthHandler(store *storage.PostgresStore, adminEventsHub *admin_events.A
 	}
 }
 
-// GuestLogin handles guest login with email (5-hour session limit)
+// GuestLogin handles guest login with email (50-hour session limit)
 // If a guest with the same email exists, returns their existing session
 func (h *AuthHandler) GuestLogin(c *gin.Context) {
 	var req struct {
@@ -145,7 +145,7 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 		}
 	}
 
-	// Generate JWT token with 5-hour expiry and tracked session.
+	// Generate JWT token with 50-hour expiry and tracked session.
 	sessionID, err := h.createUserSession(c, user)
 	if err != nil {
 		log.Printf("failed to create guest session record: %v", err)
@@ -172,13 +172,13 @@ func (h *AuthHandler) GuestLogin(c *gin.Context) {
 	if isReturningGuest {
 		response["message"] = "Welcome back! Your previous session has been restored."
 	} else {
-		response["message"] = "Guest session active for 5 hours. Sign in with PipeOps for unlimited sessions."
+		response["message"] = "Guest session active for 50 hours. Sign in with PipeOps for unlimited sessions."
 	}
 
 	c.JSON(http.StatusOK, response)
 }
 
-// generateGuestToken creates a JWT token for a guest user with 5-hour expiry
+// generateGuestToken creates a JWT token for a guest user with 50-hour expiry
 func (h *AuthHandler) generateGuestToken(user *models.User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id":             user.ID,
@@ -567,7 +567,7 @@ func (h *AuthHandler) createUserSession(c *gin.Context, user *models.User) (stri
 
 // generateToken creates a JWT token for a user and optional session ID.
 func (h *AuthHandler) generateToken(user *models.User, sessionID string) (string, error) {
-	// Guest users get 5-hour tokens, authenticated users get 24-hour tokens
+	// Guest users get 50-hour tokens, authenticated users get 24-hour tokens
 	expiry := 24 * time.Hour
 	isGuest := user.Tier == "guest"
 	if isGuest {
