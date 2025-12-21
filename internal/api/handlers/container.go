@@ -22,7 +22,7 @@ import (
 
 const (
 	// GuestMaxContainerDuration is the maximum time a guest container can exist
-	GuestMaxContainerDuration = 1 * time.Hour
+	GuestMaxContainerDuration = 50 * time.Hour
 )
 
 // Name generation word lists
@@ -1058,7 +1058,7 @@ func (h *ContainerHandler) Start(c *gin.Context) {
 
 	ctx := context.Background()
 
-	// Guest users cannot restart stopped containers - they expire after 1 hour
+	// Guest users cannot restart stopped containers - they expire after 50 hours
 	if isGuest || tier == "guest" {
 		// Check if container has exceeded guest time limit
 		if info, ok := h.manager.GetContainer(dockerID); ok {
