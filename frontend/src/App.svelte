@@ -1282,6 +1282,7 @@
         currentView !== "launch" &&
         currentView !== "promo" &&
         currentView !== "guides" &&
+        currentView !== "tutorials" &&
         currentView !== "use-cases" &&
         currentView !== "use-case-detail" &&
         currentView !== "marketplace" &&
