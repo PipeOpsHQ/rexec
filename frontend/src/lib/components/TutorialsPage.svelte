@@ -56,8 +56,11 @@
         tips: "bolt",
     };
 
+    let fetchError = false;
+
     async function fetchTutorials() {
         try {
+            fetchError = false;
             const endpoint = $isAdmin
                 ? "/api/admin/tutorials"
                 : "/api/public/tutorials";
@@ -68,6 +71,14 @@
             }
 
             const res = await fetch(endpoint, { headers });
+
+            if (res.status === 404) {
+                // Endpoint not available yet (not deployed) - show empty state gracefully
+                tutorials = [];
+                categories = {};
+                return;
+            }
+
             if (!res.ok) throw new Error("Failed to fetch tutorials");
 
             const data = await res.json();
@@ -82,6 +93,9 @@
             }
         } catch (err) {
             console.error("Failed to fetch tutorials:", err);
+            fetchError = true;
+            tutorials = [];
+            categories = {};
         } finally {
             isLoading = false;
         }
@@ -304,6 +318,19 @@
         <div class="loading">
             <div class="spinner"></div>
             <p>Loading tutorials...</p>
+        </div>
+    {:else if fetchError}
+        <div class="empty-state">
+            <StatusIcon status="warning" size={48} />
+            <h2>Unable to load tutorials</h2>
+            <p>Please try again later or check your connection.</p>
+            <button
+                class="btn btn-secondary"
+                onclick={fetchTutorials}
+                style="margin-top: 16px;"
+            >
+                Retry
+            </button>
         </div>
     {:else if tutorials.length === 0}
         <div class="empty-state">
