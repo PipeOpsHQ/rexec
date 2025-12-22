@@ -116,6 +116,13 @@
             const videoId = url.split("vimeo.com/")[1]?.split("?")[0];
             return `https://player.vimeo.com/video/${videoId}`;
         }
+
+        // Screen Studio URLs
+        if (url.includes("screen.studio/share/")) {
+            const videoId = url.split("screen.studio/share/")[1]?.split("?")[0];
+            return `https://screen.studio/embed/${videoId}`;
+        }
+
         // Loom URLs
         if (url.includes("loom.com/share/")) {
             const videoId = url.split("loom.com/share/")[1]?.split("?")[0];
@@ -144,7 +151,7 @@
                 return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
             }
         }
-        return "";
+        return "/og-image.png";
     }
 
     function openTutorial(tutorial: Tutorial) {
@@ -973,6 +980,7 @@
         color: var(--text-secondary);
         font-size: 14px;
         line-height: 1.6;
+        white-space: pre-wrap;
     }
 
     /* Admin Modal */
