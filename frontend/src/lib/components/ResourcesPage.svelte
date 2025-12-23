@@ -197,7 +197,35 @@
 
     function renderMarkdown(text: string): string {
         if (!text) return "";
-        let html = text
+
+        const escapeHtml = (str: string) =>
+            str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+
+        const codeBlocks: string[] = [];
+        const inlineCode: string[] = [];
+
+        // Extract code blocks
+        let processed = text.replace(/```([\s\S]*?)```/gim, (_, code) => {
+            codeBlocks.push(code);
+            return `__CODEBLOCK_${codeBlocks.length - 1}__`;
+        });
+
+        // Extract inline code
+        processed = processed.replace(/`([^`]+)`/gim, (_, code) => {
+            inlineCode.push(code);
+            return `__INLINECODE_${inlineCode.length - 1}__`;
+        });
+
+        // Escape HTML
+        processed = escapeHtml(processed);
+
+        // Apply formatting
+        let html = processed
             // Headers
             .replace(/^### (.*$)/gim, "<h3>$1</h3>")
             .replace(/^## (.*$)/gim, "<h2>$1</h2>")
@@ -215,10 +243,6 @@
                 /\[(.*?)\]\((.*?)\)/gim,
                 "<a href='$2' target='_blank' rel='noopener'>$1</a>",
             )
-            // Code Blocks
-            .replace(/```([\s\S]*?)```/gim, "<pre><code>$1</code></pre>")
-            // Inline Code
-            .replace(/`([^`]+)`/gim, "<code>$1</code>")
             // Blockquotes
             .replace(/^> (.*$)/gim, "<blockquote>$1</blockquote>")
             // Horizontal Rules
@@ -229,7 +253,17 @@
             // Paragraphs (breaks)
             .replace(/\n\n/gim, "<br/><br/>");
 
-        return `<div class="markdown-content">${html}</div>`;
+        // Restore code blocks
+        html = html.replace(/__CODEBLOCK_(\d+)__/g, (_, index) => {
+            return `<pre><code>${escapeHtml(codeBlocks[parseInt(index)])}</code></pre>`;
+        });
+
+        // Restore inline code
+        html = html.replace(/__INLINECODE_(\d+)__/g, (_, index) => {
+            return `<code>${escapeHtml(inlineCode[parseInt(index)])}</code>`;
+        });
+
+        return `<div class="markdown-body">${html}</div>`;
     }
 
     async function handleImageUpload(e: Event) {
