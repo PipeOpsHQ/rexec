@@ -1120,7 +1120,7 @@ func runServer() {
 				c.Header("Content-Disposition", "attachment; filename="+filename)
 				c.File(filePath)
 			})
-
+		}
 
 		// SPA routes - serve index.html for client-side routing
 		router.GET("/guides", func(c *gin.Context) {
@@ -1134,7 +1134,7 @@ func runServer() {
 			if seo, ok := useCaseDetailSEO[slug]; ok {
 				serveSEO(c, seo)
 				return
-
+			}
 			serveSEO(c, useCasesSEO)
 		})
 		router.GET("/snippets", func(c *gin.Context) {
