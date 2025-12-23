@@ -524,7 +524,6 @@
             <!-- Tutorial Grid -->
             <div class="tutorials-grid">
                 {#each filteredResources as resource (resource.id)}
-                    {@const thumb = getThumbnail(resource)}
                     <div
                         class="tutorial-card"
                         class:unpublished={!resource.is_published}
@@ -533,8 +532,11 @@
                             class="thumbnail"
                             onclick={() => openResource(resource)}
                         >
-                            {#if thumb}
-                                <img src={thumb} alt={resource.title} />
+                            {#if getThumbnail(resource)}
+                                <img
+                                    src={getThumbnail(resource)}
+                                    alt={resource.title}
+                                />
                             {:else}
                                 <div class="placeholder-thumb">
                                     <StatusIcon
