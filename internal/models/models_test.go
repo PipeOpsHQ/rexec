@@ -7,13 +7,13 @@ import (
 
 func TestTierLimits(t *testing.T) {
 	tests := []struct {
-		name              string
-		tier              string
-		subActive         bool
-		wantCPU           int64
-		wantMem           int64
-		wantDisk          int64
-		wantSessionLimit  time.Duration
+		name             string
+		tier             string
+		subActive        bool
+		wantCPU          int64
+		wantMem          int64
+		wantDisk         int64
+		wantSessionLimit time.Duration
 	}{
 		{"Guest", "guest", false, 500, 512, 2048, 1 * time.Hour},
 		{"Free (No Sub)", "free", false, 2000, 2048, 10240, 50 * time.Hour},
@@ -47,12 +47,12 @@ func TestValidateTrialResources(t *testing.T) {
 	freeDefaults := GetUserResourceLimits("free", false)
 
 	tests := []struct {
-		name      string
-		tier      string
-		req       CreateContainerRequest
-		wantCPU   int64
-		wantMem   int64
-		wantDisk  int64
+		name     string
+		tier     string
+		req      CreateContainerRequest
+		wantCPU  int64
+		wantMem  int64
+		wantDisk int64
 	}{
 		{
 			name: "Guest user with custom request (ignored, uses fixed guest limits)",
@@ -113,8 +113,8 @@ func TestValidateTrialResources(t *testing.T) {
 				DiskMB:    1024,
 			},
 			// Expect Pro defaults
-			wantMem:  4096, // Pro is 4GB
-			wantCPU:  4000, // Pro is 4 vCPU
+			wantMem:  4096,  // Pro is 4GB
+			wantCPU:  4000,  // Pro is 4 vCPU
 			wantDisk: 20480, // Pro is 20GB
 		},
 		{
@@ -150,7 +150,7 @@ func TestValidateTrialResources(t *testing.T) {
 
 func TestDefaultShellConfig(t *testing.T) {
 	cfg := DefaultShellConfig()
-	if !cfg.Enhanced {
+	if cfg.Enhanced == nil || !*cfg.Enhanced {
 		t.Error("Default shell should be enhanced")
 	}
 	if cfg.Theme != "rexec" {
@@ -160,7 +160,7 @@ func TestDefaultShellConfig(t *testing.T) {
 
 func TestMinimalShellConfig(t *testing.T) {
 	cfg := MinimalShellConfig()
-	if cfg.Enhanced {
+	if cfg.Enhanced != nil && *cfg.Enhanced {
 		t.Error("Minimal shell should not be enhanced")
 	}
 	if cfg.Theme != "" {
