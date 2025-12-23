@@ -375,25 +375,6 @@
     }
 
     onMount(fetchResources);
-    onMount(() => {
-        fetchTutorials();
-    });
-
-    $: filteredTutorials = selectedCategory
-        ? tutorials.filter((t) => t.category === selectedCategory)
-        : tutorials;
-
-    $: visibleCategories = Object.keys(categories).sort((a, b) => {
-        const order = [
-            "getting-started",
-            "containers",
-            "agents",
-            "cli",
-            "advanced",
-            "tips",
-        ];
-        return order.indexOf(a) - order.indexOf(b);
-    });
 </script>
 
 <svelte:head>
