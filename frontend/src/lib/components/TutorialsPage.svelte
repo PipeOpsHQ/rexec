@@ -510,6 +510,7 @@
                 ></iframe>
             </div>
             <div class="modal-description">
+                <h3>Description</h3>
                 <p>{@html linkify(selectedTutorial.description)}</p>
             </div>
         </div>
@@ -989,6 +990,8 @@
         width: 100%;
         padding-top: 56.25%;
         background: #000;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        z-index: 10;
     }
 
     .video-container iframe {
@@ -1000,12 +1003,21 @@
     }
 
     .modal-description {
-        padding: 16px 20px;
+        padding: 24px;
         color: var(--text-secondary);
         font-size: 14px;
         line-height: 1.6;
         white-space: pre-wrap;
         overflow-y: auto;
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border);
+    }
+
+    .modal-description h3 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text);
     }
 
     .modal-description :global(a) {
