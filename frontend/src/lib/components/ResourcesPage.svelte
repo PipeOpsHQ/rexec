@@ -255,11 +255,19 @@
 
     function openResource(resource: Resource) {
         selectedResource = resource;
+        const url = new URL(window.location.href);
+        url.searchParams.set("id", resource.id);
+        window.history.pushState({}, "", url);
+        document.title = `${resource.title} | Rexec Resources`;
     }
 
     function closeResource() {
         selectedResource = null;
         playingId = null;
+        const url = new URL(window.location.href);
+        url.searchParams.delete("id");
+        window.history.pushState({}, "", url);
+        document.title = "Resources - Rexec | Tutorials & Guides";
     }
 
     function openAdminModal(resource?: Resource) {
@@ -374,7 +382,15 @@
         }
     }
 
-    onMount(fetchResources);
+    onMount(async () => {
+        await fetchResources();
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get("id");
+        if (id) {
+            const resource = resources.find((r) => r.id === id);
+            if (resource) openResource(resource);
+        }
+    });
 </script>
 
 <svelte:head>
@@ -460,63 +476,43 @@
                     class="tutorial-card"
                     class:unpublished={!resource.is_published}
                 >
-                    {#if playingId === resource.id && resource.type === "video"}
-                        <div class="thumbnail video-active">
-                            <iframe
-                                src={getEmbedUrl(resource.video_url, true)}
-                                title={resource.title}
-                                frameborder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowfullscreen
-                                style="width: 100%; height: 100%; position: relative; z-index: 10;"
-                            ></iframe>
-                        </div>
-                    {:else}
-                        {@const thumb = getThumbnail(resource)}
-                        <button
-                            class="thumbnail"
-                            onclick={() => {
-                                if (resource.type === "video") {
-                                    playingId = resource.id;
-                                } else {
-                                    openResource(resource);
-                                }
-                            }}
-                        >
-                            {#if thumb}
-                                <img src={thumb} alt={resource.title} />
-                            {:else}
-                                <div class="placeholder-thumb">
-                                    <StatusIcon
-                                        status={resource.type === "guide"
-                                            ? "book"
-                                            : "video"}
-                                        size={32}
-                                    />
-                                </div>
-                            {/if}
+                    {@const thumb = getThumbnail(resource)}
+                    <button
+                        class="thumbnail"
+                        onclick={() => openResource(resource)}
+                    >
+                        {#if thumb}
+                            <img src={thumb} alt={resource.title} />
+                        {:else}
+                            <div class="placeholder-thumb">
+                                <StatusIcon
+                                    status={resource.type === "guide"
+                                        ? "book"
+                                        : "video"}
+                                    size={32}
+                                />
+                            </div>
+                        {/if}
 
-                            {#if resource.type === "video"}
-                                <div class="play-overlay">
-                                    <div class="play-button">
-                                        <StatusIcon status="play" size={24} />
-                                    </div>
+                        {#if resource.type === "video"}
+                            <div class="play-overlay">
+                                <div class="play-button">
+                                    <StatusIcon status="play" size={24} />
                                 </div>
-                            {:else}
-                                <div class="type-badge">
-                                    <StatusIcon status="book" size={12} /> Guide
-                                </div>
-                            {/if}
+                            </div>
+                        {:else}
+                            <div class="type-badge">
+                                <StatusIcon status="book" size={12} /> Guide
+                            </div>
+                        {/if}
 
-                            {#if resource.duration}
-                                <span class="duration">{resource.duration}</span
-                                >
-                            {/if}
-                            {#if !resource.is_published && $isAdmin}
-                                <span class="draft-badge">Draft</span>
-                            {/if}
-                        </button>
-                    {/if}
+                        {#if resource.duration}
+                            <span class="duration">{resource.duration}</span>
+                        {/if}
+                        {#if !resource.is_published && $isAdmin}
+                            <span class="draft-badge">Draft</span>
+                        {/if}
+                    </button>
                     <div class="tutorial-info">
                         <span class="category-tag">
                             <StatusIcon
@@ -527,11 +523,17 @@
                             {categoryLabels[resource.category] ||
                                 resource.category}
                         </span>
-                        <h3
-                            class="clickable-title"
-                            onclick={() => openResource(resource)}
-                        >
-                            {resource.title}
+                        <h3>
+                            <a
+                                href="?id={resource.id}"
+                                class="clickable-title"
+                                onclick={(e) => {
+                                    e.preventDefault();
+                                    openResource(resource);
+                                }}
+                            >
+                                {resource.title}
+                            </a>
                         </h3>
                         <p class="description">{resource.description}</p>
 
@@ -1081,12 +1083,14 @@
         line-height: 1.4;
     }
 
-    .tutorial-info h3.clickable-title {
+    .tutorial-info h3 .clickable-title {
         cursor: pointer;
         transition: color 0.2s;
+        text-decoration: none;
+        color: inherit;
     }
 
-    .tutorial-info h3.clickable-title:hover {
+    .tutorial-info h3 .clickable-title:hover {
         color: var(--accent);
     }
 
@@ -1135,7 +1139,7 @@
     }
 
     .video-modal {
-        background: var(--bg-primary);
+        background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 12px;
         width: 100%;
@@ -1224,7 +1228,7 @@
 
     .guide-content {
         padding: 24px;
-        background: var(--bg-primary);
+        background: var(--bg-card);
         color: var(--text);
     }
 
@@ -1287,7 +1291,7 @@
 
     /* Admin Modal */
     .admin-modal {
-        background: var(--bg-primary);
+        background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 12px;
         width: 100%;
