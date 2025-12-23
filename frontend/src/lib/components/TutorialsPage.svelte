@@ -102,91 +102,78 @@
     }
 
     function getEmbedUrl(url: string): string {
-        try {
-            if (!url.startsWith("http")) url = "https://" + url;
-            const urlObj = new URL(url);
-
-            // YouTube
-            if (
-                urlObj.hostname.includes("youtube.com") ||
-                urlObj.hostname.includes("youtu.be")
-            ) {
-                let videoId = "";
-                if (urlObj.hostname.includes("youtu.be")) {
-                    videoId = urlObj.pathname.slice(1);
-                } else if (urlObj.pathname.includes("/shorts/")) {
-                    videoId = urlObj.pathname.split("/shorts/")[1];
-                } else if (urlObj.pathname.includes("/live/")) {
-                    videoId = urlObj.pathname.split("/live/")[1];
-                } else if (urlObj.pathname.includes("/embed/")) {
-                    videoId = urlObj.pathname.split("/embed/")[1];
-                } else {
-                    videoId = urlObj.searchParams.get("v") || "";
-                }
-                if (videoId) {
-                    return `https://www.youtube.com/embed/${videoId}`;
-                }
-            }
-
-            // Vimeo
-            if (urlObj.hostname.includes("vimeo.com")) {
-                const videoId = urlObj.pathname.split("/").pop();
-                if (videoId) return `https://player.vimeo.com/video/${videoId}`;
-            }
-
-            // Screen Studio
-            if (
-                urlObj.hostname.includes("screen.studio") &&
-                urlObj.pathname.includes("/share/")
-            ) {
-                const videoId = urlObj.pathname.split("/share/")[1];
-                return `https://screen.studio/embed/${videoId}`;
-            }
-
-            // Loom
-            if (
-                urlObj.hostname.includes("loom.com") &&
-                urlObj.pathname.includes("/share/")
-            ) {
-                const videoId = urlObj.pathname.split("/share/")[1];
-                return `https://www.loom.com/embed/${videoId}`;
-            }
-
-            return url;
-        } catch {
-            return url;
+        // Handle YouTube URLs (supports various formats including shorts, live, etc.)
+        const ytMatch = url.match(
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
+        );
+        if (ytMatch && ytMatch[1]) {
+            return `https://www.youtube.com/embed/${ytMatch[1]}`;
         }
+
+        // Convert Vimeo URLs
+        if (url.includes("vimeo.com/")) {
+            const videoId = url.split("vimeo.com/")[1]?.split("?")[0];
+            return `https://player.vimeo.com/video/${videoId}`;
+        }
+
+        // Screen Studio URLs
+        if (url.includes("screen.studio/share/")) {
+            const videoId = url.split("screen.studio/share/")[1]?.split("?")[0];
+            return `https://screen.studio/embed/${videoId}`;
+        }
+
+        // Loom URLs
+        if (url.includes("loom.com/share/")) {
+            const videoId = url.split("loom.com/share/")[1]?.split("?")[0];
+            return `https://www.loom.com/embed/${videoId}`;
+        }
+        return url;
     }
 
     function getThumbnail(tutorial: Tutorial): string {
         if (tutorial.thumbnail) return tutorial.thumbnail;
-        try {
-            let url = tutorial.video_url;
-            if (!url.startsWith("http")) url = "https://" + url;
-            const urlObj = new URL(url);
-
-            if (
-                urlObj.hostname.includes("youtube.com") ||
-                urlObj.hostname.includes("youtu.be")
-            ) {
-                let videoId = "";
-                if (urlObj.hostname.includes("youtu.be")) {
-                    videoId = urlObj.pathname.slice(1);
-                } else if (urlObj.pathname.includes("/shorts/")) {
-                    videoId = urlObj.pathname.split("/shorts/")[1];
-                } else if (urlObj.pathname.includes("/live/")) {
-                    videoId = urlObj.pathname.split("/live/")[1];
-                } else if (urlObj.pathname.includes("/embed/")) {
-                    videoId = urlObj.pathname.split("/embed/")[1];
-                } else {
-                    videoId = urlObj.searchParams.get("v") || "";
-                }
-                if (videoId) {
-                    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-                }
-            }
-        } catch {}
+        // Generate YouTube thumbnail if possible
+        const ytMatch = tutorial.video_url.match(
+            /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
+        );
+        if (ytMatch && ytMatch[1]) {
+            return `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg`;
+        }
         return "/og-image.png";
+    }
+
+    function linkify(text: string): string {
+        if (!text) return "";
+
+        const escapeHtml = (str: string) =>
+            str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+
+        const parts = text.split(/(https?:\/\/[^\s]+)/g);
+
+        return parts
+            .map((part, index) => {
+                if (index % 2 === 1) {
+                    const match = part.match(/([.,;:"']+)$/);
+                    let url = part;
+                    let suffix = "";
+
+                    if (match) {
+                        suffix = match[1];
+                        url = part.slice(0, -suffix.length);
+                    }
+
+                    if (!url) return escapeHtml(suffix);
+
+                    return `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>${escapeHtml(suffix)}`;
+                }
+                return escapeHtml(part);
+            })
+            .join("");
     }
 
     function openTutorial(tutorial: Tutorial) {
@@ -523,7 +510,7 @@
                 ></iframe>
             </div>
             <div class="modal-description">
-                <p>{selectedTutorial.description}</p>
+                <p>{@html linkify(selectedTutorial.description)}</p>
             </div>
         </div>
     </div>
@@ -1019,6 +1006,15 @@
         line-height: 1.6;
         white-space: pre-wrap;
         overflow-y: auto;
+    }
+
+    .modal-description :global(a) {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .modal-description :global(a:hover) {
+        text-decoration: underline;
     }
 
     /* Admin Modal */
