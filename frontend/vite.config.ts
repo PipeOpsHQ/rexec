@@ -114,6 +114,7 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,png}"],
+        globStrict: false,
       },
       devOptions: {
         enabled: true,
