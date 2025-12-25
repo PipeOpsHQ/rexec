@@ -326,11 +326,13 @@ func (s *PostgresStore) migrate() error {
 		END $$`,
 	}
 
-	for _, query := range addColumns {
+	for i, query := range addColumns {
 		if _, err := s.db.Exec(query); err != nil {
+			log.Printf("[Migration] Failed to run addColumns[%d]: %v", i, err)
 			return err
 		}
 	}
+	log.Println("[Migration] Column migrations completed (including mfa_locked)")
 
 	// Add snippet marketplace columns
 	snippetColumns := []string{
@@ -1327,15 +1329,48 @@ func (s *PostgresStore) UpdateContainerStatus(ctx context.Context, id, status st
 
 // SetContainerMFALock sets the MFA lock status for a container
 func (s *PostgresStore) SetContainerMFALock(ctx context.Context, id string, locked bool) error {
+	log.Printf("[SetContainerMFALock] Setting mfa_locked=%v for container id=%s", locked, id)
+
+	// First verify the column exists
+	var colExists bool
+	checkQuery := `SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='containers' AND column_name='mfa_locked')`
+	if err := s.db.QueryRowContext(ctx, checkQuery).Scan(&colExists); err != nil {
+		log.Printf("[SetContainerMFALock] Failed to check column existence: %v", err)
+	} else {
+		log.Printf("[SetContainerMFALock] mfa_locked column exists: %v", colExists)
+	}
+
 	query := `UPDATE containers SET mfa_locked = $2 WHERE id = $1 AND deleted_at IS NULL`
 	result, err := s.db.ExecContext(ctx, query, id, locked)
 	if err != nil {
+		log.Printf("[SetContainerMFALock] Database error: %v", err)
 		return err
 	}
 	rows, _ := result.RowsAffected()
+	log.Printf("[SetContainerMFALock] Rows affected: %d", rows)
 	if rows == 0 {
+		// Check if container exists at all
+		var exists bool
+		s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM containers WHERE id = $1)`, id).Scan(&exists)
+		log.Printf("[SetContainerMFALock] Container exists check (any state): %v", exists)
+
+		var existsNotDeleted bool
+		s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM containers WHERE id = $1 AND deleted_at IS NULL)`, id).Scan(&existsNotDeleted)
+		log.Printf("[SetContainerMFALock] Container exists (not deleted): %v", existsNotDeleted)
+
 		return fmt.Errorf("container not found")
 	}
+
+	// Verify the update worked
+	var newValue bool
+	verifyQuery := `SELECT COALESCE(mfa_locked, false) FROM containers WHERE id = $1`
+	if err := s.db.QueryRowContext(ctx, verifyQuery, id).Scan(&newValue); err != nil {
+		log.Printf("[SetContainerMFALock] Failed to verify update: %v", err)
+	} else {
+		log.Printf("[SetContainerMFALock] Verified mfa_locked value after update: %v", newValue)
+	}
+
+	log.Printf("[SetContainerMFALock] Successfully updated mfa_locked for container: %s", id)
 	return nil
 }
 

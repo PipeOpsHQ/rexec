@@ -56,18 +56,6 @@
     // Check if terminal is MFA locked
     $: isMfaLocked = container?.mfa_locked || false;
 
-    // Debug: track container and mfa state changes
-    $: console.log(
-        "[MFA Debug] container:",
-        container?.id,
-        "db_id:",
-        container?.db_id,
-        "mfa_locked:",
-        container?.mfa_locked,
-        "isMfaLocked:",
-        isMfaLocked,
-    );
-
     async function handleMfaLock() {
         if (!container) return;
         if (!userHasMfa) {
@@ -76,8 +64,6 @@
         }
 
         const terminalId = container.db_id || container.id;
-        console.log("[MFA Lock] Locking terminal:", terminalId);
-
         mfaLoading = true;
         try {
             const res = await fetch(
@@ -92,7 +78,6 @@
             );
 
             const data = await res.json();
-            console.log("[MFA Lock] Response:", res.status, data);
 
             if (!res.ok) {
                 toast.error(
@@ -109,7 +94,6 @@
             }
             await containers.fetchContainers();
         } catch (err) {
-            console.error("[MFA Lock] Error:", err);
             toast.error("Failed to lock terminal");
         } finally {
             mfaLoading = false;
@@ -123,8 +107,6 @@
         }
 
         const terminalId = container.db_id || container.id;
-        console.log("[MFA Unlock] Unlocking terminal:", terminalId);
-
         mfaLoading = true;
         mfaError = "";
 
@@ -142,7 +124,6 @@
             );
 
             const data = await res.json();
-            console.log("[MFA Unlock] Response:", res.status, data);
 
             if (!res.ok) {
                 mfaError = data.error || "Invalid code";
@@ -158,7 +139,6 @@
             mfaCode = "";
             await containers.fetchContainers();
         } catch (err) {
-            console.error("[MFA Unlock] Error:", err);
             mfaError = "Failed to verify code";
         } finally {
             mfaLoading = false;

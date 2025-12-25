@@ -473,16 +473,27 @@ func (h *SecurityHandler) LockTerminalWithMFA(c *gin.Context) {
 
 	// Regular container - try to resolve by DB ID or Docker ID
 	container, dbID, err := h.resolveContainerForMFA(c, terminalID, userID)
-	if err != nil || container == nil {
+	if err != nil {
+		log.Printf("[MFA Lock] Error resolving container %s: %v", terminalID, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "container not found"})
+		return
+	}
+	if container == nil {
+		log.Printf("[MFA Lock] Container not found for ID: %s, userID: %s", terminalID, userID)
 		c.JSON(http.StatusNotFound, gin.H{"error": "container not found"})
 		return
 	}
 
+	log.Printf("[MFA Lock] Resolved container: terminalID=%s -> dbID=%s, current mfa_locked=%v", terminalID, dbID, container.MFALocked)
+
 	// Set MFA lock on the container using the DB ID
 	if err := h.store.SetContainerMFALock(c.Request.Context(), dbID, true); err != nil {
+		log.Printf("[MFA Lock] Failed to set lock for container %s: %v", dbID, err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to lock terminal"})
 		return
 	}
+
+	log.Printf("[MFA Lock] Successfully locked container: %s", dbID)
 
 	// Log the action
 	h.store.CreateAuditLog(c.Request.Context(), &models.AuditLog{
