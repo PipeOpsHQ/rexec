@@ -3,7 +3,7 @@
     import { fade, scale } from "svelte/transition";
     import { api, formatMemory, formatStorage, formatCPU } from "$utils/api";
     import { toast } from "$stores/toast";
-    import { userTier, subscriptionActive } from "$stores/auth";
+    import { auth, userTier, subscriptionActive } from "$stores/auth";
     import {
         containers,
         type Container,
@@ -44,6 +44,100 @@
 
     let showDeleteConfirm = false;
     let forwardToDelete: { id: string; name: string } | null = null;
+
+    // MFA Lock state
+    let mfaCode = "";
+    let mfaError = "";
+    let mfaLoading = false;
+
+    // Check if user has MFA enabled
+    $: userHasMfa = $auth.user?.mfaEnabled || false;
+
+    // Check if terminal is MFA locked
+    $: isMfaLocked = container?.mfa_locked || false;
+
+    async function handleMfaLock() {
+        if (!container) return;
+        if (!userHasMfa) {
+            toast.error("Enable MFA in account settings first");
+            return;
+        }
+
+        mfaLoading = true;
+        try {
+            const res = await fetch(
+                `/api/security/terminal/${container.db_id || container.id}/mfa-lock`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${$auth.token}`,
+                    },
+                },
+            );
+
+            if (!res.ok) {
+                const data = await res.json();
+                toast.error(
+                    data.message || data.error || "Failed to lock terminal",
+                );
+                return;
+            }
+
+            toast.success("Terminal is now protected with MFA");
+            // Update local container state
+            if (container) {
+                container.mfa_locked = true;
+            }
+            containers.fetchContainers();
+        } catch (err) {
+            toast.error("Failed to lock terminal");
+        } finally {
+            mfaLoading = false;
+        }
+    }
+
+    async function handleMfaUnlock() {
+        if (!container || mfaCode.length !== 6) {
+            mfaError = "Enter a valid 6-digit code";
+            return;
+        }
+
+        mfaLoading = true;
+        mfaError = "";
+
+        try {
+            const res = await fetch(
+                `/api/security/terminal/${container.db_id || container.id}/mfa-unlock`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${$auth.token}`,
+                    },
+                    body: JSON.stringify({ code: mfaCode }),
+                },
+            );
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                mfaError = data.error || "Invalid code";
+                return;
+            }
+
+            toast.success("Terminal MFA lock removed");
+            // Update local container state
+            if (container) {
+                container.mfa_locked = false;
+            }
+            mfaCode = "";
+            containers.fetchContainers();
+        } catch (err) {
+            mfaError = "Failed to verify code";
+        } finally {
+            mfaLoading = false;
+        }
+    }
 
     // Dynamic resource limits based on plan tier
     $: resourceLimits = (() => {
@@ -276,13 +370,15 @@
                         containers: state.containers.map((c) =>
                             c.id === container.id
                                 ? { ...c, name: name.trim() }
-                                : c
+                                : c,
                         ),
                     }));
                     handleClose();
                     containers.fetchContainers();
                 } else {
-                    toast.error(response.error || "Failed to update agent settings");
+                    toast.error(
+                        response.error || "Failed to update agent settings",
+                    );
                 }
             } else {
                 // Regular container update
@@ -391,7 +487,9 @@
                         />
                     </svg>
                 </div>
-                <h2 class="modal-title">{isAgent ? 'Agent Settings' : 'Terminal Settings'}</h2>
+                <h2 class="modal-title">
+                    {isAgent ? "Agent Settings" : "Terminal Settings"}
+                </h2>
                 <button class="close-btn" onclick={handleClose}>
                     <svg
                         viewBox="0 0 24 24"
@@ -405,22 +503,22 @@
             </div>
 
             {#if !isAgent}
-            <div class="tabs">
-                <button
-                    class="tab-btn"
-                    class:active={activeTab === "settings"}
-                    onclick={() => (activeTab = "settings")}
-                >
-                    General
-                </button>
-                <button
-                    class="tab-btn"
-                    class:active={activeTab === "port-forwards"}
-                    onclick={() => (activeTab = "port-forwards")}
-                >
-                    Port Forwarding
-                </button>
-            </div>
+                <div class="tabs">
+                    <button
+                        class="tab-btn"
+                        class:active={activeTab === "settings"}
+                        onclick={() => (activeTab = "settings")}
+                    >
+                        General
+                    </button>
+                    <button
+                        class="tab-btn"
+                        class:active={activeTab === "port-forwards"}
+                        onclick={() => (activeTab = "port-forwards")}
+                    >
+                        Port Forwarding
+                    </button>
+                </div>
             {/if}
 
             <div class="modal-body">
@@ -446,39 +544,144 @@
                             placeholder="Production web server"
                             class="input"
                         />
-                        <span class="input-hint">Optional description for this agent</span>
+                        <span class="input-hint"
+                            >Optional description for this agent</span
+                        >
                     </div>
 
                     {#if container.os || container.arch}
-                    <div class="agent-info-section">
-                        <span class="section-title">System Info</span>
-                        <div class="agent-info-grid">
-                            {#if container.os}
-                            <div class="info-item">
-                                <span class="info-label">OS</span>
-                                <span class="info-value">{container.distro || container.os}</span>
+                        <div class="agent-info-section">
+                            <span class="section-title">System Info</span>
+                            <div class="agent-info-grid">
+                                {#if container.os}
+                                    <div class="info-item">
+                                        <span class="info-label">OS</span>
+                                        <span class="info-value"
+                                            >{container.distro ||
+                                                container.os}</span
+                                        >
+                                    </div>
+                                {/if}
+                                {#if container.arch}
+                                    <div class="info-item">
+                                        <span class="info-label">Arch</span>
+                                        <span class="info-value"
+                                            >{container.arch}</span
+                                        >
+                                    </div>
+                                {/if}
+                                {#if container.shell}
+                                    <div class="info-item">
+                                        <span class="info-label">Shell</span>
+                                        <span class="info-value"
+                                            >{container.shell}</span
+                                        >
+                                    </div>
+                                {/if}
+                                {#if container.hostname}
+                                    <div class="info-item">
+                                        <span class="info-label">Hostname</span>
+                                        <span class="info-value"
+                                            >{container.hostname}</span
+                                        >
+                                    </div>
+                                {/if}
                             </div>
-                            {/if}
-                            {#if container.arch}
-                            <div class="info-item">
-                                <span class="info-label">Arch</span>
-                                <span class="info-value">{container.arch}</span>
-                            </div>
-                            {/if}
-                            {#if container.shell}
-                            <div class="info-item">
-                                <span class="info-label">Shell</span>
-                                <span class="info-value">{container.shell}</span>
-                            </div>
-                            {/if}
-                            {#if container.hostname}
-                            <div class="info-item">
-                                <span class="info-label">Hostname</span>
-                                <span class="info-value">{container.hostname}</span>
-                            </div>
-                            {/if}
                         </div>
-                    </div>
+                    {/if}
+
+                    <!-- Security Section for Agents -->
+                    {#if userHasMfa}
+                        <div class="section-header" style="margin-top: 16px;">
+                            <span class="section-title">Security</span>
+                        </div>
+                        <div class="mfa-lock-section">
+                            <div class="mfa-lock-info">
+                                <span class="mfa-lock-label">
+                                    <svg
+                                        class="mfa-icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <rect
+                                            x="3"
+                                            y="11"
+                                            width="18"
+                                            height="11"
+                                            rx="2"
+                                            ry="2"
+                                        />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                    MFA Lock
+                                </span>
+                                <span class="mfa-lock-desc">
+                                    {#if isMfaLocked}
+                                        This terminal requires MFA code to
+                                        connect
+                                    {:else}
+                                        Require authenticator code to access
+                                        this terminal
+                                    {/if}
+                                </span>
+                            </div>
+                            <div class="mfa-lock-action">
+                                {#if isMfaLocked}
+                                    <div class="mfa-unlock-form">
+                                        <input
+                                            type="text"
+                                            bind:value={mfaCode}
+                                            placeholder="000000"
+                                            maxlength="6"
+                                            class="input mfa-code-input"
+                                        />
+                                        <button
+                                            class="btn btn-sm mfa-unlock-btn"
+                                            onclick={handleMfaUnlock}
+                                            disabled={mfaLoading ||
+                                                mfaCode.length !== 6}
+                                        >
+                                            {mfaLoading ? "..." : "Unlock"}
+                                        </button>
+                                    </div>
+                                    {#if mfaError}
+                                        <span class="mfa-error">{mfaError}</span
+                                        >
+                                    {/if}
+                                {:else}
+                                    <button
+                                        class="btn btn-sm mfa-lock-btn"
+                                        onclick={handleMfaLock}
+                                        disabled={mfaLoading}
+                                    >
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <rect
+                                                x="3"
+                                                y="11"
+                                                width="18"
+                                                height="11"
+                                                rx="2"
+                                                ry="2"
+                                            />
+                                            <path
+                                                d="M7 11V7a5 5 0 0 1 10 0v4"
+                                            />
+                                        </svg>
+                                        {mfaLoading
+                                            ? "Locking..."
+                                            : "Lock with MFA"}
+                                    </button>
+                                {/if}
+                            </div>
+                        </div>
                     {/if}
                 {:else if activeTab === "settings"}
                     <div class="form-group">
@@ -586,6 +789,100 @@
                             Upgrade to Pro for more resources (4GB RAM, 4 vCPU,
                             20GB Disk).
                         </p>
+                    {/if}
+
+                    <!-- Security Section for Normal Terminals -->
+                    {#if userHasMfa}
+                        <div class="section-header" style="margin-top: 16px;">
+                            <span class="section-title">Security</span>
+                        </div>
+                        <div class="mfa-lock-section">
+                            <div class="mfa-lock-info">
+                                <span class="mfa-lock-label">
+                                    <svg
+                                        class="mfa-icon"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <rect
+                                            x="3"
+                                            y="11"
+                                            width="18"
+                                            height="11"
+                                            rx="2"
+                                            ry="2"
+                                        />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                    MFA Lock
+                                </span>
+                                <span class="mfa-lock-desc">
+                                    {#if isMfaLocked}
+                                        This terminal requires MFA code to
+                                        connect
+                                    {:else}
+                                        Require authenticator code to access
+                                        this terminal
+                                    {/if}
+                                </span>
+                            </div>
+                            <div class="mfa-lock-action">
+                                {#if isMfaLocked}
+                                    <div class="mfa-unlock-form">
+                                        <input
+                                            type="text"
+                                            bind:value={mfaCode}
+                                            placeholder="000000"
+                                            maxlength="6"
+                                            class="input mfa-code-input"
+                                        />
+                                        <button
+                                            class="btn btn-sm mfa-unlock-btn"
+                                            onclick={handleMfaUnlock}
+                                            disabled={mfaLoading ||
+                                                mfaCode.length !== 6}
+                                        >
+                                            {mfaLoading ? "..." : "Unlock"}
+                                        </button>
+                                    </div>
+                                    {#if mfaError}
+                                        <span class="mfa-error">{mfaError}</span
+                                        >
+                                    {/if}
+                                {:else}
+                                    <button
+                                        class="btn btn-sm mfa-lock-btn"
+                                        onclick={handleMfaLock}
+                                        disabled={mfaLoading}
+                                    >
+                                        <svg
+                                            class="icon"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <rect
+                                                x="3"
+                                                y="11"
+                                                width="18"
+                                                height="11"
+                                                rx="2"
+                                                ry="2"
+                                            />
+                                            <path
+                                                d="M7 11V7a5 5 0 0 1 10 0v4"
+                                            />
+                                        </svg>
+                                        {mfaLoading
+                                            ? "Locking..."
+                                            : "Lock with MFA"}
+                                    </button>
+                                {/if}
+                            </div>
+                        </div>
                     {/if}
                 {:else}
                     <div class="port-forwards-header">
@@ -716,7 +1013,9 @@
     {#if showAddForwardModal}
         <div
             class="modal-overlay-nested"
-            onclick={(e) => { if (e.target === e.currentTarget) closeAddForwardModal(); }}
+            onclick={(e) => {
+                if (e.target === e.currentTarget) closeAddForwardModal();
+            }}
             onkeydown={(e) => e.key === "Escape" && closeAddForwardModal()}
             transition:fade={{ duration: 150 }}
             role="dialog"
@@ -773,7 +1072,10 @@
                                 min="1"
                                 max="65535"
                             />
-                            <small class="form-hint">The port your app is listening on inside the container</small>
+                            <small class="form-hint"
+                                >The port your app is listening on inside the
+                                container</small
+                            >
                         </div>
                     </div>
                 </div>
@@ -1376,8 +1678,102 @@
     }
 
     .input-hint {
-        font-size: 11px;
-        color: var(--text-muted, #666);
+        font-size: 12px;
+        color: var(--text-muted);
         margin-top: 4px;
+    }
+
+    /* MFA Lock Section */
+    .mfa-lock-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 16px;
+    }
+
+    .mfa-lock-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .mfa-lock-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        color: var(--text);
+    }
+
+    .mfa-icon {
+        width: 16px;
+        height: 16px;
+        color: var(--accent);
+    }
+
+    .mfa-lock-desc {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-left: 24px;
+    }
+
+    .mfa-lock-action {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+
+    .mfa-unlock-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .mfa-code-input {
+        width: 100px !important;
+        text-align: center;
+        font-family: monospace;
+        letter-spacing: 2px;
+    }
+
+    .mfa-error {
+        font-size: 11px;
+        color: var(--error, #ef4444);
+    }
+
+    .mfa-lock-btn,
+    .mfa-unlock-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .mfa-lock-btn .icon,
+    .mfa-unlock-btn .icon {
+        width: 14px;
+        height: 14px;
+    }
+
+    .mfa-lock-btn {
+        background: rgba(251, 191, 36, 0.1) !important;
+        border-color: rgba(251, 191, 36, 0.3) !important;
+        color: rgb(251, 191, 36) !important;
+    }
+
+    .mfa-lock-btn:hover:not(:disabled) {
+        background: rgba(251, 191, 36, 0.2) !important;
+    }
+
+    .mfa-unlock-btn {
+        border-color: rgba(251, 191, 36, 0.3) !important;
+    }
+
+    .mfa-unlock-btn:hover:not(:disabled) {
+        background: rgba(251, 191, 36, 0.1) !important;
     }
 </style>

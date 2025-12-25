@@ -32,55 +32,6 @@
     let mfaLoading = false;
     let mfaAction: "verify" | "unlock" = "verify"; // verify = access terminal, unlock = remove lock
 
-    // Check if user has MFA enabled
-    $: userHasMfa = $auth.user?.mfaEnabled || false;
-
-    async function handleMfaLock(container: Container) {
-        if (!userHasMfa) {
-            toast.error(
-                "Enable MFA in account settings first to use terminal MFA lock",
-            );
-            return;
-        }
-
-        try {
-            const res = await fetch(
-                `/api/security/terminal/${container.db_id || container.id}/mfa-lock`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${$auth.token}`,
-                    },
-                },
-            );
-
-            if (!res.ok) {
-                const data = await res.json();
-                if (data.error === "mfa_required") {
-                    toast.error("Enable MFA in account settings first");
-                } else {
-                    toast.error(
-                        data.message || data.error || "Failed to lock terminal",
-                    );
-                }
-                return;
-            }
-
-            toast.success("Terminal is now protected with MFA");
-            refreshContainers();
-        } catch (err) {
-            toast.error("Failed to lock terminal");
-        }
-    }
-
-    function openMfaUnlockModal(container: Container) {
-        mfaContainer = container;
-        mfaCode = "";
-        mfaError = "";
-        mfaAction = "unlock";
-        showMfaModal = true;
-    }
-
     function openMfaVerifyModal(container: Container) {
         mfaContainer = container;
         mfaCode = "";
@@ -1327,74 +1278,6 @@
                                     Delete
                                 </button>
                             </div>
-                            <!-- MFA Lock row for running containers -->
-                            {#if userHasMfa}
-                                <div class="action-row mfa-row">
-                                    {#if container.mfa_locked}
-                                        <button
-                                            class="btn btn-secondary btn-sm flex-1 mfa-unlock-btn"
-                                            onclick={() =>
-                                                openMfaUnlockModal(container)}
-                                            disabled={isContainerLoading(
-                                                container.id,
-                                            )}
-                                            title="Remove MFA protection from terminal"
-                                        >
-                                            <svg
-                                                class="icon"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                            >
-                                                <rect
-                                                    x="3"
-                                                    y="11"
-                                                    width="18"
-                                                    height="11"
-                                                    rx="2"
-                                                    ry="2"
-                                                />
-                                                <path
-                                                    d="M7 11V7a5 5 0 0 1 9.9-1"
-                                                />
-                                            </svg>
-                                            Unlock MFA
-                                        </button>
-                                    {:else}
-                                        <button
-                                            class="btn btn-secondary btn-sm flex-1 mfa-lock-btn"
-                                            onclick={() =>
-                                                handleMfaLock(container)}
-                                            disabled={isContainerLoading(
-                                                container.id,
-                                            )}
-                                            title="Protect terminal with MFA - requires authenticator code to access"
-                                        >
-                                            <svg
-                                                class="icon"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                            >
-                                                <rect
-                                                    x="3"
-                                                    y="11"
-                                                    width="18"
-                                                    height="11"
-                                                    rx="2"
-                                                    ry="2"
-                                                />
-                                                <path
-                                                    d="M7 11V7a5 5 0 0 1 10 0v4"
-                                                />
-                                            </svg>
-                                            Lock with MFA
-                                        </button>
-                                    {/if}
-                                </div>
-                            {/if}
                         {:else if container.status === "stopped"}
                             <div class="action-row">
                                 <button
@@ -2484,23 +2367,6 @@
     .mfa-lock-badge svg {
         width: 12px;
         height: 12px;
-    }
-
-    /* MFA Action Buttons */
-    .mfa-row {
-        margin-top: 4px;
-    }
-
-    .mfa-lock-btn,
-    .mfa-unlock-btn {
-        border-color: rgba(251, 191, 36, 0.3) !important;
-        color: #fbbf24 !important;
-    }
-
-    .mfa-lock-btn:hover,
-    .mfa-unlock-btn:hover {
-        background: rgba(251, 191, 36, 0.1) !important;
-        border-color: rgba(251, 191, 36, 0.5) !important;
     }
 
     /* MFA Modal */
