@@ -700,9 +700,16 @@ func (h *SecurityHandler) VerifyTerminalMFAAccess(c *gin.Context) {
 		return
 	}
 
-	// Get user's MFA secret
+	// Get user to check MFA is enabled
 	user, err := h.store.GetUserByID(c.Request.Context(), userID)
 	if err != nil || user == nil || !user.MFAEnabled {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "MFA not configured"})
+		return
+	}
+
+	// Get decrypted MFA secret
+	secret, err := h.store.GetUserMFASecret(c.Request.Context(), userID)
+	if err != nil || secret == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "MFA not configured"})
 		return
 	}
@@ -729,7 +736,7 @@ func (h *SecurityHandler) VerifyTerminalMFAAccess(c *gin.Context) {
 		}
 
 		// Verify MFA code
-		if !h.mfaService.Validate(req.Code, user.MFASecret) {
+		if !h.mfaService.Validate(req.Code, secret) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid MFA code"})
 			return
 		}
@@ -768,7 +775,7 @@ func (h *SecurityHandler) VerifyTerminalMFAAccess(c *gin.Context) {
 	}
 
 	// Verify MFA code
-	if !h.mfaService.Validate(req.Code, user.MFASecret) {
+	if !h.mfaService.Validate(req.Code, secret) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid MFA code"})
 		return
 	}
