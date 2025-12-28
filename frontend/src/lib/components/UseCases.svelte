@@ -78,6 +78,20 @@
             ],
         },
         {
+            slug: "multi-cloud-vm-management",
+            title: "Multi-Cloud VM Management",
+            icon: "cloud",
+            description:
+                "Manage VMs across AWS, GCP, Azure, DigitalOcean, and any other provider from a single dashboard using Rexec agents.",
+            points: [
+                "Unified control plane for all your VMs",
+                "No vendor lock-in - works with any cloud",
+                "One-line agent install on any Linux VM",
+                "Centralized access control and audit logs",
+                "Real-time monitoring across all providers",
+            ],
+        },
+        {
             slug: "instant-education-onboarding",
             title: "Instant Education & Onboarding",
             icon: "book",

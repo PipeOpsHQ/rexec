@@ -1053,6 +1053,101 @@
             relatedUseCases: [
                 "universal-jump-host",
                 "hybrid-infrastructure",
+                "multi-cloud-vm-management",
+            ],
+        },
+        "multi-cloud-vm-management": {
+            title: "Multi-Cloud VM Management",
+            icon: "cloud",
+            tagline: "One dashboard to rule them all.",
+            description:
+                "Manage virtual machines across AWS, GCP, Azure, DigitalOcean, Hetzner, and any other provider from a single unified dashboard. Install the Rexec agent on any Linux VM and gain instant terminal access, real-time monitoring, and centralized control—no matter where your infrastructure lives.",
+            heroImage: "/images/use-cases/multi-cloud.svg",
+            benefits: [
+                {
+                    title: "Unified Control Plane",
+                    description:
+                        "Stop context-switching between cloud consoles. Access all your VMs from one interface.",
+                    icon: "connected",
+                },
+                {
+                    title: "No Vendor Lock-in",
+                    description:
+                        "Works with any cloud provider or bare-metal server. Your infrastructure, your choice.",
+                    icon: "bolt",
+                },
+                {
+                    title: "One-Line Installation",
+                    description:
+                        "Deploy the agent with a single curl command. No complex setup or dependencies.",
+                    icon: "terminal",
+                },
+                {
+                    title: "Real-Time Visibility",
+                    description:
+                        "Monitor CPU, memory, and disk usage across all providers in real-time.",
+                    icon: "data",
+                },
+            ],
+            workflow: [
+                {
+                    step: 1,
+                    title: "Provision VMs",
+                    description:
+                        "Create your VMs on AWS, GCP, Azure, or any provider of your choice.",
+                },
+                {
+                    step: 2,
+                    title: "Install Agent",
+                    description:
+                        "Run the one-liner install script on each VM to connect it to Rexec.",
+                },
+                {
+                    step: 3,
+                    title: "Unified Dashboard",
+                    description:
+                        "All VMs appear in your Rexec dashboard with live status and metrics.",
+                },
+                {
+                    step: 4,
+                    title: "Manage Anywhere",
+                    description:
+                        "Open terminals, monitor resources, and manage access from any browser.",
+                },
+            ],
+            examples: [
+                {
+                    title: "Multi-Cloud Deployment",
+                    description:
+                        "Connect VMs from different providers to a single dashboard.",
+                    code: `# AWS EC2
+ssh ubuntu@aws-instance "curl -sSL ${installUrl}/install-agent.sh | sudo bash"
+
+# GCP Compute
+ssh user@gcp-instance "curl -sSL ${installUrl}/install-agent.sh | sudo bash"
+
+# Azure VM
+ssh azureuser@azure-vm "curl -sSL ${installUrl}/install-agent.sh | sudo bash"`,
+                },
+                {
+                    title: "Cost Optimization",
+                    description:
+                        "Compare resource usage across providers to optimize your cloud spend.",
+                },
+                {
+                    title: "Disaster Recovery",
+                    description:
+                        "Manage failover VMs across regions and providers from one place.",
+                },
+            ],
+            testimonial: {
+                quote: "We run workloads on AWS, GCP, and our own datacenter. Rexec gives us one place to manage it all without juggling SSH keys and VPN configs.",
+                author: "Platform Engineer",
+                role: "FinTech Startup",
+            },
+            relatedUseCases: [
+                "rexec-agent",
+                "hybrid-infrastructure",
                 "remote-debugging",
             ],
         },
@@ -1136,7 +1231,7 @@
             relatedUseCases: [
                 "rexec-agent",
                 "universal-jump-host",
-                "remote-debugging",
+                "multi-cloud-vm-management",
             ],
         },
         "remote-debugging": {
