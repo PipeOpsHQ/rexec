@@ -119,7 +119,7 @@ func (s *PostgresStore) SetAgentMFALock(ctx context.Context, id string, locked b
 func (s *PostgresStore) GetAgentsByUser(ctx context.Context, userID string) ([]*Agent, error) {
 	query := `
 	SELECT id, user_id, name, COALESCE(description, ''), COALESCE(os, ''), COALESCE(arch, ''),
-	       COALESCE(shell, ''), COALESCE(distro, ''), tags, created_at, updated_at, last_heartbeat, COALESCE(connected_instance_id, ''), system_info
+	       COALESCE(shell, ''), COALESCE(distro, ''), tags, created_at, updated_at, last_heartbeat, COALESCE(connected_instance_id, ''), system_info, COALESCE(mfa_locked, false)
 	FROM agents
 	WHERE user_id = $1
 	ORDER BY created_at DESC
@@ -143,6 +143,7 @@ func (s *PostgresStore) GetAgentsByUser(ctx context.Context, userID string) ([]*
 			&agent.ID, &agent.UserID, &agent.Name, &agent.Description,
 			&agent.OS, &agent.Arch, &agent.Shell, &agent.Distro, &tags,
 			&agent.CreatedAt, &agent.UpdatedAt, &lastHeartbeat, &connectedInstanceID, &systemInfoJSON,
+			&agent.MFALocked,
 		)
 		if err != nil {
 			return nil, err
@@ -256,7 +257,7 @@ func (s *PostgresStore) GetAgentConnectedInstance(ctx context.Context, id string
 func (s *PostgresStore) GetAllAgents(ctx context.Context) ([]*Agent, error) {
 	query := `
 	SELECT a.id, a.user_id, COALESCE(u.username, 'Unknown'), a.name, COALESCE(a.description, ''), COALESCE(a.os, ''), COALESCE(a.arch, ''),
-	       COALESCE(a.shell, ''), COALESCE(a.distro, ''), a.tags, a.created_at, a.updated_at, a.last_heartbeat, COALESCE(a.connected_instance_id, ''), a.system_info
+	       COALESCE(a.shell, ''), COALESCE(a.distro, ''), a.tags, a.created_at, a.updated_at, a.last_heartbeat, COALESCE(a.connected_instance_id, ''), a.system_info, COALESCE(a.mfa_locked, false)
 	FROM agents a
 	LEFT JOIN users u ON a.user_id = u.id
 	ORDER BY a.created_at DESC
@@ -280,6 +281,7 @@ func (s *PostgresStore) GetAllAgents(ctx context.Context) ([]*Agent, error) {
 			&agent.ID, &agent.UserID, &agent.Username, &agent.Name, &agent.Description,
 			&agent.OS, &agent.Arch, &agent.Shell, &agent.Distro, &tags,
 			&agent.CreatedAt, &agent.UpdatedAt, &lastHeartbeat, &connectedInstanceID, &systemInfoJSON,
+			&agent.MFALocked,
 		)
 		if err != nil {
 			return nil, err
