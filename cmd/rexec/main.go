@@ -1367,7 +1367,13 @@ func runServer() {
 	log.Printf("🚀 Rexec server starting on port %s", port)
 
 	// Start SSH gateway if enabled
+	// Use SSH_GATEWAY_ENABLED=true to enable on default port 22
+	// Or SSH_GATEWAY_PORT=2222 for custom port
+	sshEnabled := os.Getenv("SSH_GATEWAY_ENABLED") == "true"
 	sshPort := os.Getenv("SSH_GATEWAY_PORT")
+	if sshEnabled && sshPort == "" {
+		sshPort = "22" // Default SSH port
+	}
 	if sshPort != "" {
 		go startSSHGateway(sshPort, port)
 	}
@@ -1424,7 +1430,11 @@ func startSSHGateway(sshPort, apiPort string) {
 	}
 
 	log.Printf("🔐 SSH Gateway starting on port %s", sshPort)
-	log.Printf("   Connect with: ssh -p %s localhost", sshPort)
+	if sshPort == "22" {
+		log.Printf("   Connect with: ssh localhost")
+	} else {
+		log.Printf("   Connect with: ssh -p %s localhost", sshPort)
+	}
 
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
 		log.Printf("⚠️  SSH server error: %v", err)

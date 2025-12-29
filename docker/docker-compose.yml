@@ -8,6 +8,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+      - "22:22" # SSH Gateway (optional, enable with SSH_GATEWAY_ENABLED=true)
     environment:
       - PORT=8080
       - JWT_SECRET=${JWT_SECRET:-rexec-dev-secret-change-me}
@@ -19,6 +20,9 @@ services:
       - DOCKER_CA_CERT=${DOCKER_CA_CERT}
       - DOCKER_CLIENT_CERT=${DOCKER_CLIENT_CERT}
       - DOCKER_CLIENT_KEY=${DOCKER_CLIENT_KEY}
+      # SSH Gateway configuration
+      - SSH_GATEWAY_ENABLED=${SSH_GATEWAY_ENABLED:-false}
+      - SSH_GATEWAY_HOST_KEY=/app/.ssh/host_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,6 +30,7 @@ services:
         condition: service_started
     volumes:
       - recordings-data:/app/recordings
+      - ssh-keys:/app/.ssh # SSH host keys (persistent)
     restart: unless-stopped
     networks:
       - rexec-network
@@ -67,6 +72,7 @@ volumes:
   redis-data:
   postgres-data:
   recordings-data:
+  ssh-keys:
 
 networks:
   rexec-network:

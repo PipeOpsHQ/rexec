@@ -103,6 +103,26 @@ else
     }
 fi
 
+# Generate SSH Gateway host key if enabled and not present
+if [ "$SSH_GATEWAY_ENABLED" = "true" ]; then
+    SSH_HOST_KEY="${SSH_GATEWAY_HOST_KEY:-/app/.ssh/host_key}"
+    SSH_HOST_KEY_DIR=$(dirname "$SSH_HOST_KEY")
+
+    mkdir -p "$SSH_HOST_KEY_DIR"
+    chmod 700 "$SSH_HOST_KEY_DIR"
+
+    if [ ! -f "$SSH_HOST_KEY" ]; then
+        echo "Generating SSH Gateway host key..."
+        ssh-keygen -t ed25519 -f "$SSH_HOST_KEY" -N "" -q
+        echo "SSH Gateway host key generated at $SSH_HOST_KEY"
+    else
+        echo "Using existing SSH Gateway host key at $SSH_HOST_KEY"
+    fi
+
+    chmod 600 "$SSH_HOST_KEY"
+    chmod 644 "${SSH_HOST_KEY}.pub" 2>/dev/null || true
+fi
+
 # Setup SSH for remote Docker connection via SSH
 if [ -n "$SSH_PRIVATE_KEY" ]; then
     mkdir -p "$HOME/.ssh"
