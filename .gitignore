@@ -60,6 +60,10 @@ CLAUDE.md
 rexec
 rexec-cli
 rexec-agent
+rexec-ssh
 AGENTS.md
 .gocache/
 ./cache/*
+
+# SSH host keys
+.ssh/

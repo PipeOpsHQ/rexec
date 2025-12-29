@@ -1,10 +1,11 @@
-.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all agent-all cli-all-platforms tui-all-platforms dist downloads-dir
+.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all agent-all cli-all-platforms tui-all-platforms ssh-gateway ssh-gateway-all dist downloads-dir
 
 # Variables
 BINARY_NAME=rexec
 CLI_NAME=rexec-cli
 TUI_NAME=rexec-tui
 AGENT_NAME=rexec-agent
+SSH_NAME=rexec-ssh
 DOCKER_IMAGE=rexec-api
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
@@ -46,8 +47,12 @@ agent:
 	@echo "Building $(AGENT_NAME)..."
 	$(GOBUILD) -ldflags "-X main.Version=$(VERSION)" -o bin/$(AGENT_NAME) ./cmd/rexec-agent
 
+ssh-gateway:
+	@echo "Building $(SSH_NAME)..."
+	$(GOBUILD) -ldflags "-X main.Version=$(VERSION)" -o bin/$(SSH_NAME) ./cmd/rexec-ssh
+
 # Build all CLI tools
-cli-all: cli tui agent
+cli-all: cli tui agent ssh-gateway
 	@echo "All CLI tools built!"
 
 # Build multi-arch binaries for distribution
@@ -96,8 +101,21 @@ tui-all-platforms: downloads-dir
 	@echo "TUI binaries built in $(DOWNLOADS_DIR)/"
 	@ls -la $(DOWNLOADS_DIR)/rexec-tui-*
 
+# Build SSH gateway for all platforms
+ssh-gateway-all: downloads-dir
+	@echo "Building SSH gateway for all platforms..."
+	@for platform in $(PLATFORMS); do \
+		os=$$(echo $$platform | cut -d- -f1); \
+		arch=$$(echo $$platform | cut -d- -f2); \
+		echo "  Building rexec-ssh-$$platform..."; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GOBUILD) -ldflags "-X main.Version=$(VERSION) -s -w" \
+			-o $(DOWNLOADS_DIR)/rexec-ssh-$$platform ./cmd/rexec-ssh; \
+	done
+	@echo "SSH gateway binaries built in $(DOWNLOADS_DIR)/"
+	@ls -la $(DOWNLOADS_DIR)/rexec-ssh-*
+
 # Build all distribution binaries
-dist: agent-all cli-all-platforms tui-all-platforms
+dist: agent-all cli-all-platforms tui-all-platforms ssh-gateway-all
 	@echo ""
 	@echo "All distribution binaries built!"
 	@echo "Contents of $(DOWNLOADS_DIR)/:"
@@ -211,11 +229,13 @@ help:
 	@echo "  make cli          - Build the rexec-cli tool"
 	@echo "  make tui          - Build the rexec-tui dashboard"
 	@echo "  make agent        - Build the rexec-agent"
+	@echo "  make ssh-gateway  - Build the rexec-ssh gateway"
 	@echo "  make cli-all      - Build all CLI tools (local platform)"
 	@echo ""
 	@echo "  make agent-all          - Build agent for all platforms (linux/darwin amd64/arm64)"
 	@echo "  make cli-all-platforms  - Build CLI for all platforms"
 	@echo "  make tui-all-platforms  - Build TUI for all platforms"
+	@echo "  make ssh-gateway-all    - Build SSH gateway for all platforms"
 	@echo "  make dist               - Build all binaries for all platforms (for distribution)"
 	@echo ""
 	@echo "  make ui           - Build the Svelte web UI"
@@ -237,18 +257,18 @@ help:
 # Security scan
 security:
 	@echo "Scanning for security vulnerabilities..."
-	@if command -v gosec >/dev/null 2>&1; then \ 
-		gosec ./...; \ 
-	else \ 
-		echo "gosec not found, installing..."; \ 
-		go install github.com/securego/gosec/v2/cmd/gosec@latest; \ 
-		gosec ./...; \ 
+	@if command -v gosec >/dev/null 2>&1; then \
+		gosec ./...; \
+	else \
+		echo "gosec not found, installing..."; \
+		go install github.com/securego/gosec/v2/cmd/gosec@latest; \
+		gosec ./...; \
 	fi
 	@echo "Checking for known vulnerabilities..."
-	@if command -v govulncheck >/dev/null 2>&1; then \ 
-		govulncheck ./...; \ 
-	else \ 
-		echo "govulncheck not found, installing..."; \ 
-		go install golang.org/x/vuln/cmd/govulncheck@latest; \ 
-		govulncheck ./...; \ 
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./...; \
+	else \
+		echo "govulncheck not found, installing..."; \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+		govulncheck ./...; \
 	fi
