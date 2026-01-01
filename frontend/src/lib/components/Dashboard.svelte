@@ -927,44 +927,46 @@
                                 {/if}
                             </div>
                         </div>
-                        <span
-                            class="container-status {getStatusClass(
-                                container.status,
-                            )}"
-                        >
+                        <div class="container-badges">
                             <span
-                                class="status-dot"
-                                class:status-dot-pulse={isAgent &&
-                                    container.status === "running"}
-                            ></span>
-                            {container.status}
-                        </span>
-                        {#if container.mfa_locked}
-                            <span
-                                class="mfa-lock-badge"
-                                title="MFA Protected - requires authenticator code to access"
+                                class="container-status {getStatusClass(
+                                    container.status,
+                                )}"
                             >
-                                <svg
-                                    width="14"
-                                    height="14"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                >
-                                    <rect
-                                        x="3"
-                                        y="11"
-                                        width="18"
-                                        height="11"
-                                        rx="2"
-                                        ry="2"
-                                    />
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                                </svg>
-                                <span>MFA</span>
+                                <span
+                                    class="status-dot"
+                                    class:status-dot-pulse={isAgent &&
+                                        container.status === "running"}
+                                ></span>
+                                {container.status}
                             </span>
-                        {/if}
+                            {#if container.mfa_locked}
+                                <span
+                                    class="mfa-lock-badge"
+                                    title="MFA Protected - requires authenticator code to access"
+                                >
+                                    <svg
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <rect
+                                            x="3"
+                                            y="11"
+                                            width="18"
+                                            height="11"
+                                            rx="2"
+                                            ry="2"
+                                        />
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                    </svg>
+                                    <span>MFA</span>
+                                </span>
+                            {/if}
+                        </div>
                     </div>
 
                     <div class="container-meta">
@@ -1722,22 +1724,22 @@
         box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
     }
 
-    /* Agent card styles - Subtle teal-green theme */
+    /* Agent card styles - Match regular cards with subtle accent */
     .container-card.agent-card {
-        border-color: rgba(34, 197, 94, 0.6);
-        background: var(--bg-secondary);
-        box-shadow: 0 0 8px rgba(34, 197, 94, 0.08);
-        font-family:
-            "JetBrainsMono Nerd Font", "FiraCode Nerd Font", "Hack Nerd Font",
-            monospace;
+        border-color: var(--border);
+        background: var(--bg-card);
+        box-shadow: none;
     }
 
     .container-card.agent-card:hover {
-        border-color: rgba(34, 197, 94, 0.8);
-        box-shadow:
-            0 0 12px rgba(34, 197, 94, 0.15),
-            0 0 20px rgba(34, 197, 94, 0.08);
-        transform: translateY(-2px);
+        border-color: var(--text-muted);
+        box-shadow: none;
+        transform: none;
+    }
+
+    .container-card.agent-card.connected {
+        border-color: #00d9ff;
+        box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
     }
 
     .agent-env {
@@ -1868,6 +1870,15 @@
         margin-bottom: 12px;
     }
 
+    .container-badges {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+
     .container-icon {
         width: 32px;
         height: 32px;
@@ -1943,6 +1954,8 @@
         padding: 2px 8px;
         background: var(--bg-tertiary);
         border: 1px solid var(--border);
+        border-radius: 0;
+        white-space: nowrap;
     }
 
     .status-dot {
@@ -2326,6 +2339,11 @@
         .container-status {
             font-size: 10px;
             padding: 3px 8px;
+        }
+
+        .container-badges {
+            flex-direction: row;
+            gap: 4px;
         }
 
         .mfa-lock-badge {
@@ -2780,7 +2798,7 @@
         }
     }
 
-    /* MFA Lock Badge */
+    /* MFA Lock Badge - Match status badge styling */
     .mfa-lock-badge {
         display: inline-flex;
         align-items: center;
@@ -2788,11 +2806,11 @@
         padding: 2px 8px;
         background: rgba(251, 191, 36, 0.15);
         border: 1px solid rgba(251, 191, 36, 0.3);
-        border-radius: 4px;
+        border-radius: 0;
         font-size: 11px;
         font-weight: 500;
         color: #fbbf24;
-        margin-left: 8px;
+        text-transform: uppercase;
     }
 
     .mfa-lock-badge svg {
