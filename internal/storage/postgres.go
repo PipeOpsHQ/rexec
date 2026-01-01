@@ -190,6 +190,12 @@ func (s *PostgresStore) migrate() error {
 			END $$`,
 		`DO $$ BEGIN
 				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+					WHERE table_name='users' AND column_name='mfa_backup_codes') THEN
+					ALTER TABLE users ADD COLUMN mfa_backup_codes TEXT DEFAULT '';
+				END IF;
+			END $$`,
+		`DO $$ BEGIN
+				IF NOT EXISTS (SELECT 1 FROM information_schema.columns
 					WHERE table_name='users' AND column_name='screen_lock_hash') THEN
 					ALTER TABLE users ADD COLUMN screen_lock_hash VARCHAR(255) DEFAULT '';
 				END IF;
@@ -2647,22 +2653,29 @@ func (s *PostgresStore) GetAuditLogsByUserID(ctx context.Context, userID string,
 	return logs, nil
 }
 
-// EnableMFA enables MFA for a user
-func (s *PostgresStore) EnableMFA(ctx context.Context, userID, secret string) error {
+// EnableMFA enables MFA for a user with backup codes
+func (s *PostgresStore) EnableMFA(ctx context.Context, userID, secret string, backupCodes []string) error {
 	// Encrypt secret
 	encryptedSecret, err := s.encryptor.Encrypt(secret)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt MFA secret: %w", err)
 	}
 
-	query := `UPDATE users SET mfa_enabled = true, mfa_secret = $2, updated_at = $3 WHERE id = $1`
-	_, err = s.db.ExecContext(ctx, query, userID, encryptedSecret, time.Now())
+	// Encrypt backup codes (store as comma-separated encrypted string)
+	backupCodesStr := strings.Join(backupCodes, ",")
+	encryptedBackupCodes, err := s.encryptor.Encrypt(backupCodesStr)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt backup codes: %w", err)
+	}
+
+	query := `UPDATE users SET mfa_enabled = true, mfa_secret = $2, mfa_backup_codes = $3, updated_at = $4 WHERE id = $1`
+	_, err = s.db.ExecContext(ctx, query, userID, encryptedSecret, encryptedBackupCodes, time.Now())
 	return err
 }
 
 // DisableMFA disables MFA for a user
 func (s *PostgresStore) DisableMFA(ctx context.Context, userID string) error {
-	query := `UPDATE users SET mfa_enabled = false, mfa_secret = '', updated_at = $2 WHERE id = $1`
+	query := `UPDATE users SET mfa_enabled = false, mfa_secret = '', mfa_backup_codes = '', updated_at = $2 WHERE id = $1`
 	_, err := s.db.ExecContext(ctx, query, userID, time.Now())
 	return err
 }
@@ -2681,6 +2694,58 @@ func (s *PostgresStore) GetUserMFASecret(ctx context.Context, userID string) (st
 	}
 
 	return s.encryptor.Decrypt(secret)
+}
+
+// GetMFABackupCodes retrieves the backup codes for a user
+func (s *PostgresStore) GetMFABackupCodes(ctx context.Context, userID string) ([]string, error) {
+	var encryptedCodes string
+	query := `SELECT COALESCE(mfa_backup_codes, '') FROM users WHERE id = $1`
+	err := s.db.QueryRowContext(ctx, query, userID).Scan(&encryptedCodes)
+	if err != nil {
+		return nil, err
+	}
+
+	if encryptedCodes == "" {
+		return []string{}, nil
+	}
+
+	decrypted, err := s.encryptor.Decrypt(encryptedCodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt backup codes: %w", err)
+	}
+
+	if decrypted == "" {
+		return []string{}, nil
+	}
+
+	return strings.Split(decrypted, ","), nil
+}
+
+// UpdateMFABackupCodes updates the backup codes for a user
+func (s *PostgresStore) UpdateMFABackupCodes(ctx context.Context, userID string, codes []string) error {
+	codesStr := strings.Join(codes, ",")
+	var encryptedCodes string
+	var err error
+
+	if codesStr != "" {
+		encryptedCodes, err = s.encryptor.Encrypt(codesStr)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt backup codes: %w", err)
+		}
+	}
+
+	query := `UPDATE users SET mfa_backup_codes = $2, updated_at = $3 WHERE id = $1`
+	_, err = s.db.ExecContext(ctx, query, userID, encryptedCodes, time.Now())
+	return err
+}
+
+// GetMFABackupCodesCount returns how many backup codes remain for a user
+func (s *PostgresStore) GetMFABackupCodesCount(ctx context.Context, userID string) (int, error) {
+	codes, err := s.GetMFABackupCodes(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	return len(codes), nil
 }
 
 // ============================================================================

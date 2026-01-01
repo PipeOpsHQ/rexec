@@ -1648,8 +1648,15 @@ func (h *AuthHandler) VerifyMFA(c *gin.Context) {
 
 	ctx := context.Background()
 
-	// Enable MFA for user
-	if err := h.store.EnableMFA(ctx, userID, req.Secret); err != nil {
+	// Generate backup codes
+	backupCodes, err := auth.GenerateBackupCodes(10)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate backup codes"})
+		return
+	}
+
+	// Enable MFA for user with backup codes
+	if err := h.store.EnableMFA(ctx, userID, req.Secret, backupCodes); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enable MFA"})
 		return
 	}
@@ -1664,7 +1671,10 @@ func (h *AuthHandler) VerifyMFA(c *gin.Context) {
 		CreatedAt: time.Now(),
 	})
 
-	c.JSON(http.StatusOK, gin.H{"message": "MFA enabled successfully"})
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "MFA enabled successfully",
+		"backup_codes": backupCodes,
+	})
 }
 
 // DisableMFA disables MFA for a user
@@ -1723,6 +1733,91 @@ func (h *AuthHandler) DisableMFA(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "MFA disabled successfully"})
 }
 
+// GetBackupCodesCount returns how many backup codes are remaining
+func (h *AuthHandler) GetBackupCodesCount(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	ctx := context.Background()
+
+	count, err := h.store.GetMFABackupCodesCount(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get backup codes count"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
+}
+
+// RegenerateBackupCodes generates new backup codes (requires MFA verification)
+func (h *AuthHandler) RegenerateBackupCodes(c *gin.Context) {
+	userID := c.GetString("userID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req struct {
+		Code string `json:"code" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := context.Background()
+
+	// Get secret to verify MFA code
+	secret, err := h.store.GetUserMFASecret(ctx, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify"})
+		return
+	}
+
+	if secret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "MFA not enabled"})
+		return
+	}
+
+	// Validate code
+	if !h.mfaService.Validate(req.Code, secret) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
+		return
+	}
+
+	// Generate new backup codes
+	backupCodes, err := auth.GenerateBackupCodes(10)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate backup codes"})
+		return
+	}
+
+	// Store new backup codes
+	if err := h.store.UpdateMFABackupCodes(ctx, userID, backupCodes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save backup codes"})
+		return
+	}
+
+	// Log audit event
+	h.store.CreateAuditLog(ctx, &models.AuditLog{
+		ID:        uuid.New().String(),
+		UserID:    &userID,
+		Action:    "mfa_backup_codes_regenerated",
+		IPAddress: c.ClientIP(),
+		UserAgent: c.Request.UserAgent(),
+		CreatedAt: time.Now(),
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Backup codes regenerated",
+		"backup_codes": backupCodes,
+	})
+}
+
 // ValidateMFA validates an MFA code for session elevation or login
 func (h *AuthHandler) ValidateMFA(c *gin.Context) {
 	userID := c.GetString("userID")
@@ -1756,7 +1851,35 @@ func (h *AuthHandler) ValidateMFA(c *gin.Context) {
 		return
 	}
 
-	if !h.mfaService.Validate(req.Code, secret) {
+	// First try TOTP validation
+	codeValid := h.mfaService.Validate(req.Code, secret)
+
+	// If TOTP fails, try backup code
+	if !codeValid {
+		backupCodes, err := h.store.GetMFABackupCodes(ctx, userID)
+		if err == nil && len(backupCodes) > 0 {
+			matchIdx, remainingCodes := auth.ValidateBackupCode(req.Code, backupCodes)
+			if matchIdx >= 0 {
+				// Backup code valid - consume it
+				if err := h.store.UpdateMFABackupCodes(ctx, userID, remainingCodes); err != nil {
+					log.Printf("failed to update backup codes after use: %v", err)
+				}
+				codeValid = true
+
+				// Log backup code usage
+				h.store.CreateAuditLog(ctx, &models.AuditLog{
+					ID:        uuid.New().String(),
+					UserID:    &userID,
+					Action:    "mfa_backup_code_used",
+					IPAddress: c.ClientIP(),
+					UserAgent: c.Request.UserAgent(),
+					CreatedAt: time.Now(),
+				})
+			}
+		}
+	}
+
+	if !codeValid {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
 		return
 	}
@@ -1810,7 +1933,35 @@ func (h *AuthHandler) CompleteMFALogin(c *gin.Context) {
 		return
 	}
 
-	if !h.mfaService.Validate(req.Code, secret) {
+	// First try TOTP validation
+	codeValid := h.mfaService.Validate(req.Code, secret)
+
+	// If TOTP fails, try backup code
+	if !codeValid {
+		backupCodes, err := h.store.GetMFABackupCodes(ctx, userID)
+		if err == nil && len(backupCodes) > 0 {
+			matchIdx, remainingCodes := auth.ValidateBackupCode(req.Code, backupCodes)
+			if matchIdx >= 0 {
+				// Backup code valid - consume it
+				if err := h.store.UpdateMFABackupCodes(ctx, userID, remainingCodes); err != nil {
+					log.Printf("failed to update backup codes after use: %v", err)
+				}
+				codeValid = true
+
+				// Log backup code usage
+				h.store.CreateAuditLog(ctx, &models.AuditLog{
+					ID:        uuid.New().String(),
+					UserID:    &userID,
+					Action:    "mfa_backup_code_used",
+					IPAddress: c.ClientIP(),
+					UserAgent: c.Request.UserAgent(),
+					CreatedAt: time.Now(),
+				})
+			}
+		}
+	}
+
+	if !codeValid {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
 		return
 	}

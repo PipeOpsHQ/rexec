@@ -52,12 +52,14 @@
 
     // MFA state
     let showMFAModal = false;
-    let mfaStep: "intro" | "setup" | "verify" | "disable" = "intro";
+    let mfaStep: "intro" | "setup" | "verify" | "disable" | "backup_codes" =
+        "intro";
     let mfaSecret = "";
     let mfaQrDataUrl = "";
     let mfaCode = "";
     let mfaError = "";
     let mfaLoading = false;
+    let mfaBackupCodes: string[] = [];
 
     // IP Whitelist state
     let showIPModal = false;
@@ -385,11 +387,10 @@
                 throw new Error(data.error || "Verification failed");
             }
 
-            toast.success(
-                "MFA Enabled! You can now lock terminals with MFA from your dashboard.",
-            );
+            const data = await res.json();
+            mfaBackupCodes = data.backup_codes || [];
+            mfaStep = "backup_codes";
             auth.fetchProfile(); // Refresh profile to update mfaEnabled status
-            showMFAModal = false;
         } catch (e: any) {
             mfaError = e.message || "Verification failed";
         } finally {
@@ -1657,6 +1658,27 @@
                             maxlength="6"
                         />
                     </div>
+                {:else if mfaStep === "backup_codes"}
+                    <div class="backup-codes-container">
+                        <div class="backup-codes-header">
+                            <span class="backup-codes-icon">🔐</span>
+                            <h4>Save Your Backup Codes</h4>
+                        </div>
+                        <p class="modal-text" style="margin-bottom: 16px;">
+                            Store these codes in a safe place. Each code can
+                            only be used once to recover access if you lose your
+                            authenticator.
+                        </p>
+                        <div class="backup-codes-grid">
+                            {#each mfaBackupCodes as code}
+                                <div class="backup-code">{code}</div>
+                            {/each}
+                        </div>
+                        <p class="backup-codes-warning">
+                            ⚠️ These codes will only be shown once. Download or
+                            copy them now.
+                        </p>
+                    </div>
                 {:else if mfaStep === "disable"}
                     <p class="modal-text">
                         Enter a code from your authenticator app to disable MFA.
@@ -1697,6 +1719,48 @@
                         onclick={verifyMFA}
                         disabled={mfaLoading || !mfaCode}
                         >Verify & Enable</button
+                    >
+                {:else if mfaStep === "backup_codes"}
+                    <button
+                        class="btn btn-secondary"
+                        onclick={() => {
+                            const codesText = mfaBackupCodes.join("\n");
+                            navigator.clipboard.writeText(codesText);
+                            toast.success("Backup codes copied to clipboard");
+                        }}>Copy Codes</button
+                    >
+                    <button
+                        class="btn btn-secondary"
+                        onclick={() => {
+                            const codesText =
+                                "Rexec MFA Backup Codes\n" +
+                                "========================\n" +
+                                "Generated: " +
+                                new Date().toISOString() +
+                                "\n\n" +
+                                "Each code can only be used once.\n\n" +
+                                mfaBackupCodes.join("\n");
+                            const blob = new Blob([codesText], {
+                                type: "text/plain",
+                            });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = "rexec-backup-codes.txt";
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            toast.success("Backup codes downloaded");
+                        }}>Download</button
+                    >
+                    <button
+                        class="btn btn-primary"
+                        onclick={() => {
+                            showMFAModal = false;
+                            mfaBackupCodes = [];
+                            toast.success(
+                                "MFA Enabled! You can now lock terminals with MFA from your dashboard.",
+                            );
+                        }}>Done</button
                     >
                 {:else if mfaStep === "disable"}
                     <button
@@ -2833,6 +2897,61 @@
         word-break: break-all;
     }
 
+    /* Backup Codes Styles */
+    .backup-codes-container {
+        text-align: center;
+    }
+
+    .backup-codes-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .backup-codes-header h4 {
+        margin: 0;
+        font-size: 16px;
+        color: var(--text-primary);
+    }
+
+    .backup-codes-icon {
+        font-size: 24px;
+    }
+
+    .backup-codes-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        background: var(--bg-secondary);
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        margin-bottom: 16px;
+    }
+
+    .backup-code {
+        font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
+        font-size: 14px;
+        padding: 8px 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--accent);
+        letter-spacing: 1px;
+        user-select: all;
+    }
+
+    .backup-codes-warning {
+        font-size: 12px;
+        color: var(--warning, #f0ad4e);
+        margin-top: 12px;
+        padding: 8px 12px;
+        background: rgba(240, 173, 78, 0.1);
+        border-radius: 4px;
+    }
+
     .secret-text code {
         background: var(--bg-tertiary);
         padding: 2px 6px;
@@ -3565,6 +3684,26 @@
         .secret-text code {
             font-size: 9px;
             word-break: break-all;
+        }
+
+        .backup-codes-grid {
+            grid-template-columns: 1fr;
+            padding: 12px;
+            gap: 6px;
+        }
+
+        .backup-code {
+            font-size: 12px;
+            padding: 6px 10px;
+        }
+
+        .backup-codes-header h4 {
+            font-size: 14px;
+        }
+
+        .backup-codes-warning {
+            font-size: 11px;
+            padding: 6px 10px;
         }
 
         .ip-list {
