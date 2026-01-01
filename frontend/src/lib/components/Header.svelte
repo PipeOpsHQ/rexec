@@ -1112,5 +1112,161 @@
             min-width: auto;
             width: calc(100% - 20px);
         }
+
+        .mobile-menu-content {
+            width: 220px;
+        }
+
+        .mobile-menu-header {
+            padding: 12px;
+        }
+
+        .mobile-nav-links {
+            padding: 12px;
+            gap: 8px;
+        }
+
+        .mobile-nav-link {
+            padding: 8px;
+            font-size: 13px;
+            gap: 10px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .header {
+            padding: 6px 8px;
+        }
+
+        .mobile-menu-btn {
+            margin-right: 4px;
+            padding: 2px;
+        }
+
+        .mobile-menu-btn :global(svg) {
+            width: 16px;
+            height: 16px;
+        }
+
+        .logo {
+            gap: 6px;
+        }
+
+        .logo-icon {
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+        }
+
+        .logo-text {
+            font-size: 12px;
+        }
+
+        .nav-actions {
+            gap: 4px;
+        }
+
+        .theme-toggle {
+            padding: 4px;
+        }
+
+        .theme-toggle :global(svg) {
+            width: 14px;
+            height: 14px;
+        }
+
+        .user-badge {
+            padding: 2px 4px;
+            gap: 3px;
+        }
+
+        .user-avatar {
+            width: 16px;
+            height: 16px;
+            font-size: 8px;
+        }
+
+        .guest-badge {
+            font-size: 6px;
+            padding: 1px 2px;
+        }
+
+        .countdown-badge {
+            font-size: 7px;
+            padding: 1px 2px;
+        }
+
+        .countdown-badge :global(svg) {
+            width: 8px;
+            height: 8px;
+        }
+
+        .user-menu {
+            left: 6px;
+            right: 6px;
+            top: 44px;
+            width: calc(100% - 12px);
+        }
+
+        .user-menu-header {
+            padding: 10px;
+        }
+
+        .user-menu-name {
+            font-size: 12px;
+        }
+
+        .user-menu-email {
+            font-size: 10px;
+        }
+
+        .user-menu-tier {
+            font-size: 9px;
+            padding: 2px 5px;
+        }
+
+        .user-menu-item {
+            padding: 8px 10px;
+            font-size: 12px;
+            gap: 8px;
+        }
+
+        .user-menu-section-label {
+            font-size: 9px;
+            padding: 4px 10px 2px;
+        }
+
+        .mobile-menu-content {
+            width: 180px;
+        }
+
+        .mobile-menu-header {
+            padding: 10px;
+        }
+
+        .mobile-menu-header .logo-text {
+            font-size: 14px;
+        }
+
+        .close-btn :global(svg) {
+            width: 16px;
+            height: 16px;
+        }
+
+        .mobile-nav-links {
+            padding: 10px;
+            gap: 6px;
+        }
+
+        .mobile-nav-link {
+            padding: 6px 8px;
+            font-size: 12px;
+            gap: 8px;
+        }
+
+        .mobile-nav-link :global(svg) {
+            width: 14px;
+            height: 14px;
+        }
     }
 </style>

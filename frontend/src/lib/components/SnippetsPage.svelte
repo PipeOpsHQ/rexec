@@ -23,7 +23,9 @@
                     resolve();
                     return;
                 }
-                existing.addEventListener("load", () => resolve(), { once: true });
+                existing.addEventListener("load", () => resolve(), {
+                    once: true,
+                });
                 existing.addEventListener(
                     "error",
                     () => reject(new Error(`Failed to load ${src}`)),
@@ -84,7 +86,7 @@
     let snippets: Snippet[] = [];
     let isLoading = true;
     let showCreate = false;
-    
+
     // Create state
     let newName = "";
     let newContent = "";
@@ -103,8 +105,10 @@
     // Load snippets
     async function loadSnippets() {
         isLoading = true;
-        const { data, error } = await api.get<{ snippets: Snippet[] }>("/api/snippets");
-        
+        const { data, error } = await api.get<{ snippets: Snippet[] }>(
+            "/api/snippets",
+        );
+
         if (data) {
             snippets = data.snippets || [];
         } else if (error) {
@@ -186,7 +190,7 @@
             content: newContent.trim(),
             description: newDescription.trim(),
             is_public: newIsPublic,
-            language: "bash"
+            language: "bash",
         });
 
         if (data) {
@@ -204,13 +208,22 @@
     }
 
     async function togglePublic(snippet: Snippet) {
-        const { data, error } = await api.put<Snippet>(`/api/snippets/${snippet.id}`, {
-            is_public: !snippet.is_public
-        });
-        
+        const { data, error } = await api.put<Snippet>(
+            `/api/snippets/${snippet.id}`,
+            {
+                is_public: !snippet.is_public,
+            },
+        );
+
         if (data) {
-            snippets = snippets.map(s => s.id === snippet.id ? { ...s, is_public: data.is_public } : s);
-            toast.success(data.is_public ? "Snippet is now public" : "Snippet is now private");
+            snippets = snippets.map((s) =>
+                s.id === snippet.id ? { ...s, is_public: data.is_public } : s,
+            );
+            toast.success(
+                data.is_public
+                    ? "Snippet is now public"
+                    : "Snippet is now private",
+            );
         } else {
             toast.error(error || "Failed to update snippet");
         }
@@ -228,13 +241,13 @@
 
         const { error } = await api.delete(`/api/snippets/${id}`);
         if (!error) {
-            snippets = snippets.filter(s => s.id !== id);
+            snippets = snippets.filter((s) => s.id !== id);
             toast.success("Snippet deleted");
         } else {
             toast.error(error || "Failed to delete snippet");
         }
     }
-    
+
     function copyToClipboard(text: string) {
         navigator.clipboard.writeText(text);
         toast.success("Copied to clipboard");
@@ -244,7 +257,9 @@
 <ConfirmModal
     bind:show={showDeleteConfirm}
     title="Delete Snippet"
-    message={snippetToDelete ? `Are you sure you want to delete "${snippetToDelete.name}"?` : ""}
+    message={snippetToDelete
+        ? `Are you sure you want to delete "${snippetToDelete.name}"?`
+        : ""}
     confirmText="Delete"
     variant="danger"
     on:confirm={confirmDeleteSnippet}
@@ -264,7 +279,10 @@
                 <StatusIcon status="store" size={16} /> Marketplace
             </a>
             {#if !showCreate}
-                <button class="btn btn-primary" onclick={() => showCreate = true}>
+                <button
+                    class="btn btn-primary"
+                    onclick={() => (showCreate = true)}
+                >
                     + Create New
                 </button>
             {/if}
@@ -275,57 +293,65 @@
         <div class="create-form-card">
             <div class="card-header">
                 <h3>New Snippet</h3>
-                <button class="close-btn" onclick={() => showCreate = false}>×</button>
+                <button class="close-btn" onclick={() => (showCreate = false)}
+                    >×</button
+                >
             </div>
             <div class="card-body">
                 <div class="form-group">
                     <label for="snip-name">Name</label>
-                    <input 
-                        id="snip-name" 
-                        type="text" 
-                        bind:value={newName} 
+                    <input
+                        id="snip-name"
+                        type="text"
+                        bind:value={newName}
                         placeholder="e.g. Install Node.js"
                         class="input"
                     />
                 </div>
                 <div class="form-group">
                     <label for="snip-desc">Description (optional)</label>
-                    <input 
-                        id="snip-desc" 
-                        type="text" 
-                        bind:value={newDescription} 
+                    <input
+                        id="snip-desc"
+                        type="text"
+                        bind:value={newDescription}
                         placeholder="Brief description of what this snippet does"
                         class="input"
                     />
                 </div>
                 <div class="form-group">
                     <label for="snip-content">Command / Script</label>
-                    <div class="ace-editor-container" bind:this={editorElement}></div>
+                    <div
+                        class="ace-editor-container"
+                        bind:this={editorElement}
+                    ></div>
                 </div>
                 <div class="form-group checkbox-group">
                     <label class="checkbox-label">
-                        <input 
-                            type="checkbox" 
-                            bind:checked={newIsPublic}
-                        />
+                        <input type="checkbox" bind:checked={newIsPublic} />
                         <span class="checkbox-text">
                             <strong>Make public</strong>
-                            <small>Share in marketplace for others to use</small>
+                            <small>Share in marketplace for others to use</small
+                            >
                         </span>
                     </label>
                 </div>
                 <div class="form-actions">
-                    <button class="btn btn-secondary" onclick={() => {
-                        showCreate = false;
-                        newContent = "";
-                        newName = "";
-                        newDescription = "";
-                        newIsPublic = false;
-                    }}>Cancel</button>
-                    <button 
-                        class="btn btn-primary" 
+                    <button
+                        class="btn btn-secondary"
+                        onclick={() => {
+                            showCreate = false;
+                            newContent = "";
+                            newName = "";
+                            newDescription = "";
+                            newIsPublic = false;
+                        }}>Cancel</button
+                    >
+                    <button
+                        class="btn btn-primary"
                         onclick={createSnippet}
-                        disabled={isCreating || !newName.trim() || !newContent.trim()}
+                        disabled={isCreating ||
+                            !newName.trim() ||
+                            !newContent.trim()}
                     >
                         {isCreating ? "Saving..." : "Save Snippet"}
                     </button>
@@ -342,10 +368,18 @@
             </div>
         {:else if snippets.length === 0 && !showCreate}
             <div class="empty-state">
-                <div class="empty-icon"><StatusIcon status="snippet" size={48} /></div>
+                <div class="empty-icon">
+                    <StatusIcon status="snippet" size={48} />
+                </div>
                 <h2>No Snippets</h2>
-                <p>Save your favorite commands to run them instantly in any terminal.</p>
-                <button class="btn btn-primary" onclick={() => showCreate = true}>
+                <p>
+                    Save your favorite commands to run them instantly in any
+                    terminal.
+                </p>
+                <button
+                    class="btn btn-primary"
+                    onclick={() => (showCreate = true)}
+                >
                     Create Your First Snippet
                 </button>
             </div>
@@ -357,27 +391,43 @@
                             <div class="snippet-title">
                                 {snippet.name}
                                 {#if snippet.is_public}
-                                    <span class="public-badge" title="Public - visible in marketplace"><StatusIcon status="globe" size={14} /></span>
+                                    <span
+                                        class="public-badge"
+                                        title="Public - visible in marketplace"
+                                        ><StatusIcon
+                                            status="globe"
+                                            size={14}
+                                        /></span
+                                    >
                                 {/if}
                             </div>
                             <div class="snippet-actions">
-                                <button 
-                                    class="action-btn" 
-                                    title={snippet.is_public ? "Make private" : "Make public"}
+                                <button
+                                    class="action-btn"
+                                    title={snippet.is_public
+                                        ? "Make private"
+                                        : "Make public"}
                                     onclick={() => togglePublic(snippet)}
                                 >
-                                    <StatusIcon status={snippet.is_public ? "unlock" : "lock"} size={14} />
+                                    <StatusIcon
+                                        status={snippet.is_public
+                                            ? "unlock"
+                                            : "lock"}
+                                        size={14}
+                                    />
                                 </button>
-                                <button 
-                                    class="btn-icon" 
-                                    onclick={() => copyToClipboard(snippet.content)}
+                                <button
+                                    class="btn-icon"
+                                    onclick={() =>
+                                        copyToClipboard(snippet.content)}
                                     title="Copy to clipboard"
                                 >
                                     <StatusIcon status="copy" size={14} />
                                 </button>
-                                <button 
-                                    class="btn-icon danger" 
-                                    onclick={() => deleteSnippet(snippet.id, snippet.name)}
+                                <button
+                                    class="btn-icon danger"
+                                    onclick={() =>
+                                        deleteSnippet(snippet.id, snippet.name)}
                                     title="Delete"
                                 >
                                     <StatusIcon status="close" size={14} />
@@ -614,7 +664,8 @@
     }
 
     /* Loading/Empty */
-    .loading-state, .empty-state {
+    .loading-state,
+    .empty-state {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -650,9 +701,29 @@
         margin-bottom: 24px;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    @keyframes slideDown {
+        from {
+            transform: translateY(-10px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
 
     /* Checkbox group */
     .checkbox-group {
@@ -711,5 +782,330 @@
         display: flex;
         align-items: center;
         gap: 4px;
+    }
+
+    @media (max-width: 768px) {
+        .snippets-page {
+            padding: 12px;
+        }
+
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        h1 {
+            font-size: 20px;
+        }
+
+        .subtitle {
+            font-size: 12px;
+        }
+
+        .back-btn {
+            width: 32px;
+            height: 32px;
+        }
+
+        .header-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .header-actions .btn {
+            font-size: 12px;
+            padding: 8px 12px;
+        }
+
+        .create-form-card {
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 12px 14px;
+        }
+
+        .card-header h3 {
+            font-size: 15px;
+        }
+
+        .card-body {
+            padding: 14px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+        }
+
+        .ace-editor-container {
+            height: 180px;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .snippets-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .snippet-card {
+            padding: 12px;
+        }
+
+        .snippet-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .snippet-title {
+            font-size: 13px;
+        }
+
+        .snippet-actions {
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+        }
+
+        .snippet-content {
+            font-size: 11px;
+        }
+
+        .checkbox-text strong {
+            font-size: 13px;
+        }
+
+        .checkbox-text small {
+            font-size: 11px;
+        }
+
+        .empty-state,
+        .loading-state {
+            padding: 40px 16px;
+        }
+
+        .empty-state h2 {
+            font-size: 16px;
+        }
+
+        .empty-state p {
+            font-size: 12px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .snippets-page {
+            padding: 8px;
+        }
+
+        .page-header {
+            gap: 10px;
+        }
+
+        h1 {
+            font-size: 18px;
+        }
+
+        .subtitle {
+            font-size: 11px;
+        }
+
+        .back-btn {
+            width: 28px;
+            height: 28px;
+        }
+
+        .header-actions .btn {
+            font-size: 11px;
+            padding: 6px 10px;
+        }
+
+        .card-header {
+            padding: 10px 12px;
+        }
+
+        .card-header h3 {
+            font-size: 14px;
+        }
+
+        .card-body {
+            padding: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            font-size: 11px;
+        }
+
+        .form-group input {
+            font-size: 12px;
+            padding: 8px 10px;
+        }
+
+        .ace-editor-container {
+            height: 150px;
+        }
+
+        .snippet-card {
+            padding: 10px;
+        }
+
+        .snippet-title {
+            font-size: 12px;
+        }
+
+        .public-badge {
+            font-size: 10px;
+            margin-left: 4px;
+        }
+
+        .btn-icon {
+            width: 26px;
+            height: 26px;
+        }
+
+        .btn-icon :global(svg) {
+            width: 12px;
+            height: 12px;
+        }
+
+        .snippet-content {
+            font-size: 10px;
+            max-height: 80px;
+            padding: 8px;
+        }
+
+        .snippet-description {
+            font-size: 10px;
+        }
+
+        .snippet-meta {
+            font-size: 9px;
+            gap: 8px;
+        }
+
+        .checkbox-text strong {
+            font-size: 12px;
+        }
+
+        .checkbox-text small {
+            font-size: 10px;
+        }
+
+        .empty-icon :global(svg) {
+            width: 36px;
+            height: 36px;
+        }
+
+        .empty-state h2 {
+            font-size: 14px;
+        }
+
+        .empty-state p {
+            font-size: 11px;
+        }
+
+        .loading-state .spinner {
+            width: 24px;
+            height: 24px;
+        }
+
+        .loading-state p {
+            font-size: 12px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .snippets-page {
+            padding: 6px;
+        }
+
+        h1 {
+            font-size: 16px;
+        }
+
+        .subtitle {
+            font-size: 10px;
+        }
+
+        .back-btn {
+            width: 24px;
+            height: 24px;
+        }
+
+        .header-actions .btn {
+            font-size: 10px;
+            padding: 5px 8px;
+        }
+
+        .card-header {
+            padding: 8px 10px;
+        }
+
+        .card-header h3 {
+            font-size: 13px;
+        }
+
+        .card-body {
+            padding: 10px;
+        }
+
+        .form-group input {
+            font-size: 11px;
+            padding: 6px 8px;
+        }
+
+        .ace-editor-container {
+            height: 120px;
+        }
+
+        .snippet-card {
+            padding: 8px;
+        }
+
+        .snippet-title {
+            font-size: 11px;
+        }
+
+        .btn-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .snippet-content {
+            font-size: 9px;
+            max-height: 60px;
+            padding: 6px;
+        }
+
+        .empty-state,
+        .loading-state {
+            padding: 24px 10px;
+        }
+
+        .empty-state h2 {
+            font-size: 13px;
+        }
+
+        .empty-state p {
+            font-size: 10px;
+        }
     }
 </style>

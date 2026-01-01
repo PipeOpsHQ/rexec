@@ -226,11 +226,29 @@
             position: static;
             flex-direction: row;
             overflow-x: auto;
-            padding-bottom: 8px;
+            padding: 0 0 8px 0;
+            margin: 0 -12px;
+            padding-left: 12px;
+            padding-right: 12px;
             gap: 6px;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: none;
             -ms-overflow-style: none;
+            /* Fade hints for scroll */
+            mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                black 8px,
+                black calc(100% - 8px),
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(
+                to right,
+                transparent 0,
+                black 8px,
+                black calc(100% - 8px),
+                transparent 100%
+            );
         }
 
         .account-nav::-webkit-scrollbar {
@@ -242,6 +260,7 @@
             min-width: fit-content;
             padding: 10px 12px;
             font-size: 13px;
+            flex-shrink: 0;
         }
 
         .nav-item span {
@@ -315,6 +334,56 @@
 
         .account-main {
             min-height: 250px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .account-layout {
+            padding: 6px;
+        }
+
+        .account-header {
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+        }
+
+        .header-left {
+            gap: 8px;
+        }
+
+        .back-btn {
+            width: 28px;
+            height: 28px;
+        }
+
+        .back-btn .icon {
+            width: 14px;
+            height: 14px;
+        }
+
+        .header-info h1 {
+            font-size: 14px;
+        }
+
+        .user-info {
+            font-size: 9px;
+        }
+
+        .account-nav {
+            gap: 4px;
+            margin: 0 -6px;
+            padding: 0 6px 6px;
+        }
+
+        .nav-item {
+            padding: 6px 8px;
+            font-size: 11px;
+            border-radius: 5px;
+        }
+
+        .nav-item :global(svg) {
+            width: 14px;
+            height: 14px;
         }
     }
 </style>

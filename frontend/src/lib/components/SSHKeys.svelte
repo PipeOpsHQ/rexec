@@ -847,14 +847,38 @@
         }
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
+        .ssh-keys {
+            padding: 12px;
+        }
+
+        .ssh-keys-header {
+            margin-bottom: 16px;
+        }
+
+        .ssh-keys-header h1 {
+            font-size: 18px;
+        }
+
+        .back-btn {
+            width: 32px;
+            height: 32px;
+        }
+
         .section-header {
             flex-direction: column;
             align-items: flex-start;
+            gap: 12px;
+        }
+
+        .section-description {
+            font-size: 12px;
         }
 
         .key-card {
             flex-wrap: wrap;
+            padding: 12px;
+            gap: 10px;
         }
 
         .key-info {
@@ -866,9 +890,292 @@
             order: 0;
         }
 
-        .key-card .btn {
+        .key-name {
+            font-size: 13px;
+        }
+
+        .key-fingerprint {
+            font-size: 11px;
+        }
+
+        .key-meta {
+            font-size: 10px;
+        }
+
+        .actions {
             order: 2;
-            margin-left: auto;
+            width: 100%;
+            justify-content: flex-end;
+        }
+
+        .key-card .btn {
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+
+        .empty-state,
+        .guest-state {
+            padding: 24px 16px;
+        }
+
+        .empty-state h2,
+        .guest-state h2 {
+            font-size: 16px;
+        }
+
+        .empty-state p,
+        .guest-state p {
+            font-size: 12px;
+        }
+
+        .modal {
+            margin: 12px;
+            max-width: calc(100% - 24px);
+        }
+
+        .modal-header {
+            padding: 12px 14px;
+        }
+
+        .modal-header h2 {
+            font-size: 15px;
+        }
+
+        .modal-body {
+            padding: 14px;
+        }
+
+        .form-row {
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+        }
+
+        .form-group input {
+            font-size: 13px;
+            padding: 8px 10px;
+        }
+
+        .form-hint {
+            font-size: 10px;
+        }
+
+        .modal-footer {
+            padding: 12px 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .modal-footer .btn {
+            flex: 1;
+            min-width: calc(50% - 4px);
+        }
+    }
+
+    @media (max-width: 480px) {
+        .ssh-keys {
+            padding: 8px;
+        }
+
+        .ssh-keys-header {
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ssh-keys-header h1 {
+            font-size: 16px;
+        }
+
+        .back-btn {
+            width: 28px;
+            height: 28px;
+        }
+
+        .section-description {
+            font-size: 11px;
+        }
+
+        .section-header .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .key-card {
+            padding: 10px;
+            gap: 8px;
+        }
+
+        .key-icon {
+            width: 36px;
+            height: 36px;
+        }
+
+        .key-icon :global(svg) {
+            width: 18px;
+            height: 18px;
+        }
+
+        .key-name {
+            font-size: 12px;
+        }
+
+        .key-fingerprint {
+            font-size: 10px;
+        }
+
+        .key-meta {
+            font-size: 9px;
+            flex-wrap: wrap;
+        }
+
+        .actions {
+            gap: 6px;
+        }
+
+        .key-card .btn {
+            padding: 5px 8px;
+            font-size: 10px;
+        }
+
+        .empty-icon :global(svg),
+        .guest-icon :global(svg) {
+            width: 36px;
+            height: 36px;
+        }
+
+        .empty-state h2,
+        .guest-state h2 {
+            font-size: 14px;
+        }
+
+        .empty-state p,
+        .guest-state p {
+            font-size: 11px;
+        }
+
+        .modal {
+            margin: 8px;
+            max-width: calc(100% - 16px);
+        }
+
+        .modal-header {
+            padding: 10px 12px;
+        }
+
+        .modal-header h2 {
+            font-size: 14px;
+        }
+
+        .modal-body {
+            padding: 12px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .form-group input {
+            font-size: 12px;
+            padding: 6px 8px;
+        }
+
+        .form-hint {
+            font-size: 9px;
+        }
+
+        .modal-footer {
+            padding: 10px 12px;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .modal-footer .btn {
+            width: 100%;
+            min-width: auto;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .ssh-keys {
+            padding: 6px;
+        }
+
+        .ssh-keys-header h1 {
+            font-size: 14px;
+        }
+
+        .back-btn {
+            width: 24px;
+            height: 24px;
+        }
+
+        .section-description {
+            font-size: 10px;
+        }
+
+        .key-card {
+            padding: 8px;
+        }
+
+        .key-icon {
+            width: 30px;
+            height: 30px;
+        }
+
+        .key-name {
+            font-size: 11px;
+        }
+
+        .key-fingerprint {
+            font-size: 9px;
+        }
+
+        .key-meta {
+            font-size: 8px;
+        }
+
+        .key-card .btn {
+            padding: 4px 6px;
+            font-size: 9px;
+        }
+
+        .modal {
+            margin: 4px;
+            max-width: calc(100% - 8px);
+        }
+
+        .modal-header {
+            padding: 8px 10px;
+        }
+
+        .modal-header h2 {
+            font-size: 13px;
+        }
+
+        .modal-body {
+            padding: 10px;
+        }
+
+        .form-group input {
+            font-size: 11px;
+            padding: 5px 6px;
+        }
+
+        .modal-footer {
+            padding: 8px 10px;
+        }
+
+        .modal-footer .btn {
+            padding: 8px 10px;
+            font-size: 10px;
         }
     }
 </style>

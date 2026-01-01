@@ -2,7 +2,7 @@
     import { createEventDispatcher } from "svelte";
     import { auth, isGuest, isAdmin } from "$stores/auth";
     import StatusIcon from "./icons/StatusIcon.svelte";
-    
+
     const dispatch = createEventDispatcher<{
         navigate: { view: string };
         logout: void;
@@ -34,7 +34,9 @@
                     <h2>{$auth.user?.name || "User"}</h2>
                     <p class="email">{$auth.user?.email || "No email"}</p>
                     <div class="badges">
-                        <span class="badge tier">{$auth.user?.tier?.toUpperCase() || "FREE"} PLAN</span>
+                        <span class="badge tier"
+                            >{$auth.user?.tier?.toUpperCase() || "FREE"} PLAN</span
+                        >
                         {#if $isGuest}
                             <span class="badge guest">GUEST</span>
                         {/if}
@@ -44,7 +46,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="profile-actions">
                 <button class="action-btn danger" onclick={handleLogout}>
                     <StatusIcon status="logout" size={16} />
@@ -55,7 +57,11 @@
 
         <!-- Quick Links Grid -->
         <div class="links-grid">
-            <button class="link-card" onclick={() => navigate('dashboard')} disabled={$isGuest}>
+            <button
+                class="link-card"
+                onclick={() => navigate("dashboard")}
+                disabled={$isGuest}
+            >
                 <div class="icon-wrapper">
                     <StatusIcon status="chart" size={24} />
                 </div>
@@ -65,7 +71,11 @@
                 </div>
             </button>
 
-            <button class="link-card" onclick={() => navigate('settings')} disabled={$isGuest}>
+            <button
+                class="link-card"
+                onclick={() => navigate("settings")}
+                disabled={$isGuest}
+            >
                 <div class="icon-wrapper">
                     <StatusIcon status="settings" size={24} />
                 </div>
@@ -75,7 +85,11 @@
                 </div>
             </button>
 
-            <button class="link-card" onclick={() => navigate('sshkeys')} disabled={$isGuest}>
+            <button
+                class="link-card"
+                onclick={() => navigate("sshkeys")}
+                disabled={$isGuest}
+            >
                 <div class="icon-wrapper">
                     <StatusIcon status="key" size={24} />
                 </div>
@@ -85,7 +99,11 @@
                 </div>
             </button>
 
-            <button class="link-card" onclick={() => navigate('billing')} disabled={$isGuest}>
+            <button
+                class="link-card"
+                onclick={() => navigate("billing")}
+                disabled={$isGuest}
+            >
                 <div class="icon-wrapper">
                     <StatusIcon status="invoice" size={24} />
                 </div>
@@ -94,8 +112,12 @@
                     <p>Manage your subscription and payment methods.</p>
                 </div>
             </button>
-            
-            <button class="link-card" onclick={() => navigate('snippets')} disabled={$isGuest}>
+
+            <button
+                class="link-card"
+                onclick={() => navigate("snippets")}
+                disabled={$isGuest}
+            >
                 <div class="icon-wrapper">
                     <StatusIcon status="snippet" size={24} />
                 </div>
@@ -105,7 +127,11 @@
                 </div>
             </button>
 
-            <button class="link-card" onclick={() => navigate('recordings')} disabled={$isGuest}>
+            <button
+                class="link-card"
+                onclick={() => navigate("recordings")}
+                disabled={$isGuest}
+            >
                 <div class="icon-wrapper">
                     <StatusIcon status="recording" size={24} />
                 </div>
@@ -115,7 +141,7 @@
                 </div>
             </button>
 
-            <button class="link-card" onclick={() => navigate('pricing')}>
+            <button class="link-card" onclick={() => navigate("pricing")}>
                 <div class="icon-wrapper">
                     <StatusIcon status="pricing" size={24} />
                 </div>
@@ -133,7 +159,11 @@
     </div>
 
     <div class="links-grid">
-        <button class="link-card" onclick={() => navigate('docs/cli')} disabled={$isGuest}>
+        <button
+            class="link-card"
+            onclick={() => navigate("docs/cli")}
+            disabled={$isGuest}
+        >
             <div class="icon-wrapper accent">
                 <StatusIcon status="cli" size={24} />
             </div>
@@ -143,7 +173,11 @@
             </div>
         </button>
 
-        <button class="link-card" onclick={() => navigate('docs/agent')} disabled={$isGuest}>
+        <button
+            class="link-card"
+            onclick={() => navigate("docs/agent")}
+            disabled={$isGuest}
+        >
             <div class="icon-wrapper accent">
                 <StatusIcon status="server" size={24} />
             </div>
@@ -154,7 +188,7 @@
         </button>
 
         {#if $isAdmin}
-            <button class="link-card" onclick={() => navigate('admin')}>
+            <button class="link-card" onclick={() => navigate("admin")}>
                 <div class="icon-wrapper danger">
                     <StatusIcon status="shield" size={24} />
                 </div>
@@ -304,8 +338,8 @@
     /* Links Grid */
     .links-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 16px;
     }
 
     .link-card {
@@ -376,12 +410,62 @@
         letter-spacing: 1px;
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
+        .account-page {
+            padding: 24px 12px;
+        }
+
+        .page-header {
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 24px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+        }
+
+        .account-grid {
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
         .profile-card {
             flex-direction: column;
             align-items: flex-start;
+            padding: 16px;
         }
-        
+
+        .profile-header {
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            font-size: 18px;
+        }
+
+        .profile-info h2 {
+            font-size: 16px;
+        }
+
+        .email {
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .badges {
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 3px 6px;
+        }
+
         .profile-actions {
             width: 100%;
         }
@@ -389,6 +473,175 @@
         .action-btn {
             width: 100%;
             justify-content: center;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .links-grid {
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .link-card {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 16px 12px;
+            gap: 10px;
+        }
+
+        .icon-wrapper {
+            padding: 8px;
+        }
+
+        .card-content h3 {
+            font-size: 14px;
+        }
+
+        .card-content p {
+            font-size: 11px;
+            display: none;
+        }
+
+        .section-divider {
+            margin: 24px 0 16px;
+        }
+
+        .section-divider h2 {
+            font-size: 14px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .account-page {
+            padding: 16px 8px;
+        }
+
+        .page-header {
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 20px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+        }
+
+        .account-grid {
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .profile-card {
+            padding: 12px;
+        }
+
+        .profile-header {
+            gap: 10px;
+            width: 100%;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+
+        .profile-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-info h2 {
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .email {
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .badge {
+            font-size: 9px;
+            padding: 2px 5px;
+        }
+
+        .action-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .links-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .link-card {
+            padding: 12px 8px;
+            gap: 8px;
+            border-radius: 8px;
+        }
+
+        .icon-wrapper {
+            padding: 6px;
+            border-radius: 6px;
+        }
+
+        .icon-wrapper :global(svg) {
+            width: 18px;
+            height: 18px;
+        }
+
+        .card-content h3 {
+            font-size: 12px;
+        }
+
+        .section-divider {
+            margin: 20px 0 12px;
+        }
+
+        .section-divider h2 {
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .account-page {
+            padding: 12px 6px;
+        }
+
+        h1 {
+            font-size: 18px;
+        }
+
+        .links-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .link-card {
+            padding: 10px 6px;
+        }
+
+        .icon-wrapper {
+            padding: 5px;
+        }
+
+        .icon-wrapper :global(svg) {
+            width: 16px;
+            height: 16px;
+        }
+
+        .card-content h3 {
+            font-size: 11px;
         }
     }
 </style>

@@ -2489,6 +2489,131 @@
         }
     }
 
+    @media (max-width: 360px) {
+        .dashboard {
+            padding: 0 2px;
+        }
+
+        .dashboard-header {
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .dashboard-title h1 {
+            font-size: 13px;
+        }
+
+        .count-badge {
+            font-size: 9px;
+            padding: 1px 4px;
+        }
+
+        .dashboard-actions {
+            gap: 4px;
+        }
+
+        .dashboard-actions .btn {
+            padding: 5px 6px;
+            font-size: 10px;
+            min-width: calc(50% - 4px);
+        }
+
+        .dashboard-actions .icon {
+            width: 10px;
+            height: 10px;
+        }
+
+        .container-card {
+            padding: 8px;
+        }
+
+        .container-header {
+            gap: 6px;
+        }
+
+        .container-icon {
+            width: 28px;
+            height: 28px;
+            font-size: 14px;
+        }
+
+        h2.container-name {
+            font-size: 11px;
+        }
+
+        .container-image {
+            font-size: 9px;
+        }
+
+        .container-status {
+            font-size: 8px;
+            padding: 2px 4px;
+        }
+
+        .container-meta {
+            padding: 6px 0;
+            gap: 3px;
+        }
+
+        .meta-label,
+        .meta-value {
+            font-size: 9px;
+        }
+
+        .container-resources {
+            padding: 6px;
+            font-size: 9px;
+        }
+
+        .resource-spec svg {
+            width: 10px;
+            height: 10px;
+        }
+
+        .action-row {
+            gap: 4px;
+        }
+
+        .action-row .btn {
+            padding: 5px 6px;
+            font-size: 9px;
+            min-width: calc(50% - 4px);
+        }
+
+        .empty-state {
+            padding: 24px 10px;
+        }
+
+        .empty-icon svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .empty-state h2 {
+            font-size: 14px;
+        }
+
+        .empty-state p {
+            font-size: 11px;
+        }
+
+        .connect-own-tip {
+            padding: 10px;
+        }
+
+        .tip-header span {
+            font-size: 11px;
+        }
+
+        .tip-text {
+            font-size: 10px;
+        }
+
+        .tip-code {
+            font-size: 9px;
+        }
+    }
+
     /* Modal Styles */
     .modal-backdrop {
         position: fixed;
@@ -2546,6 +2671,8 @@
 
     .shortcuts-modal {
         max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
     }
 
     .shortcuts-list {
@@ -2553,6 +2680,53 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 24px;
+    }
+
+    @media (max-width: 600px) {
+        .modal-content {
+            margin: 10px;
+            max-width: calc(100% - 20px);
+        }
+
+        .shortcuts-modal {
+            max-height: 80vh;
+        }
+
+        .shortcuts-list {
+            grid-template-columns: 1fr;
+            padding: 12px;
+            gap: 16px;
+        }
+
+        .shortcut-group h4 {
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        .shortcut-item {
+            padding: 6px 0;
+        }
+
+        .keys {
+            gap: 3px;
+        }
+
+        .key {
+            font-size: 10px;
+            padding: 2px 5px;
+        }
+
+        .desc {
+            font-size: 11px;
+        }
+
+        .modal-header {
+            padding: 12px 14px;
+        }
+
+        .modal-header h3 {
+            font-size: 14px;
+        }
     }
 
     .shortcut-group h4 {
@@ -2760,5 +2934,114 @@
 
     .mfa-modal-footer .btn {
         min-width: 100px;
+    }
+
+    @media (max-width: 480px) {
+        .mfa-modal {
+            margin: 10px;
+            width: calc(100% - 20px);
+        }
+
+        .mfa-modal-header h3 {
+            font-size: 16px;
+        }
+
+        .mfa-modal-icon {
+            width: 48px;
+            height: 48px;
+        }
+
+        .mfa-modal-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .mfa-modal-body {
+            padding: 16px;
+        }
+
+        .mfa-input {
+            padding: 12px;
+            font-size: 20px;
+            letter-spacing: 6px;
+        }
+
+        .mfa-modal-footer {
+            padding: 12px 16px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .mfa-modal-footer .btn {
+            width: 100%;
+            min-width: auto;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .mfa-modal {
+            margin: 6px;
+            width: calc(100% - 12px);
+        }
+
+        .mfa-modal-header {
+            padding: 12px;
+        }
+
+        .mfa-modal-header h3 {
+            font-size: 14px;
+        }
+
+        .mfa-modal-icon {
+            width: 40px;
+            height: 40px;
+        }
+
+        .mfa-modal-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .mfa-close-btn {
+            width: 28px;
+            height: 28px;
+        }
+
+        .mfa-modal-body {
+            padding: 12px;
+        }
+
+        .mfa-terminal-name {
+            font-size: 11px;
+        }
+
+        .mfa-description {
+            font-size: 12px;
+            margin-bottom: 14px;
+        }
+
+        .mfa-input {
+            padding: 10px;
+            font-size: 18px;
+            letter-spacing: 4px;
+        }
+
+        .mfa-input::placeholder {
+            font-size: 12px;
+        }
+
+        .mfa-error {
+            font-size: 11px;
+            padding: 6px 10px;
+        }
+
+        .mfa-modal-footer {
+            padding: 10px 12px;
+        }
+
+        .mfa-modal-footer .btn {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
     }
 </style>

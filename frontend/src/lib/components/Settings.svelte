@@ -3213,14 +3213,515 @@
         border-color: var(--accent);
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
+        .settings {
+            padding: 12px;
+        }
+
+        .settings-header {
+            margin-bottom: 16px;
+        }
+
+        .settings-header h1 {
+            font-size: 18px;
+        }
+
+        .back-btn {
+            width: 32px;
+            height: 32px;
+        }
+
+        .settings-content {
+            gap: 16px;
+        }
+
+        .settings-section {
+            padding: 12px;
+        }
+
+        .settings-section h2 {
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .setting-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 0;
+        }
+
+        .setting-info label {
+            font-size: 13px;
+        }
+
+        .setting-description {
+            font-size: 11px;
+        }
+
+        .input-sm,
+        .select-sm {
+            font-size: 12px;
+            padding: 6px 10px;
+        }
+
+        .settings-actions {
+            flex-direction: column;
+            gap: 8px;
+            padding: 16px 0;
+        }
+
+        .settings-actions button {
+            width: 100%;
+        }
+
+        .modal {
+            margin: 12px;
+            max-width: calc(100% - 24px);
+        }
+
+        .modal-lg {
+            max-width: calc(100% - 24px);
+        }
+
+        .modal-header {
+            padding: 12px 14px;
+        }
+
+        .modal-header h3 {
+            font-size: 15px;
+        }
+
+        .modal-body {
+            padding: 14px;
+        }
+
+        .modal-footer {
+            padding: 12px 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .modal-footer .btn {
+            flex: 1;
+            min-width: calc(50% - 4px);
+        }
+
+        .agents-list {
+            gap: 10px;
+        }
+
+        .agent-card {
+            padding: 12px;
+        }
+
+        .agent-name {
+            font-size: 13px;
+        }
+
+        .agent-desc {
+            font-size: 11px;
+        }
+
+        .agent-details {
+            gap: 6px;
+            font-size: 10px;
+        }
+
+        .agents-footer .install-inline code {
+            font-size: 10px;
+            padding: 6px 8px;
+        }
+
         .color-presets {
             justify-content: center;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
         }
 
         .custom-color-picker {
             flex-wrap: wrap;
             justify-content: center;
+            gap: 8px;
+        }
+
+        .profile-names {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .profile-names .input-sm {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .settings {
+            padding: 8px;
+        }
+
+        .settings-header {
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .settings-header h1 {
+            font-size: 16px;
+        }
+
+        .back-btn {
+            width: 28px;
+            height: 28px;
+        }
+
+        .back-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .settings-section {
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .settings-section h2 {
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .setting-item {
+            padding: 10px 0;
+            gap: 8px;
+        }
+
+        .setting-info label {
+            font-size: 12px;
+        }
+
+        .setting-description {
+            font-size: 10px;
+        }
+
+        .setting-value {
+            width: 100%;
+        }
+
+        .input-sm,
+        .select-sm {
+            width: 100%;
+            font-size: 11px;
+            padding: 5px 8px;
+        }
+
+        .tier-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+        }
+
+        .toggle-switch {
+            transform: scale(0.85);
+            transform-origin: right center;
+        }
+
+        .settings-actions {
+            padding: 12px 0;
+        }
+
+        .settings-actions button {
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        .modal {
+            margin: 8px;
+            max-width: calc(100% - 16px);
+        }
+
+        .modal-header {
+            padding: 10px 12px;
+        }
+
+        .modal-header h3 {
+            font-size: 14px;
+        }
+
+        .modal-close {
+            font-size: 18px;
+        }
+
+        .modal-body {
+            padding: 12px;
+        }
+
+        .modal-text {
+            font-size: 12px;
+        }
+
+        .form-group label {
+            font-size: 11px;
+        }
+
+        .input-full {
+            font-size: 12px;
+            padding: 8px 10px;
+        }
+
+        .modal-footer {
+            padding: 10px 12px;
+            gap: 6px;
+        }
+
+        .modal-footer .btn {
+            padding: 8px 12px;
+            font-size: 11px;
+        }
+
+        .agent-card {
+            padding: 10px;
+        }
+
+        .agent-header {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .agent-name {
+            font-size: 12px;
+        }
+
+        .agent-desc {
+            font-size: 10px;
+        }
+
+        .agent-details {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .detail-label,
+        .detail-value {
+            font-size: 9px;
+        }
+
+        .agent-actions .btn-icon {
+            width: 28px;
+            height: 28px;
+        }
+
+        .agents-empty-state h3 {
+            font-size: 14px;
+        }
+
+        .agents-empty-state .empty-desc {
+            font-size: 11px;
+        }
+
+        .agents-footer .install-inline {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+
+        .agents-footer .install-inline span {
+            font-size: 11px;
+        }
+
+        .agents-footer .install-inline code {
+            font-size: 9px;
+            word-break: break-all;
+        }
+
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+        }
+
+        .custom-swatch {
+            width: 24px;
+            height: 24px;
+        }
+
+        .color-hex-input {
+            max-width: 80px;
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+
+        .qr-container {
+            padding: 12px;
+        }
+
+        .qr-code {
+            max-width: 150px;
+        }
+
+        .secret-text {
+            font-size: 10px;
+        }
+
+        .secret-text code {
+            font-size: 9px;
+            word-break: break-all;
+        }
+
+        .ip-list {
+            max-height: 150px;
+        }
+
+        .ip-item {
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+
+        .add-ip-form {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .add-ip-form .btn {
+            width: 100%;
+        }
+
+        .logs-table th,
+        .logs-table td {
+            padding: 6px 8px;
+            font-size: 10px;
+        }
+
+        .sessions-list {
+            gap: 8px;
+        }
+
+        .session-row {
+            padding: 10px;
+        }
+
+        .session-ua {
+            font-size: 11px;
+        }
+
+        .session-details {
+            font-size: 9px;
+            flex-wrap: wrap;
+        }
+
+        .session-actions .btn {
+            padding: 4px 8px;
+            font-size: 10px;
+        }
+
+        .install-script-box {
+            padding: 10px;
+        }
+
+        .install-script-box code {
+            font-size: 10px;
+        }
+
+        .install-notes {
+            padding: 10px;
+        }
+
+        .install-notes h5 {
+            font-size: 11px;
+        }
+
+        .install-notes li {
+            font-size: 10px;
+        }
+
+        .token-notice {
+            padding: 10px;
+            font-size: 11px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .settings {
+            padding: 6px;
+        }
+
+        .settings-header h1 {
+            font-size: 14px;
+        }
+
+        .back-btn {
+            width: 24px;
+            height: 24px;
+        }
+
+        .settings-section {
+            padding: 8px;
+        }
+
+        .settings-section h2 {
+            font-size: 11px;
+        }
+
+        .setting-item {
+            padding: 8px 0;
+        }
+
+        .setting-info label {
+            font-size: 11px;
+        }
+
+        .setting-description {
+            font-size: 9px;
+        }
+
+        .input-sm,
+        .select-sm {
+            font-size: 10px;
+            padding: 4px 6px;
+        }
+
+        .modal {
+            margin: 4px;
+            max-width: calc(100% - 8px);
+        }
+
+        .modal-header {
+            padding: 8px 10px;
+        }
+
+        .modal-header h3 {
+            font-size: 13px;
+        }
+
+        .modal-body {
+            padding: 10px;
+        }
+
+        .modal-footer {
+            padding: 8px 10px;
+            flex-direction: column;
+        }
+
+        .modal-footer .btn {
+            width: 100%;
+            min-width: auto;
+        }
+
+        .agent-card {
+            padding: 8px;
+        }
+
+        .agent-name {
+            font-size: 11px;
+        }
+
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+        }
+
+        .custom-swatch {
+            width: 20px;
+            height: 20px;
         }
     }
 </style>
