@@ -1484,6 +1484,7 @@
         margin-bottom: 24px;
         padding-bottom: 16px;
         border-bottom: 1px solid var(--border);
+        position: relative;
     }
 
     .dashboard-title {
@@ -1510,6 +1511,8 @@
     .dashboard-actions {
         display: flex;
         gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
     }
 
     .icon {
@@ -1693,7 +1696,7 @@
     /* Containers Grid */
     .containers-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
         gap: 16px;
     }
 
@@ -2225,18 +2228,264 @@
     }
 
     @media (max-width: 768px) {
+        .dashboard {
+            padding: 0 8px;
+        }
+
         .dashboard-header {
             flex-direction: column;
-            align-items: flex-start;
+            align-items: stretch;
             gap: 12px;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .dashboard-title {
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .dashboard-title h1 {
+            font-size: 16px;
+        }
+
+        .dashboard-actions {
+            flex-wrap: wrap;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .dashboard-actions .btn {
+            flex: 1;
+            min-width: calc(50% - 6px);
+            justify-content: center;
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+
+        .dashboard-actions .btn-primary {
+            flex: 1 1 100%;
+            order: -1;
+        }
+
+        .dashboard-actions .live-indicator {
+            position: absolute;
+            top: -20px;
+            right: 0;
+            font-size: 10px;
         }
 
         .containers-grid {
             grid-template-columns: 1fr;
+            gap: 12px;
         }
 
         .btn-text-desktop {
             display: none;
+        }
+
+        .container-card {
+            padding: 12px;
+        }
+
+        .container-header {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .container-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+        }
+
+        .container-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        h2.container-name {
+            font-size: 13px;
+            word-break: break-word;
+        }
+
+        .container-image {
+            font-size: 10px;
+        }
+
+        .container-meta-row {
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .environment-badge {
+            padding: 2px 6px;
+            font-size: 9px;
+        }
+
+        .container-status {
+            font-size: 10px;
+            padding: 3px 8px;
+        }
+
+        .mfa-lock-badge {
+            font-size: 9px;
+            padding: 3px 6px;
+        }
+
+        .mfa-lock-badge svg {
+            width: 10px;
+            height: 10px;
+        }
+
+        .container-meta {
+            flex-direction: column;
+            gap: 4px;
+            padding: 8px 0;
+        }
+
+        .meta-item {
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .meta-item-right {
+            margin-left: 0;
+        }
+
+        .container-resources {
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 8px;
+            font-size: 10px;
+        }
+
+        .resource-spec {
+            font-size: 10px;
+        }
+
+        .resource-spec svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .container-actions {
+            gap: 6px;
+        }
+
+        .action-row {
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .action-row .btn {
+            flex: 1;
+            min-width: calc(50% - 6px);
+            padding: 8px 10px;
+            font-size: 11px;
+            justify-content: center;
+        }
+
+        .action-row .btn-primary,
+        .action-row .btn.flex-1 {
+            flex: 1 1 100%;
+        }
+
+        .empty-state {
+            padding: 40px 16px;
+        }
+
+        .empty-state h2 {
+            font-size: 16px;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+        }
+
+        .connect-own-tip {
+            padding: 12px;
+        }
+
+        .tip-code-block {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tip-code {
+            font-size: 11px;
+            word-break: break-all;
+        }
+
+        .creating-progress {
+            padding: 10px 0;
+        }
+
+        .progress-info {
+            font-size: 11px;
+        }
+
+        .progress-message {
+            font-size: 11px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .dashboard {
+            padding: 0 4px;
+        }
+
+        .dashboard-header {
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .dashboard-title h1 {
+            font-size: 14px;
+        }
+
+        .count-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+        }
+
+        .dashboard-actions .btn {
+            padding: 6px 8px;
+            font-size: 11px;
+        }
+
+        .dashboard-actions .icon {
+            width: 12px;
+            height: 12px;
+        }
+
+        .container-card {
+            padding: 10px;
+        }
+
+        .container-icon {
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+        }
+
+        h2.container-name {
+            font-size: 12px;
+        }
+
+        .container-status {
+            font-size: 9px;
+            padding: 2px 6px;
+        }
+
+        .action-row .btn {
+            padding: 6px 8px;
+            font-size: 10px;
+        }
+
+        .spinner-sm {
+            width: 12px;
+            height: 12px;
         }
     }
 

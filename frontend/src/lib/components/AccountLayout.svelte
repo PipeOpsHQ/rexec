@@ -17,12 +17,32 @@
     // Navigation items
     const navItems = [
         { id: "overview", label: "Overview", href: "/account", icon: "chart" },
-        { id: "settings", label: "Settings", href: "/account/settings", icon: "settings" },
+        {
+            id: "settings",
+            label: "Settings",
+            href: "/account/settings",
+            icon: "settings",
+        },
         { id: "ssh", label: "SSH Keys", href: "/account/ssh", icon: "key" },
         { id: "api", label: "API Tokens", href: "/account/api", icon: "code" },
-        { id: "recordings", label: "Recordings", href: "/account/recordings", icon: "video" },
-        { id: "billing", label: "Billing", href: "/account/billing", icon: "invoice" },
-        { id: "snippets", label: "Snippets", href: "/account/snippets", icon: "snippet" },
+        {
+            id: "recordings",
+            label: "Recordings",
+            href: "/account/recordings",
+            icon: "video",
+        },
+        {
+            id: "billing",
+            label: "Billing",
+            href: "/account/billing",
+            icon: "invoice",
+        },
+        {
+            id: "snippets",
+            label: "Snippets",
+            href: "/account/snippets",
+            icon: "snippet",
+        },
     ];
 
     function isActive(itemId: string): boolean {
@@ -39,14 +59,23 @@
 <div class="account-layout">
     <div class="account-header">
         <div class="header-left">
-            <button class="back-btn" onclick={() => navigate('dashboard')}>
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+            <button class="back-btn" onclick={() => navigate("dashboard")}>
+                <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
             </button>
             <div class="header-info">
                 <h1>Account</h1>
-                <p class="user-info">{$auth.user?.email || "User"} · {$auth.user?.tier?.toUpperCase() || "FREE"}</p>
+                <p class="user-info">
+                    {$auth.user?.email || "User"} · {$auth.user?.tier?.toUpperCase() ||
+                        "FREE"}
+                </p>
             </div>
         </div>
     </div>
@@ -179,9 +208,18 @@
     }
 
     @media (max-width: 768px) {
+        .account-layout {
+            padding: 12px;
+        }
+
+        .account-header {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+        }
+
         .account-content {
             grid-template-columns: 1fr;
-            gap: 20px;
+            gap: 16px;
         }
 
         .account-nav {
@@ -189,11 +227,21 @@
             flex-direction: row;
             overflow-x: auto;
             padding-bottom: 8px;
+            gap: 6px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .account-nav::-webkit-scrollbar {
+            display: none;
         }
 
         .nav-item {
             white-space: nowrap;
             min-width: fit-content;
+            padding: 10px 12px;
+            font-size: 13px;
         }
 
         .nav-item span {
@@ -204,12 +252,69 @@
             gap: 12px;
         }
 
+        .back-btn {
+            width: 36px;
+            height: 36px;
+        }
+
+        .back-btn .icon {
+            width: 18px;
+            height: 18px;
+        }
+
         .header-info h1 {
-            font-size: 20px;
+            font-size: 18px;
         }
 
         .user-info {
+            font-size: 11px;
+        }
+
+        .account-main {
+            min-height: 300px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .account-layout {
+            padding: 8px;
+        }
+
+        .account-header {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+        }
+
+        .header-left {
+            gap: 10px;
+        }
+
+        .back-btn {
+            width: 32px;
+            height: 32px;
+        }
+
+        .back-btn .icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .header-info h1 {
+            font-size: 16px;
+        }
+
+        .user-info {
+            font-size: 10px;
+        }
+
+        .nav-item {
+            padding: 8px 10px;
             font-size: 12px;
+            border-radius: 6px;
+        }
+
+        .account-main {
+            min-height: 250px;
         }
     }
 </style>

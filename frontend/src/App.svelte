@@ -2306,6 +2306,7 @@
         margin: 0 auto;
         padding: 20px;
         width: 100%;
+        box-sizing: border-box;
     }
 
     .main.has-terminal {
@@ -2320,8 +2321,18 @@
     }
 
     @media (max-width: 768px) {
+        .main {
+            padding: 12px;
+        }
+
         .main.has-terminal {
             padding-bottom: 20px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .main {
+            padding: 8px;
         }
     }
 
@@ -2493,6 +2504,39 @@
     @media (max-width: 600px) {
         .modal {
             margin: 16px;
+            max-width: calc(100% - 32px);
+        }
+
+        .modal-header {
+            padding: 12px 16px;
+        }
+
+        .modal-header h2 {
+            font-size: 14px;
+        }
+
+        .modal-body {
+            padding: 16px;
+        }
+
+        .modal-description {
+            font-size: 12px;
+        }
+
+        .form-group input {
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+
+        .modal-footer {
+            padding: 12px 16px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .modal-footer .btn {
+            width: 100%;
+            justify-content: center;
         }
     }
 </style>
