@@ -382,12 +382,11 @@
                 },
                 body: JSON.stringify({ secret: mfaSecret, code: mfaCode }),
             });
+            const data = await res.json();
             if (!res.ok) {
-                const data = await res.json();
                 throw new Error(data.error || "Verification failed");
             }
 
-            const data = await res.json();
             mfaBackupCodes = data.backup_codes || [];
             mfaStep = "backup_codes";
             auth.fetchProfile(); // Refresh profile to update mfaEnabled status
