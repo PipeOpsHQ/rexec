@@ -1671,7 +1671,7 @@
                                 e.detail.name,
                             );
                         }}
-                        on:showAgentDocs={goToAgents}
+                        on:showAgentDocs={goToSettings}
                     />
                 {:else}
                     <div class="view-loading">Loading...</div>
