@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { createEventDispatcher, onMount } from "svelte";
+    import { createEventDispatcher, onMount, tick } from "svelte";
     import QRCode from "qrcode";
     import { auth, isGuest } from "$stores/auth";
     import { security, hasPasscode } from "$stores/security";
@@ -7,6 +7,9 @@
     import { toast } from "$stores/toast";
     import { theme as themeStore, accentPresets } from "$stores/theme";
     import StatusIcon from "./icons/StatusIcon.svelte";
+
+    // Props
+    export let scrollToSection: string | null = null;
 
     const dispatch = createEventDispatcher<{
         back: void;
@@ -95,13 +98,22 @@
         profileLoaded = true;
     }
 
-    onMount(() => {
+    onMount(async () => {
         // Refresh security state to ensure we know if passcode is enabled
         security.refreshFromServer();
 
         if (!$isGuest) {
             // Initial fetch of registered agents
             agents.fetchAgents();
+        }
+
+        // Scroll to section if specified
+        if (scrollToSection) {
+            await tick();
+            const section = document.getElementById(scrollToSection);
+            if (section) {
+                section.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
         }
     });
 
@@ -1127,7 +1139,7 @@
 
         <!-- Agents Section -->
         {#if !$isGuest}
-            <section class="settings-section">
+            <section class="settings-section" id="agents-section">
                 <h2>Agents</h2>
                 <p class="section-description">
                     Connect your own servers, VMs, or local machines to rexec.

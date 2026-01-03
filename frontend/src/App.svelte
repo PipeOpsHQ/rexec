@@ -1312,7 +1312,16 @@
         ensureTerminalStore();
     }
 
+    let settingsScrollSection: string | null = null;
+
     function goToSettings() {
+        settingsScrollSection = null;
+        currentView = "account-settings";
+        window.history.pushState({}, "", "/account/settings");
+    }
+
+    function goToAgentSettings() {
+        settingsScrollSection = "agents-section";
         currentView = "account-settings";
         window.history.pushState({}, "", "/account/settings");
     }
@@ -1671,7 +1680,7 @@
                                 e.detail.name,
                             );
                         }}
-                        on:showAgentDocs={goToSettings}
+                        on:showAgentDocs={goToAgentSettings}
                     />
                 {:else}
                     <div class="view-loading">Loading...</div>
@@ -1881,9 +1890,11 @@
                     >
                         <svelte:component
                             this={lazyComponents.settings}
+                            scrollToSection={settingsScrollSection}
                             on:back={() => {
                                 currentView = "account";
                                 window.history.pushState({}, "", "/account");
+                                settingsScrollSection = null;
                             }}
                             on:connectAgent={(
                                 e: CustomEvent<{
@@ -1896,6 +1907,7 @@
                                 currentView = "dashboard";
                                 window.history.pushState({}, "", "/");
                                 toast.success(`Connecting to ${agentName}...`);
+                                settingsScrollSection = null;
                             }}
                         />
                     </svelte:component>
