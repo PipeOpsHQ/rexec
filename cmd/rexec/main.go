@@ -1146,6 +1146,7 @@ func runServer() {
 			embedGroup.StaticFile("/rexec.esm.js", filepath.Join(embedDir, "rexec.esm.js"))
 			embedGroup.StaticFile("/rexec.min.js.map", filepath.Join(embedDir, "rexec.min.js.map"))
 			embedGroup.StaticFile("/rexec.esm.js.map", filepath.Join(embedDir, "rexec.esm.js.map"))
+			embedGroup.StaticFile("/rexec.css", filepath.Join(embedDir, "rexec.css"))
 		}
 
 		// Install scripts - served with correct content type for curl | bash

@@ -44,6 +44,24 @@ COPY frontend/ ./
 # Build the Svelte app (outputs to ../web)
 RUN npm run build
 
+# Embed widget build stage
+FROM node:22-alpine AS embed-builder
+
+WORKDIR /app/embed
+
+# Copy package.json and package-lock.json for reproducible installs
+COPY embed/package.json ./
+COPY embed/package-lock.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source files
+COPY embed/ ./
+
+# Build the embed widget
+RUN npm run build
+
 # Go build stage
 FROM golang:1.24-alpine AS builder
 
@@ -65,6 +83,9 @@ COPY . .
 
 # Copy built frontend from frontend-builder
 COPY --from=frontend-builder /app/web ./web
+
+# Copy embed widget from embed-builder
+COPY --from=embed-builder /app/embed/dist ./web/embed
 
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o rexec ./cmd/rexec
