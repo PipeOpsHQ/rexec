@@ -1125,6 +1125,25 @@ func runServer() {
 		router.StaticFile("/apple-touch-icon.png", filepath.Join(webDir, "favicon.svg"))
 		router.StaticFile("/apple-touch-icon-precomposed.png", filepath.Join(webDir, "favicon.svg"))
 
+		// Embed widget - serve CDN bundle for embeddable terminal widget
+		embedDir := filepath.Join(webDir, "embed")
+		if _, err := os.Stat(embedDir); err == nil {
+			router.Static("/embed", embedDir)
+			// Serve with proper CORS headers for CDN usage
+			router.GET("/embed/rexec.min.js", func(c *gin.Context) {
+				c.Header("Access-Control-Allow-Origin", "*")
+				c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+				c.Header("Cache-Control", "public, max-age=86400") // 24 hour cache
+				c.File(filepath.Join(embedDir, "rexec.min.js"))
+			})
+			router.GET("/embed/rexec.esm.js", func(c *gin.Context) {
+				c.Header("Access-Control-Allow-Origin", "*")
+				c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+				c.Header("Cache-Control", "public, max-age=86400")
+				c.File(filepath.Join(embedDir, "rexec.esm.js"))
+			})
+		}
+
 		// Install scripts - served with correct content type for curl | bash
 		scriptsDir := os.Getenv("SCRIPTS_DIR")
 		if scriptsDir == "" {

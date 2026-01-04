@@ -1,4 +1,4 @@
-.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all agent-all cli-all-platforms tui-all-platforms ssh-gateway ssh-gateway-all dist downloads-dir
+.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all agent-all cli-all-platforms tui-all-platforms ssh-gateway ssh-gateway-all dist downloads-dir embed embed-install embed-dev
 
 # Variables
 BINARY_NAME=rexec
@@ -28,6 +28,25 @@ ui: ui-install
 ui-dev:
 	@echo "Starting web UI dev server..."
 	cd web-ui && npm run dev
+
+# Build the embed widget
+embed-install:
+	@echo "Installing embed widget dependencies..."
+	cd embed && npm install
+
+embed: embed-install
+	@echo "Building embed widget..."
+	cd embed && npm run build
+	@echo "Copying embed widget to web/embed..."
+	@mkdir -p web/embed
+	cp embed/dist/rexec.min.js web/embed/
+	cp embed/dist/rexec.esm.js web/embed/
+	cp embed/dist/rexec.min.js.map web/embed/ 2>/dev/null || true
+	@echo "Embed widget built and copied to web/embed/"
+
+embed-dev:
+	@echo "Starting embed widget dev build with watch..."
+	cd embed && npm run dev
 
 # Build the binary
 build:
@@ -121,8 +140,8 @@ dist: agent-all cli-all-platforms tui-all-platforms ssh-gateway-all
 	@echo "Contents of $(DOWNLOADS_DIR)/:"
 	@ls -la $(DOWNLOADS_DIR)/
 
-# Build everything (UI + Go binary + CLI tools)
-build-all: ui build cli-all
+# Build everything (UI + Go binary + CLI tools + embed widget)
+build-all: ui embed build cli-all
 	@echo "Build complete!"
 
 # Run the application
@@ -241,6 +260,10 @@ help:
 	@echo "  make ui           - Build the Svelte web UI"
 	@echo "  make ui-dev       - Run web UI dev server (port 3000)"
 	@echo "  make ui-install   - Install web UI dependencies"
+	@echo ""
+	@echo "  make embed        - Build the embeddable terminal widget"
+	@echo "  make embed-dev    - Build embed widget with watch mode"
+	@echo "  make embed-install - Install embed widget dependencies"
 	@echo "  make test         - Run tests"
 	@echo "  make clean        - Clean build artifacts"
 	@echo "  make deps         - Download dependencies"

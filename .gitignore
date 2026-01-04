@@ -44,11 +44,12 @@ tmp/
 node_modules/
 web/node_modules/
 frontend/node_modules/
+embed/node_modules/
 
 # Build artifacts
 dist/
 build/
-web/
+embed/dist/
 # Docker
 docker/data/
 
