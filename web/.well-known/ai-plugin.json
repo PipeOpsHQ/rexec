@@ -1,0 +1,103 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Rexec",
+  "name_for_model": "rexec_terminal_service",
+  "description_for_human": "Terminal as a Service - Instant Linux terminals in your browser with Docker-backed sandboxed execution environments.",
+  "description_for_model": "Rexec provides cloud-based Linux terminal access via browser. AI agents can use this service to execute code in sandboxed Docker containers, manage remote agents, and collaborate with humans in supervised terminal sessions. Key capabilities: container lifecycle management, WebSocket terminal connections, session recording/playback, remote agent integration, and multi-user collaboration.",
+  "auth": {
+    "type": "user_http",
+    "authorization_type": "bearer",
+    "authorization_content_type": "application/json"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://rexec.dev/api/openapi.json",
+    "is_user_authenticated": true,
+    "has_user_authentication": true
+  },
+  "logo_url": "https://rexec.dev/logo.svg",
+  "contact_email": "support@rexec.dev",
+  "legal_info_url": "https://rexec.dev/terms",
+  "capabilities": {
+    "terminal_access": {
+      "description": "Provides WebSocket-based terminal access to Linux containers",
+      "endpoint": "wss://rexec.dev/ws/terminal/:id",
+      "protocol": "WebSocket with xterm.js compatibility"
+    },
+    "container_management": {
+      "description": "Create, list, and manage Docker-based container instances",
+      "endpoints": [
+        "POST /api/containers - Create container",
+        "GET /api/containers - List containers",
+        "DELETE /api/containers/:id - Terminate container"
+      ]
+    },
+    "agent_integration": {
+      "description": "Connect and manage remote agents for infrastructure access",
+      "endpoints": [
+        "POST /api/agents/register - Register agent",
+        "WS /api/agents/:id/ws - Agent WebSocket connection"
+      ]
+    },
+    "session_recording": {
+      "description": "Record and replay terminal sessions",
+      "endpoints": [
+        "GET /api/sessions - List sessions",
+        "GET /api/sessions/:id/recording - Get recording"
+      ]
+    },
+    "collaborative_intelligence": {
+      "description": "Supervised AI agent execution in sandboxed environments",
+      "model": "Human-in-the-loop supervision",
+      "supported_agents": ["Claude", "GPT", "Custom agents"],
+      "security": "Isolated Docker containers with resource limits"
+    }
+  },
+  "primary_use_cases": [
+    "AI agent code execution in supervised sandboxes",
+    "Remote development and debugging",
+    "DevOps automation and CI/CD",
+    "Educational terminal environments",
+    "Collaborative pair programming",
+    "Live coding demonstrations",
+    "System administration",
+    "Interview and assessment platforms"
+  ],
+  "technology_stack": {
+    "backend": "Go 1.24+ with Gin framework",
+    "frontend": "Svelte 5 with TypeScript",
+    "database": "PostgreSQL",
+    "cache": "Redis",
+    "containers": "Docker SDK",
+    "terminal": "xterm.js with WebSocket streaming",
+    "authentication": "JWT with passcode support",
+    "billing": "Stripe"
+  },
+  "pricing": {
+    "model": "Freemium with Pro and Enterprise tiers",
+    "details_url": "https://rexec.dev/pricing"
+  },
+  "documentation": {
+    "main": "https://rexec.dev/docs",
+    "agent_docs": "https://rexec.dev/docs/agent",
+    "cli_docs": "https://rexec.dev/docs/cli",
+    "use_cases": "https://rexec.dev/use-cases",
+    "api_reference": "https://rexec.dev/docs#api"
+  },
+  "integration_guides": {
+    "ai_agents": "https://rexec.dev/use-cases/collaborative-intelligence",
+    "cli_tool": "https://rexec.dev/docs/cli",
+    "remote_agents": "https://rexec.dev/docs/agent"
+  },
+  "security": {
+    "container_isolation": "Docker-based sandboxing",
+    "authentication": "JWT with secure token rotation",
+    "data_privacy": "Private sessions by default",
+    "compliance": "SOC2 in progress"
+  },
+  "website": "https://rexec.dev",
+  "support_url": "https://rexec.dev/docs",
+  "github_url": "https://github.com/rexec-dev",
+  "version": "1.0.0",
+  "last_updated": "2025-12-15"
+}

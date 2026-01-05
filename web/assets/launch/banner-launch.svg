@@ -1,0 +1,30 @@
+<svg width="1500" height="500" viewBox="0 0 1500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1500" height="500" fill="#0A0A0A"/>
+    <defs>
+        <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#1A1A1A" stroke-width="2"/>
+        </pattern>
+        <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#0A0A0A"/>
+            <stop offset="0.5" stop-color="#0A0A0A" stop-opacity="0"/>
+            <stop offset="1" stop-color="#0A0A0A"/>
+        </linearGradient>
+    </defs>
+    <rect width="1500" height="500" fill="url(#grid)"/>
+    <rect width="1500" height="500" fill="url(#fade)"/>
+
+    <g transform="translate(100, 250)">
+        <text x="0" y="0" font-family="JetBrains Mono, monospace" font-weight="bold" font-size="120" fill="#FFFFFF" letter-spacing="4">REXEC</text>
+        <text x="5" y="60" font-family="Inter, sans-serif" font-weight="500" font-size="32" fill="#00FF41" letter-spacing="2">TERMINAL AS A SERVICE</text>
+    </g>
+
+    <g transform="translate(1000, 250)">
+        <!-- Hexagon -->
+        <path d="M0 -120 L104 -60 L104 60 L0 120 L-104 60 L-104 -60 Z" fill="none" stroke="#00FF41" stroke-width="6"/>
+        <!-- Terminal Lines -->
+        <g transform="translate(-50, -50)">
+            <path d="M0 20L30 50L0 80" stroke="#00FF41" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="40" y1="80" x2="80" y2="80" stroke="#00FF41" stroke-width="8" stroke-linecap="round"/>
+        </g>
+    </g>
+</svg>

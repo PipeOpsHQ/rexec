@@ -4,6 +4,9 @@
     export let onback: (() => void) | undefined = undefined;
 
     let copiedCommand = "";
+    let activeExampleTab = "basic";
+    let showLivePreview = false;
+    let previewShareCode = "";
 
     function copyToClipboard(text: string, id: string) {
         navigator.clipboard.writeText(text);
@@ -35,7 +38,336 @@
   });
 <\/script>`;
     }
+
+    // Example code snippets
+    const examples = {
+        basic: {
+            title: "Basic Setup",
+            description:
+                "The simplest way to embed a terminal with a share code.",
+            code: `<!-- 1. Include the Rexec embed script -->
+<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<!-- 2. Add a container element -->
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<!-- 3. Initialize the terminal -->
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    shareCode: 'ABC123'  // Get this from terminal share button
+  });
+<\/script>`,
+            copyText: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    shareCode: 'ABC123'
+  });
+<\/script>`,
+        },
+        newContainer: {
+            title: "Create New Container",
+            description:
+                "Spin up a fresh container for each user with an API token.",
+            code: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    token: 'your-api-token',
+    image: 'ubuntu',           // or 'alpine', 'debian', 'fedora', etc.
+    role: 'python',            // or 'node', 'go', 'rust', 'default'
+
+    onReady: (term) => {
+      console.log('Container ID:', term.session.containerId);
+      // Save for later reconnection
+      localStorage.setItem('lastContainer', term.session.containerId);
+    }
+  });
+<\/script>`,
+            copyText: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    token: 'your-api-token',
+    image: 'ubuntu',
+    role: 'python',
+    onReady: (term) => {
+      console.log('Container ID:', term.session.containerId);
+      localStorage.setItem('lastContainer', term.session.containerId);
+    }
+  });
+<\/script>`,
+        },
+        reconnect: {
+            title: "Reconnect to Container",
+            description:
+                "Reconnect to a previously created container using its ID.",
+            code: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  // Get saved container ID
+  const containerId = localStorage.getItem('lastContainer');
+
+  if (containerId) {
+    const terminal = Rexec.embed('#terminal', {
+      token: 'your-api-token',
+      container: containerId,
+
+      onError: (err) => {
+        if (err.code === 'CONTAINER_NOT_FOUND') {
+          console.log('Container expired, create a new one');
+          localStorage.removeItem('lastContainer');
+        }
+      }
+    });
+  }
+<\/script>`,
+            copyText: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  const containerId = localStorage.getItem('lastContainer');
+
+  if (containerId) {
+    const terminal = Rexec.embed('#terminal', {
+      token: 'your-api-token',
+      container: containerId,
+      onError: (err) => {
+        if (err.code === 'CONTAINER_NOT_FOUND') {
+          localStorage.removeItem('lastContainer');
+        }
+      }
+    });
+  }
+<\/script>`,
+        },
+        advanced: {
+            title: "Advanced Configuration",
+            description:
+                "Full customization with themes, fonts, and event handlers.",
+            code: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 500px;"></div>
+
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    // Authentication
+    token: 'your-api-token',
+
+    // Container config
+    image: 'alpine',
+    role: 'python',
+
+    // Appearance
+    theme: 'dark',              // or 'light', or custom object
+    fontSize: 14,
+    fontFamily: 'JetBrains Mono, monospace',
+    cursorStyle: 'block',       // 'block', 'underline', 'bar'
+    cursorBlink: true,
+
+    // Behavior
+    initialCommand: 'python3 --version && echo "Ready!"',
+    autoReconnect: true,
+    maxReconnectAttempts: 10,
+    scrollback: 5000,
+
+    // Event callbacks
+    onReady: (term) => {
+      console.log('Connected!', term.session);
+    },
+
+    onStateChange: (state) => {
+      // 'idle', 'connecting', 'connected', 'reconnecting', 'error'
+      document.getElementById('status').textContent = state;
+    },
+
+    onData: (data) => {
+      // Handle terminal output if needed
+    },
+
+    onError: (error) => {
+      console.error('Error:', error.code, error.message);
+    },
+
+    onDisconnect: () => {
+      console.log('Disconnected');
+    }
+  });
+<\/script>`,
+            copyText: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 500px;"></div>
+
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    token: 'your-api-token',
+    image: 'alpine',
+    role: 'python',
+    theme: 'dark',
+    fontSize: 14,
+    fontFamily: 'JetBrains Mono, monospace',
+    cursorStyle: 'block',
+    cursorBlink: true,
+    initialCommand: 'python3 --version && echo "Ready!"',
+    autoReconnect: true,
+    maxReconnectAttempts: 10,
+    scrollback: 5000,
+    onReady: (term) => {
+      console.log('Connected!', term.session);
+    },
+    onStateChange: (state) => {
+      document.getElementById('status').textContent = state;
+    },
+    onError: (error) => {
+      console.error('Error:', error.code, error.message);
+    }
+  });
+<\/script>`,
+        },
+        customTheme: {
+            title: "Custom Theme",
+            description: "Create your own color scheme for the terminal.",
+            code: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  // Tokyo Night theme example
+  const terminal = Rexec.embed('#terminal', {
+    shareCode: 'ABC123',
+
+    theme: {
+      background: '#1a1b26',
+      foreground: '#a9b1d6',
+      cursor: '#c0caf5',
+      selectionBackground: '#33467c',
+
+      // ANSI colors
+      black: '#15161e',
+      red: '#f7768e',
+      green: '#9ece6a',
+      yellow: '#e0af68',
+      blue: '#7aa2f7',
+      magenta: '#bb9af7',
+      cyan: '#7dcfff',
+      white: '#a9b1d6',
+
+      // Bright variants
+      brightBlack: '#414868',
+      brightRed: '#f7768e',
+      brightGreen: '#9ece6a',
+      brightYellow: '#e0af68',
+      brightBlue: '#7aa2f7',
+      brightMagenta: '#bb9af7',
+      brightCyan: '#7dcfff',
+      brightWhite: '#c0caf5'
+    }
+  });
+
+  // Or use built-in presets:
+  // theme: Rexec.DARK_THEME
+  // theme: Rexec.LIGHT_THEME
+<\/script>`,
+            copyText: `<script src="${baseUrl}/embed/rexec.min.js"><\/script>
+
+<div id="terminal" style="width: 100%; height: 400px;"></div>
+
+<script>
+  const terminal = Rexec.embed('#terminal', {
+    shareCode: 'ABC123',
+    theme: {
+      background: '#1a1b26',
+      foreground: '#a9b1d6',
+      cursor: '#c0caf5',
+      selectionBackground: '#33467c',
+      black: '#15161e',
+      red: '#f7768e',
+      green: '#9ece6a',
+      yellow: '#e0af68',
+      blue: '#7aa2f7',
+      magenta: '#bb9af7',
+      cyan: '#7dcfff',
+      white: '#a9b1d6'
+    }
+  });
+<\/script>`,
+        },
+    };
+
+    function highlightCode(code: string): string {
+        // Simple syntax highlighting
+        return (
+            code
+                // Comments first (HTML and JS)
+                .replace(
+                    /(&lt;!--.*?--&gt;)/g,
+                    '<span class="hl-comment">$1</span>',
+                )
+                .replace(
+                    /(\/\/.*?)(?=\n|$)/g,
+                    '<span class="hl-comment">$1</span>',
+                )
+                // Strings (single and double quotes)
+                .replace(
+                    /('(?:[^'\\]|\\.)*')/g,
+                    '<span class="hl-string">$1</span>',
+                )
+                .replace(
+                    /("(?:[^"\\]|\\.)*")/g,
+                    '<span class="hl-string">$1</span>',
+                )
+                // Keywords
+                .replace(
+                    /\b(const|let|var|if|else|function|return|true|false|null|undefined)\b/g,
+                    '<span class="hl-keyword">$1</span>',
+                )
+                // HTML tags (simplified)
+                .replace(
+                    /(&lt;\/?)(script|div|style)(&gt;|[\s&])/gi,
+                    '$1<span class="hl-tag">$2</span>$3',
+                )
+                // Properties/keys
+                .replace(/(\w+):/g, '<span class="hl-property">$1</span>:')
+                // Numbers
+                .replace(/\b(\d+)\b/g, '<span class="hl-number">$1</span>')
+        );
+    }
+
+    function escapeHtml(text: string): string {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    function launchPreview() {
+        if (!previewShareCode.trim()) return;
+        showLivePreview = true;
+
+        // Wait for DOM update, then initialize terminal
+        setTimeout(() => {
+            const container = document.getElementById("live-preview-terminal");
+            if (container && (window as any).Rexec) {
+                (window as any).Rexec.embed(container, {
+                    shareCode: previewShareCode.trim(),
+                });
+            }
+        }, 100);
+    }
 </script>
+
+<svelte:head>
+    <script src="{baseUrl}/embed/rexec.min.js"></script>
+</svelte:head>
 
 <div class="docs-page">
     <button class="back-btn" onclick={handleBack}>
@@ -125,6 +457,121 @@
             </p>
         </section>
 
+        <!-- Interactive Examples Section -->
+        <section class="docs-section examples-section">
+            <h2>Interactive Examples</h2>
+            <p>
+                Click on any example to see the full code. All examples are
+                copy-ready and can be pasted directly into your HTML file.
+            </p>
+
+            <div class="example-tabs">
+                {#each Object.entries(examples) as [key, example]}
+                    <button
+                        class="example-tab"
+                        class:active={activeExampleTab === key}
+                        onclick={() => (activeExampleTab = key)}
+                    >
+                        {example.title}
+                    </button>
+                {/each}
+            </div>
+
+            <div class="example-content">
+                {#each Object.entries(examples) as [key, example]}
+                    {#if activeExampleTab === key}
+                        <div class="example-panel">
+                            <div class="example-header">
+                                <div class="example-info">
+                                    <h3>{example.title}</h3>
+                                    <p>{example.description}</p>
+                                </div>
+                                <button
+                                    class="copy-btn large"
+                                    onclick={() =>
+                                        copyToClipboard(example.copyText, key)}
+                                >
+                                    {copiedCommand === key
+                                        ? "✓ Copied!"
+                                        : "Copy Code"}
+                                </button>
+                            </div>
+                            <div class="code-editor">
+                                <div class="editor-header">
+                                    <div class="editor-dots">
+                                        <span class="dot red"></span>
+                                        <span class="dot yellow"></span>
+                                        <span class="dot green"></span>
+                                    </div>
+                                    <span class="editor-title">index.html</span>
+                                </div>
+                                <pre class="editor-content"><code
+                                        >{@html highlightCode(
+                                            escapeHtml(example.code),
+                                        )}</code
+                                    ></pre>
+                            </div>
+                        </div>
+                    {/if}
+                {/each}
+            </div>
+        </section>
+
+        <!-- Live Preview Section -->
+        <section class="docs-section preview-section">
+            <h2>Try It Live</h2>
+            <p>
+                Enter a share code to see the embed widget in action. Get a
+                share code by creating a terminal in your <a href="/dashboard"
+                    >dashboard</a
+                > and clicking the share button.
+            </p>
+
+            <div class="preview-controls">
+                <div class="preview-input-group">
+                    <input
+                        type="text"
+                        bind:value={previewShareCode}
+                        placeholder="Enter share code (e.g., ABC123)"
+                        class="preview-input"
+                        onkeydown={(e) => e.key === "Enter" && launchPreview()}
+                    />
+                    <button
+                        class="preview-btn"
+                        onclick={launchPreview}
+                        disabled={!previewShareCode.trim()}
+                    >
+                        <StatusIcon status="play" size={16} />
+                        Launch Preview
+                    </button>
+                </div>
+                {#if showLivePreview}
+                    <button
+                        class="preview-btn secondary"
+                        onclick={() => (showLivePreview = false)}
+                    >
+                        Close Preview
+                    </button>
+                {/if}
+            </div>
+
+            {#if showLivePreview}
+                <div class="live-preview-container">
+                    <div class="preview-header">
+                        <StatusIcon status="terminal" size={16} />
+                        <span>Live Terminal Preview</span>
+                        <span class="preview-code"
+                            >Share Code: {previewShareCode}</span
+                        >
+                    </div>
+                    <div
+                        id="live-preview-terminal"
+                        class="preview-terminal"
+                    ></div>
+                </div>
+            {/if}
+        </section>
+
         <section class="docs-section">
             <h2>Connection Methods</h2>
 
@@ -192,14 +639,15 @@
                 <div class="code-block">
                     <code
                         >const term = Rexec.embed('#terminal', &#123;<br />
-                        token: 'your-api-token',<br /> role: 'ubuntu' // or
-                        'node', 'python', 'go', 'rust'<br />&#125;);</code
+                        token: 'your-api-token',<br /> image: 'ubuntu',<br />
+                        role: 'python' // or 'node', 'go', 'rust', 'default'<br
+                        />&#125;);</code
                     >
                     <button
                         class="copy-btn"
                         onclick={() =>
                             copyToClipboard(
-                                `const term = Rexec.embed('#terminal', {\n  token: 'your-api-token',\n  role: 'ubuntu'\n});`,
+                                `const term = Rexec.embed('#terminal', {\n  token: 'your-api-token',\n  image: 'ubuntu',\n  role: 'python'\n});`,
                                 "create",
                             )}
                     >
@@ -240,9 +688,17 @@
                     >
                 </div>
                 <div class="option-row">
+                    <span class="option-name"><code>image</code></span>
+                    <span class="option-type">string</span>
+                    <span class="option-default">'ubuntu'</span>
+                    <span class="option-desc"
+                        >Base image for new containers</span
+                    >
+                </div>
+                <div class="option-row">
                     <span class="option-name"><code>role</code></span>
                     <span class="option-type">string</span>
-                    <span class="option-default">-</span>
+                    <span class="option-default">'default'</span>
                     <span class="option-desc"
                         >Environment type for new containers</span
                     >
@@ -300,6 +756,70 @@
                     <span class="option-default">-</span>
                     <span class="option-desc">Command to run after connect</span
                     >
+                </div>
+            </div>
+        </section>
+
+        <section class="docs-section">
+            <h2>Available Images</h2>
+            <p>
+                Use these image keys in the <code>image</code> configuration option:
+            </p>
+            <div class="images-grid">
+                <div class="image-group">
+                    <h4>Debian-based</h4>
+                    <div class="image-list">
+                        <div class="image-item">
+                            <code>'ubuntu'</code>
+                            <span>Ubuntu 24.04 LTS (default)</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'ubuntu-22'</code>
+                            <span>Ubuntu 22.04 LTS</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'debian'</code>
+                            <span>Debian 12 Bookworm</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'kali'</code>
+                            <span>Kali Linux</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="image-group">
+                    <h4>Red Hat-based</h4>
+                    <div class="image-list">
+                        <div class="image-item">
+                            <code>'fedora'</code>
+                            <span>Fedora 41</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'rocky'</code>
+                            <span>Rocky Linux 9</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'alma'</code>
+                            <span>AlmaLinux 9</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="image-group">
+                    <h4>Other</h4>
+                    <div class="image-list">
+                        <div class="image-item">
+                            <code>'alpine'</code>
+                            <span>Alpine 3.21 (minimal)</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'archlinux'</code>
+                            <span>Arch Linux</span>
+                        </div>
+                        <div class="image-item">
+                            <code>'opensuse'</code>
+                            <span>openSUSE Leap 15.6</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -436,37 +956,6 @@
                     </div>
                 </div>
             </div>
-        </section>
-
-        <section class="docs-section">
-            <h2>Custom Themes</h2>
-            <p>Create your own color scheme:</p>
-            <div class="code-block">
-                <code
-                    >const term = Rexec.embed('#terminal', &#123;<br />
-                    shareCode: 'ABC123',<br /> theme: &#123;<br /> background:
-                    '#1a1b26',<br /> foreground: '#a9b1d6',<br /> cursor:
-                    '#c0caf5',<br /> black: '#15161e',<br /> red: '#f7768e',<br
-                    />
-                    green: '#9ece6a',<br /> yellow: '#e0af68',<br /> blue:
-                    '#7aa2f7',<br /> magenta: '#bb9af7',<br /> cyan: '#7dcfff',<br
-                    />
-                    white: '#a9b1d6'<br /> &#125;<br />&#125;);</code
-                >
-                <button
-                    class="copy-btn"
-                    onclick={() =>
-                        copyToClipboard(
-                            `const term = Rexec.embed('#terminal', {\n  shareCode: 'ABC123',\n  theme: {\n    background: '#1a1b26',\n    foreground: '#a9b1d6',\n    cursor: '#c0caf5',\n    black: '#15161e',\n    red: '#f7768e',\n    green: '#9ece6a',\n    yellow: '#e0af68',\n    blue: '#7aa2f7',\n    magenta: '#bb9af7',\n    cyan: '#7dcfff',\n    white: '#a9b1d6'\n  }\n});`,
-                            "theme",
-                        )}
-                >
-                    {copiedCommand === "theme" ? "Copied!" : "Copy"}
-                </button>
-            </div>
-            <p class="hint">
-                Use Rexec.DARK_THEME or Rexec.LIGHT_THEME as presets.
-            </p>
         </section>
 
         <section class="docs-section">
@@ -655,6 +1144,15 @@
         margin: 0 0 16px 0;
     }
 
+    .docs-section p a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .docs-section p a:hover {
+        text-decoration: underline;
+    }
+
     .feature-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -747,10 +1245,342 @@
         background: var(--accent-dim);
     }
 
+    .copy-btn.large {
+        padding: 10px 20px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
     .hint {
         font-size: 12px !important;
         color: var(--text-muted) !important;
         font-style: italic;
+    }
+
+    /* Interactive Examples Section */
+    .examples-section {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+    }
+
+    .example-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .example-tab {
+        padding: 8px 16px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-muted);
+        font-size: 13px;
+        font-family: var(--font-mono);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .example-tab:hover {
+        border-color: var(--accent);
+        color: var(--text);
+    }
+
+    .example-tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg);
+    }
+
+    .example-panel {
+        animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-5px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .example-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .example-info h3 {
+        font-size: 18px;
+        margin: 0 0 6px 0;
+        color: var(--text);
+    }
+
+    .example-info p {
+        margin: 0;
+        font-size: 13px;
+    }
+
+    .code-editor {
+        background: #0d0d1a;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+    }
+
+    .editor-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .editor-dots {
+        display: flex;
+        gap: 6px;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+
+    .dot.red {
+        background: #ff5f56;
+    }
+    .dot.yellow {
+        background: #ffbd2e;
+    }
+    .dot.green {
+        background: #27ca40;
+    }
+
+    .editor-title {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+    }
+
+    .editor-content {
+        margin: 0;
+        padding: 16px;
+        overflow-x: auto;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .editor-content code {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        line-height: 1.6;
+        color: #e0e0e0;
+        white-space: pre;
+    }
+
+    /* Syntax highlighting */
+    .editor-content :global(.hl-comment) {
+        color: #6a9955;
+    }
+
+    .editor-content :global(.hl-string) {
+        color: #ce9178;
+    }
+
+    .editor-content :global(.hl-keyword) {
+        color: #569cd6;
+    }
+
+    .editor-content :global(.hl-tag) {
+        color: #4ec9b0;
+    }
+
+    .editor-content :global(.hl-property) {
+        color: #9cdcfe;
+    }
+
+    .editor-content :global(.hl-number) {
+        color: #b5cea8;
+    }
+
+    /* Live Preview Section */
+    .preview-section {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+    }
+
+    .preview-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .preview-input-group {
+        display: flex;
+        flex: 1;
+        min-width: 300px;
+        gap: 8px;
+    }
+
+    .preview-input {
+        flex: 1;
+        padding: 10px 14px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-family: var(--font-mono);
+        font-size: 14px;
+    }
+
+    .preview-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .preview-input::placeholder {
+        color: var(--text-muted);
+    }
+
+    .preview-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: var(--accent);
+        border: none;
+        border-radius: 6px;
+        color: var(--bg);
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .preview-btn:hover:not(:disabled) {
+        filter: brightness(1.1);
+    }
+
+    .preview-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .preview-btn.secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+    }
+
+    .preview-btn.secondary:hover {
+        border-color: var(--error);
+        color: var(--error);
+    }
+
+    .preview-btn :global(svg) {
+        width: 16px;
+        height: 16px;
+    }
+
+    .live-preview-container {
+        background: #0d0d1a;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .preview-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .preview-header :global(svg) {
+        color: var(--accent);
+    }
+
+    .preview-code {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-size: 12px;
+    }
+
+    .preview-terminal {
+        height: 400px;
+        width: 100%;
+    }
+
+    /* Images Grid */
+    .images-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 16px;
+    }
+
+    .image-group {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    .image-group h4 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin: 0 0 12px 0;
+    }
+
+    .image-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .image-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+    }
+
+    .image-item code {
+        font-family: var(--font-mono);
+        color: var(--accent);
+        background: var(--bg-tertiary);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .image-item span {
+        color: var(--text-muted);
     }
 
     .options-table {
@@ -953,6 +1783,29 @@
         .copy-btn {
             align-self: flex-end;
         }
+
+        .example-header {
+            flex-direction: column;
+        }
+
+        .example-tabs {
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            padding-bottom: 12px;
+        }
+
+        .example-tab {
+            white-space: nowrap;
+        }
+
+        .preview-input-group {
+            min-width: 100%;
+            flex-direction: column;
+        }
+
+        .preview-terminal {
+            height: 300px;
+        }
     }
 
     @media (max-width: 480px) {
@@ -962,6 +1815,10 @@
 
         .browser-grid {
             grid-template-columns: 1fr 1fr;
+        }
+
+        .images-grid {
+            grid-template-columns: 1fr;
         }
     }
 </style>
