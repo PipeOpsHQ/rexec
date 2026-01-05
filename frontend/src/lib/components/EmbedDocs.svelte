@@ -7,6 +7,11 @@
     let activeExampleTab = "basic";
     let showLivePreview = false;
     let previewShareCode = "";
+    let previewToken = "";
+    let previewImage = "ubuntu";
+    let previewRole = "default";
+    let previewMode: "share" | "new" = "share";
+    let previewTerminalInstance: any = null;
 
     function copyToClipboard(text: string, id: string) {
         navigator.clipboard.writeText(text);
@@ -349,19 +354,69 @@
             .replace(/>/g, "&gt;");
     }
 
+    function canLaunchPreview(): boolean {
+        if (previewMode === "share") {
+            return !!previewShareCode.trim();
+        } else {
+            return !!previewToken.trim();
+        }
+    }
+
     function launchPreview() {
-        if (!previewShareCode.trim()) return;
+        if (!canLaunchPreview()) return;
+
+        // Destroy existing terminal if any
+        if (previewTerminalInstance) {
+            try {
+                previewTerminalInstance.destroy();
+            } catch (e) {
+                // ignore
+            }
+            previewTerminalInstance = null;
+        }
+
         showLivePreview = true;
 
         // Wait for DOM update, then initialize terminal
         setTimeout(() => {
             const container = document.getElementById("live-preview-terminal");
             if (container && (window as any).Rexec) {
-                (window as any).Rexec.embed(container, {
-                    shareCode: previewShareCode.trim(),
-                });
+                const config: any = {};
+
+                if (previewMode === "share") {
+                    config.shareCode = previewShareCode.trim();
+                } else {
+                    config.token = previewToken.trim();
+                    config.image = previewImage;
+                    config.role = previewRole;
+                }
+
+                config.onReady = (term: any) => {
+                    console.log("Preview connected:", term.session);
+                };
+
+                config.onError = (err: any) => {
+                    console.error("Preview error:", err);
+                };
+
+                previewTerminalInstance = (window as any).Rexec.embed(
+                    container,
+                    config,
+                );
             }
         }, 100);
+    }
+
+    function closePreview() {
+        if (previewTerminalInstance) {
+            try {
+                previewTerminalInstance.destroy();
+            } catch (e) {
+                // ignore
+            }
+            previewTerminalInstance = null;
+        }
+        showLivePreview = false;
     }
 </script>
 
@@ -521,38 +576,128 @@
         <section class="docs-section preview-section">
             <h2>Try It Live</h2>
             <p>
-                Enter a share code to see the embed widget in action. Get a
-                share code by creating a terminal in your <a href="/dashboard"
-                    >dashboard</a
-                > and clicking the share button.
+                Test the embed widget directly on this page. Choose to join an
+                existing session with a share code, or create a new container
+                with your API token.
             </p>
 
+            <div class="preview-mode-tabs">
+                <button
+                    class="preview-mode-tab"
+                    class:active={previewMode === "share"}
+                    onclick={() => (previewMode = "share")}
+                >
+                    <StatusIcon status="user" size={16} />
+                    Join with Share Code
+                </button>
+                <button
+                    class="preview-mode-tab"
+                    class:active={previewMode === "new"}
+                    onclick={() => (previewMode = "new")}
+                >
+                    <StatusIcon status="plus" size={16} />
+                    Create New Container
+                </button>
+            </div>
+
             <div class="preview-controls">
-                <div class="preview-input-group">
-                    <input
-                        type="text"
-                        bind:value={previewShareCode}
-                        placeholder="Enter share code (e.g., ABC123)"
-                        class="preview-input"
-                        onkeydown={(e) => e.key === "Enter" && launchPreview()}
-                    />
+                {#if previewMode === "share"}
+                    <div class="preview-input-group">
+                        <input
+                            type="text"
+                            bind:value={previewShareCode}
+                            placeholder="Enter share code (e.g., ABC123)"
+                            class="preview-input"
+                            onkeydown={(e) =>
+                                e.key === "Enter" && launchPreview()}
+                        />
+                    </div>
+                    <p class="preview-hint">
+                        Get a share code by creating a terminal in your <a
+                            href="/dashboard">dashboard</a
+                        > and clicking the share button.
+                    </p>
+                {:else}
+                    <div class="preview-form">
+                        <div class="preview-input-group">
+                            <label for="preview-token">API Token</label>
+                            <input
+                                id="preview-token"
+                                type="password"
+                                bind:value={previewToken}
+                                placeholder="Enter your API token"
+                                class="preview-input"
+                            />
+                        </div>
+                        <div class="preview-row">
+                            <div class="preview-input-group half">
+                                <label for="preview-image">Image</label>
+                                <select
+                                    id="preview-image"
+                                    bind:value={previewImage}
+                                    class="preview-select"
+                                >
+                                    <option value="ubuntu">Ubuntu 24.04</option>
+                                    <option value="ubuntu-22"
+                                        >Ubuntu 22.04</option
+                                    >
+                                    <option value="debian">Debian 12</option>
+                                    <option value="alpine">Alpine</option>
+                                    <option value="fedora">Fedora 41</option>
+                                    <option value="archlinux">Arch Linux</option
+                                    >
+                                    <option value="rocky">Rocky Linux 9</option>
+                                    <option value="alma">AlmaLinux 9</option>
+                                    <option value="opensuse"
+                                        >openSUSE Leap</option
+                                    >
+                                    <option value="kali">Kali Linux</option>
+                                </select>
+                            </div>
+                            <div class="preview-input-group half">
+                                <label for="preview-role">Role</label>
+                                <select
+                                    id="preview-role"
+                                    bind:value={previewRole}
+                                    class="preview-select"
+                                >
+                                    <option value="default">Default</option>
+                                    <option value="python">Python</option>
+                                    <option value="node">Node.js</option>
+                                    <option value="go">Go</option>
+                                    <option value="rust">Rust</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="preview-hint">
+                        Get an API token from <a href="/account/api"
+                            >Account → API Tokens</a
+                        >. Your token is not stored or sent anywhere except to
+                        the Rexec API.
+                    </p>
+                {/if}
+
+                <div class="preview-actions">
                     <button
                         class="preview-btn"
                         onclick={launchPreview}
-                        disabled={!previewShareCode.trim()}
+                        disabled={!canLaunchPreview()}
                     >
                         <StatusIcon status="play" size={16} />
-                        Launch Preview
+                        {showLivePreview
+                            ? "Restart Terminal"
+                            : "Launch Preview"}
                     </button>
+                    {#if showLivePreview}
+                        <button
+                            class="preview-btn secondary"
+                            onclick={closePreview}
+                        >
+                            Close Preview
+                        </button>
+                    {/if}
                 </div>
-                {#if showLivePreview}
-                    <button
-                        class="preview-btn secondary"
-                        onclick={() => (showLivePreview = false)}
-                    >
-                        Close Preview
-                    </button>
-                {/if}
             </div>
 
             {#if showLivePreview}
@@ -560,9 +705,13 @@
                     <div class="preview-header">
                         <StatusIcon status="terminal" size={16} />
                         <span>Live Terminal Preview</span>
-                        <span class="preview-code"
-                            >Share Code: {previewShareCode}</span
-                        >
+                        <span class="preview-code">
+                            {#if previewMode === "share"}
+                                Share Code: {previewShareCode}
+                            {:else}
+                                {previewImage} • {previewRole}
+                            {/if}
+                        </span>
                     </div>
                     <div
                         id="live-preview-terminal"
@@ -1423,23 +1572,80 @@
         padding: 24px;
     }
 
+    .preview-mode-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 20px;
+    }
+
+    .preview-mode-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-muted);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .preview-mode-tab:hover {
+        border-color: var(--accent);
+        color: var(--text);
+    }
+
+    .preview-mode-tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg);
+    }
+
+    .preview-mode-tab :global(svg) {
+        width: 16px;
+        height: 16px;
+    }
+
     .preview-controls {
         display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        align-items: center;
+        flex-direction: column;
+        gap: 16px;
         margin-bottom: 20px;
+    }
+
+    .preview-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .preview-row {
+        display: flex;
+        gap: 12px;
     }
 
     .preview-input-group {
         display: flex;
+        flex-direction: column;
+        gap: 6px;
         flex: 1;
-        min-width: 300px;
-        gap: 8px;
     }
 
-    .preview-input {
+    .preview-input-group.half {
         flex: 1;
+    }
+
+    .preview-input-group label {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .preview-input,
+    .preview-select {
         padding: 10px 14px;
         background: var(--bg-tertiary);
         border: 1px solid var(--border);
@@ -1449,13 +1655,39 @@
         font-size: 14px;
     }
 
-    .preview-input:focus {
+    .preview-select {
+        cursor: pointer;
+    }
+
+    .preview-input:focus,
+    .preview-select:focus {
         outline: none;
         border-color: var(--accent);
     }
 
     .preview-input::placeholder {
         color: var(--text-muted);
+    }
+
+    .preview-hint {
+        font-size: 12px !important;
+        color: var(--text-muted) !important;
+        margin: 0 !important;
+    }
+
+    .preview-hint a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    .preview-hint a:hover {
+        text-decoration: underline;
+    }
+
+    .preview-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
     }
 
     .preview-btn {
@@ -1798,8 +2030,11 @@
             white-space: nowrap;
         }
 
-        .preview-input-group {
-            min-width: 100%;
+        .preview-mode-tabs {
+            flex-direction: column;
+        }
+
+        .preview-row {
             flex-direction: column;
         }
 
