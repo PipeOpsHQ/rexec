@@ -75,11 +75,14 @@ export class RexecTerminal implements RexecTerminalInstance {
   private config: Required<RexecEmbedConfig>;
   private container: HTMLElement;
 
-  // Terminal components
+  // xterm.js terminal
   private terminal: Terminal | null = null;
   private fitAddon: FitAddon | null = null;
   private webglAddon: WebglAddon | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private intersectionObserver: IntersectionObserver | null = null;
+  private isVisible: boolean = false;
+  private pendingFit: boolean = false;
 
   // Connection
   private api: RexecApiClient;
@@ -208,6 +211,8 @@ export class RexecTerminal implements RexecTerminalInstance {
           rect.width,
           "x",
           rect.height,
+          "visible:",
+          this.isVisible,
         );
 
         // Ensure container has dimensions before fitting
@@ -215,7 +220,17 @@ export class RexecTerminal implements RexecTerminalInstance {
           console.warn(
             "[Rexec SDK] Container has zero dimensions, skipping fit",
           );
+          this.pendingFit = true;
           return;
+        }
+
+        // If container is not visible, mark as pending
+        if (!this.isVisible) {
+          console.log(
+            "[Rexec SDK] Container not visible, marking fit as pending",
+          );
+          this.pendingFit = true;
+          // Still try to fit in case visibility detection is wrong
         }
 
         this.fitAddon.fit();
@@ -267,6 +282,10 @@ export class RexecTerminal implements RexecTerminalInstance {
     // Dispose resize observer
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
+
+    // Dispose intersection observer
+    this.intersectionObserver?.disconnect();
+    this.intersectionObserver = null;
 
     // Dispose WebGL addon
     this.webglAddon?.dispose();
@@ -642,8 +661,9 @@ export class RexecTerminal implements RexecTerminalInstance {
       this.waitForDimensionsAndFit();
     });
 
-    // Also set up resize observer early to catch container sizing
+    // Set up observers to catch container sizing and visibility changes
     this.setupResizeObserver();
+    this.setupIntersectionObserver();
 
     // Write a test message to verify terminal works
     this.terminal.write(
@@ -730,6 +750,57 @@ export class RexecTerminal implements RexecTerminalInstance {
     if (wrapper) {
       this.resizeObserver.observe(wrapper);
     }
+  }
+
+  /**
+   * Set up intersection observer to detect when terminal becomes visible
+   * This handles cases where terminal is in a modal, tab, or hidden container
+   */
+  private setupIntersectionObserver(): void {
+    console.log("[Rexec SDK] Setting up IntersectionObserver");
+
+    this.intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+
+        const wasVisible = this.isVisible;
+        this.isVisible = entry.isIntersecting && entry.intersectionRatio > 0;
+
+        console.log(
+          "[Rexec SDK] IntersectionObserver:",
+          "visible:",
+          this.isVisible,
+          "ratio:",
+          entry.intersectionRatio,
+        );
+
+        // Terminal just became visible
+        if (this.isVisible && !wasVisible) {
+          console.log("[Rexec SDK] Terminal became visible, triggering fit");
+          // Multiple fits to handle dynamic sizing
+          setTimeout(() => this.fit(), 0);
+          setTimeout(() => this.fit(), 50);
+          setTimeout(() => this.fit(), 150);
+          setTimeout(() => this.fit(), 300);
+
+          // Focus the terminal
+          setTimeout(() => this.terminal?.focus(), 100);
+        }
+
+        // If we had a pending fit while hidden, do it now
+        if (this.isVisible && this.pendingFit) {
+          this.pendingFit = false;
+          this.fit();
+        }
+      },
+      {
+        root: null, // viewport
+        threshold: [0, 0.1, 0.5, 1.0], // trigger at multiple visibility levels
+      },
+    );
+
+    this.intersectionObserver.observe(this.container);
   }
 
   /**
