@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -27,53 +26,17 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  32 * 1024, // 32KB - Better for large pastes/vibe coding
 	WriteBufferSize: 32 * 1024, // 32KB - Better for large output bursts
 	CheckOrigin: func(r *http.Request) bool {
-		// Prevent Cross-Site WebSocket Hijacking (CSWSH)
-		origin := r.Header.Get("Origin")
-
-		// Allow requests with no origin (e.g. from non-browser clients) by default
-		// Set BLOCK_EMPTY_ORIGIN=true to block them
-		if origin == "" {
-			return os.Getenv("BLOCK_EMPTY_ORIGIN") != "true"
-		}
-
-		// Default allowed origins for Rexec
-		defaultAllowedOrigins := []string{
-			"https://rexec.pipeops.app",
-			"https://rexec.pipeops.io",
-			"https://rexec.pipeops.sh",
-			"https://rexec.io",
-			"https://rexec.sh",
-			"http://localhost:8080",
-			"http://localhost:5173",
-			"http://127.0.0.1:8080",
-			"http://127.0.0.1:5173",
-		}
-
-		// Check against default origins first
-		for _, ao := range defaultAllowedOrigins {
-			if ao == origin {
-				return true
-			}
-		}
-
-		// Then check additional origins from environment variable
-		allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
-		if allowedOriginsStr != "" {
-			allowedOrigins := strings.Split(allowedOriginsStr, ",")
-			for _, ao := range allowedOrigins {
-				if strings.TrimSpace(ao) == origin {
-					return true
-				}
-			}
-		}
-
-		// If ALLOWED_ORIGINS is not set and origin not in defaults, allow in development
-		if allowedOriginsStr == "" {
-			return true
-		}
-
-		log.Printf("WebSocket connection from disallowed origin: %s", origin)
-		return false
+		// Allow all origins for WebSocket connections.
+		// Security is handled by the AuthMiddleware which validates the token
+		// before we even reach the WebSocket upgrade. This is essential for
+		// the embed widget which can be loaded from ANY third-party domain.
+		//
+		// The auth middleware ensures:
+		// 1. Valid JWT token or API token is present
+		// 2. User is authorized to access the container
+		//
+		// Without a valid token, the request is rejected before reaching this handler.
+		return true
 	},
 	HandshakeTimeout:  10 * time.Second,
 	EnableCompression: true, // Enable per-message compression for large data
