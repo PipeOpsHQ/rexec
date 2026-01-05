@@ -1,17 +1,27 @@
 <script lang="ts">
     import StatusIcon from "./icons/StatusIcon.svelte";
 
-    export let onback: (() => void) | undefined = undefined;
+    interface Props {
+        onback?: () => void;
+    }
 
-    let copiedCommand = "";
-    let activeExampleTab = "basic";
-    let showLivePreview = false;
-    let previewShareCode = "";
-    let previewToken = "";
-    let previewImage = "ubuntu";
-    let previewRole = "default";
-    let previewMode: "share" | "new" = "share";
+    let { onback }: Props = $props();
+
+    let copiedCommand = $state("");
+    let activeExampleTab = $state("basic");
+    let showLivePreview = $state(false);
+    let previewShareCode = $state("");
+    let previewToken = $state("");
+    let previewImage = $state("ubuntu");
+    let previewRole = $state("default");
+    let previewMode: "share" | "new" = $state("share");
     let previewTerminalInstance: any = null;
+
+    let canLaunchPreview = $derived(
+        previewMode === "share"
+            ? !!previewShareCode.trim()
+            : !!previewToken.trim(),
+    );
 
     function copyToClipboard(text: string, id: string) {
         navigator.clipboard.writeText(text);
@@ -354,16 +364,8 @@
             .replace(/>/g, "&gt;");
     }
 
-    function canLaunchPreview(): boolean {
-        if (previewMode === "share") {
-            return !!previewShareCode.trim();
-        } else {
-            return !!previewToken.trim();
-        }
-    }
-
     function launchPreview() {
-        if (!canLaunchPreview()) return;
+        if (!canLaunchPreview) return;
 
         // Destroy existing terminal if any
         if (previewTerminalInstance) {
@@ -596,7 +598,7 @@
                     onclick={() => (previewMode = "new")}
                 >
                     <StatusIcon status="plus" size={16} />
-                    Create New Container
+                    New Terminal
                 </button>
             </div>
 
@@ -682,7 +684,7 @@
                     <button
                         class="preview-btn"
                         onclick={launchPreview}
-                        disabled={!canLaunchPreview()}
+                        disabled={!canLaunchPreview}
                     >
                         <StatusIcon status="play" size={16} />
                         {showLivePreview
