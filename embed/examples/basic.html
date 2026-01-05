@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Rexec Embed Widget - Basic Example</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    Oxygen, Ubuntu, sans-serif;
+                background: #1a1a2e;
+                color: #eee;
+                min-height: 100vh;
+                padding: 2rem;
+            }
+
+            h1 {
+                margin-bottom: 0.5rem;
+                color: #fff;
+            }
+
+            .subtitle {
+                color: #888;
+                margin-bottom: 2rem;
+            }
+
+            .example-section {
+                margin-bottom: 3rem;
+            }
+
+            .example-section h2 {
+                font-size: 1.2rem;
+                margin-bottom: 0.5rem;
+                color: #4ecdc4;
+            }
+
+            .example-section p {
+                color: #aaa;
+                margin-bottom: 1rem;
+                font-size: 0.9rem;
+            }
+
+            .terminal-container {
+                width: 100%;
+                max-width: 900px;
+                height: 400px;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                background: #0d0d1a;
+            }
+
+            .code-block {
+                background: #0d0d1a;
+                border-radius: 6px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                overflow-x: auto;
+            }
+
+            .code-block code {
+                font-family: "JetBrains Mono", "Fira Code", monospace;
+                font-size: 0.85rem;
+                color: #e0e0e0;
+                white-space: pre;
+            }
+
+            .code-block .comment {
+                color: #6a9955;
+            }
+
+            .code-block .string {
+                color: #ce9178;
+            }
+
+            .code-block .keyword {
+                color: #569cd6;
+            }
+
+            .code-block .property {
+                color: #9cdcfe;
+            }
+
+            .config-form {
+                background: #16213e;
+                border-radius: 8px;
+                padding: 1.5rem;
+                margin-bottom: 1.5rem;
+                max-width: 900px;
+            }
+
+            .config-form label {
+                display: block;
+                margin-bottom: 0.5rem;
+                color: #aaa;
+                font-size: 0.9rem;
+            }
+
+            .config-form input,
+            .config-form select {
+                width: 100%;
+                padding: 0.75rem;
+                border: 1px solid #333;
+                border-radius: 4px;
+                background: #0d0d1a;
+                color: #fff;
+                font-size: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .config-form input:focus,
+            .config-form select:focus {
+                outline: none;
+                border-color: #4ecdc4;
+            }
+
+            .config-form button {
+                background: #4ecdc4;
+                color: #000;
+                border: none;
+                padding: 0.75rem 1.5rem;
+                border-radius: 4px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+                margin-right: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .config-form button:hover {
+                background: #3dbdb5;
+            }
+
+            .config-form button:disabled {
+                background: #555;
+                cursor: not-allowed;
+            }
+
+            .config-form button.secondary {
+                background: #3498db;
+            }
+
+            .config-form button.secondary:hover {
+                background: #2980b9;
+            }
+
+            .config-form button.danger {
+                background: #e74c3c;
+            }
+
+            .config-form button.danger:hover {
+                background: #c0392b;
+            }
+
+            .form-row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+            }
+
+            @media (max-width: 600px) {
+                .form-row {
+                    grid-template-columns: 1fr;
+                }
+            }
+
+            .status {
+                padding: 0.5rem 1rem;
+                border-radius: 4px;
+                font-size: 0.85rem;
+                margin-bottom: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+
+            .status.idle {
+                background: #333;
+                color: #888;
+            }
+
+            .status.connecting {
+                background: #3d3d00;
+                color: #ffff00;
+            }
+
+            .status.connected {
+                background: #003d00;
+                color: #00ff00;
+            }
+
+            .status.error {
+                background: #3d0000;
+                color: #ff6666;
+            }
+
+            .container-info {
+                background: #1e3a5f;
+                border: 1px solid #3498db;
+                border-radius: 6px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                max-width: 900px;
+            }
+
+            .container-info h3 {
+                font-size: 0.9rem;
+                color: #3498db;
+                margin-bottom: 0.5rem;
+            }
+
+            .container-info .info-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.5rem;
+            }
+
+            .container-info .info-row:last-child {
+                margin-bottom: 0;
+            }
+
+            .container-info .label {
+                color: #888;
+                font-size: 0.85rem;
+            }
+
+            .container-info .value {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 0.85rem;
+                color: #fff;
+                background: #0d0d1a;
+                padding: 0.25rem 0.5rem;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .container-info .value:hover {
+                background: #1a1a2e;
+            }
+
+            .container-info .copy-hint {
+                font-size: 0.75rem;
+                color: #666;
+                margin-top: 0.5rem;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .tab {
+                padding: 0.5rem 1rem;
+                background: #16213e;
+                border: none;
+                border-radius: 4px;
+                color: #888;
+                cursor: pointer;
+                font-size: 0.9rem;
+            }
+
+            .tab.active {
+                background: #4ecdc4;
+                color: #000;
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
+            }
+
+            .role-description {
+                margin-top: 0.5rem;
+                padding: 0.5rem 0.75rem;
+                background: #0d0d1a;
+                border-radius: 4px;
+                font-size: 0.8rem;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+
+            .role-time {
+                background: #4ecdc4;
+                color: #000;
+                padding: 0.15rem 0.5rem;
+                border-radius: 3px;
+                font-weight: 600;
+                font-size: 0.75rem;
+                white-space: nowrap;
+            }
+
+            .role-desc {
+                color: #888;
+            }
+
+            .mode-tabs {
+                display: flex;
+                gap: 0;
+                margin-bottom: 1rem;
+                border-radius: 6px;
+                overflow: hidden;
+                max-width: fit-content;
+            }
+
+            .mode-tab {
+                padding: 0.75rem 1.5rem;
+                background: #0d0d1a;
+                border: 1px solid #333;
+                color: #888;
+                cursor: pointer;
+                font-size: 0.9rem;
+                transition: all 0.2s;
+            }
+
+            .mode-tab:first-child {
+                border-radius: 6px 0 0 6px;
+            }
+
+            .mode-tab:last-child {
+                border-radius: 0 6px 6px 0;
+                border-left: none;
+            }
+
+            .mode-tab.active {
+                background: #4ecdc4;
+                border-color: #4ecdc4;
+                color: #000;
+            }
+
+            .mode-content {
+                display: none;
+            }
+
+            .mode-content.active {
+                display: block;
+            }
+
+            .saved-containers {
+                background: #0d0d1a;
+                border-radius: 6px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .saved-containers h4 {
+                font-size: 0.85rem;
+                color: #888;
+                margin-bottom: 0.75rem;
+            }
+
+            .saved-container-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.5rem 0.75rem;
+                background: #16213e;
+                border-radius: 4px;
+                margin-bottom: 0.5rem;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .saved-container-item:hover {
+                background: #1e3a5f;
+            }
+
+            .saved-container-item:last-child {
+                margin-bottom: 0;
+            }
+
+            .saved-container-item .name {
+                font-size: 0.9rem;
+                color: #fff;
+            }
+
+            .saved-container-item .id {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 0.75rem;
+                color: #666;
+            }
+
+            .saved-container-item .delete-btn {
+                background: transparent;
+                border: none;
+                color: #e74c3c;
+                cursor: pointer;
+                padding: 0.25rem;
+                font-size: 1rem;
+                opacity: 0.6;
+                transition: opacity 0.2s;
+            }
+
+            .saved-container-item .delete-btn:hover {
+                opacity: 1;
+            }
+
+            .no-saved {
+                color: #666;
+                font-size: 0.85rem;
+                text-align: center;
+                padding: 1rem;
+            }
+
+            .hidden {
+                display: none !important;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Rexec Embed Widget</h1>
+        <p class="subtitle">Embed a cloud terminal anywhere on your website</p>
+
+        <!-- Interactive Demo -->
+        <div class="example-section">
+            <h2>Interactive Demo</h2>
+            <p>
+                Create a new container or reconnect to an existing one. Your
+                containers are saved locally for easy access.
+            </p>
+
+            <div class="config-form">
+                <!-- Mode Selection -->
+                <div class="mode-tabs">
+                    <button
+                        class="mode-tab active"
+                        onclick="switchMode('new')"
+                        id="mode-new-tab"
+                    >
+                        New Container
+                    </button>
+                    <button
+                        class="mode-tab"
+                        onclick="switchMode('existing')"
+                        id="mode-existing-tab"
+                    >
+                        Reconnect
+                    </button>
+                </div>
+
+                <!-- Token (shared between modes) -->
+                <div>
+                    <label for="token">API Token (required)</label>
+                    <input
+                        type="password"
+                        id="token"
+                        placeholder="Enter your Rexec API token"
+                    />
+                </div>
+
+                <!-- Server URL -->
+                <div>
+                    <label for="baseUrl">Server URL</label>
+                    <select id="baseUrl">
+                        <option value="https://rexec.sh" selected>
+                            Production (rexec.sh)
+                        </option>
+                        <option value="http://localhost:8080">
+                            Local (localhost:8080)
+                        </option>
+                    </select>
+                </div>
+
+                <!-- New Container Mode -->
+                <div id="mode-new" class="mode-content active">
+                    <div class="form-row">
+                        <div>
+                            <label for="image">Base Image</label>
+                            <select id="image">
+                                <option value="ubuntu" selected>
+                                    Ubuntu 24.04
+                                </option>
+                                <option value="ubuntu-22">Ubuntu 22.04</option>
+                                <option value="debian">Debian 12</option>
+                                <option value="alpine">Alpine 3.21</option>
+                                <option value="fedora">Fedora 41</option>
+                                <option value="archlinux">Arch Linux</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="role">Development Role</label>
+                            <select
+                                id="role"
+                                onchange="updateRoleDescription()"
+                            >
+                                <option
+                                    value="barebone"
+                                    selected
+                                    data-time="~1s"
+                                    data-desc="Raw shell, no packages installed. Fastest startup."
+                                >
+                                    ⚡ Barebone
+                                </option>
+                                <option
+                                    value="standard"
+                                    data-time="~20s"
+                                    data-desc="zsh, git, curl, vim, htop, neofetch + AI tools"
+                                >
+                                    🧘 Standard
+                                </option>
+                                <option
+                                    value="node"
+                                    data-time="~30s"
+                                    data-desc="Node.js, npm, yarn + AI coding assistants"
+                                >
+                                    🚀 Node.js
+                                </option>
+                                <option
+                                    value="python"
+                                    data-time="~30s"
+                                    data-desc="Python 3, pip, venv + AI coding assistants"
+                                >
+                                    🧙‍♂️ Python
+                                </option>
+                                <option
+                                    value="go"
+                                    data-time="~30s"
+                                    data-desc="Go toolchain + AI coding assistants"
+                                >
+                                    🐹 Go
+                                </option>
+                                <option
+                                    value="rust"
+                                    data-time="~45s"
+                                    data-desc="Rust, cargo + AI coding assistants"
+                                >
+                                    🦀 Rust
+                                </option>
+                                <option
+                                    value="devops"
+                                    data-time="~45s"
+                                    data-desc="Docker, kubectl, terraform, ansible + AI tools"
+                                >
+                                    ☸️ DevOps
+                                </option>
+                                <option
+                                    value="overemployed"
+                                    data-time="~90s"
+                                    data-desc="Everything: all languages, all AI tools (Claude, Copilot, aider, etc.)"
+                                >
+                                    🤖 Vibe Coder
+                                </option>
+                            </select>
+                            <div id="roleDescription" class="role-description">
+                                <span class="role-time">~1s</span>
+                                <span class="role-desc"
+                                    >Raw shell, no packages installed. Fastest
+                                    startup.</span
+                                >
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="initialCommand"
+                            >Initial Command (optional)</label
+                        >
+                        <input
+                            type="text"
+                            id="initialCommand"
+                            placeholder="e.g., neofetch"
+                        />
+                    </div>
+                    <button id="launchBtn" onclick="launchNewContainer()">
+                        Create & Launch
+                    </button>
+                </div>
+
+                <!-- Existing Container Mode -->
+                <div id="mode-existing" class="mode-content">
+                    <div>
+                        <label for="containerId">Container ID</label>
+                        <input
+                            type="text"
+                            id="containerId"
+                            placeholder="Enter container ID (e.g., abc123def456...)"
+                        />
+                    </div>
+
+                    <!-- Saved Containers -->
+                    <div id="savedContainersSection" class="saved-containers">
+                        <h4>Recent Containers</h4>
+                        <div id="savedContainersList"></div>
+                    </div>
+
+                    <button
+                        id="reconnectBtn"
+                        class="secondary"
+                        onclick="reconnectToContainer()"
+                    >
+                        Reconnect
+                    </button>
+                </div>
+
+                <button
+                    id="destroyBtn"
+                    class="danger hidden"
+                    onclick="destroyTerminal()"
+                >
+                    Disconnect
+                </button>
+            </div>
+
+            <!-- Container Info (shown after connection) -->
+            <div id="containerInfo" class="container-info hidden">
+                <h3>Connected Container</h3>
+                <div class="info-row">
+                    <span class="label">Container ID:</span>
+                    <span
+                        class="value"
+                        id="currentContainerId"
+                        onclick="copyToClipboard(this.textContent)"
+                        title="Click to copy"
+                        >-</span
+                    >
+                </div>
+                <div class="info-row">
+                    <span class="label">Name:</span>
+                    <span class="value" id="currentContainerName">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Image:</span>
+                    <span class="value" id="currentContainerImage">-</span>
+                </div>
+                <p class="copy-hint">
+                    💡 Click the Container ID to copy it for later reconnection
+                </p>
+            </div>
+
+            <div id="status" class="status idle">
+                <span id="statusIcon">●</span>
+                <span id="statusText">Ready</span>
+            </div>
+            <div id="terminal-demo" class="terminal-container"></div>
+        </div>
+
+        <!-- Code Examples -->
+        <div class="example-section">
+            <h2>Code Examples</h2>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('basic')">
+                    Basic
+                </button>
+                <button class="tab" onclick="showTab('reconnect')">
+                    Reconnect
+                </button>
+                <button class="tab" onclick="showTab('share')">
+                    Share Code
+                </button>
+                <button class="tab" onclick="showTab('advanced')">
+                    Advanced
+                </button>
+            </div>
+
+            <!-- Basic Example -->
+            <div id="tab-basic" class="tab-content active">
+                <div class="code-block">
+                    <code
+                        ><span class="comment"
+                            >&lt;!-- 1. Include the Rexec embed script
+                            --&gt;</span
+                        >
+                        <span class="keyword">&lt;script</span>
+                        <span class="property">src</span>=<span class="string"
+                            >"https://rexec.sh/embed/rexec.min.js"</span
+                        ><span class="keyword">&gt;&lt;/script&gt;</span>
+
+                        <span class="comment"
+                            >&lt;!-- 2. Add a container element --&gt;</span
+                        >
+                        <span class="keyword">&lt;div</span>
+                        <span class="property">id</span>=<span class="string"
+                            >"terminal"</span
+                        >
+                        <span class="property">style</span>=<span class="string"
+                            >"width: 100%; height: 400px;"</span
+                        ><span class="keyword">&gt;&lt;/div&gt;</span>
+
+                        <span class="comment"
+                            >&lt;!-- 3. Initialize the terminal --&gt;</span
+                        >
+                        <span class="keyword">&lt;script&gt;</span>
+                        <span class="keyword">const</span> terminal =
+                        Rexec.embed(<span class="string">'#terminal'</span>, {
+                        <span class="property">token</span>:
+                        <span class="string">'your-api-token'</span>,
+                        <span class="property">image</span>:
+                        <span class="string">'ubuntu'</span>,
+                        <span class="property">onReady</span>: (term) => {
+                        <span class="comment"
+                            >// Save container ID for later reconnection</span
+                        >
+                        localStorage.setItem(<span class="string"
+                            >'lastContainerId'</span
+                        >, term.session.containerId); } });
+                        <span class="keyword">&lt;/script&gt;</span></code
+                    >
+                </div>
+            </div>
+
+            <!-- Reconnect Example -->
+            <div id="tab-reconnect" class="tab-content">
+                <div class="code-block">
+                    <code
+                        ><span class="comment"
+                            >&lt;!-- Reconnect to an existing container
+                            --&gt;</span
+                        >
+                        <span class="keyword">&lt;script&gt;</span>
+                        <span class="comment">// Get saved container ID</span>
+                        <span class="keyword">const</span> containerId =
+                        localStorage.getItem(<span class="string"
+                            >'lastContainerId'</span
+                        >);
+
+                        <span class="keyword">if</span> (containerId) {
+                        <span class="keyword">const</span> terminal =
+                        Rexec.embed(<span class="string">'#terminal'</span>, {
+                        <span class="property">token</span>:
+                        <span class="string">'your-api-token'</span>,
+                        <span class="property">container</span>: containerId,
+                        <span class="comment"
+                            >// Connect to existing container</span
+                        >
+                        <span class="property">onError</span>: (err) => {
+                        <span class="keyword">if</span> (err.code ===
+                        <span class="string">'CONNECT_ERROR'</span>) {
+                        <span class="comment"
+                            >// Container may have been deleted, create a new
+                            one</span
+                        >
+                        console.log(<span class="string"
+                            >'Container not found, creating new one...'</span
+                        >); } } }); }
+                        <span class="keyword">&lt;/script&gt;</span></code
+                    >
+                </div>
+            </div>
+
+            <!-- Share Code Example -->
+            <div id="tab-share" class="tab-content">
+                <div class="code-block">
+                    <code
+                        ><span class="comment"
+                            >&lt;!-- Join a shared terminal session (no token
+                            required) --&gt;</span
+                        >
+                        <span class="keyword">&lt;script&gt;</span>
+                        <span class="keyword">const</span> terminal =
+                        Rexec.embed(<span class="string">'#terminal'</span>, {
+                        <span class="property">shareCode</span>:
+                        <span class="string">'abc123'</span>
+                        <span class="comment"
+                            >// Get this from the terminal owner</span
+                        >
+                        });
+                        <span class="keyword">&lt;/script&gt;</span></code
+                    >
+                </div>
+            </div>
+
+            <!-- Advanced Example -->
+            <div id="tab-advanced" class="tab-content">
+                <div class="code-block">
+                    <code
+                        ><span class="keyword">&lt;script&gt;</span>
+                        <span class="keyword">const</span> terminal =
+                        Rexec.embed(<span class="string">'#terminal'</span>, {
+                        <span class="comment">// Authentication</span>
+                        <span class="property">token</span>:
+                        <span class="string">'your-api-token'</span>,
+
+                        <span class="comment">// Container configuration</span>
+                        <span class="property">image</span>:
+                        <span class="string">'alpine'</span>,
+                        <span class="property">role</span>:
+                        <span class="string">'python'</span>,
+
+                        <span class="comment">// Appearance</span>
+                        <span class="property">theme</span>:
+                        <span class="string">'dark'</span>,
+                        <span class="property">fontSize</span>:
+                        <span class="number">14</span>,
+                        <span class="property">fontFamily</span>:
+                        <span class="string">'JetBrains Mono, monospace'</span>,
+                        <span class="property">cursorStyle</span>:
+                        <span class="string">'block'</span>,
+                        <span class="property">cursorBlink</span>:
+                        <span class="keyword">true</span>,
+
+                        <span class="comment">// Behavior</span>
+                        <span class="property">initialCommand</span>:
+                        <span class="string">'python3 --version'</span>,
+                        <span class="property">autoReconnect</span>:
+                        <span class="keyword">true</span>,
+                        <span class="property">maxReconnectAttempts</span>:
+                        <span class="number">10</span>,
+
+                        <span class="comment">// Event callbacks</span>
+                        <span class="property">onReady</span>: (term) => {
+                        console.log(<span class="string">'Connected!'</span>,
+                        term.session);
+                        <span class="comment">// Save for reconnection</span>
+                        saveContainer(term.session.containerId,
+                        term.session.containerName); },
+                        <span class="property">onStateChange</span>: (state) =>
+                        { console.log(<span class="string">'State:'</span>,
+                        state); }, <span class="property">onError</span>:
+                        (error) => { console.error(<span class="string"
+                            >'Error:'</span
+                        >, error.message); } });
+                        <span class="keyword">&lt;/script&gt;</span></code
+                    >
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Images Reference -->
+        <div class="example-section">
+            <h2>Available Images</h2>
+            <p>
+                Use these image keys in the <code>image</code> configuration
+                option:
+            </p>
+            <div class="code-block">
+                <code
+                    ><span class="comment">// Debian-based</span>
+                    <span class="string">'ubuntu'</span>
+                    <span class="comment">// Ubuntu 24.04 LTS (default)</span>
+                    <span class="string">'ubuntu-22'</span>
+                    <span class="comment">// Ubuntu 22.04 LTS</span>
+                    <span class="string">'debian'</span>
+                    <span class="comment">// Debian 12 Bookworm</span>
+                    <span class="string">'kali'</span>
+                    <span class="comment">// Kali Linux</span>
+
+                    <span class="comment">// Red Hat-based</span>
+                    <span class="string">'fedora'</span>
+                    <span class="comment">// Fedora 41</span>
+                    <span class="string">'rocky'</span>
+                    <span class="comment">// Rocky Linux 9</span>
+                    <span class="string">'alma'</span>
+                    <span class="comment">// AlmaLinux 9</span>
+
+                    <span class="comment">// Other</span>
+                    <span class="string">'archlinux'</span>
+                    <span class="comment">// Arch Linux</span>
+                    <span class="string">'alpine'</span>
+                    <span class="comment">// Alpine 3.21 (minimal)</span>
+                    <span class="string">'opensuse'</span>
+                    <span class="comment">// openSUSE Leap 15.6</span></code
+                >
+            </div>
+        </div>
+
+        <!-- Load the Rexec embed script -->
+        <script src="https://rexec.sh/embed/rexec.min.js"></script>
+        <!-- For local development, use: -->
+        <!-- <script src="../dist/rexec.min.js"></script> -->
+
+        <script>
+            let terminalInstance = null;
+            let currentMode = "new";
+
+            // LocalStorage keys
+            const STORAGE_KEY_CONTAINERS = "rexec_saved_containers";
+            const STORAGE_KEY_TOKEN = "rexec_token";
+
+            // Initialize on page load
+            document.addEventListener("DOMContentLoaded", () => {
+                loadSavedContainers();
+                loadSavedToken();
+            });
+
+            // Token persistence
+            function loadSavedToken() {
+                const token = localStorage.getItem(STORAGE_KEY_TOKEN);
+                if (token) {
+                    document.getElementById("token").value = token;
+                }
+            }
+
+            function saveToken(token) {
+                if (token) {
+                    localStorage.setItem(STORAGE_KEY_TOKEN, token);
+                }
+            }
+
+            // Container persistence
+            function getSavedContainers() {
+                const saved = localStorage.getItem(STORAGE_KEY_CONTAINERS);
+                return saved ? JSON.parse(saved) : [];
+            }
+
+            function saveContainer(id, name, image, role) {
+                const containers = getSavedContainers();
+                // Remove if already exists
+                const filtered = containers.filter((c) => c.id !== id);
+                // Add to beginning
+                filtered.unshift({
+                    id,
+                    name: name || "Unnamed",
+                    image: image || "ubuntu",
+                    role: role || "",
+                    savedAt: new Date().toISOString(),
+                });
+                // Keep only last 10
+                const trimmed = filtered.slice(0, 10);
+                localStorage.setItem(
+                    STORAGE_KEY_CONTAINERS,
+                    JSON.stringify(trimmed),
+                );
+                loadSavedContainers();
+            }
+
+            function deleteContainer(id) {
+                const containers = getSavedContainers();
+                const filtered = containers.filter((c) => c.id !== id);
+                localStorage.setItem(
+                    STORAGE_KEY_CONTAINERS,
+                    JSON.stringify(filtered),
+                );
+                loadSavedContainers();
+            }
+
+            function loadSavedContainers() {
+                const containers = getSavedContainers();
+                const listEl = document.getElementById("savedContainersList");
+                const sectionEl = document.getElementById(
+                    "savedContainersSection",
+                );
+
+                if (containers.length === 0) {
+                    listEl.innerHTML =
+                        '<p class="no-saved">No saved containers yet</p>';
+                    return;
+                }
+
+                listEl.innerHTML = containers
+                    .map(
+                        (c) => `
+                    <div class="saved-container-item" onclick="selectContainer('${c.id}')">
+                        <div>
+                            <div class="name">${escapeHtml(c.name)}</div>
+                            <div class="id">${c.id.substring(0, 12)}... • ${c.image}${c.role ? " • " + c.role : ""}</div>
+                        </div>
+                        <button class="delete-btn" onclick="event.stopPropagation(); deleteContainer('${c.id}')" title="Remove from list">✕</button>
+                    </div>
+                `,
+                    )
+                    .join("");
+            }
+
+            function selectContainer(id) {
+                document.getElementById("containerId").value = id;
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // Mode switching
+            function switchMode(mode) {
+                currentMode = mode;
+
+                document.querySelectorAll(".mode-tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+                document
+                    .getElementById(`mode-${mode}-tab`)
+                    .classList.add("active");
+
+                document
+                    .querySelectorAll(".mode-content")
+                    .forEach((content) => {
+                        content.classList.remove("active");
+                    });
+                document.getElementById(`mode-${mode}`).classList.add("active");
+            }
+
+            // Status updates
+            function updateStatus(state, message) {
+                const statusEl = document.getElementById("status");
+                const iconEl = document.getElementById("statusIcon");
+                const textEl = document.getElementById("statusText");
+
+                statusEl.className = "status " + state;
+                textEl.textContent = message;
+
+                // Animate icon for connecting state
+                if (state === "connecting") {
+                    iconEl.style.animation = "pulse 1s infinite";
+                } else {
+                    iconEl.style.animation = "none";
+                }
+            }
+
+            // Show container info
+            function showContainerInfo(session, image, role) {
+                const infoEl = document.getElementById("containerInfo");
+                document.getElementById("currentContainerId").textContent =
+                    session.containerId;
+                document.getElementById("currentContainerName").textContent =
+                    session.containerName || "Unnamed";
+                document.getElementById("currentContainerImage").textContent =
+                    image + (role ? ` (${role})` : "");
+                infoEl.classList.remove("hidden");
+            }
+
+            function hideContainerInfo() {
+                document
+                    .getElementById("containerInfo")
+                    .classList.add("hidden");
+            }
+
+            // Copy to clipboard
+            async function copyToClipboard(text) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    const el = document.getElementById("currentContainerId");
+                    const originalText = el.textContent;
+                    el.textContent = "Copied!";
+                    setTimeout(() => {
+                        el.textContent = originalText;
+                    }, 1000);
+                } catch (err) {
+                    console.error("Failed to copy:", err);
+                }
+            }
+
+            // Launch new container
+            function launchNewContainer() {
+                const token = document.getElementById("token").value.trim();
+                const image = document.getElementById("image").value;
+                const role = document.getElementById("role").value;
+                const initialCommand = document
+                    .getElementById("initialCommand")
+                    .value.trim();
+
+                if (!token) {
+                    alert("Please enter your API token");
+                    document.getElementById("token").focus();
+                    return;
+                }
+
+                saveToken(token);
+                destroyTerminal(true);
+
+                const baseUrl = document.getElementById("baseUrl").value;
+
+                const config = {
+                    token: token,
+                    image: image,
+                    baseUrl: baseUrl,
+                    onReady: (term) => {
+                        updateStatus("connected", "Connected");
+                        document
+                            .getElementById("destroyBtn")
+                            .classList.remove("hidden");
+                        showContainerInfo(term.session, image, role);
+                        // Save container for future reconnection
+                        saveContainer(
+                            term.session.containerId,
+                            term.session.containerName,
+                            image,
+                            role,
+                        );
+                    },
+                    onStateChange: (state) => {
+                        const messages = {
+                            idle: "Ready",
+                            connecting: "Connecting...",
+                            connected: "Connected",
+                            reconnecting: "Reconnecting...",
+                            disconnected: "Disconnected",
+                            error: "Error",
+                        };
+                        updateStatus(state, messages[state] || state);
+                    },
+                    onError: (error) => {
+                        updateStatus("error", error.message);
+                        console.error("Rexec error:", error);
+                    },
+                    onDisconnect: (reason) => {
+                        updateStatus("idle", "Disconnected - " + reason);
+                    },
+                };
+
+                if (role) {
+                    config.role = role;
+                }
+
+                if (initialCommand) {
+                    config.initialCommand = initialCommand;
+                }
+
+                // Get expected time from role selection
+                const roleSelect = document.getElementById("role");
+                const selectedOption =
+                    roleSelect.options[roleSelect.selectedIndex];
+                const expectedTime =
+                    selectedOption.getAttribute("data-time") || "";
+                const roleName = selectedOption.textContent.trim();
+
+                const statusMsg =
+                    role === "barebone"
+                        ? "Creating container (instant)..."
+                        : `Creating container with ${roleName} (${expectedTime})...`;
+                updateStatus("connecting", statusMsg);
+
+                try {
+                    terminalInstance = Rexec.embed("#terminal-demo", config);
+                } catch (error) {
+                    updateStatus("error", error.message);
+                    console.error("Failed to create terminal:", error);
+                }
+            }
+
+            // Reconnect to existing container
+            function reconnectToContainer() {
+                const token = document.getElementById("token").value.trim();
+                const containerId = document
+                    .getElementById("containerId")
+                    .value.trim();
+
+                if (!token) {
+                    alert("Please enter your API token");
+                    document.getElementById("token").focus();
+                    return;
+                }
+
+                if (!containerId) {
+                    alert(
+                        "Please enter a container ID or select from saved containers",
+                    );
+                    document.getElementById("containerId").focus();
+                    return;
+                }
+
+                saveToken(token);
+                destroyTerminal(true);
+
+                // Find saved container info
+                const savedContainers = getSavedContainers();
+                const savedInfo = savedContainers.find(
+                    (c) => c.id === containerId,
+                );
+
+                const baseUrl = document.getElementById("baseUrl").value;
+
+                const config = {
+                    token: token,
+                    container: containerId,
+                    baseUrl: baseUrl,
+                    onReady: (term) => {
+                        updateStatus("connected", "Reconnected");
+                        document
+                            .getElementById("destroyBtn")
+                            .classList.remove("hidden");
+                        showContainerInfo(
+                            term.session,
+                            savedInfo?.image || "unknown",
+                            savedInfo?.role || "",
+                        );
+                        // Update saved container
+                        if (term.session.containerName) {
+                            saveContainer(
+                                containerId,
+                                term.session.containerName,
+                                savedInfo?.image,
+                                savedInfo?.role,
+                            );
+                        }
+                    },
+                    onStateChange: (state) => {
+                        const messages = {
+                            idle: "Ready",
+                            connecting: "Reconnecting...",
+                            connected: "Connected",
+                            reconnecting: "Reconnecting...",
+                            disconnected: "Disconnected",
+                            error: "Error",
+                        };
+                        updateStatus(state, messages[state] || state);
+                    },
+                    onError: (error) => {
+                        updateStatus("error", error.message);
+                        console.error("Rexec error:", error);
+                        if (
+                            error.message.includes("not found") ||
+                            error.message.includes("404")
+                        ) {
+                            // Container might be deleted
+                            if (
+                                confirm(
+                                    "Container not found. Remove from saved list?",
+                                )
+                            ) {
+                                deleteContainer(containerId);
+                            }
+                        }
+                    },
+                    onDisconnect: (reason) => {
+                        updateStatus("idle", "Disconnected - " + reason);
+                    },
+                };
+
+                updateStatus("connecting", "Reconnecting to container...");
+
+                try {
+                    terminalInstance = Rexec.embed("#terminal-demo", config);
+                } catch (error) {
+                    updateStatus("error", error.message);
+                    console.error("Failed to reconnect:", error);
+                }
+            }
+
+            // Destroy terminal
+            function destroyTerminal(silent = false) {
+                if (terminalInstance) {
+                    try {
+                        terminalInstance.destroy();
+                    } catch (e) {
+                        // Ignore cleanup errors
+                    }
+                    terminalInstance = null;
+                }
+                if (!silent) {
+                    updateStatus("idle", "Ready");
+                }
+                document.getElementById("destroyBtn").classList.add("hidden");
+                document.getElementById("terminal-demo").innerHTML = "";
+                hideContainerInfo();
+            }
+
+            // Tab switching for code examples
+            function showTab(tabName) {
+                document.querySelectorAll(".tab").forEach((tab) => {
+                    tab.classList.remove("active");
+                });
+                event.target.classList.add("active");
+
+                document.querySelectorAll(".tab-content").forEach((content) => {
+                    content.classList.remove("active");
+                });
+                document
+                    .getElementById("tab-" + tabName)
+                    .classList.add("active");
+            }
+
+            // Update role description when selection changes
+            function updateRoleDescription() {
+                const select = document.getElementById("role");
+                const option = select.options[select.selectedIndex];
+                const time = option.getAttribute("data-time") || "";
+                const desc = option.getAttribute("data-desc") || "";
+
+                document.querySelector(".role-time").textContent = time;
+                document.querySelector(".role-desc").textContent = desc;
+            }
+
+            // Add pulse animation
+            const style = document.createElement("style");
+            style.textContent = `
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.4; }
+                }
+            `;
+            document.head.appendChild(style);
+        </script>
+    </body>
+</html>

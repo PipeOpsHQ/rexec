@@ -68,3 +68,4 @@ AGENTS.md
 
 # SSH host keys
 .ssh/
+web/*
