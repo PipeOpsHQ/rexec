@@ -416,6 +416,25 @@ export class RexecTerminal implements RexecTerminalInstance {
           padding-bottom: 28px;
           height: 100%;
         }
+        .rexec-embed .xterm-helper-textarea {
+          position: absolute !important;
+          opacity: 0 !important;
+          left: -9999px !important;
+          top: 0 !important;
+          width: 0 !important;
+          height: 0 !important;
+          z-index: -10 !important;
+          pointer-events: none !important;
+        }
+        .rexec-embed .xterm-screen {
+          cursor: text;
+        }
+        .rexec-embed .terminal-wrapper:focus-within .xterm-cursor {
+          animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+          50% { opacity: 0; }
+        }
         .rexec-embed .xterm-viewport::-webkit-scrollbar {
           width: 8px;
         }
@@ -502,6 +521,7 @@ export class RexecTerminal implements RexecTerminalInstance {
     // Create terminal wrapper
     const wrapper = document.createElement("div");
     wrapper.className = "terminal-wrapper";
+    wrapper.setAttribute("tabindex", "0");
     this.container.appendChild(wrapper);
 
     // Add Rexec branding
@@ -767,7 +787,17 @@ export class RexecTerminal implements RexecTerminalInstance {
       this.ws?.sendResize(dims.cols, dims.rows);
 
       // Focus terminal so user can type immediately
-      this.terminal?.focus();
+      // Use setTimeout to ensure DOM is ready
+      setTimeout(() => {
+        this.terminal?.focus();
+        // Double-check focus by also focusing the textarea directly
+        const textarea = this.container.querySelector(
+          ".xterm-helper-textarea",
+        ) as HTMLTextAreaElement;
+        if (textarea) {
+          textarea.focus();
+        }
+      }, 100);
 
       // Send initial command if configured
       if (this.config.initialCommand) {
