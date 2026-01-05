@@ -33,6 +33,12 @@ export interface RexecEmbedConfig {
   role?: string;
 
   /**
+   * Base OS image for the container. Defaults to 'ubuntu'.
+   * Options: 'ubuntu', 'debian', 'alpine', 'fedora', 'archlinux', 'kali', etc.
+   */
+  image?: string;
+
+  /**
    * Base URL for the Rexec API. Defaults to 'https://rexec.dev'
    */
   baseUrl?: string;
@@ -40,7 +46,7 @@ export interface RexecEmbedConfig {
   /**
    * Terminal theme configuration
    */
-  theme?: TerminalTheme | 'dark' | 'light';
+  theme?: TerminalTheme | "dark" | "light";
 
   /**
    * Font size in pixels. Default: 14
@@ -55,7 +61,7 @@ export interface RexecEmbedConfig {
   /**
    * Cursor style. Default: 'block'
    */
-  cursorStyle?: 'block' | 'underline' | 'bar';
+  cursorStyle?: "block" | "underline" | "bar";
 
   /**
    * Whether the cursor should blink. Default: true
@@ -183,12 +189,12 @@ export interface TerminalTheme {
  * Connection state for the terminal
  */
 export type ConnectionState =
-  | 'idle'
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting'
-  | 'disconnected'
-  | 'error';
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "disconnected"
+  | "error";
 
 /**
  * Session information
@@ -198,7 +204,7 @@ export interface SessionInfo {
   containerId: string;
   containerName?: string;
   role?: string;
-  mode?: 'view' | 'control';
+  mode?: "view" | "control";
   createdAt?: string;
   expiresAt?: string;
 }
@@ -234,7 +240,16 @@ export interface RexecError {
  * WebSocket message types
  */
 export interface WsMessage {
-  type: 'input' | 'output' | 'resize' | 'ping' | 'pong' | 'stats' | 'error' | 'connected' | 'setup';
+  type:
+    | "input"
+    | "output"
+    | "resize"
+    | "ping"
+    | "pong"
+    | "stats"
+    | "error"
+    | "connected"
+    | "setup";
   data?: string;
   cols?: number;
   rows?: number;
@@ -339,17 +354,23 @@ export interface RexecTerminalInstance {
   /**
    * Set the terminal theme
    */
-  setTheme(theme: TerminalTheme | 'dark' | 'light'): void;
+  setTheme(theme: TerminalTheme | "dark" | "light"): void;
 
   /**
    * Register an event listener
    */
-  on<K extends keyof RexecEventMap>(event: K, callback: RexecEventMap[K]): () => void;
+  on<K extends keyof RexecEventMap>(
+    event: K,
+    callback: RexecEventMap[K],
+  ): () => void;
 
   /**
    * Remove an event listener
    */
-  off<K extends keyof RexecEventMap>(event: K, callback: RexecEventMap[K]): void;
+  off<K extends keyof RexecEventMap>(
+    event: K,
+    callback: RexecEventMap[K],
+  ): void;
 }
 
 /**
@@ -385,8 +406,8 @@ export interface JoinSessionResponse {
   session_id: string;
   container_id: string;
   container_name: string;
-  mode: 'view' | 'control';
-  role: 'owner' | 'editor' | 'viewer';
+  mode: "view" | "control";
+  role: "owner" | "editor" | "viewer";
   expires_at: string;
 }
 

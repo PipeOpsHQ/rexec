@@ -8,10 +8,10 @@ import type {
   JoinSessionResponse,
   ContainerInfoResponse,
   WsMessage,
-} from './types';
+} from "./types";
 
-const WS_PROTOCOL_VERSION = 'rexec.v1';
-const WS_TOKEN_PROTOCOL_PREFIX = 'rexec.token.';
+const WS_PROTOCOL_VERSION = "rexec.v1";
+const WS_TOKEN_PROTOCOL_PREFIX = "rexec.token.";
 
 /**
  * API Client for Rexec HTTP endpoints
@@ -20,9 +20,9 @@ export class RexecApiClient {
   private baseUrl: string;
   private token: string | null;
 
-  constructor(baseUrl: string = 'https://rexec.dev', token?: string) {
+  constructor(baseUrl: string = "https://rexec.dev", token?: string) {
     // Remove trailing slash
-    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token || null;
   }
 
@@ -38,11 +38,11 @@ export class RexecApiClient {
    */
   private getHeaders(): Headers {
     const headers = new Headers({
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     });
 
     if (this.token) {
-      headers.set('Authorization', `Bearer ${this.token}`);
+      headers.set("Authorization", `Bearer ${this.token}`);
     }
 
     return headers;
@@ -53,7 +53,7 @@ export class RexecApiClient {
    */
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<{ data?: T; error?: string }> {
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -63,16 +63,17 @@ export class RexecApiClient {
         headers: this.getHeaders(),
       });
 
-      const contentType = response.headers.get('content-type');
+      const contentType = response.headers.get("content-type");
       let data: T | undefined;
       let error: string | undefined;
 
-      if (contentType?.includes('application/json')) {
+      if (contentType?.includes("application/json")) {
         const json = await response.json();
         if (response.ok) {
           data = json as T;
         } else {
-          error = json.error || json.message || `Request failed: ${response.status}`;
+          error =
+            json.error || json.message || `Request failed: ${response.status}`;
         }
       } else if (!response.ok) {
         error = `Request failed: ${response.status}`;
@@ -81,7 +82,7 @@ export class RexecApiClient {
       return { data, error };
     } catch (e) {
       return {
-        error: e instanceof Error ? e.message : 'Network error',
+        error: e instanceof Error ? e.message : "Network error",
       };
     }
   }
@@ -89,25 +90,36 @@ export class RexecApiClient {
   /**
    * Create a new container with the specified role
    */
-  async createContainer(role: string): Promise<{ data?: CreateContainerResponse; error?: string }> {
-    return this.request<CreateContainerResponse>('/api/containers', {
-      method: 'POST',
-      body: JSON.stringify({ role }),
+  async createContainer(
+    role: string,
+    image: string = "ubuntu",
+  ): Promise<{ data?: CreateContainerResponse; error?: string }> {
+    return this.request<CreateContainerResponse>("/api/containers", {
+      method: "POST",
+      body: JSON.stringify({ image, role }),
     });
   }
 
   /**
    * Get container information
    */
-  async getContainer(containerId: string): Promise<{ data?: ContainerInfoResponse; error?: string }> {
-    return this.request<ContainerInfoResponse>(`/api/containers/${encodeURIComponent(containerId)}`);
+  async getContainer(
+    containerId: string,
+  ): Promise<{ data?: ContainerInfoResponse; error?: string }> {
+    return this.request<ContainerInfoResponse>(
+      `/api/containers/${encodeURIComponent(containerId)}`,
+    );
   }
 
   /**
    * Join a collaborative session via share code
    */
-  async joinSession(shareCode: string): Promise<{ data?: JoinSessionResponse; error?: string }> {
-    return this.request<JoinSessionResponse>(`/api/collab/join/${encodeURIComponent(shareCode)}`);
+  async joinSession(
+    shareCode: string,
+  ): Promise<{ data?: JoinSessionResponse; error?: string }> {
+    return this.request<JoinSessionResponse>(
+      `/api/collab/join/${encodeURIComponent(shareCode)}`,
+    );
   }
 
   /**
@@ -115,10 +127,13 @@ export class RexecApiClient {
    */
   async startCollabSession(
     containerId: string,
-    mode: 'view' | 'control' = 'view'
-  ): Promise<{ data?: { session_id: string; share_code: string; expires_at: string }; error?: string }> {
-    return this.request('/api/collab/start', {
-      method: 'POST',
+    mode: "view" | "control" = "view",
+  ): Promise<{
+    data?: { session_id: string; share_code: string; expires_at: string };
+    error?: string;
+  }> {
+    return this.request("/api/collab/start", {
+      method: "POST",
       body: JSON.stringify({ container_id: containerId, mode }),
     });
   }
@@ -127,8 +142,8 @@ export class RexecApiClient {
    * Get WebSocket URL for terminal connection
    */
   getTerminalWsUrl(containerId: string, sessionId: string): string {
-    const protocol = this.baseUrl.startsWith('https') ? 'wss:' : 'ws:';
-    const host = this.baseUrl.replace(/^https?:\/\//, '');
+    const protocol = this.baseUrl.startsWith("https") ? "wss:" : "ws:";
+    const host = this.baseUrl.replace(/^https?:\/\//, "");
     return `${protocol}//${host}/ws/terminal/${encodeURIComponent(containerId)}?id=${encodeURIComponent(sessionId)}`;
   }
 
@@ -136,8 +151,8 @@ export class RexecApiClient {
    * Get WebSocket URL for agent terminal connection
    */
   getAgentTerminalWsUrl(agentId: string, sessionId: string): string {
-    const protocol = this.baseUrl.startsWith('https') ? 'wss:' : 'ws:';
-    const host = this.baseUrl.replace(/^https?:\/\//, '');
+    const protocol = this.baseUrl.startsWith("https") ? "wss:" : "ws:";
+    const host = this.baseUrl.replace(/^https?:\/\//, "");
     return `${protocol}//${host}/ws/agent/${encodeURIComponent(agentId)}/terminal?id=${encodeURIComponent(sessionId)}`;
   }
 
@@ -145,8 +160,8 @@ export class RexecApiClient {
    * Get WebSocket URL for collab session
    */
   getCollabWsUrl(shareCode: string): string {
-    const protocol = this.baseUrl.startsWith('https') ? 'wss:' : 'ws:';
-    const host = this.baseUrl.replace(/^https?:\/\//, '');
+    const protocol = this.baseUrl.startsWith("https") ? "wss:" : "ws:";
+    const host = this.baseUrl.replace(/^https?:\/\//, "");
     return `${protocol}//${host}/ws/collab/${encodeURIComponent(shareCode)}`;
   }
 }
@@ -154,7 +169,9 @@ export class RexecApiClient {
 /**
  * WebSocket protocols for Rexec authentication
  */
-export function getRexecWebSocketProtocols(token: string | null): string[] | undefined {
+export function getRexecWebSocketProtocols(
+  token: string | null,
+): string[] | undefined {
   if (!token) return undefined;
   return [WS_PROTOCOL_VERSION, `${WS_TOKEN_PROTOCOL_PREFIX}${token}`];
 }
@@ -162,7 +179,10 @@ export function getRexecWebSocketProtocols(token: string | null): string[] | und
 /**
  * Create a WebSocket with Rexec authentication
  */
-export function createRexecWebSocket(url: string, token: string | null): WebSocket {
+export function createRexecWebSocket(
+  url: string,
+  token: string | null,
+): WebSocket {
   const protocols = getRexecWebSocketProtocols(token);
   return protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 }
@@ -193,7 +213,7 @@ export class TerminalWebSocket {
     options: {
       autoReconnect?: boolean;
       maxReconnectAttempts?: number;
-    } = {}
+    } = {},
   ) {
     this.url = url;
     this.token = token;
@@ -205,7 +225,11 @@ export class TerminalWebSocket {
    * Connect to the WebSocket
    */
   connect(): void {
-    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+    if (
+      this.ws &&
+      (this.ws.readyState === WebSocket.OPEN ||
+        this.ws.readyState === WebSocket.CONNECTING)
+    ) {
       return;
     }
 
@@ -241,7 +265,7 @@ export class TerminalWebSocket {
         this.onMessage?.(message);
       } catch {
         // Handle non-JSON messages (raw terminal output)
-        this.onMessage?.({ type: 'output', data: event.data });
+        this.onMessage?.({ type: "output", data: event.data });
       }
     };
   }
@@ -259,27 +283,27 @@ export class TerminalWebSocket {
    * Send raw data (for terminal input)
    */
   sendRaw(data: string): void {
-    this.send({ type: 'input', data });
+    this.send({ type: "input", data });
   }
 
   /**
    * Send resize message
    */
   sendResize(cols: number, rows: number): void {
-    this.send({ type: 'resize', cols, rows });
+    this.send({ type: "resize", cols, rows });
   }
 
   /**
    * Send ping message
    */
   sendPing(): void {
-    this.send({ type: 'ping' });
+    this.send({ type: "ping" });
   }
 
   /**
    * Close the WebSocket connection
    */
-  close(code = 1000, reason = 'User disconnected'): void {
+  close(code = 1000, reason = "User disconnected"): void {
     this.autoReconnect = false; // Prevent reconnect on intentional close
     this.clearTimers();
     if (this.ws) {

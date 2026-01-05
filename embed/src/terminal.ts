@@ -117,6 +117,7 @@ export class RexecTerminal implements RexecTerminalInstance {
       container: config.container ?? "",
       shareCode: config.shareCode ?? "",
       role: config.role ?? "",
+      image: config.image ?? "ubuntu",
       baseUrl: config.baseUrl ?? this.detectBaseUrl(),
       theme: config.theme ?? "dark",
       fontSize: config.fontSize ?? DEFAULT_FONT_SIZE,
@@ -609,6 +610,7 @@ export class RexecTerminal implements RexecTerminalInstance {
         // Create new container
         const { data, error } = await this.api.createContainer(
           this.config.role,
+          this.config.image || "ubuntu",
         );
         if (error || !data) {
           throw this.createError(
