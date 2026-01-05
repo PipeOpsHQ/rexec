@@ -50,11 +50,28 @@
             .terminal-container {
                 width: 100%;
                 max-width: 900px;
-                height: 400px;
+                min-height: 400px;
+                height: 50vh;
                 border-radius: 8px;
                 overflow: hidden;
                 box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
                 background: #0d0d1a;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .terminal-container .rexec-embed {
+                flex: 1;
+                min-height: 0;
+                width: 100%;
+                height: 100%;
+            }
+
+            @media (max-width: 768px) {
+                .terminal-container {
+                    height: 60vh;
+                    min-height: 300px;
+                }
             }
 
             .code-block {
@@ -868,9 +885,9 @@
         </div>
 
         <!-- Load the Rexec embed script -->
-        <script src="https://rexec.sh/embed/rexec.min.js"></script>
-        <!-- For local development, use: -->
-        <!-- <script src="../dist/rexec.min.js"></script> -->
+        <!-- For production, use: <script src="https://rexec.sh/embed/rexec.min.js"></script> -->
+        <!-- For local development: -->
+        <script src="../dist/rexec.min.js"></script>
 
         <script>
             let terminalInstance = null;
