@@ -606,10 +606,10 @@ export class RexecTerminal implements RexecTerminalInstance {
           containerId,
         };
         wsUrl = this.api.getTerminalWsUrl(containerId, this.sessionId);
-      } else if (this.config.role) {
-        // Create new container
+      } else if (this.config.role || this.config.image) {
+        // Create new container with role and/or image
         const { data, error } = await this.api.createContainer(
-          this.config.role,
+          this.config.role || "default",
           this.config.image || "ubuntu",
         );
         if (error || !data) {
@@ -629,7 +629,7 @@ export class RexecTerminal implements RexecTerminalInstance {
       } else {
         throw this.createError(
           "CONFIG_ERROR",
-          "Must provide container, shareCode, or role",
+          "Must provide container, shareCode, role, or image",
         );
       }
 
