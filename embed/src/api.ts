@@ -337,10 +337,24 @@ export class TerminalWebSocket {
     this.ws.onmessage = (event) => {
       try {
         const message: WsMessage = JSON.parse(event.data);
+        // Ignore ping/pong messages - they're just keepalives
+        if (message.type === "ping" || message.type === "pong") {
+          return;
+        }
         this.onMessage?.(message);
       } catch {
-        // Handle non-JSON messages (raw terminal output)
-        this.onMessage?.({ type: "output", data: event.data });
+        // Only treat as output if it looks like actual terminal data
+        // Ignore empty messages or system messages
+        const data = event.data;
+        if (
+          typeof data === "string" &&
+          data.length > 0 &&
+          !data.startsWith("{") &&
+          !data.startsWith("[")
+        ) {
+          this.onMessage?.({ type: "output", data });
+        }
+        // Otherwise silently ignore malformed JSON
       }
     };
   }

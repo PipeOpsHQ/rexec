@@ -100,20 +100,20 @@ echo "[[REXEC_STATUS]]Setup complete."
 	// We'll inject the specific packages for this role
 	// Filter out non-system packages that are handled separately
 	excludedPackages := map[string]bool{
-		"tgpt":                           true,
-		"aichat":                         true,
-		"mods":                           true,
-		"gum":                            true,
-		"zsh-autosuggestions":            true,
-		"zsh-syntax-highlighting":        true,
-		"zsh-history-substring-search":   true,
-		"aider":                          true,
-		"opencode":                       true,
-		"llm":                            true,
-		"sgpt":                           true,
-		"gh-copilot":                     true,
-		"claude":                         true,
-		"gemini":                         true,
+		"tgpt":                         true,
+		"aichat":                       true,
+		"mods":                         true,
+		"gum":                          true,
+		"zsh-autosuggestions":          true,
+		"zsh-syntax-highlighting":      true,
+		"zsh-history-substring-search": true,
+		"aider":                        true,
+		"opencode":                     true,
+		"llm":                          true,
+		"sgpt":                         true,
+		"gh-copilot":                   true,
+		"claude":                       true,
+		"gemini":                       true,
 	}
 
 	packages := ""
@@ -133,13 +133,13 @@ echo "Installing tools for role: %s..."
 # This runs before other setup so users have CLI available immediately
 quick_install_rexec_cli() {
     mkdir -p /root/.local/bin /usr/local/bin 2>/dev/null || return 1
-    
+
     # Minimal rexec CLI for immediate use
     cat > /root/.local/bin/rexec << 'QUICKCLI'
 #!/bin/sh
 # Rexec CLI - Tools are being installed in background
 case "$1" in
-    tools|ls) 
+    tools|ls)
         echo "=== Rexec Terminal ==="
         if [ -f /tmp/.rexec_installing_system ] || [ -f /tmp/.rexec_installing_ai ]; then
             echo "Tools are currently being installed..."
@@ -157,8 +157,19 @@ case "$1" in
 esac
 QUICKCLI
     chmod +x /root/.local/bin/rexec
-    ln -sf /root/.local/bin/rexec /usr/local/bin/rexec 2>/dev/null || true
-    ln -sf /root/.local/bin/rexec /usr/bin/rexec 2>/dev/null || true
+
+    # Copy (not symlink) to global paths for reliability
+    cp /root/.local/bin/rexec /usr/local/bin/rexec 2>/dev/null || true
+    chmod +x /usr/local/bin/rexec 2>/dev/null || true
+    cp /root/.local/bin/rexec /usr/bin/rexec 2>/dev/null || true
+    chmod +x /usr/bin/rexec 2>/dev/null || true
+
+    # Also copy to user's local bin
+    mkdir -p /home/user/.local/bin 2>/dev/null || true
+    cp /root/.local/bin/rexec /home/user/.local/bin/rexec 2>/dev/null || true
+    chmod +x /home/user/.local/bin/rexec 2>/dev/null || true
+    chown -R user:user /home/user/.local 2>/dev/null || true
+
     return 0
 }
 
@@ -200,35 +211,35 @@ init_apt_dirs() {
 wait_for_filesystem() {
     max_wait=15
     waited=0
-    
+
     echo "  Waiting for filesystem to be ready..."
-    
+
     while [ $waited -lt $max_wait ]; do
         # Check multiple writable paths to ensure everything is ready
         apt_ok=0
         dpkg_ok=0
-        
+
         # Test apt lists tmpfs
         if touch /var/lib/apt/lists/.rexec_test_$$ 2>/dev/null; then
             rm -f /var/lib/apt/lists/.rexec_test_$$
             apt_ok=1
         fi
-        
+
         # Test dpkg overlay
         if touch /var/lib/dpkg/.rexec_test_$$ 2>/dev/null; then
             rm -f /var/lib/dpkg/.rexec_test_$$
             dpkg_ok=1
         fi
-        
+
         if [ "$apt_ok" = "1" ] && [ "$dpkg_ok" = "1" ]; then
             echo "  ✓ Filesystem ready (apt=$apt_ok, dpkg=$dpkg_ok)"
             return 0
         fi
-        
+
         sleep 1
         waited=$((waited + 1))
     done
-    
+
     echo "  ⚠ Filesystem check timed out (apt=$apt_ok, dpkg=$dpkg_ok)"
     return 1
 }
@@ -260,7 +271,7 @@ prepare_apt_dirs() {
 fix_dpkg() {
     # First ensure directories exist
     prepare_apt_dirs
-    
+
     if [ -d /var/lib/dpkg/updates ] && [ "$(ls -A /var/lib/dpkg/updates 2>/dev/null)" ]; then
         echo "Fixing dpkg state..."
         rm -f /var/lib/dpkg/updates/* 2>/dev/null || true
@@ -274,10 +285,10 @@ fix_dpkg() {
 wait_for_locks() {
     max_wait=60
     waited=0
-    
+
     # List of known lock files
     locks="/var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /lib/apk/db/lock /var/run/dnf.pid /var/run/yum.pid /var/lib/pacman/db.lck"
-    
+
     while [ $waited -lt $max_wait ]; do
         locked=0
         for lock in $locks; do
@@ -297,16 +308,16 @@ wait_for_locks() {
                 fi
             fi
         done
-        
+
         if [ $locked -eq 0 ]; then
             return 0
         fi
-        
+
         echo "Waiting for package manager lock release..."
         sleep 2
         waited=$((waited + 2))
     done
-    
+
     echo "Timeout waiting for lock, attempting to clear stale locks..."
     for lock in $locks; do
         rm -f "$lock" 2>/dev/null || true
@@ -319,7 +330,7 @@ install_role_packages() {
     touch /tmp/.rexec_installing_system
     GENERIC_PACKAGES="%s"
     PACKAGES="$GENERIC_PACKAGES"
-    
+
     # Check if filesystem is ready for package installation
     if [ "$FS_READY" != "1" ]; then
         echo "  Skipping package installation - filesystem not ready"
@@ -327,22 +338,22 @@ install_role_packages() {
         rm -f /tmp/.rexec_installing_system
         return 1
     fi
-    
+
     # Fix dpkg and wait for locks before starting
     fix_dpkg
     wait_for_locks || true
 
     if command -v apt-get >/dev/null 2>&1; then
         export DEBIAN_FRONTEND=noninteractive
-        
+
         echo "  Detected apt-get package manager"
-        
+
         # Ensure apt directories exist (critical for minimal images)
         prepare_apt_dirs
-        
+
         # Apt options for robustness
         APT_OPTS="-o DPkg::Lock::Timeout=60 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
-        
+
         # Retry apt-get update up to 3 times (sometimes fails on first try)
         echo "  Updating package lists..."
         apt_update_success=0
@@ -356,15 +367,15 @@ install_role_packages() {
                 sleep 2
             fi
         done
-        
+
         if [ $apt_update_success -eq 0 ]; then
             echo "  Warning: apt-get update failed after retries"
         fi
-        
+
         # First, install essential tools that the rest of the script needs
         echo "  Installing essential tools (curl, wget, git, ca-certificates)..."
         apt-get $APT_OPTS install -y curl wget git ca-certificates 2>&1 || echo "  Warning: Essential tools install failed"
-        
+
         # Enable universe repository for Ubuntu (needed for neovim, ripgrep, etc.)
         if grep -q "Ubuntu" /etc/issue 2>/dev/null || grep -q "Ubuntu" /etc/os-release 2>/dev/null; then
             echo "  Enabling universe repository..."
@@ -396,12 +407,12 @@ install_role_packages() {
         echo "  System packages installation complete."
     elif command -v apk >/dev/null 2>&1; then
         echo "  Detected apk package manager (Alpine)"
-        
+
         # First install essential tools
         echo "  Installing essential tools..."
         apk update 2>&1 || true
         apk add --no-cache curl wget git ca-certificates 2>&1 || echo "  Warning: Essential tools install failed"
-        
+
         # Alpine package mapping
         APK_PACKAGES=""
         for pkg in $GENERIC_PACKAGES; do
@@ -424,11 +435,11 @@ install_role_packages() {
         echo "  System packages installation complete."
     elif command -v dnf >/dev/null 2>&1; then
         echo "  Detected dnf package manager"
-        
+
         # First install essential tools
         echo "  Installing essential tools..."
         dnf install -y curl wget git ca-certificates 2>&1 || echo "  Warning: Essential tools install failed"
-        
+
         echo "  Installing packages: $PACKAGES"
         dnf install -y $PACKAGES 2>&1 || {
             echo "  Bulk install failed, trying individual packages..."
@@ -440,11 +451,11 @@ install_role_packages() {
         echo "  System packages installation complete."
     elif command -v yum >/dev/null 2>&1; then
         echo "  Detected yum package manager"
-        
+
         # First install essential tools
         echo "  Installing essential tools..."
         yum install -y curl wget git ca-certificates 2>&1 || echo "  Warning: Essential tools install failed"
-        
+
         echo "  Installing packages: $PACKAGES"
         yum install -y $PACKAGES 2>&1 || {
             echo "  Bulk install failed, trying individual packages..."
@@ -456,15 +467,15 @@ install_role_packages() {
         echo "  System packages installation complete."
     elif command -v pacman >/dev/null 2>&1; then
         echo "  Detected pacman package manager (Arch)"
-        
+
         # Initialize pacman keys if needed
         pacman-key --init 2>/dev/null || true
         pacman-key --populate archlinux 2>/dev/null || true
-        
+
         # First install essential tools
         echo "  Installing essential tools..."
         pacman -Sy --noconfirm curl wget git ca-certificates 2>&1 || echo "  Warning: Essential tools install failed"
-        
+
         echo "  Installing packages: $PACKAGES"
         pacman -S --noconfirm $PACKAGES 2>&1 || {
             echo "  Bulk install failed, trying individual packages..."
@@ -498,7 +509,7 @@ configure_zsh() {
         ZSH_CUSTOM="$ZSH/custom"
         mkdir -p "$ZSH_CUSTOM/plugins"
         echo "Installing zsh plugins..."
-        
+
         if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
             git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
         fi
@@ -577,7 +588,7 @@ ZSHRC_TEMPLATE
         else
             echo "  user .zshrc already exists, skipping overwrite..."
         fi
-        
+
         # Setup user environment
         if id "user" >/dev/null 2>&1; then
             mkdir -p /home/user
@@ -593,7 +604,7 @@ ZSHRC_TEMPLATE
 # Create rexec CLI command with subcommands
 create_rexec_cli() {
     mkdir -p /root/.local/bin /home/user/.local/bin 2>/dev/null || true
-    
+
     cat > /root/.local/bin/rexec << 'REXECCLI'
 #!/bin/sh
 
@@ -652,27 +663,27 @@ do_install() {
         POPULAR="neovim\nripgrep\nfzf\njq\nbat\ndocker\nnodejs\npython\ngolang\nrust\ntgpt\naichat\nmods"
         PKG=$(echo "$POPULAR" | gum filter --placeholder "Select or type package name")
     fi
-    
+
     if [ -z "$PKG" ]; then
         printf "${RED}Error: No package specified${NC}\n"
         echo "Usage: rexec install <package>"
         return 1
     fi
-    
+
     PM=$(detect_pkg_manager)
     if [ "$PM" = "unknown" ]; then
         echo "${RED}Error: No supported package manager found${NC}"
         return 1
     fi
-    
+
     ACTUAL_PKG=$(get_pkg_name "$PKG" "$PM")
-    
+
     if [ "$HAS_GUM" -eq 1 ]; then
         gum style --foreground 212 "Installing $PKG ($ACTUAL_PKG)..."
     else
         printf "${CYAN}Installing $PKG ($ACTUAL_PKG)...${NC}\n"
     fi
-    
+
     # Run install command
     case "$PM" in
         apt)
@@ -686,7 +697,7 @@ do_install() {
         pacman) pacman -Sy --noconfirm "$ACTUAL_PKG" ;;
         zypper) zypper --non-interactive install "$ACTUAL_PKG" ;;
     esac
-    
+
     if [ $? -eq 0 ]; then
         if [ "$HAS_GUM" -eq 1 ]; then
             gum style --foreground 82 --bold "✓ $PKG installed successfully"
@@ -706,10 +717,10 @@ do_uninstall() {
         printf "${RED}Error: No package specified${NC}\n"
         return 1
     fi
-    
+
     PM=$(detect_pkg_manager)
     ACTUAL_PKG=$(get_pkg_name "$PKG" "$PM")
-    
+
     printf "${CYAN}Uninstalling $PKG...${NC}\n"
     case "$PM" in
         apt) apt-get remove -y "$ACTUAL_PKG" ;;
@@ -727,7 +738,7 @@ do_search() {
     if [ -z "$TERM" ] && [ "$HAS_GUM" -eq 1 ]; then
         TERM=$(gum input --placeholder "Search for packages...")
     fi
-    
+
     if [ -z "$TERM" ]; then
         printf "${RED}Error: No search term specified${NC}\n"
         return 1
@@ -749,13 +760,13 @@ do_search() {
 show_tools() {
     # Ensure PATH includes .local/bin for AI tools
     export PATH="$HOME/.local/bin:/root/.local/bin:/usr/local/bin:$PATH"
-    
+
     if [ "$HAS_GUM" -eq 1 ]; then
         gum style --border normal --padding "0 2" --foreground 212 "Installed Tools"
     else
         printf "${CYAN}=== Installed Tools ===${NC}\n"
     fi
-    
+
     # System
     echo ""
     printf "${YELLOW}System:${NC}\n"
@@ -769,7 +780,7 @@ show_tools() {
     for cmd in zsh git curl wget vim nano htop jq tmux fzf ripgrep neofetch; do
         if command -v $cmd >/dev/null 2>&1; then printf "  ${GREEN}✓${NC} $cmd\n"; fi
     done
-    
+
     # AI
     echo ""
     printf "${YELLOW}AI & Dev:${NC}\n"
@@ -800,16 +811,16 @@ show_menu() {
             "ℹ️  System Info" \
             "🤖  AI Help" \
             "🚪  Exit")
-        
+
         case "$CHOICE" in
             "🛠️  List Tools") show_tools ;;
             "📦  Install Package") do_install ;;
             "🔍  Search Packages") do_search ;;
-            "ℹ️  System Info") 
-                if command -v neofetch >/dev/null 2>&1; then neofetch; else 
+            "ℹ️  System Info")
+                if command -v neofetch >/dev/null 2>&1; then neofetch; else
                     echo "OS: $(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d'"' -f2)"
                     echo "Kernel: $(uname -r)"
-                fi 
+                fi
                 ;;
             "🤖  AI Help") cat "$HOME/.local/bin/ai-help" 2>/dev/null || echo "AI help not found" ;;
             "🚪  Exit") exit 0 ;;
@@ -844,9 +855,9 @@ case "$CMD" in
     uninstall|rm) do_uninstall "$@" ;;
     search|s) do_search "$@" ;;
     tools|ls) show_tools ;;
-    info) 
+    info)
         if command -v neofetch >/dev/null 2>&1; then neofetch
-        else echo "Host: $(hostname)"; fi 
+        else echo "Host: $(hostname)"; fi
         ;;
     help|--help|-h) show_help ;;
     "") show_menu ;;
@@ -855,12 +866,29 @@ esac
 REXECCLI
 
     chmod +x /root/.local/bin/rexec
+
+    # Copy to user's local bin
+    mkdir -p /home/user/.local/bin 2>/dev/null || true
     cp /root/.local/bin/rexec /home/user/.local/bin/rexec 2>/dev/null || true
     chmod +x /home/user/.local/bin/rexec 2>/dev/null || true
-    
-    # Symlink to global path to ensure it's always found
-    ln -sf /root/.local/bin/rexec /usr/local/bin/rexec 2>/dev/null || true
-    ln -sf /root/.local/bin/rexec /usr/bin/rexec 2>/dev/null || true
+    chown -R user:user /home/user/.local 2>/dev/null || true
+
+    # Copy (not symlink) to global paths to ensure it works regardless of permissions
+    cp /root/.local/bin/rexec /usr/local/bin/rexec 2>/dev/null || true
+    chmod +x /usr/local/bin/rexec 2>/dev/null || true
+    cp /root/.local/bin/rexec /usr/bin/rexec 2>/dev/null || true
+    chmod +x /usr/bin/rexec 2>/dev/null || true
+
+    # Verify installation
+    if [ -x /usr/local/bin/rexec ]; then
+        echo "    ✓ rexec installed to /usr/local/bin/rexec"
+    elif [ -x /usr/bin/rexec ]; then
+        echo "    ✓ rexec installed to /usr/bin/rexec"
+    elif [ -x /home/user/.local/bin/rexec ]; then
+        echo "    ✓ rexec installed to /home/user/.local/bin/rexec"
+    else
+        echo "    ! rexec installation location unknown"
+    fi
 }
 
 # Setup PATH for all roles - ensures installed tools are found
@@ -880,7 +908,7 @@ setup_path() {
             fi
         fi
     done
-    
+
     # Also set for current session
     export PATH="$HOME/.local/bin:/root/.local/bin:$PATH"
 }
@@ -897,7 +925,7 @@ install_free_ai_tools() {
     echo "Installing free AI terminal tools..."
     export HOME="${HOME:-/root}"
     mkdir -p "$HOME/.local/bin" 2>/dev/null || true
-    
+
     # Check if we can write to the install directory
     if ! touch "$HOME/.local/bin/.test_write" 2>/dev/null; then
         echo "  Warning: Cannot write to $HOME/.local/bin - skipping AI tools"
@@ -905,7 +933,7 @@ install_free_ai_tools() {
         return 1
     fi
     rm -f "$HOME/.local/bin/.test_write"
-    
+
     # Fix apt directories if needed (common issue with fresh containers)
     fix_apt_dirs() {
         if command -v apt-get >/dev/null 2>&1; then
@@ -922,11 +950,11 @@ install_free_ai_tools() {
             fi
         fi
     }
-    
+
     # Check if curl is available (critical for downloads)
     if ! command -v curl >/dev/null 2>&1; then
         echo "  Warning: curl not found, attempting to install..."
-        
+
         # Skip apt-get install if filesystem not ready
         if [ "$FS_READY" != "1" ]; then
             echo "  Filesystem not ready - cannot install curl via apt"
@@ -952,17 +980,17 @@ install_free_ai_tools() {
             pacman -S --noconfirm curl ca-certificates 2>&1 || true
         fi
     fi
-    
+
     if ! command -v curl >/dev/null 2>&1; then
         echo "  Error: curl is not available, cannot download AI tools"
         rm -f /tmp/.rexec_installing_ai
         return 1
     fi
-    
+
     # Detect architecture once
     ARCH=$(uname -m)
     echo "  Detected architecture: $ARCH"
-    
+
     # tgpt - Free GPT in terminal (no API key, uses free providers)
     # https://github.com/aandrew-me/tgpt
     echo "  Installing tgpt (free terminal GPT)..."
@@ -982,12 +1010,12 @@ install_free_ai_tools() {
     else
         echo "    ! tgpt: unsupported architecture $ARCH"
     fi
-    
+
     # aichat - Feature-rich AI CLI chat (supports local models via ollama)
     # https://github.com/sigoden/aichat
     echo "  Installing aichat (AI terminal chat)..."
     case "$ARCH" in
-        x86_64|amd64) 
+        x86_64|amd64)
             if ldd /bin/ls 2>/dev/null | grep -q musl; then
                 AICHAT_ARCH="x86_64-unknown-linux-musl"
             else
@@ -1016,7 +1044,7 @@ install_free_ai_tools() {
     else
         echo "    ! aichat: unsupported architecture $ARCH"
     fi
-    
+
     # mods - AI for the command line (works great with ollama)
     # https://github.com/charmbracelet/mods
     echo "  Installing mods (AI for CLI)..."
@@ -1038,7 +1066,7 @@ install_free_ai_tools() {
     else
         echo "    ! mods: unsupported architecture $ARCH"
     fi
-    
+
     # gum - Glamorous shell scripts
     # https://github.com/charmbracelet/gum
     echo "  Installing gum (interactive shell UX)..."
@@ -1080,12 +1108,12 @@ install_free_ai_tools() {
                 OPENCODE_ARCH=""
                 ;;
         esac
-        
+
         if [ -n "$OPENCODE_ARCH" ]; then
             OPENCODE_VERSION=$(curl -s https://api.github.com/repos/sst/opencode/releases/latest 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
             [ -z "$OPENCODE_VERSION" ] && OPENCODE_VERSION="v1.0.133"
             OPENCODE_URL="https://github.com/sst/opencode/releases/download/${OPENCODE_VERSION}/opencode-${OPENCODE_ARCH}.tar.gz"
-            
+
             if curl -fsSL "$OPENCODE_URL" 2>&1 | tar -xzf - -C "$HOME/.local/bin" 2>&1; then
                 chmod +x "$HOME/.local/bin/opencode"
                 echo "    ✓ opencode installed"
@@ -1181,7 +1209,7 @@ install_free_ai_tools() {
             echo "    ! sgpt: pip not available"
         fi
     fi
-    
+
     # Create helper script to show AI tools usage
     cat > "$HOME/.local/bin/ai-help" << 'AIHELP'
 #!/bin/sh
@@ -1213,7 +1241,7 @@ echo ""
 AIHELP
     chmod +x "$HOME/.local/bin/ai-help"
     cp "$HOME/.local/bin/ai-help" /home/user/.local/bin/ai-help 2>/dev/null || true
-    
+
     # Create symlinks for all AI tools to /usr/local/bin so they're always in PATH
     echo "  Creating symlinks for AI tools..."
     mkdir -p /usr/local/bin 2>/dev/null || true
@@ -1222,7 +1250,7 @@ AIHELP
             ln -sf "$HOME/.local/bin/$tool" "/usr/local/bin/$tool" 2>/dev/null || true
         fi
     done
-    
+
     rm -f /tmp/.rexec_installing_ai
     echo "  AI tools installation complete."
 }
@@ -1278,7 +1306,7 @@ fi
 if [ "%s" = "Vibe Coder" ]; then
     echo "[[REXEC_STATUS]]Installing extra tools..."
     echo "Installing additional AI coding tools..."
-    
+
     # Ensure pip is available and upgrade it
     if command -v pip3 >/dev/null 2>&1; then
         PIP="pip3"
@@ -1299,7 +1327,7 @@ if [ "%s" = "Vibe Coder" ]; then
     if [ -n "$PIP" ]; then
         # Upgrade pip first
         $PIP install --quiet --break-system-packages --upgrade pip 2>/dev/null || $PIP install --quiet --upgrade pip 2>/dev/null || true
-        
+
         # Install aider - the main AI pair programming tool (needs API key)
         echo "  Installing aider (AI pair programming)..."
         $PIP install --quiet --break-system-packages aider-chat 2>/dev/null || $PIP install --quiet aider-chat 2>/dev/null || echo "    ! aider install failed"

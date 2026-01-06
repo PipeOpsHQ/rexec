@@ -76,6 +76,15 @@ RUN mkdir -p /home/user/.local/bin \
     && chmod 600 /home/user/.ssh/authorized_keys \
     && chown -R user:user /home/user
 
+# Install rexec CLI
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+    curl -sSL https://rexec.sh/downloads/rexec-cli-linux-amd64 -o /usr/local/bin/rexec; \
+    elif [ "$ARCH" = "arm64" ]; then \
+    curl -sSL https://rexec.sh/downloads/rexec-cli-linux-arm64 -o /usr/local/bin/rexec; \
+    fi && \
+    chmod +x /usr/local/bin/rexec
+
 # Configure bash prompt
 RUN echo 'export PS1="\[\033[01;32m\]\u@rexec\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ "' >> /home/user/.bashrc \
     && echo 'alias ll="ls -la"' >> /home/user/.bashrc \

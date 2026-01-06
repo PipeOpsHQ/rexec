@@ -71,6 +71,15 @@ RUN mkdir -p /home/user/workspace && chown -R user:user /home/user
 # Set working directory
 WORKDIR /home/user
 
+# Install rexec CLI
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+    curl -sSL https://rexec.sh/downloads/rexec-cli-linux-amd64 -o /usr/local/bin/rexec; \
+    elif [ "$ARCH" = "arm64" ]; then \
+    curl -sSL https://rexec.sh/downloads/rexec-cli-linux-arm64 -o /usr/local/bin/rexec; \
+    fi && \
+    chmod +x /usr/local/bin/rexec
+
 # Configure bash
 RUN echo 'export PS1="\[\033[01;32m\]\u@rexec\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ "' >> /home/user/.bashrc \
     && echo 'alias ll="ls -la"' >> /home/user/.bashrc \
@@ -81,13 +90,13 @@ RUN echo 'export PS1="\[\033[01;32m\]\u@rexec\[\033[00m\]:\[\033[01;34m\]\w\[\03
 RUN echo '#!/bin/bash\n\
     # Auto-fix dpkg/apt issues\n\
     fix_dpkg() {\n\
-        if [ -d /var/lib/dpkg/updates ] && [ "$(ls -A /var/lib/dpkg/updates 2>/dev/null)" ]; then\n\
-            if ! dpkg --configure -a >/dev/null 2>&1; then\n\
-                rm -f /var/lib/dpkg/updates/* 2>/dev/null || true\n\
-                dpkg --configure -a 2>/dev/null || true\n\
-            fi\n\
-        fi\n\
-        rm -f /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true\n\
+    if [ -d /var/lib/dpkg/updates ] && [ "$(ls -A /var/lib/dpkg/updates 2>/dev/null)" ]; then\n\
+    if ! dpkg --configure -a >/dev/null 2>&1; then\n\
+    rm -f /var/lib/dpkg/updates/* 2>/dev/null || true\n\
+    dpkg --configure -a 2>/dev/null || true\n\
+    fi\n\
+    fi\n\
+    rm -f /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock /var/cache/apt/archives/lock 2>/dev/null || true\n\
     }\n\
     fix_dpkg &\n\
     \n\

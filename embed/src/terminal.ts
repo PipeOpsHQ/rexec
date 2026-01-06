@@ -1058,11 +1058,15 @@ export class RexecTerminal implements RexecTerminalInstance {
         this.showStatus(message.data || "Setting up...");
         break;
 
+      case "ping":
+      case "pong":
+        // Ignore keepalive messages
+        break;
+
       default:
-        // Unknown message type - treat as output if has data
-        if (message.data && typeof message.data === "string") {
-          this.writeToTerminal(message.data);
-        }
+        // Unknown message type - ignore silently
+        // Don't write unknown messages to terminal as they may be system messages
+        break;
     }
   }
 
