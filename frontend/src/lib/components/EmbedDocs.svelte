@@ -14,13 +14,80 @@
     let previewToken = $state("");
     let previewImage = $state("ubuntu");
     let previewRole = $state("default");
-    let previewMode: "share" | "new" = $state("share");
+    let previewMode: "share" | "new" | "resume" = $state("share");
     let previewTerminalInstance: any = null;
+    let previewContainerId = $state("");
+    let lastCreatedContainerId = $state("");
+    let lastCreatedContainerInfo = $state<{
+        id: string;
+        name?: string;
+        image: string;
+        role: string;
+    } | null>(null);
+
+    const STORAGE_KEY = "rexec_embed_docs_session";
+
+    // Load saved session on mount
+    $effect(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const data = JSON.parse(saved);
+                if (data.containerId) {
+                    lastCreatedContainerId = data.containerId;
+                    lastCreatedContainerInfo = data;
+                }
+            }
+        } catch {
+            // ignore
+        }
+    });
+
+    function saveSession(info: {
+        id: string;
+        name?: string;
+        image: string;
+        role: string;
+    }) {
+        lastCreatedContainerId = info.id;
+        lastCreatedContainerInfo = {
+            id: info.id,
+            name: info.name,
+            image: info.image,
+            role: info.role,
+        };
+        try {
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({
+                    containerId: info.id,
+                    name: info.name,
+                    image: info.image,
+                    role: info.role,
+                    savedAt: new Date().toISOString(),
+                }),
+            );
+        } catch {
+            // ignore
+        }
+    }
+
+    function clearSavedSession() {
+        lastCreatedContainerId = "";
+        lastCreatedContainerInfo = null;
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+        } catch {
+            // ignore
+        }
+    }
 
     let canLaunchPreview = $derived(
         previewMode === "share"
             ? !!previewShareCode.trim()
-            : !!previewToken.trim(),
+            : previewMode === "resume"
+              ? !!previewContainerId.trim() && !!previewToken.trim()
+              : !!previewToken.trim(),
     );
 
     function copyToClipboard(text: string, id: string) {
@@ -371,7 +438,7 @@
         if (previewTerminalInstance) {
             try {
                 previewTerminalInstance.destroy();
-            } catch (e) {
+            } catch {
                 // ignore
             }
             previewTerminalInstance = null;
@@ -387,6 +454,9 @@
 
                 if (previewMode === "share") {
                     config.shareCode = previewShareCode.trim();
+                } else if (previewMode === "resume") {
+                    config.token = previewToken.trim();
+                    config.container = previewContainerId.trim();
                 } else {
                     config.token = previewToken.trim();
                     config.image = previewImage;
@@ -394,11 +464,26 @@
                 }
 
                 config.onReady = (term: any) => {
-                    console.log("Preview connected:", term.session);
+                    // Save session for resume if we created a new container
+                    if (previewMode === "new" && term.session?.containerId) {
+                        saveSession({
+                            id: term.session.containerId,
+                            name: term.session.containerName,
+                            image: previewImage,
+                            role: previewRole,
+                        });
+                    }
                 };
 
                 config.onError = (err: any) => {
-                    console.error("Preview error:", err);
+                    // If container not found during resume, clear saved session
+                    if (
+                        previewMode === "resume" &&
+                        (err.code === "CONTAINER_NOT_FOUND" ||
+                            err.code === "CONNECT_ERROR")
+                    ) {
+                        clearSavedSession();
+                    }
                 };
 
                 previewTerminalInstance = (window as any).Rexec.embed(
@@ -413,12 +498,20 @@
         if (previewTerminalInstance) {
             try {
                 previewTerminalInstance.destroy();
-            } catch (e) {
+            } catch {
                 // ignore
             }
             previewTerminalInstance = null;
         }
         showLivePreview = false;
+    }
+
+    function resumeLastSession() {
+        if (lastCreatedContainerId && previewToken.trim()) {
+            previewContainerId = lastCreatedContainerId;
+            previewMode = "resume";
+            launchPreview();
+        }
     }
 </script>
 
@@ -600,6 +693,14 @@
                     <StatusIcon status="plus" size={16} />
                     New Terminal
                 </button>
+                <button
+                    class="preview-mode-tab"
+                    class:active={previewMode === "resume"}
+                    onclick={() => (previewMode = "resume")}
+                >
+                    <StatusIcon status="refresh" size={16} />
+                    Resume Session
+                </button>
             </div>
 
             <div class="preview-controls">
@@ -619,12 +720,13 @@
                             href="/dashboard">dashboard</a
                         > and clicking the share button.
                     </p>
-                {:else}
+                {:else if previewMode === "new"}
+                    <!-- New Terminal mode -->
                     <div class="preview-form">
                         <div class="preview-input-group">
-                            <label for="preview-token">API Token</label>
+                            <label for="preview-token-new">API Token</label>
                             <input
-                                id="preview-token"
+                                id="preview-token-new"
                                 type="password"
                                 bind:value={previewToken}
                                 placeholder="Enter your API token"
@@ -675,8 +777,73 @@
                     <p class="preview-hint">
                         Get an API token from <a href="/account/api"
                             >Account → API Tokens</a
-                        >. Your token is not stored or sent anywhere except to
-                        the Rexec API.
+                        >. Your token is only sent to the Rexec API.
+                    </p>
+                {:else}
+                    <!-- Resume mode -->
+                    <div class="preview-form">
+                        <div class="preview-input-group">
+                            <label for="preview-token-resume">API Token</label>
+                            <input
+                                id="preview-token-resume"
+                                type="password"
+                                bind:value={previewToken}
+                                placeholder="Enter your API token"
+                                class="preview-input"
+                            />
+                        </div>
+                        <div class="preview-input-group">
+                            <label for="preview-container-id"
+                                >Container ID</label
+                            >
+                            <input
+                                id="preview-container-id"
+                                type="text"
+                                bind:value={previewContainerId}
+                                placeholder="Enter container ID to resume"
+                                class="preview-input"
+                            />
+                        </div>
+                        {#if lastCreatedContainerInfo}
+                            <div class="saved-session-card">
+                                <div class="saved-session-info">
+                                    <StatusIcon status="terminal" size={16} />
+                                    <div class="saved-session-details">
+                                        <span class="saved-session-name">
+                                            {lastCreatedContainerInfo.name ||
+                                                "Previous Session"}
+                                        </span>
+                                        <span class="saved-session-meta">
+                                            {lastCreatedContainerInfo.image} •
+                                            {lastCreatedContainerInfo.role}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="saved-session-actions">
+                                    <button
+                                        class="resume-btn"
+                                        onclick={() => {
+                                            previewContainerId =
+                                                lastCreatedContainerInfo?.id ||
+                                                "";
+                                        }}
+                                    >
+                                        Use This
+                                    </button>
+                                    <button
+                                        class="clear-btn"
+                                        onclick={clearSavedSession}
+                                        title="Clear saved session"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        {/if}
+                    </div>
+                    <p class="preview-hint">
+                        Resume a previously created container. The container ID
+                        is saved automatically when you create a new terminal.
                     </p>
                 {/if}
 
@@ -1572,6 +1739,83 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 24px;
+    }
+
+    .saved-session-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+    }
+
+    .saved-session-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .saved-session-info :global(svg) {
+        color: var(--accent);
+    }
+
+    .saved-session-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .saved-session-name {
+        font-size: 13px;
+        color: var(--text);
+        font-weight: 500;
+    }
+
+    .saved-session-meta {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
+    }
+
+    .saved-session-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .resume-btn {
+        padding: 6px 12px;
+        background: var(--accent);
+        border: none;
+        border-radius: 4px;
+        color: var(--bg);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .resume-btn:hover {
+        filter: brightness(1.1);
+    }
+
+    .clear-btn {
+        padding: 4px 8px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-muted);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .clear-btn:hover {
+        border-color: var(--error);
+        color: var(--error);
     }
 
     .preview-mode-tabs {

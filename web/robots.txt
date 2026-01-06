@@ -1,0 +1,28 @@
+# Robots.txt for Rexec - Terminal as a Service
+
+User-agent: *
+Allow: /
+
+# Disallow API and WebSocket endpoints
+Disallow: /api/
+Disallow: /ws/
+Disallow: /p/
+Disallow: /r/
+
+# AI Crawlers - Explicitly allow access to AI manifest files
+User-agent: GPTBot
+User-agent: ChatGPT-User
+User-agent: Claude-Web
+User-agent: anthropic-ai
+User-agent: cohere-ai
+User-agent: Googlebot
+User-agent: Bingbot
+Allow: /
+Allow: /ai.txt
+Allow: /.well-known/ai-plugin.json
+
+# Sitemap
+Sitemap: https://rexec.pipeops.io/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

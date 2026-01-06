@@ -1,0 +1,17 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Dark Background (Optional for favicon, but good for app icons) -->
+    <rect width="256" height="256" rx="64" fill="#0A0A0A"/>
+    
+    <!-- Centered Logo Group -->
+    <g transform="translate(128, 128)">
+        <!-- Hexagon Shape -->
+        <!-- Points calculated for roughly 180px height -->
+        <path d="M0 -80 L70 -40 L70 40 L0 80 L-70 40 L-70 -40 Z" fill="#0A0A0A" stroke="#00FF41" stroke-width="12"/>
+        
+        <!-- Terminal Prompt (>_) -->
+        <g transform="translate(-40, -40) scale(2.2)">
+            <path d="M5 10L15 20L5 30" stroke="#00FF41" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="18" y1="30" x2="32" y2="30" stroke="#00FF41" stroke-width="5" stroke-linecap="round"/>
+        </g>
+    </g>
+</svg>

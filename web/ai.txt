@@ -1,0 +1,143 @@
+# Rexec AI Manifest
+
+## About Rexec
+
+name: Rexec
+tagline: Terminal as a Service - Instant Linux terminals in your browser
+description: Rexec is a cloud-based platform that provides instant-access Linux terminals in the browser, powered by Docker containers. It enables collaborative development environments, remote agent support, and real-time terminal session recording and playback.
+
+## Core Capabilities
+
+- Instant Linux terminal access via browser (no installation required)
+- Docker-backed sandboxed execution environments
+- Remote agent support for connecting existing servers and infrastructure
+- Real-time terminal session recording and playback
+- WebSocket-based terminal streaming with xterm.js
+- Multi-user collaborative terminal sessions
+- Supervised AI agent execution (Collaborative Intelligence)
+- CLI and TUI tools for terminal management
+- Enterprise-grade security with JWT authentication
+
+## Technology Stack
+
+backend: Go 1.24+ with Gin framework, PostgreSQL, Redis, Docker SDK
+frontend: Svelte 5 with TypeScript, Vite, xterm.js
+infrastructure: Docker, Docker Compose, multi-region capable
+authentication: JWT with passcode support
+billing: Stripe integration
+
+## Primary Use Cases
+
+1. Collaborative Intelligence - AI agents execute code in supervised, sandboxed terminals
+2. Remote Development - Access development environments from anywhere
+3. DevOps Automation - Run deployment scripts and maintenance tasks
+4. Education & Training - Provide consistent terminal environments for students
+5. Code Review & Debugging - Shared terminal sessions for pair programming
+6. CI/CD Integration - Execute build and test pipelines
+7. System Administration - Manage remote servers through a unified interface
+8. Ephemeral Testing Environments - Spin up temporary containers for testing
+9. Live Demonstrations - Record and replay terminal sessions for documentation
+10. Interview & Assessment - Provide candidates with coding environments
+
+## API Endpoints
+
+Base URL: https://rexec.dev/api
+
+### Authentication
+POST /api/login - User login with credentials
+POST /api/logout - User logout
+POST /api/refresh - Refresh JWT tokens
+GET /api/user - Get current user information
+
+### Container Management
+POST /api/containers - Create new container instance
+GET /api/containers - List user containers
+GET /api/containers/:id - Get container details
+DELETE /api/containers/:id - Terminate container
+POST /api/containers/:id/exec - Execute command in container
+
+### Agent Management
+POST /api/agents/register - Register new remote agent
+GET /api/agents - List registered agents
+GET /api/agents/:id - Get agent details
+DELETE /api/agents/:id - Unregister agent
+WS /api/agents/:id/ws - WebSocket connection for agent communication
+
+### Terminal Sessions
+WS /ws/terminal/:id - WebSocket terminal connection
+GET /api/sessions - List terminal sessions
+GET /api/sessions/:id/recording - Get session recording
+
+### Billing
+GET /api/billing/plans - Get available pricing plans
+POST /api/billing/subscribe - Create subscription
+GET /api/billing/usage - Get current usage metrics
+
+## Documentation
+
+Main Docs: https://rexec.dev/docs
+Agent Documentation: https://rexec.dev/docs/agent
+CLI Documentation: https://rexec.dev/docs/cli
+Use Cases: https://rexec.dev/use-cases
+API Reference: https://rexec.dev/docs#api
+Pricing: https://rexec.dev/pricing
+
+## AI Integration
+
+Rexec supports "Collaborative Intelligence" - a supervised model where AI agents (like Claude, GPT, or custom agents) can:
+- Execute code in sandboxed Docker containers
+- Access terminal sessions via WebSocket API
+- Run commands with human oversight
+- Generate and test code in real-time environments
+- Collaborate with human developers in shared sessions
+
+AI agents can integrate via:
+1. WebSocket API for terminal access
+2. REST API for container lifecycle management
+3. Remote agent protocol for connecting custom infrastructure
+
+## Security & Privacy
+
+- All containers run in isolated Docker environments
+- JWT-based authentication with secure token rotation
+- Passcode support for additional security layers
+- Session recordings are private by default
+- Enterprise-grade infrastructure with SOC2 compliance (planned)
+
+## Contact & Support
+
+Website: https://rexec.dev
+GitHub: https://github.com/rexec-dev (if public)
+Support: support@rexec.dev
+Status: https://status.rexec.dev (if available)
+
+## Terms & Policies
+
+Terms of Service: https://rexec.dev/terms
+Privacy Policy: https://rexec.dev/privacy
+Acceptable Use: https://rexec.dev/acceptable-use
+
+## Developer Integration
+
+Rexec provides SDKs and tools for developers:
+- Go SDK for backend integration
+- JavaScript/TypeScript SDK for frontend integration
+- CLI tool (rexec) for terminal management
+- TUI tool (rex) for interactive terminal UI
+- Docker-based local development setup
+
+## Pricing Model
+
+- Free tier: Limited containers and session time
+- Pro tier: Extended resources and features
+- Enterprise: Custom infrastructure and SLA
+
+For detailed pricing: https://rexec.dev/pricing
+
+## Last Updated
+
+2025-12-15
+
+---
+
+This file is intended for AI assistants and crawlers to better understand Rexec's capabilities, API structure, and integration possibilities. For human-readable documentation, please visit https://rexec.dev/docs
