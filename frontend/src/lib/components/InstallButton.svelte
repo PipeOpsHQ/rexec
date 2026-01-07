@@ -81,12 +81,12 @@
         padding-right: 2rem;
         background: linear-gradient(
             135deg,
-            rgba(0, 255, 65, 0.15),
-            rgba(0, 255, 65, 0.05)
+            rgba(var(--accent-rgb), 0.15),
+            rgba(var(--accent-rgb), 0.05)
         );
-        border: 1px solid rgba(0, 255, 65, 0.4);
+        border: 1px solid rgba(var(--accent-rgb), 0.4);
         border-radius: 0.5rem;
-        color: #00ff41;
+        color: var(--accent);
         font-size: 0.875rem;
         font-weight: 500;
         cursor: pointer;
@@ -96,12 +96,12 @@
     .install-button:hover:not(:disabled) {
         background: linear-gradient(
             135deg,
-            rgba(0, 255, 65, 0.25),
-            rgba(0, 255, 65, 0.1)
+            rgba(var(--accent-rgb), 0.25),
+            rgba(var(--accent-rgb), 0.1)
         );
-        border-color: rgba(0, 255, 65, 0.6);
+        border-color: rgba(var(--accent-rgb), 0.6);
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 255, 65, 0.2);
+        box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
     }
 
     .install-button:disabled {
@@ -127,14 +127,14 @@
         background: transparent;
         border: none;
         border-radius: 50%;
-        color: rgba(0, 255, 65, 0.6);
+        color: rgba(var(--accent-rgb), 0.6);
         cursor: pointer;
         transition: all 0.2s ease;
     }
 
     .dismiss-button:hover {
-        color: #00ff41;
-        background: rgba(0, 255, 65, 0.2);
+        color: var(--accent);
+        background: rgba(var(--accent-rgb), 0.2);
     }
 
     @media (max-width: 768px) {

@@ -92,6 +92,27 @@ function createThemeStore() {
     return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
   };
 
+  // Helper to lighten a color for hover states
+  const lightenColor = (hex: string, percent: number = 15): string => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+
+    const r = Math.min(
+      255,
+      Math.round(rgb.r + (255 - rgb.r) * (percent / 100)),
+    );
+    const g = Math.min(
+      255,
+      Math.round(rgb.g + (255 - rgb.g) * (percent / 100)),
+    );
+    const b = Math.min(
+      255,
+      Math.round(rgb.b + (255 - rgb.b) * (percent / 100)),
+    );
+
+    return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  };
+
   // Apply theme and accent to document
   const applyTheme = (theme: Theme, accent?: string) => {
     if (!browser) return;
@@ -124,8 +145,16 @@ function createThemeStore() {
 
     const effectiveRgb = hexToRgb(effectiveAccent) || rgb;
 
+    // Calculate hover color (slightly brighter)
+    const hoverAccent = lightenColor(effectiveAccent, 15);
+
     // Set CSS custom properties
     document.documentElement.style.setProperty("--accent", effectiveAccent);
+    document.documentElement.style.setProperty("--accent-hover", hoverAccent);
+    document.documentElement.style.setProperty(
+      "--accent-rgb",
+      `${effectiveRgb.r}, ${effectiveRgb.g}, ${effectiveRgb.b}`,
+    );
     document.documentElement.style.setProperty(
       "--accent-dim",
       `rgba(${effectiveRgb.r}, ${effectiveRgb.g}, ${effectiveRgb.b}, 0.1)`,
