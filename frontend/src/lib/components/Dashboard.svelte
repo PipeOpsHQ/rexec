@@ -1749,24 +1749,24 @@
         text-shadow: none;
     }
 
-    /* Agent connect button uses subtle green accent */
+    /* Agent connect button uses accent color */
     .agent-connect-btn {
-        background: rgba(34, 197, 94, 0.1);
-        border-color: rgba(34, 197, 94, 0.5);
-        color: #4ade80;
+        background: rgba(var(--accent-rgb), 0.1);
+        border-color: rgba(var(--accent-rgb), 0.5);
+        color: var(--accent);
     }
 
     .agent-connect-btn:hover:not(:disabled) {
-        background: rgba(34, 197, 94, 0.9);
-        border-color: #22c55e;
-        color: #0a1929;
-        box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+        background: rgba(var(--accent-rgb), 0.9);
+        border-color: var(--accent);
+        color: var(--bg);
+        box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.3);
     }
 
     .container-card.agent-card .connecting-btn,
     .container-card.agent-card .connected-btn {
-        border-color: rgba(34, 197, 94, 0.35);
-        color: #4ade80;
+        border-color: rgba(var(--accent-rgb), 0.35);
+        color: var(--accent);
     }
 
     .badge-icon {
