@@ -1,6 +1,7 @@
 import { writable, derived, get } from "svelte/store";
 import { token } from "./auth";
 import { createRexecWebSocket } from "../utils/ws";
+import { trackEvent } from "$lib/analytics";
 
 // Types
 export interface ContainerResources {
@@ -237,6 +238,14 @@ function createContainersStore() {
         isLoading: false,
         error: null,
       }));
+
+      // Track container creation
+      trackEvent("container_created", {
+        image: data!.image,
+        role: role,
+        name: name,
+        containerId: data!.id,
+      });
 
       return { success: true, container: data };
     },
@@ -493,6 +502,14 @@ function createContainersStore() {
           stage: "creating",
           message: "Creating container...",
           progress: 15,
+        });
+
+        // Track container creation started
+        trackEvent("container_created", {
+          image: image,
+          role: role,
+          name: name,
+          containerId: data.db_id || data.id,
         });
 
         // Start polling as fallback in case WebSocket events don't arrive

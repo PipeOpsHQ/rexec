@@ -7,6 +7,7 @@ import { toast } from "./toast";
 import { theme } from "./theme";
 import { loadXtermCore, loadXtermWebgl } from "$utils/xterm";
 import { createRexecWebSocket } from "$utils/ws";
+import { trackEvent } from "$lib/analytics";
 
 // Types
 export type SessionStatus =
@@ -838,6 +839,14 @@ function createTerminalStore() {
           reconnectAttempts: 0,
           hasConnectedOnce: true,
         }));
+
+        // Track terminal connection
+        trackEvent("terminal_connected", {
+          containerId: currentSession?.containerId,
+          sessionId: sessionId,
+          isReconnect: isReconnect,
+          isAgent: currentSession?.isAgentSession || false,
+        });
 
         // Wait for terminal to be ready, then do terminal-specific initialization
         waitForTerminal((terminal) => {

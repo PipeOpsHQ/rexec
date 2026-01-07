@@ -1,4 +1,5 @@
 import { writable, derived } from "svelte/store";
+import { identifyUser, resetUser, trackEvent } from "$lib/analytics";
 
 // Types
 export interface User {
@@ -76,6 +77,23 @@ function createAuthStore() {
       localStorage.setItem("rexec_token", token);
       localStorage.setItem("rexec_user", JSON.stringify(user));
       set({ token, user, isLoading: false, error: null });
+
+      // Identify user in PostHog
+      identifyUser(user.id, {
+        email: user.email,
+        name: user.name,
+        username: user.username,
+        tier: user.tier,
+        isGuest: user.isGuest,
+        isAdmin: user.isAdmin,
+      });
+
+      // Track login event
+      trackEvent("user_logged_in", {
+        tier: user.tier,
+        isGuest: user.isGuest,
+        method: user.isGuest ? "guest" : "oauth",
+      });
     },
 
     // Guest login with email
@@ -108,11 +126,12 @@ function createAuthStore() {
 
         // Extract token, handling potential nested object formats
         let receivedToken = data.token;
-        if (typeof receivedToken === 'object' && receivedToken !== null) {
-          receivedToken = receivedToken.token || receivedToken.access_token || '';
+        if (typeof receivedToken === "object" && receivedToken !== null) {
+          receivedToken =
+            receivedToken.token || receivedToken.access_token || "";
         }
 
-        if (!receivedToken || typeof receivedToken !== 'string') {
+        if (!receivedToken || typeof receivedToken !== "string") {
           throw new Error("Invalid token format received from guest login");
         }
 
@@ -127,7 +146,7 @@ function createAuthStore() {
           subscriptionActive: false,
           expiresAt,
         };
-        
+
         this.login(receivedToken, user);
         return {
           success: true,
@@ -186,11 +205,12 @@ function createAuthStore() {
         const userData = data.user || data;
         // Extract token, handling potential nested object formats
         let receivedToken = data.token;
-        if (typeof receivedToken === 'object' && receivedToken !== null) {
-          receivedToken = receivedToken.token || receivedToken.access_token || '';
+        if (typeof receivedToken === "object" && receivedToken !== null) {
+          receivedToken =
+            receivedToken.token || receivedToken.access_token || "";
         }
 
-        if (!receivedToken || typeof receivedToken !== 'string') {
+        if (!receivedToken || typeof receivedToken !== "string") {
           throw new Error("Invalid token format received from OAuth exchange");
         }
 
@@ -202,10 +222,10 @@ function createAuthStore() {
           avatar: userData.avatar,
           tier: userData.tier || "free",
           isGuest: false,
-          isAdmin: userData.is_admin || userData.role === 'admin' || false,
+          isAdmin: userData.is_admin || userData.role === "admin" || false,
           subscriptionActive: userData.subscription_active || false,
         };
-        
+
         this.login(receivedToken, user);
         return { success: true };
       } catch (e) {
@@ -261,7 +281,7 @@ function createAuthStore() {
           avatar: userData.avatar,
           tier: userData.tier || "free",
           isGuest: userData.tier === "guest",
-          isAdmin: userData.is_admin || userData.role === 'admin' || false,
+          isAdmin: userData.is_admin || userData.role === "admin" || false,
           subscriptionActive: userData.subscription_active || false,
           allowedIPs: userData.allowed_ips || [],
           mfaEnabled: userData.mfa_enabled || false,
@@ -291,7 +311,12 @@ function createAuthStore() {
     },
 
     // Update user profile
-    async updateProfile(data: { username: string; firstName: string; lastName: string; allowedIPs?: string[] }) {
+    async updateProfile(data: {
+      username: string;
+      firstName: string;
+      lastName: string;
+      allowedIPs?: string[];
+    }) {
       update((state) => ({ ...state, isLoading: true, error: null }));
 
       try {
@@ -300,9 +325,9 @@ function createAuthStore() {
 
         const response = await fetch("/api/profile", {
           method: "PUT",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}` 
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             username: data.username,
@@ -321,7 +346,8 @@ function createAuthStore() {
         await this.fetchProfile();
         return { success: true };
       } catch (e) {
-        const error = e instanceof Error ? e.message : "Failed to update profile";
+        const error =
+          e instanceof Error ? e.message : "Failed to update profile";
         update((state) => ({ ...state, isLoading: false, error }));
         return { success: false, error };
       }
@@ -329,9 +355,15 @@ function createAuthStore() {
 
     // Logout
     logout() {
+      // Track logout event before resetting
+      trackEvent("user_logged_out");
+
       localStorage.removeItem("rexec_token");
       localStorage.removeItem("rexec_user");
       set(initialState);
+
+      // Reset PostHog identity
+      resetUser();
     },
 
     // Check if guest session has expired
@@ -416,10 +448,6 @@ function createAuthStore() {
         return false;
       }
     },
-
-
-
-
   };
 }
 
@@ -433,7 +461,10 @@ export const isGuest = derived(
   ($auth) => $auth.user?.isGuest || $auth.user?.tier === "guest" || false,
 );
 export const isAdmin = derived(auth, ($auth) => !!$auth.user?.isAdmin);
-export const subscriptionActive = derived(auth, ($auth) => !!$auth.user?.subscriptionActive);
+export const subscriptionActive = derived(
+  auth,
+  ($auth) => !!$auth.user?.subscriptionActive,
+);
 export const userTier = derived(auth, ($auth) => $auth.user?.tier ?? "guest");
 export const token = derived(auth, ($auth) => $auth.token);
 export const sessionExpiresAt = derived(

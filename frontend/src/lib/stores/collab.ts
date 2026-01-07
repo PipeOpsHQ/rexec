@@ -1,6 +1,7 @@
-import { writable, get } from 'svelte/store';
-import { auth } from './auth';
-import { createRexecWebSocket } from '$utils/ws';
+import { writable, get } from "svelte/store";
+import { auth } from "./auth";
+import { createRexecWebSocket } from "$utils/ws";
+import { trackEvent } from "$lib/analytics";
 
 // Types
 export interface CollabSession {
@@ -8,8 +9,8 @@ export interface CollabSession {
   shareCode: string;
   containerId: string;
   containerName: string;
-  mode: 'view' | 'control';
-  role: 'owner' | 'editor' | 'viewer';
+  mode: "view" | "control";
+  role: "owner" | "editor" | "viewer";
   expiresAt: string;
   participants: CollabParticipant[];
 }
@@ -23,7 +24,17 @@ export interface CollabParticipant {
 }
 
 export interface CollabMessage {
-  type: 'join' | 'leave' | 'cursor' | 'selection' | 'input' | 'output' | 'sync' | 'participants' | 'ended' | 'expired';
+  type:
+    | "join"
+    | "leave"
+    | "cursor"
+    | "selection"
+    | "input"
+    | "output"
+    | "sync"
+    | "participants"
+    | "ended"
+    | "expired";
   userId?: string;
   username?: string;
   role?: string;
@@ -47,7 +58,7 @@ function createCollabStore() {
     participants: [],
     isConnected: false,
     isConnecting: false,
-    error: null
+    error: null,
   });
 
   let ws: WebSocket | null = null;
@@ -55,34 +66,45 @@ function createCollabStore() {
   let reconnectAttempts = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let currentShareCode: string | null = null;
-  
+
   const MAX_RECONNECT_ATTEMPTS = 10;
   const RECONNECT_BASE_DELAY = 1000;
   const RECONNECT_MAX_DELAY = 30000;
 
-  const API_BASE = '';
-  
+  const API_BASE = "";
+
   function getReconnectDelay(): number {
-    return Math.min(RECONNECT_BASE_DELAY * Math.pow(1.5, reconnectAttempts), RECONNECT_MAX_DELAY);
+    return Math.min(
+      RECONNECT_BASE_DELAY * Math.pow(1.5, reconnectAttempts),
+      RECONNECT_MAX_DELAY,
+    );
   }
 
-  async function startSession(containerId: string, mode: 'view' | 'control' = 'view', maxUsers: number = 5): Promise<CollabSession | null> {
+  async function startSession(
+    containerId: string,
+    mode: "view" | "control" = "view",
+    maxUsers: number = 5,
+  ): Promise<CollabSession | null> {
     const token = get(auth).token;
     if (!token) return null;
 
     try {
       const res = await fetch(`${API_BASE}/api/collab/start`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ container_id: containerId, mode, max_users: maxUsers })
+        body: JSON.stringify({
+          container_id: containerId,
+          mode,
+          max_users: maxUsers,
+        }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to start session');
+        throw new Error(error.error || "Failed to start session");
       }
 
       const data = await res.json();
@@ -92,15 +114,24 @@ function createCollabStore() {
         containerId,
         containerName: data.container_name || containerId.slice(0, 12),
         mode,
-        role: 'owner',
+        role: "owner",
         expiresAt: data.expires_at,
-        participants: []
+        participants: [],
       };
 
-      update(s => ({ ...s, activeSession: session }));
+      update((s) => ({ ...s, activeSession: session }));
+
+      // Track collab session started
+      trackEvent("collab_session_started", {
+        mode: mode,
+        maxUsers: maxUsers,
+        containerId: containerId,
+        shareCode: data.share_code,
+      });
+
       return session;
     } catch (err: any) {
-      update(s => ({ ...s, error: err.message }));
+      update((s) => ({ ...s, error: err.message }));
       return null;
     }
   }
@@ -109,16 +140,16 @@ function createCollabStore() {
     const token = get(auth).token;
     if (!token) return null;
 
-    update(s => ({ ...s, isConnecting: true, error: null }));
+    update((s) => ({ ...s, isConnecting: true, error: null }));
 
     try {
       const res = await fetch(`${API_BASE}/api/collab/join/${shareCode}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to join session');
+        throw new Error(error.error || "Failed to join session");
       }
 
       const data = await res.json();
@@ -130,13 +161,13 @@ function createCollabStore() {
         mode: data.mode,
         role: data.role,
         expiresAt: data.expires_at,
-        participants: []
+        participants: [],
       };
 
-      update(s => ({ ...s, activeSession: session, isConnecting: false }));
+      update((s) => ({ ...s, activeSession: session, isConnecting: false }));
       return session;
     } catch (err: any) {
-      update(s => ({ ...s, error: err.message, isConnecting: false }));
+      update((s) => ({ ...s, error: err.message, isConnecting: false }));
       return null;
     }
   }
@@ -150,21 +181,25 @@ function createCollabStore() {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
-    
+
     // Store share code for reconnection
     currentShareCode = shareCode;
 
-    update(s => ({ ...s, isConnecting: true }));
+    update((s) => ({ ...s, isConnecting: true }));
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/collab/${shareCode}`;
 
     ws = createRexecWebSocket(wsUrl, token);
 
     ws.onopen = () => {
-
       reconnectAttempts = 0;
-      update(s => ({ ...s, isConnected: true, isConnecting: false, error: null }));
+      update((s) => ({
+        ...s,
+        isConnected: true,
+        isConnecting: false,
+        error: null,
+      }));
     };
 
     ws.onmessage = (event) => {
@@ -172,25 +207,24 @@ function createCollabStore() {
         const msg: CollabMessage = JSON.parse(event.data);
         handleMessage(msg);
       } catch (err) {
-        console.error('[Collab] Failed to parse message:', err);
+        console.error("[Collab] Failed to parse message:", err);
       }
     };
 
     ws.onclose = (event) => {
       ws = null;
-      update(s => ({ ...s, isConnected: false }));
-      
+      update((s) => ({ ...s, isConnected: false }));
+
       // Don't reconnect if session ended or intentionally closed
       const isIntentionalClose = event.code === 1000;
       const isSessionEnded = event.code === 4000 || event.code === 4001;
-      
-      if (isIntentionalClose || isSessionEnded) {
 
+      if (isIntentionalClose || isSessionEnded) {
         reconnectAttempts = 0;
         currentShareCode = null;
         return;
       }
-      
+
       // Attempt silent reconnect
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && currentShareCode) {
         reconnectAttempts++;
@@ -202,70 +236,76 @@ function createCollabStore() {
           }
         }, delay);
       } else {
-
-        update(s => ({ ...s, error: 'Connection lost. Please rejoin the session.' }));
+        update((s) => ({
+          ...s,
+          error: "Connection lost. Please rejoin the session.",
+        }));
       }
     };
 
     ws.onerror = () => {
       // Errors are handled by onclose - just log silently
 
-      update(s => ({ ...s, isConnecting: false }));
+      update((s) => ({ ...s, isConnecting: false }));
     };
   }
 
   function handleMessage(msg: CollabMessage) {
     switch (msg.type) {
-      case 'join':
-        update(s => ({
+      case "join":
+        update((s) => ({
           ...s,
-          participants: [...s.participants, {
-            userId: msg.userId!,
-            username: msg.username!,
-            role: msg.role!,
-            color: msg.color!
-          }]
+          participants: [
+            ...s.participants,
+            {
+              userId: msg.userId!,
+              username: msg.username!,
+              role: msg.role!,
+              color: msg.color!,
+            },
+          ],
         }));
         break;
 
-      case 'leave':
-        update(s => ({
+      case "leave":
+        update((s) => ({
           ...s,
-          participants: s.participants.filter(p => p.userId !== msg.userId)
+          participants: s.participants.filter((p) => p.userId !== msg.userId),
         }));
         break;
 
-      case 'participants':
-        update(s => ({
+      case "participants":
+        update((s) => ({
           ...s,
-          participants: msg.data as CollabParticipant[]
+          participants: msg.data as CollabParticipant[],
         }));
         break;
 
-      case 'cursor':
-        update(s => ({
+      case "cursor":
+        update((s) => ({
           ...s,
-          participants: s.participants.map(p => 
-            p.userId === msg.userId 
-              ? { ...p, cursor: msg.data }
-              : p
-          )
+          participants: s.participants.map((p) =>
+            p.userId === msg.userId ? { ...p, cursor: msg.data } : p,
+          ),
         }));
         break;
 
-      case 'ended':
-      case 'expired':
+      case "ended":
+      case "expired":
         disconnect();
-        update(s => ({
+        update((s) => ({
           ...s,
           activeSession: null,
-          error: msg.type === 'expired' ? 'Session expired' : 'Session ended by owner'
+          error:
+            msg.type === "expired"
+              ? "Session expired"
+              : "Session ended by owner",
         }));
         break;
     }
 
     // Notify all handlers
-    messageHandlers.forEach(handler => handler(msg));
+    messageHandlers.forEach((handler) => handler(msg));
   }
 
   function sendMessage(type: string, data?: any) {
@@ -275,28 +315,27 @@ function createCollabStore() {
   }
 
   function sendCursorPosition(x: number, y: number) {
-    sendMessage('cursor', { x, y });
+    sendMessage("cursor", { x, y });
   }
 
   function sendInput(input: string) {
     // Check if user can send input (owner or editor only)
     const state = get({ subscribe });
-    if (state.activeSession?.role === 'viewer') {
-
+    if (state.activeSession?.role === "viewer") {
       return;
     }
-    sendMessage('input', input);
+    sendMessage("input", input);
   }
 
   function canSendInput(): boolean {
     const state = get({ subscribe });
-    return state.activeSession?.role !== 'viewer';
+    return state.activeSession?.role !== "viewer";
   }
 
   function onMessage(handler: (msg: CollabMessage) => void) {
     messageHandlers.push(handler);
     return () => {
-      messageHandlers = messageHandlers.filter(h => h !== handler);
+      messageHandlers = messageHandlers.filter((h) => h !== handler);
     };
   }
 
@@ -306,17 +345,17 @@ function createCollabStore() {
 
     try {
       const res = await fetch(`${API_BASE}/api/collab/sessions/${sessionId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         disconnect();
-        update(s => ({ ...s, activeSession: null }));
+        update((s) => ({ ...s, activeSession: null }));
         return true;
       }
     } catch (err) {
-      console.error('[Collab] Failed to end session:', err);
+      console.error("[Collab] Failed to end session:", err);
     }
     return false;
   }
@@ -327,7 +366,7 @@ function createCollabStore() {
 
     try {
       const res = await fetch(`${API_BASE}/api/collab/sessions`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -335,7 +374,7 @@ function createCollabStore() {
         return data.sessions || [];
       }
     } catch (err) {
-      console.error('[Collab] Failed to get sessions:', err);
+      console.error("[Collab] Failed to get sessions:", err);
     }
     return [];
   }
@@ -351,10 +390,10 @@ function createCollabStore() {
       ws.close(1000, "User disconnected");
       ws = null;
     }
-    update(s => ({
+    update((s) => ({
       ...s,
       isConnected: false,
-      participants: []
+      participants: [],
     }));
   }
 
@@ -365,7 +404,7 @@ function createCollabStore() {
       participants: [],
       isConnected: false,
       isConnecting: false,
-      error: null
+      error: null,
     });
   }
 
@@ -381,7 +420,7 @@ function createCollabStore() {
     endSession,
     getActiveSessions,
     disconnect,
-    reset
+    reset,
   };
 }
 
