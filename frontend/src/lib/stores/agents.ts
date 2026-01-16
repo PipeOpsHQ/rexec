@@ -187,6 +187,15 @@ function createAgentsStore() {
       return `curl -sSL ${baseUrl}/install-agent.sh | sudo bash -s -- --agent-id ${agentId} --token ${token}`;
     },
 
+    getAlternativeInstallScript(agentId: string): string {
+      const state = get({ subscribe });
+      const agentToken = state.agentTokens[agentId];
+      const token = agentToken || get(auth).token || "";
+      const baseUrl = window.location.origin;
+
+      return `curl -fsSL ${baseUrl}/install-agent.sh -o install-agent.sh && sudo bash install-agent.sh --agent-id ${agentId} --token ${token}`;
+    },
+
     // Get the API token for a specific agent (if available)
     getAgentToken(agentId: string): string | undefined {
       const state = get({ subscribe });

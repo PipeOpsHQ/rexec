@@ -164,9 +164,9 @@
         }
     }
 
-    function copyInstallScript() {
+    function copyInstallScript(scriptText?: string) {
         if (createdAgent) {
-            const script = agents.getInstallScript(createdAgent.id);
+            const script = scriptText || agents.getInstallScript(createdAgent.id);
             navigator.clipboard.writeText(script);
             copiedScript = true;
             toast.success("Install script copied to clipboard");
@@ -1513,14 +1513,32 @@
                         </p>
                     </div>
 
-                    <div class="install-script-box">
-                        <code>{agents.getInstallScript(createdAgent.id)}</code>
-                        <button
-                            class="btn btn-sm copy-btn"
-                            onclick={copyInstallScript}
-                        >
-                            {copiedScript ? "Copied!" : "Copy"}
-                        </button>
+                    <div class="install-options-container">
+                        <div class="install-option">
+                            <h5 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text);">Option 1: Recommended</h5>
+                            <div class="install-script-box">
+                                <code>{agents.getInstallScript(createdAgent.id)}</code>
+                                <button
+                                    class="btn btn-sm copy-btn"
+                                    onclick={() => copyInstallScript(agents.getInstallScript(createdAgent!.id))}
+                                >
+                                    {copiedScript ? "Copied!" : "Copy"}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="install-option" style="margin-top: 16px;">
+                            <h5 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text);">Option 2: Alternative (Hetzner/Others)</h5>
+                            <div class="install-script-box">
+                                <code>{agents.getAlternativeInstallScript(createdAgent.id)}</code>
+                                <button
+                                    class="btn btn-sm copy-btn"
+                                    onclick={() => copyInstallScript(agents.getAlternativeInstallScript(createdAgent!.id))}
+                                >
+                                    {copiedScript ? "Copied!" : "Copy"}
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {#if agents.getAgentToken(createdAgent.id)}
