@@ -6,7 +6,7 @@ import { resolve } from "path";
 const resolvedSiteUrl =
   process.env.VITE_SITE_URL ||
   process.env.SITE_URL ||
-  "https://rexec.pipeops.io";
+  "https://rexec.sh";
 const resolvedAllowedOrigins =
   process.env.VITE_ALLOWED_ORIGINS || process.env.ALLOWED_ORIGINS || "";
 process.env.VITE_SITE_URL = resolvedSiteUrl;

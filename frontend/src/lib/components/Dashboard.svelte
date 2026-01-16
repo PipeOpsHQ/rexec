@@ -107,7 +107,7 @@
     const currentHost =
         typeof window !== "undefined"
             ? window.location.host
-            : "rexec.pipeops.io";
+            : "rexec.sh";
     const protocol =
         typeof window !== "undefined" ? window.location.protocol : "https:";
     const installUrl = `${protocol}//${currentHost}`;

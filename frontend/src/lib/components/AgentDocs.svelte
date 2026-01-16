@@ -17,7 +17,7 @@
     }
 
     // Get current host for install commands
-    const currentHost = typeof window !== 'undefined' ? window.location.host : 'rexec.pipeops.io';
+    const currentHost = typeof window !== 'undefined' ? window.location.host : 'rexec.sh';
     const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
     const installUrl = `${protocol}//${currentHost}`;
 </script>

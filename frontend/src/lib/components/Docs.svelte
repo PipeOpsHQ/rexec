@@ -303,7 +303,7 @@
                 <h4>Authentication</h4>
                 <pre><code
                         >curl -H "Authorization: Bearer YOUR_API_TOKEN" \
-     https://rexec.pipeops.io/api/containers</code
+     https://rexec.sh/api/containers</code
                     ></pre>
             </div>
         </div>
@@ -427,9 +427,7 @@
                     <p>Get started in 30 seconds:</p>
                     <div class="code-block">
                         <code
-                            >curl -sSL https://rexec.io/install-agent.sh | bash<br
-                            />rexec-agent register --name "my-laptop"<br
-                            />rexec-agent start --daemon</code
+                            >curl -sSL https://rexec.sh/install-agent.sh | sudo bash</code
                         >
                     </div>
                     <p>

@@ -1,8 +1,8 @@
-const FALLBACK_SITE_URL = "https://rexec.pipeops.io";
+const FALLBACK_SITE_URL = "https://rexec.sh";
 
 const defaultAllowedOrigins = [
   "https://rexec.pipeops.app",
-  "https://rexec.pipeops.io",
+  "https://rexec.sh",
   "https://rexec.pipeops.sh",
   "https://rexec.io",
   "https://rexec.sh",
