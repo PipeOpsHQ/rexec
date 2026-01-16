@@ -1,6 +1,6 @@
 #!/bin/bash
 # Rexec Agent Installer
-# Usage: curl -fsSL https://rexec.pipeops.io/install-agent.sh | bash -s -- --token YOUR_TOKEN
+# Usage: curl -fsSL https://rexec.sh/install-agent.sh | bash -s -- --token YOUR_TOKEN
 #
 # This script installs the Rexec agent on your server, allowing it to appear
 # as a terminal in your Rexec dashboard.
@@ -8,7 +8,7 @@
 set -e
 
 # Configuration
-REXEC_API="${REXEC_API:-https://rexec.pipeops.io}"
+REXEC_API="${REXEC_API:-https://rexec.sh}"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/rexec"
 SERVICE_DIR="/etc/systemd/system"
@@ -59,14 +59,14 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Rexec Agent Installer"
             echo ""
-            echo "Usage: curl -fsSL https://rexec.pipeops.io/install-agent.sh | bash -s -- [OPTIONS]"
+            echo "Usage: curl -fsSL https://rexec.sh/install-agent.sh | bash -s -- [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --token, -t TOKEN      Agent registration token (required for install)"
             echo "  --agent-id, -i ID      Pre-registered agent ID (optional)"
             echo "  --name, -n NAME        Custom name for this agent (default: hostname)"
             echo "  --labels, -l LABELS    Comma-separated labels (e.g., 'prod,web,us-east')"
-            echo "  --api URL              Rexec API URL (default: https://rexec.pipeops.io)"
+            echo "  --api URL              Rexec API URL (default: https://rexec.sh)"
             echo "  --uninstall            Uninstall the agent and remove all files"
             echo "  --help, -h             Show this help message"
             exit 0
@@ -103,12 +103,12 @@ check_token() {
         echo -e "${RED}Error: Registration token is required${NC}"
         echo ""
         echo "Get your token from:"
-        echo "  1. Login to https://rexec.pipeops.io"
+        echo "  1. Login to https://rexec.sh"
         echo "  2. Go to Settings > Agents"
         echo "  3. Click 'Add Agent' to generate a token"
         echo ""
         echo "Then run:"
-        echo "  curl -fsSL https://rexec.pipeops.io/install-agent.sh | sudo bash -s -- --token YOUR_TOKEN"
+        echo "  curl -fsSL https://rexec.sh/install-agent.sh | sudo bash -s -- --token YOUR_TOKEN"
         exit 1
     fi
 }
@@ -200,8 +200,20 @@ download_agent() {
         fi
     fi
     
-    # Try rexec.pipeops.io (direct binary hosting)
-    AGENT_URL="${REXEC_API}/downloads/rexec-agent-${SUFFIX}"
+    # Try rexec.sh (primary domain)
+    AGENT_URL="https://rexec.sh/downloads/rexec-agent-${SUFFIX}"
+    if curl -fsSL "$AGENT_URL" -o "$AGENT_PATH" 2>/dev/null; then
+        # Verify it's a binary, not an HTML error page (check for absence of html tag)
+        if ! grep -q '<html' "$AGENT_PATH"; then
+            echo -e "${GREEN}Downloaded from rexec.sh${NC}" >&2
+            chmod +x "$AGENT_PATH"
+            echo "$DOWNLOAD_TEMP_DIR"
+            return 0
+        fi
+    fi
+    
+    # Try rexec.pipeops.io (fallback)
+    AGENT_URL="https://rexec.pipeops.io/downloads/rexec-agent-${SUFFIX}"
     if curl -fsSL "$AGENT_URL" -o "$AGENT_PATH" 2>/dev/null; then
         # Verify it's a binary, not an HTML error page (check for absence of html tag)
         if ! grep -q '<html' "$AGENT_PATH"; then
@@ -428,7 +440,7 @@ setup_systemd() {
     cat > "${SERVICE_DIR}/rexec-agent.service" << EOF
 [Unit]
 Description=Rexec Agent - Cloud Terminal Connection
-Documentation=https://rexec.pipeops.io/agents
+Documentation=https://rexec.sh/agents
 After=network-online.target
 Wants=network-online.target
 
@@ -709,7 +721,7 @@ uninstall_agent() {
     echo ""
     echo -e "The agent has been removed from this server."
     echo -e "To reinstall, run:"
-    echo -e "  ${CYAN}curl -fsSL https://rexec.pipeops.io/install-agent.sh | sudo bash -s -- --token YOUR_TOKEN${NC}"
+    echo -e "  ${CYAN}curl -fsSL https://rexec.sh/install-agent.sh | sudo bash -s -- --token YOUR_TOKEN${NC}"
     echo ""
 }
 
@@ -741,10 +753,10 @@ show_next_steps() {
     esac
     echo ""
     echo -e "${BOLD}To uninstall:${NC}"
-    echo -e "  ${CYAN}curl -fsSL https://rexec.pipeops.io/install-agent.sh | sudo bash -s -- --uninstall${NC}"
+    echo -e "  ${CYAN}curl -fsSL https://rexec.sh/install-agent.sh | sudo bash -s -- --uninstall${NC}"
     echo ""
-    echo -e "${BOLD}Dashboard:${NC} ${CYAN}https://rexec.pipeops.io${NC}"
-    echo -e "${BOLD}Documentation:${NC} ${CYAN}https://rexec.pipeops.io/agents${NC}"
+    echo -e "${BOLD}Dashboard:${NC} ${CYAN}https://rexec.sh${NC}"
+    echo -e "${BOLD}Documentation:${NC} ${CYAN}https://rexec.sh/agents${NC}"
     echo ""
 }
 

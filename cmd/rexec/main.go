@@ -1155,12 +1155,22 @@ func runServer() {
 			scriptsDir = "./scripts"
 		}
 		router.GET("/install-cli.sh", func(c *gin.Context) {
+			scriptPath := filepath.Join(scriptsDir, "install-cli.sh")
+			if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+				c.String(404, "#!/bin/bash\necho 'Error: install script not found on server'\nexit 1\n")
+				return
+			}
 			c.Header("Content-Type", "text/x-shellscript")
-			c.File(filepath.Join(scriptsDir, "install-cli.sh"))
+			c.File(scriptPath)
 		})
 		router.GET("/install-agent.sh", func(c *gin.Context) {
+			scriptPath := filepath.Join(scriptsDir, "install-agent.sh")
+			if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+				c.String(404, "#!/bin/bash\necho 'Error: install script not found on server'\nexit 1\n")
+				return
+			}
 			c.Header("Content-Type", "text/x-shellscript")
-			c.File(filepath.Join(scriptsDir, "install-agent.sh"))
+			c.File(scriptPath)
 		})
 
 		// Serve downloadable binaries (agent, cli)
