@@ -28,6 +28,7 @@ type User struct {
 	LockAfterMinutes  int        `json:"lock_after_minutes,omitempty"`
 	LockRequiredSince *time.Time `json:"lock_required_since,omitempty"`
 	ScreenLockHash    string     `json:"-"` // Never serialize
+	SessionDurationMinutes int   `json:"session_duration_minutes,omitempty"` // 0 = default (24h)
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
 }

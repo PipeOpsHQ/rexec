@@ -567,11 +567,20 @@ func (h *AuthHandler) createUserSession(c *gin.Context, user *models.User) (stri
 
 // generateToken creates a JWT token for a user and optional session ID.
 func (h *AuthHandler) generateToken(user *models.User, sessionID string) (string, error) {
-	// Guest users get 50-hour tokens, authenticated users get 24-hour tokens
-	expiry := 24 * time.Hour
+	// Guest users get 50-hour tokens
+	// Authenticated users get configurable duration (default 90 days if not set)
+	var expiry time.Duration
 	isGuest := user.Tier == "guest"
+
 	if isGuest {
 		expiry = GuestSessionDuration
+	} else {
+		if user.SessionDurationMinutes > 0 {
+			expiry = time.Duration(user.SessionDurationMinutes) * time.Minute
+		} else {
+			// Default to 90 days (approx 3 months)
+			expiry = 90 * 24 * time.Hour
+		}
 	}
 
 	claims := jwt.MapClaims{
@@ -647,23 +656,24 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	// Build user response
 	userResponse := gin.H{
-		"id":                  user.ID,
-		"email":               user.Email,
-		"username":            user.Username,
-		"name":                name,
-		"first_name":          user.FirstName,
-		"last_name":           user.LastName,
-		"avatar":              user.Avatar,
-		"verified":            user.Verified,
-		"tier":                user.Tier,
-		"created_at":          user.CreatedAt,
-		"updated_at":          user.UpdatedAt,
-		"is_admin":            user.IsAdmin,
-		"mfa_enabled":         user.MFAEnabled,
-		"allowed_ips":         user.AllowedIPs,
-		"screen_lock_enabled": user.ScreenLockEnabled && user.ScreenLockHash != "",
-		"lock_after_minutes":  user.LockAfterMinutes,
-		"lock_required_since": user.LockRequiredSince,
+		"id":                       user.ID,
+		"email":                    user.Email,
+		"username":                 user.Username,
+		"name":                     name,
+		"first_name":               user.FirstName,
+		"last_name":                user.LastName,
+		"avatar":                   user.Avatar,
+		"verified":                 user.Verified,
+		"tier":                     user.Tier,
+		"created_at":               user.CreatedAt,
+		"updated_at":               user.UpdatedAt,
+		"is_admin":                 user.IsAdmin,
+		"mfa_enabled":              user.MFAEnabled,
+		"allowed_ips":              user.AllowedIPs,
+		"screen_lock_enabled":      user.ScreenLockEnabled && user.ScreenLockHash != "",
+		"lock_after_minutes":       user.LockAfterMinutes,
+		"lock_required_since":      user.LockRequiredSince,
+		"session_duration_minutes": user.SessionDurationMinutes,
 	}
 
 	// For guest users, include expiration time from token
@@ -706,10 +716,11 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	var req struct {
-		Username   string   `json:"username"`
-		FirstName  string   `json:"first_name"`
-		LastName   string   `json:"last_name"`
-		AllowedIPs []string `json:"allowed_ips"`
+		Username               string   `json:"username"`
+		FirstName              string   `json:"first_name"`
+		LastName               string   `json:"last_name"`
+		AllowedIPs             []string `json:"allowed_ips"`
+		SessionDurationMinutes int      `json:"session_duration_minutes"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
@@ -736,6 +747,8 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	user.Username = req.Username
 	user.FirstName = req.FirstName
 	user.LastName = req.LastName
+	user.SessionDurationMinutes = req.SessionDurationMinutes
+
 	// Only update AllowedIPs if provided (or allow clearing if empty list is sent explicitly? JSON zero value is nil/empty)
 	// If the user sends [], it clears the list. If they don't send the field, it might be nil.
 	// But `req.AllowedIPs` will be nil if missing.

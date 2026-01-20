@@ -90,11 +90,13 @@
     let profileFirstName = "";
     let profileLastName = "";
     let profileLoaded = false;
+    let sessionDurationMinutes = 0;
 
     $: if ($auth.user && !profileLoaded) {
         profileUsername = $auth.user.username;
         profileFirstName = $auth.user.firstName || "";
         profileLastName = $auth.user.lastName || "";
+        sessionDurationMinutes = $auth.user.sessionDurationMinutes || 0;
         profileLoaded = true;
     }
 
@@ -228,6 +230,7 @@
                     firstName: profileFirstName,
                     lastName: profileLastName,
                     allowedIPs: $auth.user.allowedIPs,
+                    sessionDurationMinutes: sessionDurationMinutes,
                 });
                 if (!res.success) {
                     toast.error(res.error || "Failed to update profile");
@@ -929,6 +932,29 @@
         <!-- Security Section -->
         <section class="settings-section">
             <h2>Security</h2>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <label for="session-duration">Session Duration</label>
+                    <span class="setting-description">
+                        How long you stay logged in (0 = 3 months)
+                    </span>
+                </div>
+                <div class="setting-value">
+                    <select
+                        id="session-duration"
+                        bind:value={sessionDurationMinutes}
+                        class="select-sm"
+                    >
+                        <option value={0}>3 Months (Default)</option>
+                        <option value={1440}>1 Day</option>
+                        <option value={10080}>1 Week</option>
+                        <option value={43200}>1 Month</option>
+                        <option value={129600}>3 Months</option>
+                        <option value={259200}>6 Months</option>
+                    </select>
+                </div>
+            </div>
 
             <div class="setting-item">
                 <div class="setting-info">

@@ -17,6 +17,7 @@ export interface User {
   expiresAt?: number; // Unix timestamp for guest session expiration
   allowedIPs?: string[];
   mfaEnabled?: boolean;
+  sessionDurationMinutes?: number;
 }
 
 export interface AuthState {
@@ -285,6 +286,7 @@ function createAuthStore() {
           subscriptionActive: userData.subscription_active || false,
           allowedIPs: userData.allowed_ips || [],
           mfaEnabled: userData.mfa_enabled || false,
+          sessionDurationMinutes: userData.session_duration_minutes || 0,
           // For guests, prefer localStorage expiresAt (from login) over profile response
           // because profile calculates from user.CreatedAt which may be stale for returning guests
           expiresAt:
@@ -316,6 +318,7 @@ function createAuthStore() {
       firstName: string;
       lastName: string;
       allowedIPs?: string[];
+      sessionDurationMinutes?: number;
     }) {
       update((state) => ({ ...state, isLoading: true, error: null }));
 
@@ -334,6 +337,7 @@ function createAuthStore() {
             first_name: data.firstName,
             last_name: data.lastName,
             allowed_ips: data.allowedIPs,
+            session_duration_minutes: data.sessionDurationMinutes,
           }),
         });
 

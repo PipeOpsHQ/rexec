@@ -330,6 +330,12 @@ func (s *PostgresStore) migrate() error {
 				ALTER TABLE agents ADD COLUMN mfa_locked BOOLEAN DEFAULT false;
 			END IF;
 		END $$`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+				WHERE table_name='users' AND column_name='session_duration_minutes') THEN
+				ALTER TABLE users ADD COLUMN session_duration_minutes INTEGER DEFAULT 0;
+			END IF;
+		END $$`,
 	}
 
 	for _, query := range addColumns {
@@ -777,8 +783,8 @@ func (s *PostgresStore) Close() error {
 func (s *PostgresStore) CreateUser(ctx context.Context, user *models.User, passwordHash string) error {
 	allowedIPs := strings.Join(user.AllowedIPs, ",")
 	query := `
-		INSERT INTO users (id, email, username, password_hash, tier, is_admin, allowed_ips, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO users (id, email, username, password_hash, tier, is_admin, allowed_ips, session_duration_minutes, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		user.ID,
@@ -788,6 +794,7 @@ func (s *PostgresStore) CreateUser(ctx context.Context, user *models.User, passw
 		user.Tier,
 		user.IsAdmin,
 		allowedIPs,
+		user.SessionDurationMinutes,
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
@@ -805,6 +812,7 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	var screenLockEnabled bool
 	var lockAfterMinutes int
 	var lockRequiredSince sql.NullTime
+	var sessionDurationMinutes int
 	var allowedIPs string
 	var firstName, lastName sql.NullString
 
@@ -812,7 +820,7 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 		SELECT id, email, username, COALESCE(password_hash, ''), tier, COALESCE(is_admin, false),
 		       COALESCE(pipeops_id, ''), COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
 		       COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5),
-		       lock_required_since,
+		       lock_required_since, COALESCE(session_duration_minutes, 0),
 		       COALESCE(allowed_ips, ''), COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
 		FROM users WHERE email = $1
 	`
@@ -831,6 +839,7 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 		&screenLockEnabled,
 		&lockAfterMinutes,
 		&lockRequiredSince,
+		&sessionDurationMinutes,
 		&allowedIPs,
 		&firstName,
 		&lastName,
@@ -852,6 +861,7 @@ func (s *PostgresStore) GetUserByEmail(ctx context.Context, email string) (*mode
 	if lockRequiredSince.Valid {
 		user.LockRequiredSince = &lockRequiredSince.Time
 	}
+	user.SessionDurationMinutes = sessionDurationMinutes
 	user.FirstName = firstName.String
 	user.LastName = lastName.String
 	if allowedIPs != "" {
@@ -870,6 +880,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	var screenLockEnabled bool
 	var lockAfterMinutes int
 	var lockRequiredSince sql.NullTime
+	var sessionDurationMinutes int
 	var allowedIPs string
 	var firstName, lastName sql.NullString
 	var singleSessionMode bool
@@ -878,7 +889,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		SELECT id, email, username, tier, COALESCE(is_admin, false), COALESCE(pipeops_id, ''),
 		       COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
 		       COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5),
-		       lock_required_since,
+		       lock_required_since, COALESCE(session_duration_minutes, 0),
 		       COALESCE(allowed_ips, ''),
 		       COALESCE(first_name, ''), COALESCE(last_name, ''),
 		       COALESCE(single_session_mode, false),
@@ -899,6 +910,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 		&screenLockEnabled,
 		&lockAfterMinutes,
 		&lockRequiredSince,
+		&sessionDurationMinutes,
 		&allowedIPs,
 		&firstName,
 		&lastName,
@@ -921,6 +933,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 	if lockRequiredSince.Valid {
 		user.LockRequiredSince = &lockRequiredSince.Time
 	}
+	user.SessionDurationMinutes = sessionDurationMinutes
 	user.FirstName = firstName.String
 	user.LastName = lastName.String
 	user.SingleSessionMode = singleSessionMode
@@ -934,7 +947,7 @@ func (s *PostgresStore) GetUserByID(ctx context.Context, id string) (*models.Use
 func (s *PostgresStore) UpdateUser(ctx context.Context, user *models.User) error {
 	allowedIPs := strings.Join(user.AllowedIPs, ",")
 	query := `
-		UPDATE users SET username = $2, tier = $3, is_admin = $4, pipeops_id = $5, mfa_enabled = $6, allowed_ips = $7, first_name = $8, last_name = $9, updated_at = $10
+		UPDATE users SET username = $2, tier = $3, is_admin = $4, pipeops_id = $5, mfa_enabled = $6, allowed_ips = $7, first_name = $8, last_name = $9, session_duration_minutes = $10, updated_at = $11
 		WHERE id = $1
 	`
 	_, err := s.db.ExecContext(ctx, query,
@@ -947,6 +960,7 @@ func (s *PostgresStore) UpdateUser(ctx context.Context, user *models.User) error
 		allowedIPs,
 		user.FirstName,
 		user.LastName,
+		user.SessionDurationMinutes,
 		time.Now(),
 	)
 	return err
@@ -1141,6 +1155,7 @@ func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 	var screenLockEnabled bool
 	var lockAfterMinutes int
 	var lockRequiredSince sql.NullTime
+	var sessionDurationMinutes int
 	var allowedIPs string
 	var firstName, lastName sql.NullString
 
@@ -1148,7 +1163,7 @@ func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 		SELECT id, email, username, tier, COALESCE(is_admin, false),
 		       COALESCE(pipeops_id, ''), COALESCE(mfa_enabled, false), COALESCE(mfa_secret, ''),
 		       COALESCE(screen_lock_hash, ''), COALESCE(screen_lock_enabled, false), COALESCE(lock_after_minutes, 5),
-		       lock_required_since,
+		       lock_required_since, COALESCE(session_duration_minutes, 0),
 		       COALESCE(allowed_ips, ''), COALESCE(first_name, ''), COALESCE(last_name, ''), created_at, updated_at
 		FROM users WHERE username = $1
 	`
@@ -1166,6 +1181,7 @@ func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 		&screenLockEnabled,
 		&lockAfterMinutes,
 		&lockRequiredSince,
+		&sessionDurationMinutes,
 		&allowedIPs,
 		&firstName,
 		&lastName,
@@ -1188,6 +1204,7 @@ func (s *PostgresStore) GetUserByUsername(ctx context.Context, username string) 
 	if lockRequiredSince.Valid {
 		user.LockRequiredSince = &lockRequiredSince.Time
 	}
+	user.SessionDurationMinutes = sessionDurationMinutes
 	user.FirstName = firstName.String
 	user.LastName = lastName.String
 	if allowedIPs != "" {
