@@ -16,18 +16,18 @@
     let previewRole = $state("default");
     let previewMode: "share" | "new" | "resume" = $state("share");
     let previewTerminalInstance: any = null;
-    let previewContainerId = $state("");
-    let lastCreatedContainerId = $state("");
-    let lastCreatedContainerInfo = $state<{
-        id: string;
-        name?: string;
-        image: string;
-        role: string;
-    } | null>(null);
+    // let previewContainerId = $state("");
+    // let lastCreatedContainerId = $state("");
+    // let lastCreatedContainerInfo = $state<{
+    //    id: string;
+    //    port: number;
+    //    url: string;
+    // } | null>(null);
 
-    const STORAGE_KEY = "rexec_embed_docs_session";
+    // const STORAGE_KEY = "rexec_embed_docs_session";
 
     // Load saved session on mount
+    /*
     $effect(() => {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -43,6 +43,7 @@
         }
     });
 
+    /*
     function saveSession(info: {
         id: string;
         name?: string;
@@ -71,7 +72,9 @@
             // ignore
         }
     }
+    */
 
+    /*
     function clearSavedSession() {
         lastCreatedContainerId = "";
         lastCreatedContainerInfo = null;
@@ -81,13 +84,12 @@
             // ignore
         }
     }
+    */
 
     let canLaunchPreview = $derived(
         previewMode === "share"
             ? !!previewShareCode.trim()
-            : previewMode === "resume"
-              ? !!previewContainerId.trim() && !!previewToken.trim()
-              : !!previewToken.trim(),
+            : !!previewToken.trim()
     );
 
     function copyToClipboard(text: string, id: string) {
@@ -454,15 +456,17 @@
 
                 if (previewMode === "share") {
                     config.shareCode = previewShareCode.trim();
-                } else if (previewMode === "resume") {
+                } else {
+                    /* else if (previewMode === "resume") {
                     config.token = previewToken.trim();
                     config.container = previewContainerId.trim();
-                } else {
+                } else { */
                     config.token = previewToken.trim();
                     config.image = previewImage;
                     config.role = previewRole;
                 }
 
+                /*
                 config.onReady = (term: any) => {
                     // Save session for resume if we created a new container
                     if (previewMode === "new" && term.session?.containerId) {
@@ -485,6 +489,7 @@
                         clearSavedSession();
                     }
                 };
+                */
 
                 previewTerminalInstance = (window as any).Rexec.embed(
                     container,
@@ -506,13 +511,14 @@
         showLivePreview = false;
     }
 
+    // Resume last created session
+    /*
     function resumeLastSession() {
         if (lastCreatedContainerId && previewToken.trim()) {
-            previewContainerId = lastCreatedContainerId;
-            previewMode = "resume";
-            launchPreview();
+            terminal.connect(lastCreatedContainerId);
         }
     }
+    */
 </script>
 
 <svelte:head>
@@ -693,6 +699,7 @@
                     <StatusIcon status="plus" size={16} />
                     New Terminal
                 </button>
+                <!--
                 <button
                     class="preview-mode-tab"
                     class:active={previewMode === "resume"}
@@ -701,6 +708,7 @@
                     <StatusIcon status="refresh" size={16} />
                     Resume Session
                 </button>
+                -->
             </div>
 
             <div class="preview-controls">
@@ -781,6 +789,7 @@
                     </p>
                 {:else}
                     <!-- Resume mode -->
+                    <!--
                     <div class="preview-form">
                         <div class="preview-input-group">
                             <label for="preview-token-resume">API Token</label>
@@ -845,6 +854,7 @@
                         Resume a previously created container. The container ID
                         is saved automatically when you create a new terminal.
                     </p>
+                    -->
                 {/if}
 
                 <div class="preview-actions">
