@@ -96,7 +96,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func printBanner() {
-	fmt.Println(`
+	fmt.Print(`
 ██████╗ ███████╗██╗  ██╗███████╗ ██████╗
 ██╔══██╗██╔════╝╚██╗██╔╝██╔════╝██╔════╝
 ██████╔╝█████╗   ╚███╔╝ █████╗  ██║

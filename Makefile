@@ -19,15 +19,15 @@ GOMOD=$(GOCMD) mod
 # Build the web UI
 ui-install:
 	@echo "Installing web UI dependencies..."
-	cd web-ui && npm install
+	cd frontend && npm install
 
 ui: ui-install
 	@echo "Building web UI..."
-	cd web-ui && npm run build
+	cd frontend && npm run build
 
 ui-dev:
 	@echo "Starting web UI dev server..."
-	cd web-ui && npm run dev
+	cd frontend && npm run dev
 
 # Build the embed widget
 embed-install:
