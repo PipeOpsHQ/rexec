@@ -136,3 +136,8 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 *   **Issues**: [GitHub Issues](https://github.com/rexec/rexec/issues)
 *   **Discussion**: [GitHub Discussions](https://github.com/rexec/rexec/discussions)
+<<<<<<< HEAD
+=======
+
+Built with ❤️ for the 10x engineer in everyone.
+>>>>>>> fb83e38 (docs: Update README with additional information about the project)
