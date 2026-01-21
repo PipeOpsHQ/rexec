@@ -76,14 +76,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set image name
+        id: image
+        run: echo "name=$(echo ghcr.io/${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Build and push rexec (main server)
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}:latest
+            ${{ steps.image.outputs.name }}:${{ steps.version.outputs.version }}
+            ${{ steps.image.outputs.name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -94,8 +98,8 @@ jobs:
           file: ./docker/Dockerfile.agent
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-agent:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}-agent:latest
+            ${{ steps.image.outputs.name }}-agent:${{ steps.version.outputs.version }}
+            ${{ steps.image.outputs.name }}-agent:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -106,7 +110,7 @@ jobs:
           file: ./docker/Dockerfile.cli
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-cli:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository }}-cli:latest
+            ${{ steps.image.outputs.name }}-cli:${{ steps.version.outputs.version }}
+            ${{ steps.image.outputs.name }}-cli:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
