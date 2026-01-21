@@ -1,0 +1,30 @@
+# Rexec CLI Dockerfile
+# Lightweight container for running the rexec-cli
+
+FROM golang:1.24-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w -X main.version=${VERSION}" -o rexec-cli ./cmd/rexec-cli
+
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata
+
+RUN adduser -D -g '' -u 1000 rexec
+
+WORKDIR /app
+
+COPY --from=builder /app/rexec-cli /usr/local/bin/rexec-cli
+
+USER rexec
+
+ENTRYPOINT ["/usr/local/bin/rexec-cli"]
