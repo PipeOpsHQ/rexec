@@ -1,4 +1,4 @@
-# Rexec Terminal as a Service
+# Rexec - Terminal as a Service
 
 Rexec is an open-source platform that gives you instantly-available, network-isolated Linux terminals in the cloud, or lets you connect your own machines to a unified dashboard. Built for developers who need on-demand environments and secure remote access.
 
