@@ -4,6 +4,7 @@
     import { auth, isGuest } from "$stores/auth";
     import { security, hasPasscode } from "$stores/security";
     import { agents, type Agent } from "$stores/agents";
+    import { tokens } from "$stores/tokens";
     import { toast } from "$stores/toast";
     import { theme as themeStore, accentPresets } from "$stores/theme";
     import StatusIcon from "./icons/StatusIcon.svelte";
@@ -85,6 +86,11 @@
     let showInstallScript = false;
     let copiedScript = false;
 
+    // Bulk Install state
+    let showBulkModal = false;
+    let bulkToken = "";
+    let isGeneratingBulk = false;
+
     // Profile state
     let profileUsername = "";
     let profileFirstName = "";
@@ -135,12 +141,33 @@
         }
     }
 
+    async function handleBulkInstall() {
+        isGeneratingBulk = true;
+        // Create a new token for bulk installation
+        const name = `Bulk Agent Install - ${new Date().toLocaleDateString()}`;
+        const result = await tokens.createToken(name, ["read", "write"]); // Default scopes sufficient for registration
+        
+        if (result && result.token) {
+            bulkToken = result.token;
+            showBulkModal = true;
+        } else {
+            toast.error("Failed to generate bulk install token");
+        }
+        isGeneratingBulk = false;
+    }
+
     function closeAgentModal() {
         showAgentModal = false;
         newAgentName = "";
         newAgentDescription = "";
         createdAgent = null;
         showInstallScript = false;
+        copiedScript = false;
+    }
+
+    function closeBulkModal() {
+        showBulkModal = false;
+        bulkToken = "";
         copiedScript = false;
     }
 
@@ -1174,23 +1201,49 @@
                 </p>
 
                 <div class="agents-header">
-                    <button
-                        class="btn btn-primary btn-sm"
-                        onclick={() => (showAgentModal = true)}
-                    >
-                        <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
+                    <div class="header-buttons" style="display: flex; gap: 8px;">
+                        <button
+                            class="btn btn-secondary btn-sm"
+                            onclick={handleBulkInstall}
+                            disabled={isGeneratingBulk}
                         >
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        Add Agent
-                    </button>
+                            {#if isGeneratingBulk}
+                                <span class="spinner-sm"></span>
+                            {:else}
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="9" cy="7" r="4"></circle>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                </svg>
+                            {/if}
+                            Bulk Install
+                        </button>
+                        <button
+                            class="btn btn-primary btn-sm"
+                            onclick={() => (showAgentModal = true)}
+                        >
+                            <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add Agent
+                        </button>
+                    </div>
                 </div>
 
                 {#if $agents.loading}
@@ -1657,6 +1710,105 @@
                         Create Agent
                     </button>
                 {/if}
+            </div>
+        </div>
+    </div>
+{/if}
+
+<!-- Bulk Install Modal -->
+{#if showBulkModal}
+    <div
+        class="modal-overlay"
+        onclick={(e) => e.target === e.currentTarget && closeBulkModal()}
+    >
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>Bulk Agent Installation</h3>
+                <button class="modal-close" onclick={closeBulkModal}>×</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="install-success">
+                    <svg
+                        width="48"
+                        height="48"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="var(--accent)"
+                        stroke-width="2"
+                    >
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <h4>Install on Multiple Machines</h4>
+                    <p>
+                        Run this command on any number of servers. Each will register as a new agent automatically.
+                    </p>
+                </div>
+
+                <div class="install-options-container">
+                    <div class="install-option">
+                        <h5 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text);">Option 1: Recommended</h5>
+                        <div class="install-script-box">
+                            <code>curl -fsSL {installUrl}/install-agent.sh | sudo bash -s -- --token {bulkToken}</code>
+                            <button
+                                class="btn btn-sm copy-btn"
+                                onclick={() => {
+                                    navigator.clipboard.writeText(`curl -fsSL ${installUrl}/install-agent.sh | sudo bash -s -- --token ${bulkToken}`);
+                                    copiedScript = true;
+                                    toast.success("Command copied!");
+                                    setTimeout(() => (copiedScript = false), 2000);
+                                }}
+                            >
+                                {copiedScript ? "Copied!" : "Copy"}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="install-option" style="margin-top: 16px;">
+                        <h5 style="margin: 0 0 8px 0; font-size: 13px; color: var(--text);">Option 2: Alternative (Hetzner/Others)</h5>
+                        <div class="install-script-box">
+                            <code>curl -fsSL {installUrl}/install-agent.sh -o install-agent.sh && sudo bash install-agent.sh --token {bulkToken}</code>
+                            <button
+                                class="btn btn-sm copy-btn"
+                                onclick={() => {
+                                    navigator.clipboard.writeText(`curl -fsSL ${installUrl}/install-agent.sh -o install-agent.sh && sudo bash install-agent.sh --token ${bulkToken}`);
+                                    copiedScript = true;
+                                    toast.success("Command copied!");
+                                    setTimeout(() => (copiedScript = false), 2000);
+                                }}
+                            >
+                                {copiedScript ? "Copied!" : "Copy"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="token-notice token-notice-success">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                        ></path>
+                    </svg>
+                    <span>
+                        Using a generated API token ("Bulk Agent Install"). You can manage this token in <a href="/account/api">API Tokens</a>.
+                    </span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick={closeBulkModal}>
+                    Done
+                </button>
             </div>
         </div>
     </div>
