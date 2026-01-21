@@ -6,12 +6,12 @@ Rexec is an open-source platform that gives you instantly-available, network-iso
 
 ## Features
 
-*   **⚡️ Instant Cloud Terminals**: Create, start, and destroy disposable Linux sandboxes in seconds (powered by Docker).
-*   **🔗 Connect Any Machine (BYOS)**: Install the lightweight Rexec Agent on your laptop, server, or Raspberry Pi to access it securely from the browser without VPNs or SSH port exposure.
-*   **🖥️ First-Class Terminal UX**: Real-time WebSocket streaming with `xterm.js`, JetBrains Mono fonts, and a native-feeling UI.
-*   **🔒 Secure by Default**: JWT authentication, MFA support, audit logging, and isolated container networking.
-*   **👥 Collaboration**: Share terminal sessions for pair programming or debugging.
-*   **📼 Session Recording**: Record and replay terminal sessions for documentation or audit trails.
+*   **Instant Cloud Terminals**: Create, start, and destroy disposable Linux sandboxes in seconds (powered by Docker).
+*   **Connect Any Machine (BYOS)**: Install the lightweight Rexec Agent on your laptop, server, or Raspberry Pi to access it securely from the browser without VPNs or SSH port exposure.
+*   **First-Class Terminal UX**: Real-time WebSocket streaming with `xterm.js`, JetBrains Mono fonts, and a native-feeling UI.
+*   **Secure by Default**: JWT authentication, MFA support, audit logging, and isolated container networking.
+*   **Collaboration**: Share terminal sessions for pair programming or debugging.
+*   **Session Recording**: Record and replay terminal sessions for documentation or audit trails.
 
 ---
 
@@ -136,5 +136,3 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 *   **Issues**: [GitHub Issues](https://github.com/rexec/rexec/issues)
 *   **Discussion**: [GitHub Discussions](https://github.com/rexec/rexec/discussions)
-
-Built with ❤️ for the 10x engineer in everyone.
