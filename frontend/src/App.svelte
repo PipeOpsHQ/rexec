@@ -144,6 +144,7 @@
         marketplacePage: () => import("$components/MarketplacePage.svelte"),
         agentDocs: () => import("$components/AgentDocs.svelte"),
         cliDocs: () => import("$components/CLIDocs.svelte"),
+        sdkDocs: () => import("$components/SDKDocs.svelte"),
         embedDocs: () => import("$components/EmbedDocs.svelte"),
         docs: () => import("$components/Docs.svelte"),
         cliLogin: () => import("$components/CLILogin.svelte"),
@@ -223,6 +224,7 @@
         | "agent-docs"
         | "cli-docs"
         | "embed-docs"
+        | "sdk-docs"
         | "cli-login"
         | "account"
         | "account-settings"
@@ -349,6 +351,13 @@
                 "Add a cloud terminal to any website with a single script tag. Like Google Cloud Shell for your docs and tutorials.",
             keywords:
                 "embed, widget, terminal, cloud shell, javascript, documentation, interactive",
+        },
+        "sdk-docs": {
+            title: "SDK Documentation - Rexec",
+            description:
+                "Official SDKs for programmatic access to Rexec cloud terminals. Available in Go, JavaScript, Python, Rust, Ruby, Java, C#, and PHP.",
+            keywords:
+                "SDK, API, programming, Go, JavaScript, Python, Rust, Ruby, Java, C#, PHP, automation",
         },
         marketplace: {
             title: "Marketplace - Rexec",
@@ -885,6 +894,12 @@
             return;
         }
 
+        // Check for /docs/sdk route
+        if (path === "/docs/sdk" || path === "/sdk") {
+            currentView = "sdk-docs";
+            return;
+        }
+
         // Check for /docs route (main documentation page)
         if (path === "/docs") {
             currentView = "docs";
@@ -1307,6 +1322,7 @@
         currentView !== "agent-docs" &&
         currentView !== "cli-docs" &&
         currentView !== "embed-docs" &&
+        currentView !== "sdk-docs" &&
         currentView !== "docs" &&
         currentView !== "account" &&
         currentView !== "join" &&
@@ -1452,6 +1468,8 @@
             currentView = "cli-docs";
         } else if (path === "/docs/embed" || path === "/embed") {
             currentView = "embed-docs";
+        } else if (path === "/docs/sdk" || path === "/sdk") {
+            currentView = "sdk-docs";
         } else if (path === "/docs") {
             currentView = "docs";
         } else if (path.startsWith("/account")) {
@@ -1576,6 +1594,9 @@
                 break;
             case "embed-docs":
                 preloadComponent("embedDocs");
+                break;
+            case "sdk-docs":
+                preloadComponent("sdkDocs");
                 break;
             case "docs":
                 preloadComponent("docs");
@@ -1835,6 +1856,17 @@
                 {:else}
                     <div class="view-loading">Loading...</div>
                 {/if}
+            {:else if currentView === "sdk-docs"}
+                {#if lazyComponents.sdkDocs}
+                    <svelte:component
+                        this={lazyComponents.sdkDocs}
+                        onback={() => {
+                            window.history.back();
+                        }}
+                    />
+                {:else}
+                    <div class="view-loading">Loading...</div>
+                {/if}
             {:else if currentView === "docs"}
                 {#if lazyComponents.docs}
                     <svelte:component
@@ -1850,6 +1882,9 @@
                             } else if (view === "docs/embed") {
                                 currentView = "embed-docs";
                                 window.history.pushState({}, "", "/docs/embed");
+                            } else if (view === "docs/sdk") {
+                                currentView = "sdk-docs";
+                                window.history.pushState({}, "", "/docs/sdk");
                             }
                         }}
                     />
