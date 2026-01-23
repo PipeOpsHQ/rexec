@@ -1,0 +1,354 @@
+name: Publish SDKs
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.0)'
+        required: true
+        type: string
+      sdks:
+        description: 'SDKs to publish (comma-separated: js,python,rust,ruby,java,dotnet,php or "all")'
+        required: false
+        default: 'all'
+        type: string
+      dry_run:
+        description: 'Dry run (do not actually publish)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  VERSION: ${{ github.event.inputs.version || github.event.release.tag_name }}
+
+jobs:
+  # Determine which SDKs to publish
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      publish_js: ${{ steps.sdks.outputs.js }}
+      publish_python: ${{ steps.sdks.outputs.python }}
+      publish_rust: ${{ steps.sdks.outputs.rust }}
+      publish_ruby: ${{ steps.sdks.outputs.ruby }}
+      publish_java: ${{ steps.sdks.outputs.java }}
+      publish_dotnet: ${{ steps.sdks.outputs.dotnet }}
+      publish_php: ${{ steps.sdks.outputs.php }}
+    steps:
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ env.VERSION }}"
+          # Remove 'v' prefix if present
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Determine SDKs to publish
+        id: sdks
+        run: |
+          SDKS="${{ github.event.inputs.sdks || 'all' }}"
+          
+          if [ "$SDKS" = "all" ]; then
+            echo "js=true" >> $GITHUB_OUTPUT
+            echo "python=true" >> $GITHUB_OUTPUT
+            echo "rust=true" >> $GITHUB_OUTPUT
+            echo "ruby=true" >> $GITHUB_OUTPUT
+            echo "java=true" >> $GITHUB_OUTPUT
+            echo "dotnet=true" >> $GITHUB_OUTPUT
+            echo "php=true" >> $GITHUB_OUTPUT
+          else
+            echo "js=$(echo $SDKS | grep -q 'js' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "python=$(echo $SDKS | grep -q 'python' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "rust=$(echo $SDKS | grep -q 'rust' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "ruby=$(echo $SDKS | grep -q 'ruby' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "java=$(echo $SDKS | grep -q 'java' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "dotnet=$(echo $SDKS | grep -q 'dotnet' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+            echo "php=$(echo $SDKS | grep -q 'php' && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          fi
+
+  # JavaScript/TypeScript SDK -> npm
+  publish-js:
+    needs: setup
+    if: needs.setup.outputs.publish_js == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/js
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update version
+        run: npm version ${{ needs.setup.outputs.version }} --no-git-tag-version
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry run - would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN: Would publish @pipeopshq/rexec@${{ needs.setup.outputs.version }} to npm"
+          npm pack --dry-run
+
+  # Python SDK -> PyPI
+  publish-python:
+    needs: setup
+    if: needs.setup.outputs.publish_python == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/python
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Update version
+        run: |
+          sed -i "s/version = \".*\"/version = \"${{ needs.setup.outputs.version }}\"/" pyproject.toml
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Dry run - would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN: Would publish rexec==${{ needs.setup.outputs.version }} to PyPI"
+          twine check dist/*
+
+  # Rust SDK -> crates.io
+  publish-rust:
+    needs: setup
+    if: needs.setup.outputs.publish_rust == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/rust
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update version
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${{ needs.setup.outputs.version }}\"/" Cargo.toml
+
+      - name: Check package
+        run: cargo package --allow-dirty
+
+      - name: Publish to crates.io
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: cargo publish --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+
+      - name: Dry run - would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN: Would publish rexec@${{ needs.setup.outputs.version }} to crates.io"
+          cargo package --list --allow-dirty
+
+  # Ruby SDK -> RubyGems
+  publish-ruby:
+    needs: setup
+    if: needs.setup.outputs.publish_ruby == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/ruby
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Update version
+        run: |
+          sed -i "s/spec.version = \".*\"/spec.version = \"${{ needs.setup.outputs.version }}\"/" rexec.gemspec
+
+      - name: Build gem
+        run: gem build rexec.gemspec
+
+      - name: Publish to RubyGems
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          mkdir -p ~/.gem
+          echo -e "---\n:rubygems_api_key: ${{ secrets.RUBYGEMS_API_KEY }}" > ~/.gem/credentials
+          chmod 0600 ~/.gem/credentials
+          gem push rexec-${{ needs.setup.outputs.version }}.gem
+
+      - name: Dry run - would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN: Would publish rexec-${{ needs.setup.outputs.version }}.gem to RubyGems"
+          ls -la *.gem
+
+  # Java SDK -> Maven Central (via Sonatype OSSRH)
+  publish-java:
+    needs: setup
+    if: needs.setup.outputs.publish_java == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/java
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: GPG_PASSPHRASE
+
+      - name: Update version
+        run: |
+          mvn versions:set -DnewVersion=${{ needs.setup.outputs.version }} -DgenerateBackupPoms=false
+
+      - name: Build and verify
+        run: mvn clean verify
+
+      - name: Publish to Maven Central
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: mvn deploy -P release
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Dry run - would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN: Would publish io.pipeops:rexec:${{ needs.setup.outputs.version }} to Maven Central"
+          mvn package -DskipTests
+
+  # .NET SDK -> NuGet
+  publish-dotnet:
+    needs: setup
+    if: needs.setup.outputs.publish_dotnet == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/dotnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Update version
+        run: |
+          sed -i "s/<Version>.*<\/Version>/<Version>${{ needs.setup.outputs.version }}<\/Version>/" Rexec.csproj
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Pack
+        run: dotnet pack --configuration Release --no-build -o ./nupkg
+
+      - name: Publish to NuGet
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+
+      - name: Dry run - would publish
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "DRY RUN: Would publish Rexec.${{ needs.setup.outputs.version }}.nupkg to NuGet"
+          ls -la ./nupkg/
+
+  # PHP SDK -> Packagist (via GitHub webhook - just tag)
+  publish-php:
+    needs: setup
+    if: needs.setup.outputs.publish_php == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/php
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Install dependencies
+        run: composer install --no-dev
+
+      - name: Validate composer.json
+        run: composer validate
+
+      - name: Packagist webhook note
+        run: |
+          echo "PHP packages are auto-published to Packagist via GitHub webhook."
+          echo "Ensure the repository is connected to Packagist at https://packagist.org/"
+          echo "Package: pipeopshq/rexec"
+          echo "Version: ${{ needs.setup.outputs.version }}"
+
+  # Summary job
+  summary:
+    needs: [setup, publish-js, publish-python, publish-rust, publish-ruby, publish-java, publish-dotnet, publish-php]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "## SDK Publish Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.setup.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| SDK | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| JavaScript (npm) | ${{ needs.publish-js.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python (PyPI) | ${{ needs.publish-python.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rust (crates.io) | ${{ needs.publish-rust.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ruby (RubyGems) | ${{ needs.publish-ruby.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Java (Maven Central) | ${{ needs.publish-java.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| .NET (NuGet) | ${{ needs.publish-dotnet.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PHP (Packagist) | ${{ needs.publish-php.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
