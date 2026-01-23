@@ -315,35 +315,35 @@
         </div>
         <div class="sdk-languages">
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/go" target="_blank" class="sdk-lang">
-                <span class="lang-icon">🔵</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">Go</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/js" target="_blank" class="sdk-lang">
-                <span class="lang-icon">🟡</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">JavaScript</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/python" target="_blank" class="sdk-lang">
-                <span class="lang-icon">🐍</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">Python</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/rust" target="_blank" class="sdk-lang">
-                <span class="lang-icon">🦀</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">Rust</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/ruby" target="_blank" class="sdk-lang">
-                <span class="lang-icon">💎</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">Ruby</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/java" target="_blank" class="sdk-lang">
-                <span class="lang-icon">☕</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">Java</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/dotnet" target="_blank" class="sdk-lang">
-                <span class="lang-icon">🟣</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">C#</span>
             </a>
             <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/php" target="_blank" class="sdk-lang">
-                <span class="lang-icon">🐘</span>
+                <StatusIcon status="code" size={16} />
                 <span class="lang-name">PHP</span>
             </a>
         </div>
@@ -661,10 +661,6 @@
         border-color: var(--accent);
         background: rgba(0, 255, 65, 0.05);
         transform: translateY(-2px);
-    }
-
-    .lang-icon {
-        font-size: 18px;
     }
 
     .lang-name {
