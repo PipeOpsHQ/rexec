@@ -314,35 +314,35 @@
             </p>
         </div>
         <div class="sdk-languages">
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/go" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">Go</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/js" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">JavaScript</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/python" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">Python</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/rust" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">Rust</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/ruby" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">Ruby</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/java" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">Java</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/dotnet" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">C#</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/php" target="_blank" class="sdk-lang">
+            <a href="/docs/sdk" class="sdk-lang">
                 <StatusIcon status="code" size={16} />
                 <span class="lang-name">PHP</span>
             </a>
@@ -365,11 +365,11 @@
     <span class="keyword">await</span> terminal.write(<span class="string">b"ls -la\\n"</span>)</code></pre>
         </div>
         <div class="sdk-links">
-            <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK.md" target="_blank" class="sdk-btn primary">
+            <a href="/docs/sdk" class="sdk-btn primary">
                 <StatusIcon status="book" size={16} />
                 <span>SDK Documentation</span>
             </a>
-            <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK_GETTING_STARTED.md" target="_blank" class="sdk-btn secondary">
+            <a href="/docs/sdk" class="sdk-btn secondary">
                 <StatusIcon status="rocket" size={16} />
                 <span>Getting Started</span>
             </a>

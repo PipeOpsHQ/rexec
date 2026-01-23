@@ -170,6 +170,12 @@
             icon: "code",
         },
         {
+            title: "SDK Documentation",
+            description: "Programmatic API access in 8 languages",
+            href: "/docs/sdk",
+            icon: "code",
+        },
+        {
             title: "Use Cases",
             description: "Explore what you can build with Rexec",
             href: "/use-cases",
@@ -318,56 +324,56 @@
                 All SDKs provide container management, file operations, and interactive terminal support.
             </p>
             <div class="sdk-grid">
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/go" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Go</h4>
                         <code>go get github.com/PipeOpsHQ/rexec-go</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/js" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>JavaScript / TypeScript</h4>
                         <code>npm install @pipeopshq/rexec</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/python" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Python</h4>
                         <code>pip install rexec</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/rust" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Rust</h4>
                         <code>cargo add rexec</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/ruby" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Ruby</h4>
                         <code>gem install rexec</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/java" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Java</h4>
                         <code>io.pipeops:rexec</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/dotnet" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>C# / .NET</h4>
                         <code>dotnet add package Rexec</code>
                     </div>
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/php" target="_blank" class="sdk-card">
+                <a href="/docs/sdk" class="sdk-card">
                     <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>PHP</h4>
@@ -375,38 +381,12 @@
                     </div>
                 </a>
             </div>
-            <div class="sdk-example">
-                <h4>Quick Example (JavaScript)</h4>
-                <pre><code>import {'{'} RexecClient {'}'} from '@pipeopshq/rexec';
-
-const client = new RexecClient({'{'} 
-  baseURL: 'https://rexec.sh', 
-  token: 'YOUR_API_TOKEN' 
-{'}'});
-
-// Create a sandbox
-const container = await client.containers.create({'{'} 
-  image: 'ubuntu:24.04' 
-{'}'});
-
-// Execute commands
-const result = await client.containers.exec(
-  container.id, 
-  'echo "Hello from Rexec!"'
-);
-console.log(result.stdout);
-
-// Interactive terminal
-const terminal = await client.terminal.connect(container.id);
-terminal.onData((data) => console.log(data));
-terminal.write('ls -la\\n');</code></pre>
-            </div>
             <div class="sdk-links">
-                <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK.md" target="_blank" class="sdk-link">
+                <a href="/docs/sdk" class="sdk-link">
                     <StatusIcon status="book" size={14} />
                     Full SDK Documentation
                 </a>
-                <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK_GETTING_STARTED.md" target="_blank" class="sdk-link">
+                <a href="/docs/sdk" class="sdk-link">
                     <StatusIcon status="rocket" size={14} />
                     Getting Started Guide
                 </a>
