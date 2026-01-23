@@ -21,7 +21,6 @@ This document outlines the plan for expanding SDK support across multiple progra
 
 | Language | Package | Priority | Notes |
 |----------|---------|----------|-------|
-| **PHP** | `pipeopshq/rexec` (Packagist) | 🟢 Low | Web hosting platforms |
 | **Swift** | `Rexec` (SPM) | 🟢 Low | macOS/iOS automation |
 | **Kotlin** | `rexec` (Maven) | 🟢 Low | Android, modern JVM |
 

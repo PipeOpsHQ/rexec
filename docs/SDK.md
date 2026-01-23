@@ -91,6 +91,165 @@ terminal.write('echo "Hello World"\n');
 terminal.onData((data) => console.log(data));
 ```
 
+### Python
+
+```bash
+pip install rexec
+```
+
+```python
+import asyncio
+from rexec import RexecClient
+
+async def main():
+    async with RexecClient(
+        base_url=os.environ["REXEC_URL"],
+        token=os.environ["REXEC_TOKEN"]
+    ) as client:
+        # Create a sandbox
+        container = await client.containers.create("ubuntu:24.04")
+        
+        # Execute a command
+        result = await client.containers.exec(container.id, "echo 'Hello World'")
+        print(result.stdout)
+
+asyncio.run(main())
+```
+
+### Rust
+
+```bash
+cargo add rexec
+```
+
+```rust
+use rexec::RexecClient;
+
+#[tokio::main]
+async fn main() -> Result<(), rexec::Error> {
+    let client = RexecClient::new(
+        std::env::var("REXEC_URL")?,
+        std::env::var("REXEC_TOKEN")?
+    )?;
+
+    // Create a sandbox
+    let container = client.containers()
+        .create("ubuntu:24.04")
+        .await?;
+
+    // Connect to terminal
+    let mut term = client.terminal()
+        .connect(&container.id)
+        .await?;
+
+    term.write(b"echo 'Hello World'\n").await?;
+    Ok(())
+}
+```
+
+### Ruby
+
+```bash
+gem install rexec
+```
+
+```ruby
+require 'rexec'
+
+client = Rexec::Client.new(
+  ENV['REXEC_URL'],
+  ENV['REXEC_TOKEN']
+)
+
+# Create a sandbox
+container = client.containers.create('ubuntu:24.04')
+
+# Execute a command
+result = client.containers.exec(container.id, "echo 'Hello World'")
+puts result.stdout
+```
+
+### Java
+
+```xml
+<dependency>
+    <groupId>io.pipeops</groupId>
+    <artifactId>rexec</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+```java
+import io.pipeops.rexec.*;
+
+public class Example {
+    public static void main(String[] args) throws RexecException {
+        RexecClient client = new RexecClient(
+            System.getenv("REXEC_URL"),
+            System.getenv("REXEC_TOKEN")
+        );
+
+        // Create a sandbox
+        Container container = client.containers().create("ubuntu:24.04");
+
+        // Execute a command
+        ExecResult result = client.containers().exec(
+            container.getId(), "echo 'Hello World'"
+        );
+        System.out.println(result.getStdout());
+    }
+}
+```
+
+### C#/.NET
+
+```bash
+dotnet add package Rexec
+```
+
+```csharp
+using Rexec;
+
+var client = new RexecClient(
+    Environment.GetEnvironmentVariable("REXEC_URL"),
+    Environment.GetEnvironmentVariable("REXEC_TOKEN")
+);
+
+// Create a sandbox
+var container = await client.Containers.CreateAsync("ubuntu:24.04");
+
+// Execute a command
+var result = await client.Containers.ExecAsync(
+    container.Id, "echo 'Hello World'"
+);
+Console.WriteLine(result.Stdout);
+```
+
+### PHP
+
+```bash
+composer require pipeopshq/rexec
+```
+
+```php
+<?php
+require 'vendor/autoload.php';
+
+use Rexec\RexecClient;
+
+$client = new RexecClient(
+    getenv('REXEC_URL'),
+    getenv('REXEC_TOKEN')
+);
+
+// Create a sandbox
+$container = $client->containers()->create('ubuntu:24.04');
+
+// Execute a command
+$result = $client->containers()->exec($container->id, "echo 'Hello World'");
+echo $result->stdout;
+```
+
 ## Core Concepts
 
 ### Containers
@@ -218,7 +377,7 @@ API requests are rate-limited to ensure fair usage:
 
 ## Error Handling
 
-Both SDKs provide structured error handling:
+All SDKs provide structured error handling:
 
 ### Go
 
@@ -231,7 +390,7 @@ if err != nil {
 }
 ```
 
-### JavaScript
+### JavaScript/TypeScript
 
 ```typescript
 try {
@@ -240,6 +399,74 @@ try {
   if (error instanceof RexecError) {
     console.error(`API Error ${error.statusCode}: ${error.message}`);
   }
+}
+```
+
+### Python
+
+```python
+from rexec import RexecException
+
+try:
+    container = await client.containers.get("invalid-id")
+except RexecException as e:
+    if e.status_code:
+        print(f"API Error {e.status_code}: {e}")
+```
+
+### Rust
+
+```rust
+match client.containers().get("invalid-id").await {
+    Ok(container) => println!("Got: {}", container.id),
+    Err(rexec::Error::Api { status, message }) => {
+        eprintln!("API Error {}: {}", status, message);
+    }
+    Err(e) => eprintln!("Error: {}", e),
+}
+```
+
+### Ruby
+
+```ruby
+begin
+  container = client.containers.get("invalid-id")
+rescue Rexec::Error => e
+  puts "Error: #{e.message}"
+end
+```
+
+### Java
+
+```java
+try {
+    Container container = client.containers().get("invalid-id");
+} catch (RexecException e) {
+    if (e.isApiError()) {
+        System.out.println("API Error " + e.getStatusCode() + ": " + e.getMessage());
+    }
+}
+```
+
+### C#/.NET
+
+```csharp
+try {
+    var container = await client.Containers.GetAsync("invalid-id");
+} catch (RexecException ex) when (ex.IsApiError) {
+    Console.WriteLine($"API Error {ex.StatusCode}: {ex.Message}");
+}
+```
+
+### PHP
+
+```php
+try {
+    $container = $client->containers()->get("invalid-id");
+} catch (RexecException $e) {
+    if ($e->isApiError()) {
+        echo "API Error " . $e->getStatusCode() . ": " . $e->getMessage();
+    }
 }
 ```
 
