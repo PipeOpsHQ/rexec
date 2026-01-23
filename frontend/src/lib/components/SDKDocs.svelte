@@ -1,6 +1,5 @@
 <script lang="ts">
     import StatusIcon from "./icons/StatusIcon.svelte";
-    import { auth } from "$stores/auth";
 
     export let onback: (() => void) | undefined = undefined;
 
@@ -16,8 +15,6 @@
     function handleBack() {
         if (onback) onback();
     }
-
-    $: currentToken = $auth.token || "YOUR_API_TOKEN";
 
     const sdks = [
         { id: "go", name: "Go", install: "go get github.com/PipeOpsHQ/rexec-go", github: "https://github.com/PipeOpsHQ/rexec/tree/main/sdk/go" },
