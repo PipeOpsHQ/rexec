@@ -227,6 +227,20 @@
                 "Complete audit trail of all commands",
             ],
         },
+        {
+            slug: "sdk-integration",
+            title: "SDK & API Integration",
+            icon: "code",
+            description:
+                "Programmatically create and manage sandboxed environments with our official SDKs in 8 languages.",
+            points: [
+                "SDKs for Go, Python, JavaScript, Rust, Ruby, Java, C#, PHP",
+                "Container lifecycle management via API",
+                "File operations and interactive terminals",
+                "Build CI/CD pipelines, code execution services, and more",
+                "Full WebSocket terminal support",
+            ],
+        },
     ];
 </script>
 
@@ -285,6 +299,82 @@
             </button>
         {/each}
     </div>
+
+    <!-- SDK Section -->
+    <section class="sdk-highlight">
+        <div class="sdk-header">
+            <div class="sdk-badge">
+                <StatusIcon status="code" size={16} />
+                <span>Developer Tools</span>
+            </div>
+            <h2>Official SDKs for <span class="accent">Every Language</span></h2>
+            <p>
+                Integrate Rexec into your applications with our official SDKs. 
+                Create sandboxed environments, execute code, and manage terminals programmatically.
+            </p>
+        </div>
+        <div class="sdk-languages">
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/go" target="_blank" class="sdk-lang">
+                <span class="lang-icon">🔵</span>
+                <span class="lang-name">Go</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/js" target="_blank" class="sdk-lang">
+                <span class="lang-icon">🟡</span>
+                <span class="lang-name">JavaScript</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/python" target="_blank" class="sdk-lang">
+                <span class="lang-icon">🐍</span>
+                <span class="lang-name">Python</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/rust" target="_blank" class="sdk-lang">
+                <span class="lang-icon">🦀</span>
+                <span class="lang-name">Rust</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/ruby" target="_blank" class="sdk-lang">
+                <span class="lang-icon">💎</span>
+                <span class="lang-name">Ruby</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/java" target="_blank" class="sdk-lang">
+                <span class="lang-icon">☕</span>
+                <span class="lang-name">Java</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/dotnet" target="_blank" class="sdk-lang">
+                <span class="lang-icon">🟣</span>
+                <span class="lang-name">C#</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/php" target="_blank" class="sdk-lang">
+                <span class="lang-icon">🐘</span>
+                <span class="lang-name">PHP</span>
+            </a>
+        </div>
+        <div class="sdk-code-example">
+            <div class="code-tabs">
+                <span class="tab active">Python</span>
+            </div>
+            <pre><code><span class="keyword">async with</span> RexecClient(base_url, token) <span class="keyword">as</span> client:
+    <span class="comment"># Create a sandboxed environment</span>
+    container = <span class="keyword">await</span> client.containers.create(<span class="string">"ubuntu:24.04"</span>)
+    <span class="keyword">await</span> client.containers.start(container.id)
+    
+    <span class="comment"># Execute code safely</span>
+    result = <span class="keyword">await</span> client.containers.exec(container.id, <span class="string">"python script.py"</span>)
+    print(result.stdout)
+    
+    <span class="comment"># Interactive terminal</span>
+    terminal = <span class="keyword">await</span> client.terminal.connect(container.id)
+    <span class="keyword">await</span> terminal.write(<span class="string">b"ls -la\\n"</span>)</code></pre>
+        </div>
+        <div class="sdk-links">
+            <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK.md" target="_blank" class="sdk-btn primary">
+                <StatusIcon status="book" size={16} />
+                <span>SDK Documentation</span>
+            </a>
+            <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK_GETTING_STARTED.md" target="_blank" class="sdk-btn secondary">
+                <StatusIcon status="rocket" size={16} />
+                <span>Getting Started</span>
+            </a>
+        </div>
+    </section>
 
     <section class="cta-section">
         <h2>Ready to explore?</h2>
@@ -504,6 +594,179 @@
     }
 
     .bullet {
+        color: var(--accent);
+    }
+
+    /* SDK Highlight Section */
+    .sdk-highlight {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 48px;
+        margin-bottom: 40px;
+    }
+
+    .sdk-header {
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .sdk-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid rgba(0, 255, 65, 0.3);
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--accent);
+        margin-bottom: 16px;
+    }
+
+    .sdk-header h2 {
+        font-size: 28px;
+        margin-bottom: 12px;
+    }
+
+    .sdk-header p {
+        color: var(--text-muted);
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    .sdk-languages {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 32px;
+    }
+
+    .sdk-lang {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .sdk-lang:hover {
+        border-color: var(--accent);
+        background: rgba(0, 255, 65, 0.05);
+        transform: translateY(-2px);
+    }
+
+    .lang-icon {
+        font-size: 18px;
+    }
+
+    .lang-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+    }
+
+    .sdk-code-example {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 24px;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .code-tabs {
+        display: flex;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border);
+        padding: 0 16px;
+    }
+
+    .code-tabs .tab {
+        padding: 10px 16px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-muted);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+    }
+
+    .code-tabs .tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+
+    .sdk-code-example pre {
+        margin: 0;
+        padding: 20px;
+        overflow-x: auto;
+    }
+
+    .sdk-code-example code {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text);
+    }
+
+    .sdk-code-example .keyword {
+        color: #ff79c6;
+    }
+
+    .sdk-code-example .string {
+        color: #f1fa8c;
+    }
+
+    .sdk-code-example .comment {
+        color: #6272a4;
+    }
+
+    .sdk-links {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .sdk-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .sdk-btn.primary {
+        background: var(--accent);
+        color: #000;
+    }
+
+    .sdk-btn.primary:hover {
+        filter: brightness(1.1);
+        transform: translateY(-2px);
+    }
+
+    .sdk-btn.secondary {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+
+    .sdk-btn.secondary:hover {
+        border-color: var(--accent);
         color: var(--accent);
     }
 
