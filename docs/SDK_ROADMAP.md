@@ -8,15 +8,10 @@ This document outlines the plan for expanding SDK support across multiple progra
 |----------|---------|--------|
 | **Go** | `github.com/PipeOpsHQ/rexec-go` | ✅ Complete |
 | **JavaScript/TypeScript** | `@pipeopshq/rexec` | ✅ Complete |
+| **Python** | `rexec` (PyPI) | ✅ Complete |
+| **Rust** | `rexec` (crates.io) | ✅ Complete |
 
 ## Planned SDKs
-
-### Phase 1: High Priority (Q1 2026)
-
-| Language | Package | Priority | Notes |
-|----------|---------|----------|-------|
-| **Python** | `rexec` (PyPI) | 🔴 High | Large user base, AI/ML use cases |
-| **Rust** | `rexec` (crates.io) | 🔴 High | Systems programming, CLI tools |
 
 ### Phase 2: Medium Priority (Q2 2026)
 

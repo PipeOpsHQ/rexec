@@ -8,6 +8,8 @@ Rexec provides official SDKs for programmatically interacting with your sandboxe
 |-----|---------|---------------|
 | **Go** | `github.com/PipeOpsHQ/rexec-go` | [Go SDK README](../sdk/go/README.md) |
 | **JavaScript/TypeScript** | `@pipeopshq/rexec` | [JS SDK README](../sdk/js/README.md) |
+| **Python** | `rexec` (PyPI) | [Python SDK README](../sdk/python/README.md) |
+| **Rust** | `rexec` (crates.io) | [Rust SDK README](../sdk/rust/README.md) |
 
 ## Getting an API Token
 

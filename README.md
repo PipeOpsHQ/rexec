@@ -158,6 +158,33 @@ const terminal = await client.terminal.connect(container.id);
 terminal.write('echo hello\n');
 ```
 
+### Python SDK
+
+```bash
+pip install rexec
+```
+
+```python
+async with RexecClient("https://your-instance.com", "your-token") as client:
+    container = await client.containers.create(image="ubuntu:24.04")
+    async with client.terminal.connect(container.id) as term:
+        await term.write(b"echo hello\n")
+```
+
+### Rust SDK
+
+```bash
+cargo add rexec tokio
+```
+
+```rust
+let client = RexecClient::new("https://your-instance.com", "your-token");
+let container = client.containers()
+    .create(CreateContainerRequest::new("ubuntu:24.04")).await?;
+let mut term = client.terminal().connect(&container.id).await?;
+term.write(b"echo hello\n").await?;
+```
+
 📚 [Full SDK Documentation](docs/SDK.md)
 
 ---
