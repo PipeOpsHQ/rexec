@@ -123,6 +123,45 @@ See `.env.example` for a full list of options.
 
 ---
 
+## SDKs
+
+Integrate Rexec into your applications with our official SDKs:
+
+### Go SDK
+
+```bash
+go get github.com/PipeOpsHQ/rexec-go
+```
+
+```go
+client := rexec.NewClient("https://your-instance.com", "your-token")
+container, _ := client.Containers.Create(ctx, &rexec.CreateContainerRequest{
+    Image: "ubuntu:24.04",
+})
+term, _ := client.Terminal.Connect(ctx, container.ID)
+term.Write([]byte("echo hello\n"))
+```
+
+### JavaScript/TypeScript SDK
+
+```bash
+npm install @pipeopshq/rexec
+```
+
+```typescript
+const client = new RexecClient({
+  baseURL: 'https://your-instance.com',
+  token: 'your-token'
+});
+const container = await client.containers.create({ image: 'ubuntu:24.04' });
+const terminal = await client.terminal.connect(container.id);
+terminal.write('echo hello\n');
+```
+
+📚 [Full SDK Documentation](docs/SDK.md)
+
+---
+
 ## Roadmap
 
 *   [ ] **Command Palette**: `Cmd+K` navigation for power users.

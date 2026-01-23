@@ -1,0 +1,49 @@
+{
+  "name": "@pipeopshq/rexec",
+  "version": "1.0.0",
+  "description": "Official JavaScript/TypeScript SDK for Rexec - Terminal as a Service",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "rexec",
+    "terminal",
+    "sandbox",
+    "docker",
+    "container",
+    "ssh",
+    "websocket",
+    "cloud-terminal"
+  ],
+  "author": "PipeOpsHQ",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PipeOpsHQ/rexec.git",
+    "directory": "sdk/js"
+  },
+  "homepage": "https://github.com/PipeOpsHQ/rexec#readme",
+  "bugs": {
+    "url": "https://github.com/PipeOpsHQ/rexec/issues"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "ws": "^8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ws": {
+      "optional": true
+    }
+  }
+}
