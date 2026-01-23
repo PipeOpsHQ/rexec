@@ -319,56 +319,56 @@
             </p>
             <div class="sdk-grid">
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/go" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">🔵</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Go</h4>
                         <code>go get github.com/PipeOpsHQ/rexec-go</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/js" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">🟡</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>JavaScript / TypeScript</h4>
                         <code>npm install @pipeopshq/rexec</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/python" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">🐍</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Python</h4>
                         <code>pip install rexec</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/rust" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">🦀</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Rust</h4>
                         <code>cargo add rexec</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/ruby" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">💎</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Ruby</h4>
                         <code>gem install rexec</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/java" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">☕</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>Java</h4>
                         <code>io.pipeops:rexec</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/dotnet" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">🟣</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>C# / .NET</h4>
                         <code>dotnet add package Rexec</code>
                     </div>
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/tree/main/sdk/php" target="_blank" class="sdk-card">
-                    <div class="sdk-icon">🐘</div>
+                    <div class="sdk-icon"><StatusIcon status="code" size={20} /></div>
                     <div class="sdk-info">
                         <h4>PHP</h4>
                         <code>composer require pipeopshq/rexec</code>
@@ -403,10 +403,12 @@ terminal.write('ls -la\\n');</code></pre>
             </div>
             <div class="sdk-links">
                 <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK.md" target="_blank" class="sdk-link">
-                    📖 Full SDK Documentation
+                    <StatusIcon status="book" size={14} />
+                    Full SDK Documentation
                 </a>
                 <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK_GETTING_STARTED.md" target="_blank" class="sdk-link">
-                    🚀 Getting Started Guide
+                    <StatusIcon status="rocket" size={14} />
+                    Getting Started Guide
                 </a>
             </div>
         </div>
@@ -1004,6 +1006,75 @@ terminal.write('ls -la\\n');</code></pre>
                             anywhere
                         </li>
                     </ul>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="code" size={16} />
+                    <span>What SDKs are available?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>
+                        We provide official SDKs for <strong>8 programming languages</strong>:
+                    </p>
+                    <ul>
+                        <li><strong>Go</strong> — <code>go get github.com/PipeOpsHQ/rexec-go</code></li>
+                        <li><strong>JavaScript/TypeScript</strong> — <code>npm install @pipeopshq/rexec</code></li>
+                        <li><strong>Python</strong> — <code>pip install rexec</code></li>
+                        <li><strong>Rust</strong> — <code>cargo add rexec</code></li>
+                        <li><strong>Ruby</strong> — <code>gem install rexec</code></li>
+                        <li><strong>Java</strong> — Maven: <code>io.pipeops:rexec</code></li>
+                        <li><strong>C#/.NET</strong> — <code>dotnet add package Rexec</code></li>
+                        <li><strong>PHP</strong> — <code>composer require pipeopshq/rexec</code></li>
+                    </ul>
+                    <p>
+                        All SDKs support container management, file operations, and interactive WebSocket terminals.
+                        See the <a href="#sdks">SDK section</a> or <a href="https://github.com/PipeOpsHQ/rexec/blob/main/docs/SDK.md" target="_blank">full documentation</a>.
+                    </p>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="code" size={16} />
+                    <span>Can I automate container creation via API?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>
+                        <strong>Yes!</strong> All Rexec features are available through our REST API and SDKs:
+                    </p>
+                    <ul>
+                        <li><strong>Create containers</strong> — Spin up sandboxed environments programmatically</li>
+                        <li><strong>Execute commands</strong> — Run scripts and capture output</li>
+                        <li><strong>File operations</strong> — Upload, download, and manage files</li>
+                        <li><strong>Interactive terminals</strong> — Connect via WebSocket for real-time I/O</li>
+                    </ul>
+                    <p>
+                        Common use cases include CI/CD pipelines, code execution services, 
+                        education platforms, and automated testing. Generate an API token 
+                        from Settings to get started.
+                    </p>
+                </div>
+            </details>
+
+            <details class="faq-item">
+                <summary class="faq-question">
+                    <StatusIcon status="code" size={16} />
+                    <span>How do I get an API token?</span>
+                </summary>
+                <div class="faq-answer">
+                    <p>To generate an API token:</p>
+                    <ol>
+                        <li>Log in to your Rexec dashboard</li>
+                        <li>Go to <strong>Settings</strong> → <strong>API Tokens</strong></li>
+                        <li>Click <strong>Generate Token</strong></li>
+                        <li>Copy and securely store the token</li>
+                    </ol>
+                    <p>
+                        <strong>Security tip:</strong> Never commit tokens to version control. 
+                        Use environment variables or a secrets manager.
+                    </p>
                 </div>
             </details>
         </div>
