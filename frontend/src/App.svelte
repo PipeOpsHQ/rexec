@@ -111,6 +111,7 @@
         | "marketplacePage"
         | "agentDocs"
         | "cliDocs"
+        | "sdkDocs"
         | "embedDocs"
         | "docs"
         | "cliLogin"
