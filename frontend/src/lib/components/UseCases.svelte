@@ -655,6 +655,7 @@
         border-radius: 8px;
         text-decoration: none;
         transition: all 0.2s ease;
+        color: var(--accent);
     }
 
     .sdk-lang:hover {
@@ -758,12 +759,12 @@
     .sdk-btn.secondary {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
-        color: var(--text);
+        color: var(--accent);
     }
 
     .sdk-btn.secondary:hover {
         border-color: var(--accent);
-        color: var(--accent);
+        background: rgba(0, 255, 65, 0.05);
     }
 
     .cta-section {

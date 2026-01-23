@@ -1438,6 +1438,7 @@ terminal.write('ls -la\\n');</code></pre>
         font-size: 24px;
         width: 36px;
         text-align: center;
+        color: var(--accent);
     }
 
     .sdk-info h4 {
@@ -1495,7 +1496,7 @@ terminal.write('ls -la\\n');</code></pre>
         background: var(--bg-tertiary);
         border: 1px solid var(--border);
         border-radius: 6px;
-        color: var(--text);
+        color: var(--accent);
         text-decoration: none;
         font-size: 13px;
         font-weight: 500;
@@ -1504,7 +1505,7 @@ terminal.write('ls -la\\n');</code></pre>
 
     .sdk-link:hover {
         border-color: var(--accent);
-        color: var(--accent);
+        background: rgba(0, 255, 65, 0.05);
     }
 
     /* Architecture */
