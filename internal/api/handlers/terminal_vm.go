@@ -159,7 +159,7 @@ func (h *TerminalHandler) handleVMInput(session *TerminalSession, writer io.Writ
 				var msg TerminalMessage
 				if err := json.Unmarshal(data, &msg); err == nil {
 					if msg.Type == "resize" && resize != nil {
-						if err := resize(msg.Cols, msg.Rows); err != nil {
+						if err := resize(uint16(msg.Cols), uint16(msg.Rows)); err != nil {
 							log.Printf("[Terminal] Failed to resize VM terminal: %v", err)
 						}
 						session.Cols = uint(msg.Cols)

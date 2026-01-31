@@ -2,7 +2,6 @@ package firecracker
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
@@ -307,10 +306,9 @@ func (m *Manager) Start(ctx context.Context, id string) error {
 						vmConfig.VCPUs = 1
 					}
 				}
-			}
 		}
+	}
 
-		var err error
 		client, err = StartFirecrackerProcess(ctx, vm.SocketPath, m.kernelPath, rootfsImage, vmConfig)
 		if err != nil {
 			return fmt.Errorf("failed to start firecracker: %w", err)
@@ -486,7 +484,7 @@ func (m *Manager) ConnectTerminal(ctx context.Context, id string, cols, rows uin
 // Exec executes a command in the VM
 func (m *Manager) Exec(ctx context.Context, id string, cmd []string) ([]byte, error) {
 	m.mu.RLock()
-	vm, ok := m.vms[id]
+	_, ok := m.vms[id]
 	m.mu.RUnlock()
 
 	if !ok {
@@ -549,16 +547,22 @@ func (m *Manager) GetStats(ctx context.Context, id string) (*providers.ResourceS
 
 	// Fallback: Get basic info from Firecracker API
 	if hasClient {
-		info, err := client.GetInstanceInfo(ctx)
-		if err == nil {
-			// Parse info to extract stats
-			// Firecracker API doesn't provide detailed stats, so return basic structure
+		_, err := client.GetInstanceInfo(ctx)
+		if err == nil && vm.Labels != nil {
+			memMB := int64(0)
+			if s, ok := vm.Labels["rexec.memory_mb"]; ok {
+				memMB, _ = strconv.ParseInt(s, 10, 64)
+			}
+			diskMB := int64(0)
+			if s, ok := vm.Labels["rexec.disk_mb"]; ok {
+				diskMB, _ = strconv.ParseInt(s, 10, 64)
+			}
 			return &providers.ResourceStats{
 				CPUPercent:  0,
 				Memory:      0,
-				MemoryLimit: int64(vm.Labels["rexec.memory_mb"]) * 1024 * 1024,
+				MemoryLimit: memMB * 1024 * 1024,
 				DiskUsage:   0,
-				DiskLimit:   int64(vm.Labels["rexec.disk_mb"]) * 1024 * 1024,
+				DiskLimit:   diskMB * 1024 * 1024,
 				NetRx:       0,
 				NetTx:       0,
 			}, nil

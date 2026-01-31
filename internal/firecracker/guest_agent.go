@@ -310,7 +310,7 @@ func (c *GuestAgentClient) Shell(ctx context.Context, shell string, cols, rows u
 		"rows":   rows,
 	}
 
-	resp, err := c.Call(ctx, "shell", params)
+	_, err := c.Call(ctx, "shell", params)
 	if err != nil {
 		return nil, err
 	}
