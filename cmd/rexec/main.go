@@ -30,6 +30,8 @@ import (
 	"github.com/rexec/rexec/internal/billing"
 	"github.com/rexec/rexec/internal/container"
 	"github.com/rexec/rexec/internal/crypto"
+	"github.com/rexec/rexec/internal/firecracker"
+	"github.com/rexec/rexec/internal/providers"
 	"github.com/rexec/rexec/internal/pubsub"
 	sshgateway "github.com/rexec/rexec/internal/ssh/gateway"
 	"github.com/rexec/rexec/internal/storage"
@@ -393,6 +395,22 @@ func runServer() {
 	}
 	defer containerManager.Close()
 
+	// Initialize provider registry
+	providerRegistry := providers.NewRegistry()
+	
+	// Register Docker provider (always available if Docker is running)
+	dockerProvider := providers.NewDockerProvider(containerManager)
+	providerRegistry.Register(dockerProvider)
+	
+	// Register Firecracker provider (if available)
+	firecrackerManager, err := firecracker.NewManager()
+	if err != nil {
+		log.Printf("⚠️  Firecracker manager initialization failed: %v (Firecracker provider disabled)", err)
+	} else {
+		providerRegistry.Register(firecrackerManager)
+		log.Println("✅ Firecracker provider registered")
+	}
+
 	// Log Docker connection type
 	dockerHost := os.Getenv("DOCKER_HOST")
 	if dockerHost != "" {
@@ -477,6 +495,7 @@ func runServer() {
 	containerEventsHub := handlers.NewContainerEventsHub(containerManager, store)
 	containerHandler.SetEventsHub(containerEventsHub)
 	terminalHandler := handlers.NewTerminalHandler(containerManager, store, adminEventsHub)
+	terminalHandler.SetProviderRegistry(providerRegistry) // Enable VM terminal support
 	fileHandler := handlers.NewFileHandler(containerManager, store)
 	sshHandler := handlers.NewSSHHandler(store, containerManager)
 	collabHandler := handlers.NewCollabHandler(store, containerManager, terminalHandler)
@@ -511,6 +530,9 @@ func runServer() {
 
 	// Connect agent handler to container handler for unified API
 	containerHandler.SetAgentHandler(agentHandler)
+
+	// Initialize VM handler with provider registry
+	vmHandler := handlers.NewVMHandler(providerRegistry)
 
 	// Connect events hub to agent handler for real-time updates
 	agentHandler.SetEventsHub(containerEventsHub)
@@ -823,6 +845,20 @@ func runServer() {
 			agents.PATCH("/:id", agentHandler.UpdateAgent)
 			agents.DELETE("/:id", agentHandler.DeleteAgent)
 		}
+
+		// VM/Terminal endpoints (unified provider API)
+		vms := api.Group("/vms")
+		{
+			vms.GET("", vmHandler.List)
+			vms.POST("", containerLimiter.Middleware(), vmHandler.Create)
+			vms.GET("/:id", vmHandler.Get)
+			vms.DELETE("/:id", vmHandler.Delete)
+			vms.POST("/:id/start", vmHandler.Start)
+			vms.POST("/:id/stop", vmHandler.Stop)
+		}
+
+		// Provider endpoints
+		api.GET("/providers", vmHandler.ListProviders)
 
 		// Admin routes
 		admin := api.Group("/admin")

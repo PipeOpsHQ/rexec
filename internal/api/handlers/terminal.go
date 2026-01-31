@@ -58,6 +58,7 @@ const (
 type TerminalHandler struct {
 	containerManager *mgr.Manager
 	store            *storage.PostgresStore
+	providerRegistry interface{} // *providers.Registry - will be set via SetProviderRegistry
 	sessions         map[string]*TerminalSession
 	sharedSessions   map[string]*SharedTerminalSession // containerID -> shared session for collab
 	mu               sync.RWMutex
@@ -137,6 +138,11 @@ func (h *TerminalHandler) SetRecordingHandler(rh *RecordingHandler) {
 // SetCollabHandler sets the collab handler to check for shared session access
 func (h *TerminalHandler) SetCollabHandler(ch *CollabHandler) {
 	h.collabHandler = ch
+}
+
+// SetProviderRegistry sets the provider registry for VM terminal support
+func (h *TerminalHandler) SetProviderRegistry(registry interface{}) {
+	h.providerRegistry = registry
 }
 
 // HasCollabAccess checks if a user has collab access to a container.
@@ -262,6 +268,12 @@ func (h *TerminalHandler) HandleWebSocket(c *gin.Context) {
 
 	log.Printf("[Terminal] Connection request for container %s (user: %s, ID length: %d)", containerIdOrName, userID, len(containerIdOrName))
 	reqCtx := c.Request.Context()
+
+	// Check if this is a VM terminal (starts with "vm:")
+	if strings.HasPrefix(containerIdOrName, "vm:") {
+		h.handleVMWebSocket(c, containerIdOrName, userID.(string))
+		return
+	}
 
 	// Verify user owns this container (lookup by Docker ID or terminal name)
 	containerInfo, ok := h.containerManager.GetContainer(containerIdOrName)

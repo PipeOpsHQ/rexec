@@ -562,6 +562,15 @@ func (s *PostgresStore) migrate() error {
 		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tutorials' AND column_name='content') THEN
 			ALTER TABLE tutorials ADD COLUMN content TEXT;
 		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='containers' AND column_name='provider') THEN
+			ALTER TABLE containers ADD COLUMN provider VARCHAR(50) DEFAULT 'docker';
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='containers' AND column_name='vm_id') THEN
+			ALTER TABLE containers ADD COLUMN vm_id VARCHAR(255);
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='containers' AND column_name='provider_config') THEN
+			ALTER TABLE containers ADD COLUMN provider_config JSONB;
+		END IF;
 		ALTER TABLE tutorials ALTER COLUMN video_url DROP NOT NULL;
 	END $$;
 	`

@@ -455,11 +455,11 @@
             category: "embedded",
         },
 
-        // macOS
+        // macOS (CUA Lumier image)
         {
             name: "macos",
-            display_name: "macOS",
-            description: "Apple macOS (VM-based)",
+            display_name: "macOS (Sequoia)",
+            description: "Apple macOS Sequoia (CUA Lumier, VM-based)",
             category: "macos",
             popular: true,
         },

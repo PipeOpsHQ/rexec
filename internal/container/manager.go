@@ -193,9 +193,9 @@ var SupportedImages = map[string]string{
 	"photon":     "photon:5.0", // VMware Photon OS 5.0
 	// Raspberry Pi / ARM
 	"raspberrypi": "balenalib/raspberry-pi-debian:bookworm",
-	// macOS (VM-based)
-	"macos":        "sickcodes/docker-osx:latest",  // Catalina
-	"macos-legacy": "sickcodes/docker-osx:big-sur", // Big Sur
+	// macOS (VM-based) - CUA Lumier image (https://cua.ai/docs/lume/guide/advanced/lumier/docker)
+	"macos":        "ghcr.io/trycua/macos-sequoia-cua:latest", // macOS Sequoia (CUA)
+	"macos-legacy": "sickcodes/docker-osx:big-sur",            // Big Sur (legacy)
 }
 
 // CustomImages maps to rexec custom images with SSH pre-installed
@@ -301,9 +301,9 @@ func GetImageMetadata() []ImageMetadata {
 		// Raspberry Pi / ARM
 		{Name: "raspberrypi", DisplayName: "Raspberry Pi OS", Description: "Debian-based OS for Raspberry Pi/ARM", Category: "embedded", Tags: []string{"raspberry-pi", "arm", "iot"}, Popular: false},
 
-		// macOS
-		{Name: "macos", DisplayName: "macOS (Catalina)", Description: "Apple macOS Catalina (VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm"}, Popular: true},
-		{Name: "macos-legacy", DisplayName: "macOS (Big Sur)", Description: "Apple macOS Big Sur (VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm", "modern"}, Popular: false},
+		// macOS - CUA Lumier image
+		{Name: "macos", DisplayName: "macOS (Sequoia)", Description: "Apple macOS Sequoia (CUA Lumier, VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm", "sequoia"}, Popular: true},
+		{Name: "macos-legacy", DisplayName: "macOS (Big Sur)", Description: "Apple macOS Big Sur (VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm", "legacy"}, Popular: false},
 	}
 }
 
@@ -1179,7 +1179,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		PortBindings: nat.PortMap{},
 	}
 
-	// Special handling for macOS (docker-osx)
+	// Special handling for macOS (CUA Lumier / docker-osx style VM images)
 	// Check for "macos" or "osx" in image type (case-insensitive)
 	isMacOS := strings.Contains(strings.ToLower(cfg.ImageType), "macos") || strings.Contains(strings.ToLower(cfg.ImageType), "osx")
 
@@ -1188,7 +1188,7 @@ func (m *Manager) CreateContainer(ctx context.Context, cfg ContainerConfig) (*Co
 		// Do NOT use /home/user working dir - use default
 		log.Printf("[Container] Configuring macOS container (privileged, kvm, headless)")
 
-		// docker-osx environment variables for headless VNC mode
+		// VM environment variables for headless VNC mode (CUA Lumier / docker-osx compatible)
 		// GENERATE_UNIQUE=true generates a unique serial/MLB for each container
 		// DEVICE_MODEL and SERIAL are optional customizations
 		// CPU throttling options to reduce idle CPU usage and prevent disconnections:

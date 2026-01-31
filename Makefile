@@ -1,4 +1,4 @@
-.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all agent-all cli-all-platforms tui-all-platforms ssh-gateway ssh-gateway-all dist downloads-dir embed embed-install embed-dev
+.PHONY: build run dev clean test docker-build docker-run help images ui ui-dev ui-install cli cli-all agent-all cli-all-platforms tui-all-platforms ssh-gateway ssh-gateway-all dist downloads-dir embed embed-install embed-dev firecracker-setup firecracker-guest-agent firecracker-rootfs
 
 # Variables
 BINARY_NAME=rexec
@@ -254,6 +254,11 @@ help:
 	@echo "  make agent-all          - Build agent for all platforms (linux/darwin amd64/arm64)"
 	@echo "  make cli-all-platforms  - Build CLI for all platforms"
 	@echo "  make tui-all-platforms  - Build TUI for all platforms"
+	@echo ""
+	@echo "Firecracker:"
+	@echo "  make firecracker-guest-agent  - Build guest agent binary"
+	@echo "  make firecracker-rootfs        - Build rootfs (DISTRO=ubuntu VERSION=24.04)"
+	@echo "  make firecracker-setup         - Setup Firecracker environment"
 	@echo "  make ssh-gateway-all    - Build SSH gateway for all platforms"
 	@echo "  make dist               - Build all binaries for all platforms (for distribution)"
 	@echo ""
@@ -295,3 +300,32 @@ security:
 		go install golang.org/x/vuln/cmd/govulncheck@latest; \
 		govulncheck ./...; \
 	fi
+
+# Firecracker targets
+firecracker-guest-agent:
+	@echo "Building Firecracker guest agent..."
+	@mkdir -p bin
+	cd cmd/rexec-guest-agent && go build -o ../../bin/rexec-guest-agent .
+	@echo "✅ Guest agent built: bin/rexec-guest-agent"
+
+firecracker-rootfs:
+	@if [ -z "$(DISTRO)" ]; then \
+		echo "❌ Usage: make firecracker-rootfs DISTRO=ubuntu VERSION=24.04"; \
+		exit 1; \
+	fi
+	@echo "Building rootfs image for $(DISTRO) $(VERSION)..."
+	@./scripts/build-rootfs.sh $(DISTRO) $(VERSION) $(SIZE)
+	@echo "✅ Rootfs image built"
+
+firecracker-setup: firecracker-guest-agent
+	@echo "Setting up Firecracker..."
+	@echo "1. Preparing kernel..."
+	@./scripts/prepare-kernel.sh || echo "⚠️  Kernel preparation failed - see docs/FIRECRACKER_SETUP.md"
+	@echo "2. Building default rootfs images..."
+	@echo "   (Run 'make firecracker-rootfs DISTRO=ubuntu VERSION=24.04' to build images)"
+	@echo "✅ Firecracker setup complete"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Build rootfs: make firecracker-rootfs DISTRO=ubuntu VERSION=24.04"
+	@echo "  2. Set environment variables (see docs/FIRECRACKER_SETUP.md)"
+	@echo "  3. Start server: make run"
