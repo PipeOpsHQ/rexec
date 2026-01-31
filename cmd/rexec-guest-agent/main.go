@@ -27,6 +27,7 @@ func main() {
 		listenAddr = flag.String("listen", "", "Address to listen on (vsock or tcp)")
 	)
 	flag.Parse()
+	_ = tcpPort // reserved for TCP fallback when vsock not available
 
 	server := &GuestAgentServer{
 		vsockPort: *vsockPort,
