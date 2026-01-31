@@ -249,22 +249,6 @@ func (h *ContainerHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// Gate privileged macOS VM containers to enterprise/admin users only.
-	if req.Image == "macos" || req.Image == "macos-legacy" {
-		user, err := h.store.GetUserByID(ctx, userID)
-		if err != nil || user == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
-			return
-		}
-		if tier != "enterprise" && !user.IsAdmin {
-			c.JSON(http.StatusForbidden, gin.H{
-				"error":   "macOS containers are restricted",
-				"message": "macOS images require enterprise tier or admin access",
-			})
-			return
-		}
-	}
-
 	// Auto-generate name if not provided
 	containerName := strings.TrimSpace(req.Name)
 	if containerName == "" {
@@ -1651,27 +1635,6 @@ func (h *ContainerHandler) CreateWithProgress(c *gin.Context) {
 			sendEvent(container.ProgressEvent{
 				Stage:    "validating",
 				Error:    "unsupported image type",
-				Complete: true,
-			})
-			return
-		}
-	}
-
-	// Gate privileged macOS VM containers to enterprise/admin users only.
-	if req.Image == "macos" || req.Image == "macos-legacy" {
-		user, err := h.store.GetUserByID(ctx, userID)
-		if err != nil || user == nil {
-			sendEvent(container.ProgressEvent{
-				Stage:    "validating",
-				Error:    "user not found",
-				Complete: true,
-			})
-			return
-		}
-		if tier != "enterprise" && !user.IsAdmin {
-			sendEvent(container.ProgressEvent{
-				Stage:    "validating",
-				Error:    "macOS images require enterprise tier or admin access",
 				Complete: true,
 			})
 			return
