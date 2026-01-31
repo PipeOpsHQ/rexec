@@ -193,9 +193,9 @@ var SupportedImages = map[string]string{
 	"photon":     "photon:5.0", // VMware Photon OS 5.0
 	// Raspberry Pi / ARM
 	"raspberrypi": "balenalib/raspberry-pi-debian:bookworm",
-	// macOS (VM-based) - CUA Lumier image (https://cua.ai/docs/lume/guide/advanced/lumier/docker)
-	"macos":        "ghcr.io/trycua/macos-sequoia-cua:latest", // macOS Sequoia (CUA)
-	"macos-legacy": "sickcodes/docker-osx:big-sur",            // Big Sur (legacy)
+	// macOS (VM-based) - docker-osx (ghcr.io/trycua/macos-sequoia-cua not pullable as standalone image)
+	"macos":        "sickcodes/docker-osx:latest",  // Catalina
+	"macos-legacy": "sickcodes/docker-osx:big-sur", // Big Sur
 }
 
 // CustomImages maps to rexec custom images with SSH pre-installed
@@ -301,8 +301,8 @@ func GetImageMetadata() []ImageMetadata {
 		// Raspberry Pi / ARM
 		{Name: "raspberrypi", DisplayName: "Raspberry Pi OS", Description: "Debian-based OS for Raspberry Pi/ARM", Category: "embedded", Tags: []string{"raspberry-pi", "arm", "iot"}, Popular: false},
 
-		// macOS - CUA Lumier image
-		{Name: "macos", DisplayName: "macOS (Sequoia)", Description: "Apple macOS Sequoia (CUA Lumier, VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm", "sequoia"}, Popular: true},
+		// macOS (VM-based, docker-osx)
+		{Name: "macos", DisplayName: "macOS (Catalina)", Description: "Apple macOS Catalina (VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm"}, Popular: true},
 		{Name: "macos-legacy", DisplayName: "macOS (Big Sur)", Description: "Apple macOS Big Sur (VM-based)", Category: "macos", Tags: []string{"macos", "apple", "vm", "legacy"}, Popular: false},
 	}
 }
