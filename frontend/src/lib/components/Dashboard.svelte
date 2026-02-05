@@ -1000,6 +1000,19 @@
                         {/if}
                     </div>
 
+                    {#if isAgent && container.status === "running" && container.idle_seconds !== undefined}
+                        <div class="activity-indicator">
+                            <span class="activity-dot" class:active={container.idle_seconds < 60}></span>
+                            <span class="activity-text">
+                                {container.idle_seconds < 60
+                                    ? "Active now"
+                                    : container.idle_seconds < 300
+                                      ? "Active recently"
+                                      : `Idle ${Math.floor(container.idle_seconds / 60)}m`}
+                            </span>
+                        </div>
+                    {/if}
+
                     {#if container.resources}
                         <div class="container-resources">
                             <span class="resource-spec" title="Memory">
@@ -1121,6 +1134,7 @@
                                     <button
                                         class="btn btn-secondary btn-sm flex-1"
                                         disabled
+                                        style="min-height: auto; padding: 8px 12px;"
                                     >
                                         Offline
                                     </button>
@@ -1747,6 +1761,9 @@
         padding: 16px;
         transition: all 0.2s ease;
         transform: translateY(0);
+        min-height: auto; /* Let content determine height */
+        display: flex;
+        flex-direction: column;
     }
 
     .container-card:hover {
@@ -1770,12 +1787,13 @@
         border-color: var(--border);
         background: var(--bg-card);
         box-shadow: none;
+        min-height: auto; /* Remove any min-height that might cause extra space */
     }
 
     .container-card.agent-card:hover {
         border-color: var(--text-muted);
-        box-shadow: none;
-        transform: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px); /* Match regular card hover */
     }
 
     .container-card.agent-card.connected {
@@ -2241,6 +2259,7 @@
         padding: 8px 10px;
         background: var(--bg-secondary);
         border: 1px solid var(--border-muted);
+        flex-shrink: 0; /* Prevent shrinking */
     }
 
     .meta-item {
@@ -2374,11 +2393,28 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+        margin-top: auto; /* Push to bottom of card */
+        flex-shrink: 0; /* Prevent shrinking */
     }
 
     .action-row {
         display: flex;
         gap: 8px;
+        align-items: stretch; /* Ensure buttons align properly */
+    }
+
+    /* Ensure agent action rows don't create extra space */
+    .container-card.agent-card .action-row {
+        min-height: auto;
+    }
+
+    /* Make offline button same size as other buttons */
+    .container-card.agent-card .btn[disabled],
+    .container-card.agent-card .btn.btn-secondary[disabled] {
+        min-height: auto;
+        height: auto;
+        padding: 8px 12px; /* Match other button padding */
+        line-height: 1.4;
     }
 
     .flex-1 {
