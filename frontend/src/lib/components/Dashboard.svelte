@@ -1002,7 +1002,7 @@
 
                     {#if container.resources}
                         <div class="container-resources">
-                            <span class="resource-spec">
+                            <span class="resource-spec" title="Memory">
                                 <svg
                                     class="resource-icon"
                                     viewBox="0 0 24 24"
@@ -1022,7 +1022,7 @@
                                 {formatMemory(container.resources.memory_mb)}
                             </span>
                             <span class="resource-divider">/</span>
-                            <span class="resource-spec">
+                            <span class="resource-spec" title="CPU">
                                 <svg
                                     class="resource-icon"
                                     viewBox="0 0 24 24"
@@ -1035,7 +1035,7 @@
                                 {formatCPU(container.resources.cpu_shares)}
                             </span>
                             <span class="resource-divider">/</span>
-                            <span class="resource-spec">
+                            <span class="resource-spec" title="Storage">
                                 <svg
                                     class="resource-icon"
                                     viewBox="0 0 24 24"
@@ -1047,6 +1047,19 @@
                                     <circle cx="12" cy="12" r="3" />
                                 </svg>
                                 {formatStorage(container.resources.disk_mb)}
+                            </span>
+                        </div>
+                    {/if}
+
+                    {#if container.status === "running" && container.idle_seconds !== undefined}
+                        <div class="activity-indicator">
+                            <span class="activity-dot" class:active={container.idle_seconds < 60}></span>
+                            <span class="activity-text">
+                                {container.idle_seconds < 60
+                                    ? "Active now"
+                                    : container.idle_seconds < 300
+                                      ? "Active recently"
+                                      : `Idle ${Math.floor(container.idle_seconds / 60)}m`}
                             </span>
                         </div>
                     {/if}
@@ -1556,6 +1569,8 @@
         text-align: center;
         border: 1px dashed var(--border);
         background: var(--bg-card);
+        border-radius: 12px;
+        animation: fadeInUp 0.4s ease;
     }
 
     .empty-icon {
@@ -1563,6 +1578,7 @@
         height: 64px;
         margin-bottom: 16px;
         color: var(--text-muted);
+        animation: float 3s ease-in-out infinite;
     }
 
     .empty-icon svg {
@@ -1574,6 +1590,7 @@
         font-size: 18px;
         margin-bottom: 8px;
         text-transform: uppercase;
+        animation: fadeIn 0.6s ease 0.2s both;
     }
 
     .empty-state p {
@@ -1581,6 +1598,27 @@
         max-width: 400px;
         margin-bottom: 24px;
         line-height: 1.5;
+        animation: fadeIn 0.6s ease 0.3s both;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     /* Connect Own Tip in Empty State */
@@ -1707,11 +1745,14 @@
         background: var(--bg-card);
         border: 1px solid var(--border);
         padding: 16px;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
+        transform: translateY(0);
     }
 
     .container-card:hover {
         border-color: var(--text-muted);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     .container-card.active {
@@ -1788,6 +1829,16 @@
             rgba(0, 255, 65, 0.05) 0%,
             rgba(0, 255, 65, 0.1) 100%
         );
+        animation: glow-start 2s ease-in-out infinite;
+    }
+
+    @keyframes glow-start {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(0, 255, 65, 0.4);
+        }
+        50% {
+            box-shadow: 0 0 12px 4px rgba(0, 255, 65, 0.2);
+        }
     }
 
     .container-card.stopping {
@@ -1798,6 +1849,16 @@
             rgba(255, 217, 61, 0.05) 0%,
             rgba(255, 217, 61, 0.1) 100%
         );
+        animation: glow-stop 2s ease-in-out infinite;
+    }
+
+    @keyframes glow-stop {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(255, 217, 61, 0.4);
+        }
+        50% {
+            box-shadow: 0 0 12px 4px rgba(255, 217, 61, 0.2);
+        }
     }
 
     .container-card.deleting {
@@ -1810,6 +1871,19 @@
         );
         transform: scale(0.98);
         transition: all 0.3s ease;
+        animation: shake 0.5s ease;
+    }
+
+    @keyframes shake {
+        0%, 100% {
+            transform: translateX(0) scale(0.98);
+        }
+        25% {
+            transform: translateX(-4px) scale(0.98);
+        }
+        75% {
+            transform: translateX(4px) scale(0.98);
+        }
     }
 
     .loading-overlay {
@@ -1890,6 +1964,17 @@
 
     .creating-icon {
         animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.05);
+        }
     }
 
     .container-info {
@@ -2004,7 +2089,18 @@
 
     .status-creating .status-dot {
         background: var(--yellow);
-        animation: pulse 1s infinite;
+        animation: pulse-dot 1s infinite;
+    }
+
+    @keyframes pulse-dot {
+        0%, 100% {
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(255, 200, 0, 0.7);
+        }
+        50% {
+            opacity: 0.8;
+            box-shadow: 0 0 0 4px rgba(255, 200, 0, 0);
+        }
     }
 
     .status-error {
@@ -2020,6 +2116,18 @@
     .creating-card {
         border-color: var(--yellow);
         background: rgba(255, 200, 0, 0.05);
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .creating-progress {
@@ -2038,8 +2146,35 @@
 
     .creating-progress .progress-fill {
         height: 100%;
-        background: var(--yellow);
+        background: linear-gradient(90deg, var(--yellow), #ffd93d);
         transition: width 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .creating-progress .progress-fill::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent
+        );
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
     }
 
     .creating-progress .progress-info {
@@ -2187,6 +2322,52 @@
 
     .resource-divider {
         color: var(--text-muted);
+    }
+
+    /* Activity Indicator */
+    .activity-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 4px 8px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-muted);
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .activity-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        transition: all 0.3s ease;
+    }
+
+    .activity-dot.active {
+        background: var(--green);
+        box-shadow: 0 0 6px rgba(0, 255, 65, 0.5);
+        animation: pulse-active 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-active {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.7;
+            transform: scale(1.2);
+        }
+    }
+
+    .activity-text {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .container-actions {
