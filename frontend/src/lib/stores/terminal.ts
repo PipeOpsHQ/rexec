@@ -664,6 +664,22 @@ function createTerminalStore() {
           terminal.loadAddon(unicode11Addon);
           terminal.unicode.activeVersion = "11";
 
+          // Enable mouse events for TUI apps (opencode, vim, tmux, etc.)
+          // DECSET 1000: X10 mouse mode (basic)
+          // DECSET 1002: Cell motion mouse tracking
+          // DECSET 1003: All motion mouse tracking (needed for opencode)
+          // DECSET 1006: SGR mouse mode (preferred, more accurate)
+          // DECSET 1007: Alternate scroll mode
+          // DECSET 1015: URXVT mouse mode (fallback)
+          terminal.options.mouseSupport = true;
+          // Enable all mouse modes for maximum compatibility
+          terminal.write("\x1b[?1000h"); // X10 mouse mode
+          terminal.write("\x1b[?1002h"); // Cell motion mouse tracking
+          terminal.write("\x1b[?1003h"); // All motion mouse tracking (for opencode)
+          terminal.write("\x1b[?1006h"); // SGR mouse mode (preferred)
+          terminal.write("\x1b[?1007h"); // Alternate scroll mode
+          terminal.write("\x1b[?1015h"); // URXVT mouse mode (fallback)
+
           // Attach custom key handler (browser overrides + macOS mapping)
           terminal.attachCustomKeyEventHandler(
             createCustomKeyHandler(terminal),
@@ -2320,6 +2336,16 @@ function createTerminalStore() {
         newTerminal.loadAddon(unicode11Addon);
         newTerminal.unicode.activeVersion = "11";
 
+        // Enable mouse events for TUI apps (opencode, vim, tmux, etc.)
+        // Same mouse modes as main terminal
+        newTerminal.options.mouseSupport = true;
+        newTerminal.write("\x1b[?1000h"); // X10 mouse mode
+        newTerminal.write("\x1b[?1002h"); // Cell motion mouse tracking
+        newTerminal.write("\x1b[?1003h"); // All motion mouse tracking (for opencode)
+        newTerminal.write("\x1b[?1006h"); // SGR mouse mode (preferred)
+        newTerminal.write("\x1b[?1007h"); // Alternate scroll mode
+        newTerminal.write("\x1b[?1015h"); // URXVT mouse mode (fallback)
+
         // Attach custom key handler (browser overrides + macOS mapping)
         newTerminal.attachCustomKeyEventHandler(
           createCustomKeyHandler(newTerminal),
@@ -2476,11 +2502,46 @@ function createTerminalStore() {
       let rafId: number | null = null;
       let lastFlushTime = 0;
 
+      // Track if we're in a TUI app that needs mouse support (opencode, vim, tmux, etc.)
+      // Detect TUI apps by checking for common patterns in output
+      let isTUIAppSplit = false;
+      let tuiAppDetectionBufferSplit = "";
+      const TUI_INDICATORS_SPLIT = [
+        "opencode",
+        "vim",
+        "nvim",
+        "tmux",
+        "screen",
+        "less",
+        "more",
+        "top",
+        "htop",
+        "nano",
+        "emacs",
+      ];
+
+      const detectTUIAppSplit = (data: string): boolean => {
+        // Check last 2KB of output for TUI indicators
+        tuiAppDetectionBufferSplit = (tuiAppDetectionBufferSplit + data).slice(-2048);
+        const lower = tuiAppDetectionBufferSplit.toLowerCase();
+        return TUI_INDICATORS_SPLIT.some((indicator) => lower.includes(indicator));
+      };
+
       // Filter problematic escape sequences from output to prevent artifacts
+      // BUT preserve mouse tracking sequences for TUI apps that need them
       const sanitizeOutput = (data: string): string => {
-        // Filter mouse tracking sequences
-        let result = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
-        // Filter OSC (Operating System Command) query responses that leak into input
+        // Update TUI app detection
+        isTUIAppSplit = detectTUIAppSplit(data) || isTUIAppSplit;
+
+        let result = data;
+
+        // Only filter mouse tracking sequences if NOT in a TUI app
+        // TUI apps like opencode, vim, tmux need mouse tracking to work properly
+        if (!isTUIAppSplit) {
+          // Filter mouse tracking sequences (SGR format: ESC[<button;x;yM or ESC[<button;x;ym)
+          result = result.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        }
+        // Always filter OSC (Operating System Command) query responses that leak into input
         // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
         // Common ones: OSC 10/11 (foreground/background color queries)
         result = result.replace(/\x1b\]\d+;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
