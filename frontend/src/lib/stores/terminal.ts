@@ -371,7 +371,7 @@ const TERMINAL_OPTIONS = {
   scrollback: 100000, // 100K lines - handles heavy output like builds/logs
   fastScrollModifier: "alt" as const,
   fastScrollSensitivity: 20,
-  scrollSensitivity: 3,
+  scrollSensitivity: 5, // Increased from 3 for better mousewheel responsiveness
   smoothScrollDuration: 0, // Instant scroll for responsiveness
   windowsMode: false,
   convertEol: false,
