@@ -390,6 +390,9 @@ const TERMINAL_OPTIONS = {
   bellStyle: "none" as const, // Silent bell
   // Tab stops
   tabStopWidth: 8,
+  // Disable mouse by default - prevents wheel/click from sending escape sequences to terminal
+  // Mouse is enabled only when TUI app (opencode, vim, tmux) is detected
+  mouseSupport: false,
 };
 
 // Initial state
@@ -1445,6 +1448,20 @@ function createTerminalStore() {
         isProcessingQueue = false;
       };
 
+      // Strip mouse/wheel escape sequences from input so they never get sent to the server
+      // (avoids random codes appearing in terminal when scrolling or moving mouse)
+      const filterMouseFromInput = (data: string): string => {
+        // SGR mouse: ESC [ < button ; x ; y M/m
+        let out = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        // X10 mouse: ESC M followed by 3 bytes (button, x+32, y+32)
+        out = out.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, "");
+        // URXVT mouse: ESC [ button ; x ; y M
+        out = out.replace(/\x1b\[\d+;\d+;\d+M/g, "");
+        // Alternate scroll (1007): ESC [ 65 M (down) / 64 M (up) - can appear as part of longer seq
+        out = out.replace(/\x1b\[6[45]M/g, "");
+        return out;
+      };
+
       // Attach input handlers once terminal is ready
       // This is deferred because terminal may be null during parallel loading
       waitForTerminal((terminal) => {
@@ -1460,17 +1477,22 @@ function createTerminalStore() {
             return;
           }
 
+          // Filter mouse/wheel sequences when mouse support is not enabled (prevents random output)
+          // When TUI app is detected we set mouseSupportEnabled=true and send input as-is
+          const filtered = mouseSupportEnabled ? data : filterMouseFromInput(data);
+          if (filtered.length === 0) return;
+
           // Send input immediately for responsiveness
           // Large pastes are chunked to avoid WebSocket message size limits
-          if (data.length > CHUNK_SIZE) {
+          if (filtered.length > CHUNK_SIZE) {
             // Large paste - chunk it
-            for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-              inputQueue.push(data.slice(i, i + CHUNK_SIZE));
+            for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+              inputQueue.push(filtered.slice(i, i + CHUNK_SIZE));
             }
             processInputQueue();
           } else {
             // Normal input - send immediately (no buffering for instant feel)
-            ws.send(JSON.stringify({ type: "input", data: data }));
+            ws.send(JSON.stringify({ type: "input", data: filtered }));
           }
         });
 
@@ -2819,10 +2841,21 @@ function createTerminalStore() {
 
       ws.onerror = () => {};
 
+      // Strip mouse/wheel escape sequences from input (same as main terminal)
+      const filterMouseFromInputSplit = (data: string): string => {
+        let out = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
+        out = out.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, "");
+        out = out.replace(/\x1b\[\d+;\d+;\d+M/g, "");
+        out = out.replace(/\x1b\[6[45]M/g, "");
+        return out;
+      };
+
       // Handle terminal input for split pane
       pane.terminal.onData((data) => {
         if (ws.readyState !== WebSocket.OPEN) return;
-        ws.send(JSON.stringify({ type: "input", data: data }));
+        const filtered = mouseSupportEnabledSplit ? data : filterMouseFromInputSplit(data);
+        if (filtered.length === 0) return;
+        ws.send(JSON.stringify({ type: "input", data: filtered }));
       });
 
       // Store the WebSocket on the pane
