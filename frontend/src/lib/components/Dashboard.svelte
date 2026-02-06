@@ -980,13 +980,15 @@
                                 )}</span
                             >
                         </div>
-                        {#if container.idle_seconds !== undefined && container.status === "running"}
+                        {#if container.status === "running" && container.idle_seconds !== undefined}
                             <div class="meta-item">
-                                <span class="meta-label">Idle</span>
+                                <span class="activity-dot" class:active={container.idle_seconds < 60}></span>
                                 <span class="meta-value"
-                                    >{Math.floor(
-                                        container.idle_seconds / 60,
-                                    )}m</span
+                                    >{container.idle_seconds < 60
+                                        ? "Active now"
+                                        : container.idle_seconds < 300
+                                          ? "Active recently"
+                                          : `Idle ${Math.floor(container.idle_seconds / 60)}m`}</span
                                 >
                             </div>
                         {/if}
@@ -1047,19 +1049,6 @@
                                     <circle cx="12" cy="12" r="3" />
                                 </svg>
                                 {formatStorage(container.resources.disk_mb)}
-                            </span>
-                        </div>
-                    {/if}
-
-                    {#if container.status === "running" && container.idle_seconds !== undefined}
-                        <div class="activity-indicator">
-                            <span class="activity-dot" class:active={container.idle_seconds < 60}></span>
-                            <span class="activity-text">
-                                {container.idle_seconds < 60
-                                    ? "Active now"
-                                    : container.idle_seconds < 300
-                                      ? "Active recently"
-                                      : `Idle ${Math.floor(container.idle_seconds / 60)}m`}
                             </span>
                         </div>
                     {/if}
@@ -2271,6 +2260,30 @@
         color: var(--text-secondary);
     }
 
+    /* Activity dot in meta-item */
+    .meta-item .activity-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        margin-right: 6px;
+        vertical-align: middle;
+        transition: all 0.3s ease;
+    }
+
+    .meta-item .activity-dot.active {
+        background: var(--green);
+        box-shadow: 0 0 6px rgba(0, 255, 65, 0.5);
+        animation: pulse-active 2s ease-in-out infinite;
+    }
+
+    .meta-item .meta-value {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
     .meta-value.mono {
         font-family: var(--font-mono);
     }
@@ -2330,29 +2343,20 @@
         color: var(--text-muted);
     }
 
-    /* Activity Indicator */
-    .activity-indicator {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 8px;
-        padding: 4px 8px;
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-muted);
-        border-radius: 4px;
-        font-size: 11px;
-        color: var(--text-muted);
-    }
-
-    .activity-dot {
+    /* Activity dot in meta-item - consistent styling */
+    .meta-item .activity-dot {
+        display: inline-block;
         width: 6px;
         height: 6px;
         border-radius: 50%;
         background: var(--text-muted);
+        margin-right: 6px;
+        vertical-align: middle;
         transition: all 0.3s ease;
+        flex-shrink: 0;
     }
 
-    .activity-dot.active {
+    .meta-item .activity-dot.active {
         background: var(--green);
         box-shadow: 0 0 6px rgba(0, 255, 65, 0.5);
         animation: pulse-active 2s ease-in-out infinite;
@@ -2369,9 +2373,12 @@
         }
     }
 
-    .activity-text {
+    .meta-item .meta-value {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
