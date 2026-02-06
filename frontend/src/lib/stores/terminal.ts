@@ -667,9 +667,7 @@ function createTerminalStore() {
           terminal.loadAddon(unicode11Addon);
           terminal.unicode.activeVersion = "11";
 
-          // Don't enable mouse events by default - only enable when TUI app is detected
-          // This prevents random codes from appearing in regular terminal sessions
-          // Mouse events will be enabled dynamically when needed (see enableMouseSupport function)
+          // Mouse support disabled - prevents wheel/click from sending escape sequences
 
           // Attach custom key handler (browser overrides + macOS mapping)
           terminal.attachCustomKeyEventHandler(
@@ -927,74 +925,14 @@ function createTerminalStore() {
       let lastFlushTime = 0;
       let hasReceivedFirstOutput = false;
 
-      // Track if we're in a TUI app that needs mouse support (opencode, vim, tmux, etc.)
-      // Detect TUI apps by checking for common patterns in output
-      let isTUIApp = false;
-      let mouseSupportEnabled = false;
-      let tuiAppDetectionBuffer = "";
-      const TUI_INDICATORS = [
-        "opencode",
-        "vim",
-        "nvim",
-        "tmux",
-        "screen",
-        "less",
-        "more",
-        "top",
-        "htop",
-        "nano",
-        "emacs",
-      ];
-
-      const detectTUIApp = (data: string): boolean => {
-        // Check last 2KB of output for TUI indicators
-        tuiAppDetectionBuffer = (tuiAppDetectionBuffer + data).slice(-2048);
-        const lower = tuiAppDetectionBuffer.toLowerCase();
-        return TUI_INDICATORS.some((indicator) => lower.includes(indicator));
-      };
-
-      // Enable mouse support only when TUI app is detected
-      const enableMouseSupport = () => {
-        if (mouseSupportEnabled) return;
-        const currentSession = getCurrentSession();
-        if (!currentSession?.terminal) return;
-
-        mouseSupportEnabled = true;
-        // Enable mouse events for TUI apps (opencode, vim, tmux, etc.)
-        // DECSET 1000: X10 mouse mode (basic)
-        // DECSET 1002: Cell motion mouse tracking
-        // DECSET 1003: All motion mouse tracking (needed for opencode)
-        // DECSET 1006: SGR mouse mode (preferred, more accurate)
-        // DECSET 1007: Alternate scroll mode
-        // DECSET 1015: URXVT mouse mode (fallback)
-        currentSession.terminal.options.mouseSupport = true;
-        currentSession.terminal.write("\x1b[?1000h"); // X10 mouse mode
-        currentSession.terminal.write("\x1b[?1002h"); // Cell motion mouse tracking
-        currentSession.terminal.write("\x1b[?1003h"); // All motion mouse tracking (for opencode)
-        currentSession.terminal.write("\x1b[?1006h"); // SGR mouse mode (preferred)
-        currentSession.terminal.write("\x1b[?1007h"); // Alternate scroll mode
-        currentSession.terminal.write("\x1b[?1015h"); // URXVT mouse mode (fallback)
-      };
-
       // Filter problematic escape sequences from output to prevent artifacts
-      // Mouse tracking sequences should only come from terminal input, not output
       const sanitizeOutput = (data: string): string => {
-        // Update TUI app detection
-        const wasTUIApp = isTUIApp;
-        isTUIApp = detectTUIApp(data) || isTUIApp;
-
-        // Enable mouse support when TUI app is first detected
-        if (isTUIApp && !wasTUIApp) {
-          enableMouseSupport();
-        }
-
-        let result = data;
-
-        // Always filter mouse tracking sequences from OUTPUT (they should only come from terminal input)
-        // Mouse tracking sequences in output are usually artifacts or unwanted
-        result = result.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
-        
-        // Always filter OSC (Operating System Command) query responses that leak into input
+        // Filter mouse tracking sequences (all formats)
+        let result = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, ""); // SGR mouse
+        result = result.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, ""); // X10 mouse
+        result = result.replace(/\x1b\[\d+;\d+;\d+M/g, ""); // URXVT mouse
+        result = result.replace(/\x1b\[6[45]M/g, ""); // Alternate scroll (wheel)
+        // Filter OSC (Operating System Command) query responses that leak into input
         // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
         // Common ones: OSC 10/11 (foreground/background color queries)
         result = result.replace(/\x1b\]\d+;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
@@ -1457,7 +1395,7 @@ function createTerminalStore() {
         out = out.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, "");
         // URXVT mouse: ESC [ button ; x ; y M
         out = out.replace(/\x1b\[\d+;\d+;\d+M/g, "");
-        // Alternate scroll (1007): ESC [ 65 M (down) / 64 M (up) - can appear as part of longer seq
+        // Alternate scroll (1007): ESC [ 65 M (down) / 64 M (up) - wheel events
         out = out.replace(/\x1b\[6[45]M/g, "");
         return out;
       };
@@ -1477,9 +1415,8 @@ function createTerminalStore() {
             return;
           }
 
-          // Filter mouse/wheel sequences when mouse support is not enabled (prevents random output)
-          // When TUI app is detected we set mouseSupportEnabled=true and send input as-is
-          const filtered = mouseSupportEnabled ? data : filterMouseFromInput(data);
+          // Always filter mouse/wheel sequences - mouse support is disabled
+          const filtered = filterMouseFromInput(data);
           if (filtered.length === 0) return;
 
           // Send input immediately for responsiveness
@@ -2409,8 +2346,7 @@ function createTerminalStore() {
         newTerminal.loadAddon(unicode11Addon);
         newTerminal.unicode.activeVersion = "11";
 
-        // Don't enable mouse events by default - only enable when TUI app is detected
-        // Mouse events will be enabled dynamically when needed
+        // Mouse support disabled - prevents wheel/click from sending escape sequences
 
         // Attach custom key handler (browser overrides + macOS mapping)
         newTerminal.attachCustomKeyEventHandler(
@@ -2568,64 +2504,14 @@ function createTerminalStore() {
       let rafId: number | null = null;
       let lastFlushTime = 0;
 
-      // Track if we're in a TUI app that needs mouse support (opencode, vim, tmux, etc.)
-      // Detect TUI apps by checking for common patterns in output
-      let isTUIAppSplit = false;
-      let mouseSupportEnabledSplit = false;
-      let tuiAppDetectionBufferSplit = "";
-      const TUI_INDICATORS_SPLIT = [
-        "opencode",
-        "vim",
-        "nvim",
-        "tmux",
-        "screen",
-        "less",
-        "more",
-        "top",
-        "htop",
-        "nano",
-        "emacs",
-      ];
-
-      const detectTUIAppSplit = (data: string): boolean => {
-        // Check last 2KB of output for TUI indicators
-        tuiAppDetectionBufferSplit = (tuiAppDetectionBufferSplit + data).slice(-2048);
-        const lower = tuiAppDetectionBufferSplit.toLowerCase();
-        return TUI_INDICATORS_SPLIT.some((indicator) => lower.includes(indicator));
-      };
-
-      // Enable mouse support only when TUI app is detected
-      const enableMouseSupportSplit = () => {
-        if (mouseSupportEnabledSplit || !pane.terminal) return;
-        mouseSupportEnabledSplit = true;
-        pane.terminal.options.mouseSupport = true;
-        pane.terminal.write("\x1b[?1000h"); // X10 mouse mode
-        pane.terminal.write("\x1b[?1002h"); // Cell motion mouse tracking
-        pane.terminal.write("\x1b[?1003h"); // All motion mouse tracking (for opencode)
-        pane.terminal.write("\x1b[?1006h"); // SGR mouse mode (preferred)
-        pane.terminal.write("\x1b[?1007h"); // Alternate scroll mode
-        pane.terminal.write("\x1b[?1015h"); // URXVT mouse mode (fallback)
-      };
-
       // Filter problematic escape sequences from output to prevent artifacts
-      // Mouse tracking sequences should only come from terminal input, not output
       const sanitizeOutput = (data: string): string => {
-        // Update TUI app detection
-        const wasTUIApp = isTUIAppSplit;
-        isTUIAppSplit = detectTUIAppSplit(data) || isTUIAppSplit;
-
-        // Enable mouse support when TUI app is first detected
-        if (isTUIAppSplit && !wasTUIApp) {
-          enableMouseSupportSplit();
-        }
-
-        let result = data;
-
-        // Always filter mouse tracking sequences from OUTPUT (they should only come from terminal input)
-        // Mouse tracking sequences in output are usually artifacts or unwanted
-        result = result.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, "");
-        
-        // Always filter OSC (Operating System Command) query responses that leak into input
+        // Filter mouse tracking sequences (all formats)
+        let result = data.replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, ""); // SGR mouse
+        result = result.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, ""); // X10 mouse
+        result = result.replace(/\x1b\[\d+;\d+;\d+M/g, ""); // URXVT mouse
+        result = result.replace(/\x1b\[6[45]M/g, ""); // Alternate scroll (wheel)
+        // Filter OSC (Operating System Command) query responses that leak into input
         // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
         // Common ones: OSC 10/11 (foreground/background color queries)
         result = result.replace(/\x1b\]\d+;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "");
@@ -2853,7 +2739,8 @@ function createTerminalStore() {
       // Handle terminal input for split pane
       pane.terminal.onData((data) => {
         if (ws.readyState !== WebSocket.OPEN) return;
-        const filtered = mouseSupportEnabledSplit ? data : filterMouseFromInputSplit(data);
+        // Always filter mouse/wheel sequences - mouse support is disabled
+        const filtered = filterMouseFromInputSplit(data);
         if (filtered.length === 0) return;
         ws.send(JSON.stringify({ type: "input", data: filtered }));
       });
