@@ -1000,19 +1000,6 @@
                         {/if}
                     </div>
 
-                    {#if isAgent && container.status === "running" && container.idle_seconds !== undefined}
-                        <div class="activity-indicator">
-                            <span class="activity-dot" class:active={container.idle_seconds < 60}></span>
-                            <span class="activity-text">
-                                {container.idle_seconds < 60
-                                    ? "Active now"
-                                    : container.idle_seconds < 300
-                                      ? "Active recently"
-                                      : `Idle ${Math.floor(container.idle_seconds / 60)}m`}
-                            </span>
-                        </div>
-                    {/if}
-
                     {#if container.resources}
                         <div class="container-resources">
                             <span class="resource-spec" title="Memory">
