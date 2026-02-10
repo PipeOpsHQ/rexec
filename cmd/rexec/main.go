@@ -397,11 +397,11 @@ func runServer() {
 
 	// Initialize provider registry
 	providerRegistry := providers.NewRegistry()
-	
+
 	// Register Docker provider (always available if Docker is running)
 	dockerProvider := providers.NewDockerProvider(containerManager)
 	providerRegistry.Register(dockerProvider)
-	
+
 	// Register Firecracker provider (if available)
 	firecrackerManager, err := firecracker.NewManager()
 	if err != nil {
@@ -540,12 +540,19 @@ func runServer() {
 	// Connect agent handler to events hub for including agents in WebSocket list
 	containerEventsHub.SetAgentHandler(agentHandler)
 
+	// Connect container handler to events hub for including shared terminals in WebSocket list
+	containerEventsHub.SetContainerHandler(containerHandler)
+
 	// Connect Redis pub/sub for horizontal scaling
 	if pubsubHub != nil {
 		agentHandler.SetPubSubHub(pubsubHub)
 		containerEventsHub.SetPubSubHub(pubsubHub)
 		log.Println("✅ Handlers connected to Redis pub/sub")
 	}
+
+	// Connect collab handler to agent handler for shared session access
+	agentHandler.SetCollabHandler(collabHandler)
+
 	_ = wsManager // Will be used for WebSocket management
 
 	// Setup Gin router

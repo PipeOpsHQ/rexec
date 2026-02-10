@@ -176,6 +176,10 @@ func (h *ContainerHandler) List(c *gin.Context) {
 		containers = append(onlineAgents, containers...)
 	}
 
+	// Include all shared terminals (both containers and agents from collab sessions)
+	sharedTerminals := h.GetSharedTerminalsForUser(ctx, userID)
+	containers = append(containers, sharedTerminals...)
+
 	// Sort unified list by created_at descending (newest first)
 	sort.Slice(containers, func(i, j int) bool {
 		t1, ok1 := containers[i]["created_at"].(time.Time)
@@ -197,6 +201,153 @@ func (h *ContainerHandler) List(c *gin.Context) {
 		"count":      len(containers),
 		"limit":      container.UserContainerLimit(tier),
 	})
+}
+
+// GetSharedTerminalsForUser returns all terminals (containers and agents) that are shared with the user.
+// This allows collaborators to see shared terminals on their dashboard for easy reconnection.
+func (h *ContainerHandler) GetSharedTerminalsForUser(ctx context.Context, userID string) []gin.H {
+	// Get all active collab sessions where this user is a participant
+	sessions, err := h.store.GetActiveCollabSessionsForParticipant(ctx, userID)
+	if err != nil {
+		log.Printf("[Container] Failed to fetch collab sessions for user %s: %v", userID, err)
+		return []gin.H{}
+	}
+
+	var sharedTerminals []gin.H
+
+	for _, session := range sessions {
+		// Get owner info for display
+		owner, err := h.store.GetUserByID(ctx, session.OwnerID)
+		ownerName := "Unknown"
+		if err == nil && owner != nil {
+			if owner.Username != "" {
+				ownerName = owner.Username
+			} else if owner.Email != "" {
+				ownerName = owner.Email
+			}
+		}
+
+		// Check if this is an agent terminal or a Docker container
+		if strings.HasPrefix(session.ContainerID, "agent:") {
+			// Agent terminal - delegate to agent handler
+			if h.agentHandler != nil {
+				agentID := strings.TrimPrefix(session.ContainerID, "agent:")
+				agent, err := h.store.GetAgent(ctx, agentID)
+				if err != nil || agent == nil {
+					log.Printf("[Container] Shared agent %s not found: %v", agentID, err)
+					continue
+				}
+
+				// Determine online status
+				threshold := time.Now().Add(-2 * time.Minute)
+				isOnline := !agent.LastPing.IsZero() && agent.LastPing.After(threshold)
+				status := "offline"
+				if isOnline {
+					status = "running"
+				}
+
+				agentData := gin.H{
+					"id":                "agent:" + agent.ID,
+					"name":              agent.Name,
+					"image":             agent.OS + "/" + agent.Arch,
+					"status":            status,
+					"session_type":      "agent",
+					"created_at":        agent.CreatedAt,
+					"last_used_at":      agent.LastPing,
+					"os":                agent.OS,
+					"arch":              agent.Arch,
+					"shell":             agent.Shell,
+					"distro":            agent.Distro,
+					"description":       agent.Description,
+					"shared":            true,
+					"owner_id":          session.OwnerID,
+					"owner_name":        ownerName,
+					"collab_mode":       session.Mode,
+					"share_code":        session.ShareCode,
+					"collab_expires_at": session.ExpiresAt,
+				}
+
+				if !agent.LastPing.IsZero() {
+					agentData["idle_seconds"] = time.Since(agent.LastPing).Seconds()
+				}
+
+				// Add resources from SystemInfo if available
+				if agent.SystemInfo != nil {
+					resources := gin.H{"memory_mb": 0, "cpu_shares": 1024, "disk_mb": 0}
+					if numCPU, ok := agent.SystemInfo["num_cpu"].(float64); ok {
+						resources["cpu_shares"] = int(numCPU * 1024)
+					}
+					if mem, ok := agent.SystemInfo["memory"].(map[string]interface{}); ok {
+						if total, ok := mem["total"].(float64); ok {
+							resources["memory_mb"] = int(total / 1024 / 1024)
+						}
+					}
+					if disk, ok := agent.SystemInfo["disk"].(map[string]interface{}); ok {
+						if total, ok := disk["total"].(float64); ok {
+							resources["disk_mb"] = int(total / 1024 / 1024)
+						}
+					}
+					if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+						agentData["hostname"] = hostname
+					}
+					agentData["resources"] = resources
+				}
+
+				sharedTerminals = append(sharedTerminals, agentData)
+			}
+		} else {
+			// Docker container
+			record, err := h.store.GetContainerByDockerID(ctx, session.ContainerID)
+			if err != nil || record == nil {
+				log.Printf("[Container] Shared container %s not found: %v", session.ContainerID, err)
+				continue
+			}
+
+			// Check actual status
+			status := record.Status
+			var idleTime float64
+			if info, ok := h.manager.GetContainer(record.DockerID); ok {
+				status = info.Status
+				idleTime = time.Since(info.LastUsedAt).Seconds()
+			} else if !record.LastUsedAt.IsZero() {
+				idleTime = time.Since(record.LastUsedAt).Seconds()
+			}
+
+			containerID := record.DockerID
+			if containerID == "" {
+				containerID = record.ID
+			}
+
+			containerData := gin.H{
+				"id":                containerID,
+				"db_id":             record.ID,
+				"user_id":           record.UserID,
+				"name":              record.Name,
+				"image":             record.Image,
+				"role":              record.Role,
+				"status":            status,
+				"created_at":        record.CreatedAt,
+				"last_used_at":      record.LastUsedAt,
+				"idle_seconds":      idleTime,
+				"mfa_locked":        record.MFALocked,
+				"shared":            true,
+				"owner_id":          session.OwnerID,
+				"owner_name":        ownerName,
+				"collab_mode":       session.Mode,
+				"share_code":        session.ShareCode,
+				"collab_expires_at": session.ExpiresAt,
+				"resources": gin.H{
+					"memory_mb":  record.MemoryMB,
+					"cpu_shares": record.CPUShares,
+					"disk_mb":    record.DiskMB,
+				},
+			}
+
+			sharedTerminals = append(sharedTerminals, containerData)
+		}
+	}
+
+	return sharedTerminals
 }
 
 // Create creates a new container for the user

@@ -1972,6 +1972,47 @@ func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, session
 	return count, err
 }
 
+// GetActiveCollabSessionsForParticipant returns all active collab sessions where the user
+// is a participant (not necessarily the owner). This is used to show shared terminals on the dashboard.
+func (s *PostgresStore) GetActiveCollabSessionsForParticipant(ctx context.Context, userID string) ([]*CollabSessionRecord, error) {
+	query := `
+		SELECT cs.id, cs.container_id, cs.owner_id, cs.share_code, cs.mode, cs.max_users, cs.is_active, cs.created_at, cs.expires_at
+		FROM collab_sessions cs
+		INNER JOIN collab_participants cp ON cs.id = cp.session_id
+		WHERE cp.user_id = $1 
+		  AND cp.left_at IS NULL 
+		  AND cs.is_active = true 
+		  AND cs.expires_at > NOW()
+		ORDER BY cp.joined_at DESC
+	`
+	rows, err := s.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []*CollabSessionRecord
+	for rows.Next() {
+		var session CollabSessionRecord
+		err := rows.Scan(
+			&session.ID,
+			&session.ContainerID,
+			&session.OwnerID,
+			&session.ShareCode,
+			&session.Mode,
+			&session.MaxUsers,
+			&session.IsActive,
+			&session.CreatedAt,
+			&session.ExpiresAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, &session)
+	}
+	return sessions, nil
+}
+
 // ============================================================================
 // Remote Host operations (SSH Jump Hosts)
 // ============================================================================

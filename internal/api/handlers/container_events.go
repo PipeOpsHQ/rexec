@@ -58,6 +58,11 @@ type ContainerEventsHub struct {
 	agentHandler interface {
 		GetOnlineAgentsForUser(userID string) []gin.H
 	}
+
+	// Container handler for getting shared terminals (set after creation to avoid circular deps)
+	containerHandler interface {
+		GetSharedTerminalsForUser(ctx context.Context, userID string) []gin.H
+	}
 }
 
 // NewContainerEventsHub creates a new container events hub
@@ -83,6 +88,13 @@ func (h *ContainerEventsHub) SetAgentHandler(ah interface {
 	GetOnlineAgentsForUser(userID string) []gin.H
 }) {
 	h.agentHandler = ah
+}
+
+// SetContainerHandler sets the container handler for getting shared terminals
+func (h *ContainerEventsHub) SetContainerHandler(ch interface {
+	GetSharedTerminalsForUser(ctx context.Context, userID string) []gin.H
+}) {
+	h.containerHandler = ch
 }
 
 // SetPubSubHub sets the redis hub for horizontal scaling
@@ -313,6 +325,13 @@ func (h *ContainerEventsHub) sendContainerList(sc *SafeConn, userID, tier string
 		onlineAgents := h.agentHandler.GetOnlineAgentsForUser(userID)
 		// Prepend agents to containers (agents first)
 		containers = append(onlineAgents, containers...)
+	}
+
+	// Include all shared terminals (both containers and agents from collab sessions)
+	if h.containerHandler != nil {
+		ctx := context.Background()
+		sharedTerminals := h.containerHandler.GetSharedTerminalsForUser(ctx, userID)
+		containers = append(containers, sharedTerminals...)
 	}
 
 	// Sort unified list by created_at descending (newest first)
