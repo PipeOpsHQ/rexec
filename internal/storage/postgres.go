@@ -485,6 +485,24 @@ func (s *PostgresStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_collab_sessions_share_code ON collab_sessions(share_code);
 	CREATE INDEX IF NOT EXISTS idx_collab_sessions_container ON collab_sessions(container_id);
 	CREATE INDEX IF NOT EXISTS idx_collab_participants_session ON collab_participants(session_id);
+
+	-- Deduplicate collab_participants before creating unique index (for existing installations with duplicates)
+	DO $$ 
+	BEGIN
+		-- Only run deduplication if the unique index doesn't already exist
+		IF NOT EXISTS (
+			SELECT 1 FROM pg_indexes 
+			WHERE indexname = 'idx_collab_participants_session_user'
+		) THEN
+			-- Delete duplicate entries, keeping only the most recent one per (session_id, user_id)
+			DELETE FROM collab_participants a
+			USING collab_participants b
+			WHERE a.session_id = b.session_id 
+			  AND a.user_id = b.user_id 
+			  AND a.joined_at < b.joined_at;
+		END IF;
+	END $$;
+
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_collab_participants_session_user ON collab_participants(session_id, user_id);
 
 	-- Agents table for BYOS (Bring Your Own Server)
