@@ -29,13 +29,13 @@ type CollabHandler struct {
 
 // CollabSession represents an active collaboration session
 type CollabSession struct {
-	ID          string
-	ContainerID string
-	OwnerID     string
-	ShareCode   string
-	Mode        string // "view" or "control"
-	MaxUsers    int
-	ExpiresAt   time.Time
+	ID           string
+	ContainerID  string
+	OwnerID      string
+	ShareCode    string
+	Mode         string // "view" or "control"
+	MaxUsers     int
+	ExpiresAt    time.Time
 	Participants map[string]*CollabParticipant
 	broadcast    chan CollabMessage
 	mu           sync.RWMutex
@@ -53,13 +53,13 @@ type CollabParticipant struct {
 
 // CollabMessage represents a message in a collab session
 type CollabMessage struct {
-	Type        string      `json:"type"` // "join", "leave", "cursor", "selection", "input", "output", "sync", "participants"
-	UserID      string      `json:"user_id,omitempty"`
-	Username    string      `json:"username,omitempty"`
-	Role        string      `json:"role,omitempty"`
-	Color       string      `json:"color,omitempty"`
-	Data        interface{} `json:"data,omitempty"`
-	Timestamp   int64       `json:"timestamp"`
+	Type      string      `json:"type"` // "join", "leave", "cursor", "selection", "input", "output", "sync", "participants"
+	UserID    string      `json:"user_id,omitempty"`
+	Username  string      `json:"username,omitempty"`
+	Role      string      `json:"role,omitempty"`
+	Color     string      `json:"color,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
+	Timestamp int64       `json:"timestamp"`
 }
 
 // NewCollabHandler creates a new collaboration handler
@@ -294,9 +294,14 @@ func (h *CollabHandler) JoinSession(c *gin.Context) {
 		ID:        participantID,
 		SessionID: session.ID,
 		UserID:    userID.(string),
-		Username:  func() string { if u, _ := c.Get("username"); u != nil { return u.(string) }; return "" }(),
-		Role:      role,
-		JoinedAt:  time.Now(),
+		Username: func() string {
+			if u, _ := c.Get("username"); u != nil {
+				return u.(string)
+			}
+			return ""
+		}(),
+		Role:     role,
+		JoinedAt: time.Now(),
 	})
 
 	// Get container info for better display
@@ -444,7 +449,13 @@ func (h *CollabHandler) HandleCollabWebSocket(c *gin.Context) {
 		delete(session.Participants, userID.(string))
 		session.mu.Unlock()
 
-		h.store.RemoveCollabParticipant(c.Request.Context(), session.ID, userID.(string))
+		// NOTE: We intentionally do NOT call RemoveCollabParticipant here.
+		// The participant record should persist in the database so they can see
+		// shared terminals on their dashboard even after disconnecting from the
+		// WebSocket. The participant is only removed when:
+		// 1. The session expires (checked via expires_at in queries)
+		// 2. The owner explicitly ends the session
+		// 3. The participant explicitly leaves via a "leave session" action
 
 		// Broadcast leave message (non-blocking)
 		select {
@@ -544,10 +555,10 @@ func (h *CollabHandler) EndSession(c *gin.Context) {
 				}
 			}
 			session.mu.Unlock()
-			
+
 			// Give time for messages to be delivered before closing connections
 			time.Sleep(100 * time.Millisecond)
-			
+
 			session.mu.Lock()
 			for _, p := range session.Participants {
 				if p.Conn != nil {
@@ -577,14 +588,14 @@ func (h *CollabHandler) EndSession(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to lookup session"})
 		return
 	}
-	
+
 	if dbSession != nil {
 		// Verify ownership
 		if dbSession.OwnerID != userID.(string) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "only owner can end session"})
 			return
 		}
-		
+
 		// Mark as inactive in database
 		if err := h.store.EndCollabSession(c.Request.Context(), sessionID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to end session"})
@@ -604,7 +615,7 @@ func (h *CollabHandler) EndSession(c *gin.Context) {
 				h.terminalHandler.CleanupControlCollab(dbSession.ContainerID, dbSession.OwnerID, participantIDs)
 			}
 		}
-		
+
 		c.JSON(http.StatusOK, gin.H{"message": "session ended"})
 		return
 	}
