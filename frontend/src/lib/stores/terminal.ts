@@ -932,6 +932,11 @@ function createTerminalStore() {
         result = result.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, ""); // X10 mouse
         result = result.replace(/\x1b\[\d+;\d+;\d+M/g, ""); // URXVT mouse
         result = result.replace(/\x1b\[6[45]M/g, ""); // Alternate scroll (wheel)
+        // Filter mouse enable/disable sequences - prevents TUI apps (opencode, vim, etc.)
+        // from capturing mouse events, ensuring browser scrolling always works
+        // Matches: ESC[?1000h, ESC[?1002h, ESC[?1003h, ESC[?1006h, ESC[?1015h (and 'l' variants)
+        // Also handles combined sequences like ESC[?1000;1006h
+        result = result.replace(/\x1b\[\?(?:1000|1002|1003|1006|1015|1007)(?:;(?:1000|1002|1003|1006|1015|1007))*[hl]/g, "");
         // Filter OSC (Operating System Command) query responses that leak into input
         // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
         // Common ones: OSC 10/11 (foreground/background color queries)
@@ -2511,6 +2516,11 @@ function createTerminalStore() {
         result = result.replace(/\x1bM[\x00-\xff][\x20-\xff][\x20-\xff]/g, ""); // X10 mouse
         result = result.replace(/\x1b\[\d+;\d+;\d+M/g, ""); // URXVT mouse
         result = result.replace(/\x1b\[6[45]M/g, ""); // Alternate scroll (wheel)
+        // Filter mouse enable/disable sequences - prevents TUI apps (opencode, vim, etc.)
+        // from capturing mouse events, ensuring browser scrolling always works
+        // Matches: ESC[?1000h, ESC[?1002h, ESC[?1003h, ESC[?1006h, ESC[?1015h (and 'l' variants)
+        // Also handles combined sequences like ESC[?1000;1006h
+        result = result.replace(/\x1b\[\?(?:1000|1002|1003|1006|1015|1007)(?:;(?:1000|1002|1003|1006|1015|1007))*[hl]/g, "");
         // Filter OSC (Operating System Command) query responses that leak into input
         // These are sequences like ESC ] <number> ; <data> BEL or ESC ] <number> ; <data> ESC \
         // Common ones: OSC 10/11 (foreground/background color queries)
