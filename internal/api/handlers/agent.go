@@ -70,6 +70,7 @@ type AgentHandler struct {
 	pubsubHub        *pubsub.Hub              // For horizontal scaling
 	remoteSessions   map[string]*AgentSession // Sessions connected to remote agents
 	remoteSessionsMu sync.RWMutex
+	collabHandler    *CollabHandler // For checking collab access to agent terminals
 }
 
 type AgentConnection struct {
@@ -195,6 +196,66 @@ func (h *AgentHandler) SetPubSubHub(hub *pubsub.Hub) {
 	if h.pubsubHub != nil {
 		h.pubsubHub.Subscribe(pubsub.ChannelTerminalProxy, h.handleTerminalProxyMessage)
 	}
+}
+
+// SetCollabHandler sets the collab handler to check for shared session access
+func (h *AgentHandler) SetCollabHandler(ch *CollabHandler) {
+	h.collabHandler = ch
+}
+
+// HasCollabAccess checks if a user has collab access to an agent terminal.
+// Agent collab sessions store ContainerID as "agent:<agent-id>".
+func (h *AgentHandler) HasCollabAccess(ctx context.Context, userID, agentID string) bool {
+	if h.collabHandler == nil {
+		log.Printf("[Agent] HasCollabAccess: collabHandler is nil")
+		return false
+	}
+
+	containerID := "agent:" + agentID
+
+	// First check in-memory sessions
+	h.collabHandler.mu.RLock()
+	for _, session := range h.collabHandler.sessions {
+		if session.ContainerID == containerID {
+			session.mu.RLock()
+			_, hasAccess := session.Participants[userID]
+			session.mu.RUnlock()
+			if hasAccess {
+				h.collabHandler.mu.RUnlock()
+				log.Printf("[Agent] HasCollabAccess: user %s has in-memory access to agent %s", userID, agentID)
+				return true
+			}
+		}
+	}
+	h.collabHandler.mu.RUnlock()
+
+	// Fallback: check database for active collab session
+	session, err := h.collabHandler.store.GetCollabSessionByContainerID(ctx, containerID)
+	if err != nil {
+		log.Printf("[Agent] HasCollabAccess: DB error checking session for agent %s: %v", agentID, err)
+		return false
+	}
+	if session == nil {
+		log.Printf("[Agent] HasCollabAccess: no active session for agent %s", agentID)
+		return false
+	}
+
+	// Check if user is a participant in this session
+	participants, err := h.collabHandler.store.GetCollabParticipants(ctx, session.ID)
+	if err != nil {
+		log.Printf("[Agent] HasCollabAccess: DB error checking participants: %v", err)
+		return false
+	}
+
+	for _, p := range participants {
+		if p.UserID == userID {
+			log.Printf("[Agent] HasCollabAccess: user %s has DB access to agent %s (session %s)", userID, agentID, session.ID)
+			return true
+		}
+	}
+
+	log.Printf("[Agent] HasCollabAccess: user %s has NO access to agent %s", userID, agentID)
+	return false
 }
 
 // handleTerminalProxyMessage handles cross-instance terminal messages
@@ -961,32 +1022,43 @@ func (h *AgentHandler) HandleUserWebSocket(c *gin.Context) {
 			}
 		}
 	}
-	if agentRecord.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
-		return
+	// Check ownership first, then fall back to collab access
+	isOwner := agentRecord.UserID == userID
+	isCollaborator := false
+	if !isOwner {
+		// Check if user has collab access to this agent terminal
+		isCollaborator = h.HasCollabAccess(ctx, userID, agentID)
+		if !isCollaborator {
+			c.JSON(http.StatusForbidden, gin.H{"error": "not authorized"})
+			return
+		}
+		log.Printf("[Agent] User %s connected to agent %s as collaborator", userID, agentID)
 	}
 
 	// Enforce concurrent agent terminal limits (admins are exempt).
-	if user, err := h.store.GetUserByID(ctx, userID); err == nil && user != nil && !user.IsAdmin {
-		limit := maxConcurrentAgentTerminalsForTier(user.Tier, user.SubscriptionActive)
-		if limit <= 0 {
-			c.JSON(http.StatusForbidden, gin.H{
-				"error": "agent terminals not available for your plan",
-				"code":  "agent_terminal_limit_reached",
-			})
-			return
-		}
-
-		// Only enforce when connecting to an additional agent (multiple tabs to the same agent are allowed).
-		if !h.userHasAnyAgentSession(userID, agentID) {
-			current := h.countDistinctAgentTerminalsForUser(userID)
-			if current >= limit {
+	// Skip limit check for collaborators - they don't count against owner's limits
+	if isOwner {
+		if user, err := h.store.GetUserByID(ctx, userID); err == nil && user != nil && !user.IsAdmin {
+			limit := maxConcurrentAgentTerminalsForTier(user.Tier, user.SubscriptionActive)
+			if limit <= 0 {
 				c.JSON(http.StatusForbidden, gin.H{
-					"error": "agent terminal limit reached for your plan",
+					"error": "agent terminals not available for your plan",
 					"code":  "agent_terminal_limit_reached",
-					"limit": limit,
 				})
 				return
+			}
+
+			// Only enforce when connecting to an additional agent (multiple tabs to the same agent are allowed).
+			if !h.userHasAnyAgentSession(userID, agentID) {
+				current := h.countDistinctAgentTerminalsForUser(userID)
+				if current >= limit {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error": "agent terminal limit reached for your plan",
+						"code":  "agent_terminal_limit_reached",
+						"limit": limit,
+					})
+					return
+				}
 			}
 		}
 	}
@@ -1471,6 +1543,113 @@ func (h *AgentHandler) GetOnlineAgentsForUser(userID string) []gin.H {
 	}
 
 	return agents
+}
+
+// GetSharedAgentsForUser returns agent terminals that the user has collab access to (shared by others).
+// These are displayed on the dashboard so collaborators can easily reconnect to shared sessions.
+func (h *AgentHandler) GetSharedAgentsForUser(userID string) []gin.H {
+	ctx := context.Background()
+
+	// Get all active collab sessions where this user is a participant
+	sessions, err := h.store.GetActiveCollabSessionsForParticipant(ctx, userID)
+	if err != nil {
+		log.Printf("[Agent] Failed to fetch collab sessions for user %s: %v", userID, err)
+		return []gin.H{}
+	}
+
+	var sharedAgents []gin.H
+	threshold := time.Now().Add(-2 * time.Minute)
+
+	for _, session := range sessions {
+		// Only include agent terminals (container_id starts with "agent:")
+		if !strings.HasPrefix(session.ContainerID, "agent:") {
+			continue
+		}
+
+		agentID := strings.TrimPrefix(session.ContainerID, "agent:")
+
+		// Get agent details from DB
+		agent, err := h.store.GetAgent(ctx, agentID)
+		if err != nil || agent == nil {
+			log.Printf("[Agent] Shared agent %s not found: %v", agentID, err)
+			continue
+		}
+
+		// Get owner info for display
+		owner, err := h.store.GetUserByID(ctx, session.OwnerID)
+		ownerName := "Unknown"
+		if err == nil && owner != nil {
+			if owner.Username != "" {
+				ownerName = owner.Username
+			} else if owner.Email != "" {
+				ownerName = owner.Email
+			}
+		}
+
+		// Determine online status
+		isOnline := !agent.LastPing.IsZero() && agent.LastPing.After(threshold)
+		status := "offline"
+		if isOnline {
+			status = "running"
+		}
+
+		agentData := gin.H{
+			"id":           "agent:" + agent.ID,
+			"name":         agent.Name,
+			"image":        agent.OS + "/" + agent.Arch,
+			"status":       status,
+			"session_type": "agent",
+			"created_at":   agent.CreatedAt,
+			"last_used_at": agent.LastPing,
+			"os":           agent.OS,
+			"arch":         agent.Arch,
+			"shell":        agent.Shell,
+			"distro":       agent.Distro,
+			"description":  agent.Description,
+			// Shared terminal specific fields
+			"shared":            true,
+			"owner_id":          session.OwnerID,
+			"owner_name":        ownerName,
+			"collab_mode":       session.Mode,
+			"share_code":        session.ShareCode,
+			"collab_expires_at": session.ExpiresAt,
+		}
+
+		// Calculate idle time if available
+		if !agent.LastPing.IsZero() {
+			agentData["idle_seconds"] = time.Since(agent.LastPing).Seconds()
+		}
+
+		// Add resources if available from SystemInfo
+		if agent.SystemInfo != nil {
+			resources := gin.H{
+				"memory_mb":  0,
+				"cpu_shares": 1024,
+				"disk_mb":    0,
+			}
+			if numCPU, ok := agent.SystemInfo["num_cpu"].(float64); ok {
+				resources["cpu_shares"] = int(numCPU * 1024)
+			}
+			if mem, ok := agent.SystemInfo["memory"].(map[string]interface{}); ok {
+				if total, ok := mem["total"].(float64); ok {
+					resources["memory_mb"] = int(total / 1024 / 1024)
+				}
+			}
+			if disk, ok := agent.SystemInfo["disk"].(map[string]interface{}); ok {
+				if total, ok := disk["total"].(float64); ok {
+					resources["disk_mb"] = int(total / 1024 / 1024)
+				}
+			}
+			if hostname, ok := agent.SystemInfo["hostname"].(string); ok {
+				agentData["hostname"] = hostname
+			}
+			agentData["resources"] = resources
+		}
+
+		sharedAgents = append(sharedAgents, agentData)
+	}
+
+	return sharedAgents
 }
 
 // buildAgentData builds agent data in the same format as container data

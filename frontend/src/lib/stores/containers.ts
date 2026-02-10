@@ -61,6 +61,13 @@ export interface Container {
     disk_usage?: number;
     disk_limit?: number;
   };
+  // Shared terminal fields (for collab sessions)
+  shared?: boolean; // true if this terminal is shared with the user (not owned)
+  owner_id?: string; // ID of the terminal owner
+  owner_name?: string; // Display name of the terminal owner
+  collab_mode?: "view" | "control"; // Collaboration mode
+  share_code?: string; // Share code for the collab session
+  collab_expires_at?: string; // When the collab session expires
 }
 
 export interface CreatingContainer {

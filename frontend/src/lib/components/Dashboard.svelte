@@ -833,9 +833,11 @@
             {#each containerList as container (container.id)}
                 {@const containerConnected = connectedIds.has(container.id)}
                 {@const isAgent = container.session_type === "agent"}
+                {@const isShared = container.shared === true}
                 <div
                     class="container-card"
                     class:agent-card={isAgent}
+                    class:shared-card={isShared}
                     class:active={hasActiveSession(container.id)}
                     class:connected={containerConnected}
                     class:loading={isContainerLoading(container.id)}
@@ -966,6 +968,26 @@
                                     <span>MFA</span>
                                 </span>
                             {/if}
+                            {#if isShared}
+                                <span
+                                    class="shared-badge"
+                                    title="Shared terminal - {container.collab_mode === 'control' ? 'You can control this terminal' : 'View-only access'}"
+                                >
+                                    <svg
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                    >
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                        <circle cx="9" cy="7" r="4" />
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                                    </svg>
+                                    <span>Shared</span>
+                                </span>
+                            {/if}
                         </div>
                     </div>
 
@@ -997,6 +1019,22 @@
                                 <span class="meta-label">Region</span>
                                 <span class="meta-value"
                                     >{container.region}</span
+                                >
+                            </div>
+                        {/if}
+                        {#if isShared && container.owner_name}
+                            <div class="meta-item shared-owner">
+                                <span class="meta-label">Shared by</span>
+                                <span class="meta-value"
+                                    >{container.owner_name}</span
+                                >
+                            </div>
+                        {/if}
+                        {#if isShared && container.collab_mode}
+                            <div class="meta-item">
+                                <span class="meta-label">Access</span>
+                                <span class="meta-value collab-mode-{container.collab_mode}"
+                                    >{container.collab_mode === 'control' ? 'Control' : 'View only'}</span
                                 >
                             </div>
                         {/if}
@@ -1115,6 +1153,7 @@
                                         Offline
                                     </button>
                                 {/if}
+                                {#if !isShared}
                                 <button
                                     class="btn btn-icon btn-sm"
                                     title="Settings"
@@ -1153,6 +1192,7 @@
                                         />
                                     </svg>
                                 </button>
+                                {/if}
                                 <button
                                     class="btn btn-icon btn-sm"
                                     title="Agent Details"
@@ -1229,6 +1269,7 @@
                                         Connected
                                     </button>
                                 {/if}
+                                {#if !isShared}
                                 <button
                                     class="btn btn-icon btn-sm"
                                     title="Settings"
@@ -1248,7 +1289,9 @@
                                         />
                                     </svg>
                                 </button>
+                                {/if}
                             </div>
+                            {#if !isShared}
                             <div class="action-row">
                                 <button
                                     class="btn btn-secondary btn-sm flex-1"
@@ -1291,7 +1334,18 @@
                                     Delete
                                 </button>
                             </div>
+                            {/if}
                         {:else if container.status === "stopped"}
+                            {#if isShared}
+                            <div class="action-row">
+                                <button
+                                    class="btn btn-secondary btn-sm flex-1"
+                                    disabled
+                                >
+                                    Terminal Stopped
+                                </button>
+                            </div>
+                            {:else}
                             <div class="action-row">
                                 <button
                                     class="btn btn-primary btn-sm flex-1"
@@ -1329,7 +1383,18 @@
                                     Delete
                                 </button>
                             </div>
+                            {/if}
                         {:else if container.status === "error"}
+                            {#if isShared}
+                            <div class="action-row">
+                                <button
+                                    class="btn btn-secondary btn-sm flex-1"
+                                    disabled
+                                >
+                                    Terminal Error
+                                </button>
+                            </div>
+                            {:else}
                             <div class="action-row">
                                 <button
                                     class="btn btn-danger btn-sm flex-1"
@@ -1351,6 +1416,7 @@
                                     Delete
                                 </button>
                             </div>
+                            {/if}
                         {:else}
                             <div class="action-row">
                                 <button
@@ -2567,6 +2633,16 @@
             height: 10px;
         }
 
+        .shared-badge {
+            font-size: 9px;
+            padding: 3px 6px;
+        }
+
+        .shared-badge svg {
+            width: 10px;
+            height: 10px;
+        }
+
         .container-meta {
             flex-direction: column;
             gap: 4px;
@@ -3027,6 +3103,60 @@
     .mfa-lock-badge svg {
         width: 12px;
         height: 12px;
+    }
+
+    /* Shared Terminal Badge - Match status badge styling */
+    .shared-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: rgba(139, 92, 246, 0.15);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: 0;
+        font-size: 11px;
+        font-weight: 500;
+        color: #a78bfa;
+        text-transform: uppercase;
+    }
+
+    .shared-badge svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    /* Shared Terminal Card Styles */
+    .container-card.shared-card {
+        border-color: rgba(139, 92, 246, 0.4);
+        background: linear-gradient(
+            135deg,
+            rgba(139, 92, 246, 0.05) 0%,
+            var(--bg-card) 100%
+        );
+    }
+
+    .container-card.shared-card:hover {
+        border-color: rgba(139, 92, 246, 0.6);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    }
+
+    .container-card.shared-card.connected {
+        border-color: #00d9ff;
+        box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
+    }
+
+    /* Shared owner info in meta section */
+    .shared-owner .meta-value {
+        color: #a78bfa;
+    }
+
+    /* Collab mode indicators */
+    .collab-mode-control {
+        color: var(--accent);
+    }
+
+    .collab-mode-view {
+        color: #fbbf24;
     }
 
     /* MFA Modal */
