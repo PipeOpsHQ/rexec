@@ -485,6 +485,7 @@ func (s *PostgresStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_collab_sessions_share_code ON collab_sessions(share_code);
 	CREATE INDEX IF NOT EXISTS idx_collab_sessions_container ON collab_sessions(container_id);
 	CREATE INDEX IF NOT EXISTS idx_collab_participants_session ON collab_participants(session_id);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_collab_participants_session_user ON collab_participants(session_id, user_id);
 
 	-- Agents table for BYOS (Bring Your Own Server)
 	CREATE TABLE IF NOT EXISTS agents (
@@ -1906,11 +1907,15 @@ func (s *PostgresStore) EndCollabSession(ctx context.Context, id string) error {
 	return err
 }
 
-// AddCollabParticipant adds a participant to a collab session
+// AddCollabParticipant adds a participant to a collab session (upsert - safe to call multiple times)
 func (s *PostgresStore) AddCollabParticipant(ctx context.Context, p *CollabParticipantRecord) error {
 	query := `
 		INSERT INTO collab_participants (id, session_id, user_id, username, role, joined_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (session_id, user_id) DO UPDATE SET
+			username = EXCLUDED.username,
+			role = EXCLUDED.role,
+			left_at = NULL
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		p.ID,
@@ -1973,7 +1978,7 @@ func (s *PostgresStore) GetActiveCollabSessionCount(ctx context.Context, session
 }
 
 // GetActiveCollabSessionsForParticipant returns all active collab sessions where the user
-// is a participant (not necessarily the owner). This is used to show shared terminals on the dashboard.
+// is a participant (not the owner). This is used to show shared terminals on the dashboard.
 func (s *PostgresStore) GetActiveCollabSessionsForParticipant(ctx context.Context, userID string) ([]*CollabSessionRecord, error) {
 	query := `
 		SELECT cs.id, cs.container_id, cs.owner_id, cs.share_code, cs.mode, cs.max_users, cs.is_active, cs.created_at, cs.expires_at
@@ -1983,6 +1988,7 @@ func (s *PostgresStore) GetActiveCollabSessionsForParticipant(ctx context.Contex
 		  AND cp.left_at IS NULL 
 		  AND cs.is_active = true 
 		  AND cs.expires_at > NOW()
+		  AND cs.owner_id != $1
 		ORDER BY cp.joined_at DESC
 	`
 	rows, err := s.db.QueryContext(ctx, query, userID)
