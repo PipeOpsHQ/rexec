@@ -3150,6 +3150,21 @@
         box-shadow: 0 0 8px rgba(0, 217, 255, 0.3);
     }
 
+    /* Shared terminal styling takes precedence over agent styling */
+    .container-card.shared-card.agent-card {
+        border-color: rgba(139, 92, 246, 0.4);
+        background: linear-gradient(
+            135deg,
+            rgba(139, 92, 246, 0.05) 0%,
+            var(--bg-card) 100%
+        );
+    }
+
+    .container-card.shared-card.agent-card:hover {
+        border-color: rgba(139, 92, 246, 0.6);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    }
+
     /* Shared owner info in meta section */
     .shared-owner .meta-value {
         color: #a78bfa;
