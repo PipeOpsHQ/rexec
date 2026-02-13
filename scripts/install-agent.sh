@@ -13,6 +13,8 @@ INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/rexec"
 SERVICE_DIR="/etc/systemd/system"
 REPO="rexec/rexec"
+USE_SUDO=""
+SERVICE_INSTALL=true
 
 # Colors
 RED='\033[0;31m'
@@ -91,11 +93,70 @@ print_banner() {
     echo ""
 }
 
-check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        echo -e "${RED}This script must be run as root (use sudo)${NC}"
-        exit 1
+check_privileges() {
+    # Running as root - full system install
+    if [ "$EUID" -eq 0 ]; then
+        INSTALL_DIR="/usr/local/bin"
+        CONFIG_DIR="/etc/rexec"
+        SERVICE_INSTALL=true
+        USE_SUDO=""
+        echo -e "${GREEN}Running as root - full system install${NC}"
+        return 0
     fi
+
+    # Check if sudo is available and user can use it
+    if command -v sudo &> /dev/null; then
+        # Try non-interactive sudo check
+        if sudo -n true 2>/dev/null; then
+            echo -e "${GREEN}Running as non-root with passwordless sudo${NC}"
+            INSTALL_DIR="/usr/local/bin"
+            CONFIG_DIR="/etc/rexec"
+            SERVICE_INSTALL=true
+            USE_SUDO="sudo"
+            return 0
+        fi
+        
+        # sudo exists but may need password - test if it works
+        echo -e "${YELLOW}Checking sudo access (may prompt for password)...${NC}"
+        if sudo true 2>/dev/null; then
+            echo -e "${GREEN}Running as non-root with sudo access${NC}"
+            INSTALL_DIR="/usr/local/bin"
+            CONFIG_DIR="/etc/rexec"
+            SERVICE_INSTALL=true
+            USE_SUDO="sudo"
+            return 0
+        fi
+    fi
+
+    # No root/sudo - offer user-local installation
+    echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}  No root or sudo access detected${NC}"
+    echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "Options:"
+    echo -e "  1. Run with sudo: ${CYAN}sudo bash -s -- --token YOUR_TOKEN${NC}"
+    echo -e "  2. Install to user directory (limited functionality)"
+    echo ""
+    echo -e "${BOLD}Proceeding with user-local installation...${NC}"
+    echo ""
+    
+    INSTALL_DIR="$HOME/.local/bin"
+    CONFIG_DIR="$HOME/.config/rexec"
+    SERVICE_INSTALL=false
+    USE_SUDO=""
+    
+    # Ensure directories exist
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$CONFIG_DIR"
+    
+    # Add to PATH hint
+    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+        echo -e "${YELLOW}Note: Add ~/.local/bin to your PATH:${NC}"
+        echo -e "  ${CYAN}echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc${NC}"
+        echo ""
+    fi
+    
+    return 0
 }
 
 check_token() {
@@ -252,11 +313,11 @@ install_agent() {
     TEMP_DIR=$1
 
     echo -e "${CYAN}Installing agent to ${INSTALL_DIR}...${NC}"
-    mv "${TEMP_DIR}/rexec-agent" "${INSTALL_DIR}/rexec-agent"
+    $USE_SUDO mv "${TEMP_DIR}/rexec-agent" "${INSTALL_DIR}/rexec-agent"
     rm -rf "$TEMP_DIR"
 
     # Create config directory
-    mkdir -p "$CONFIG_DIR"
+    $USE_SUDO mkdir -p "$CONFIG_DIR"
 }
 
 detect_shell() {
@@ -394,7 +455,18 @@ create_config() {
     SYSTEM_INFO=$(uname -a)
     IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}' || curl -s ifconfig.me 2>/dev/null || echo "unknown")
 
-    cat > "${CONFIG_DIR}/agent.yaml" << EOF
+    # Determine working directory and log file based on install type
+    if [ "$SERVICE_INSTALL" = true ]; then
+        WORKING_DIR="/root"
+        LOG_FILE="/var/log/rexec-agent.log"
+    else
+        WORKING_DIR="$HOME"
+        LOG_FILE="$HOME/.config/rexec/agent.log"
+    fi
+
+    # Create config file (use sudo if needed for system installs)
+    if [ -n "$USE_SUDO" ]; then
+        $USE_SUDO tee "${CONFIG_DIR}/agent.yaml" > /dev/null << EOF
 # Rexec Agent Configuration
 # Generated: $(date -Iseconds)
 
@@ -423,21 +495,59 @@ heartbeat_interval: 30s
 
 # Shell configuration
 shell: ${AGENT_SHELL}
-working_dir: /root
+working_dir: ${WORKING_DIR}
 
 # Logging
 log_level: info
-log_file: /var/log/rexec-agent.log
+log_file: ${LOG_FILE}
 EOF
+        $USE_SUDO chmod 600 "${CONFIG_DIR}/agent.yaml"
+    else
+        cat > "${CONFIG_DIR}/agent.yaml" << EOF
+# Rexec Agent Configuration
+# Generated: $(date -Iseconds)
 
-    chmod 600 "${CONFIG_DIR}/agent.yaml"
+# API endpoint
+api_url: ${REXEC_API}
+
+# Agent identification
+token: ${TOKEN}
+agent_id: ${AGENT_ID}
+name: ${NAME}
+labels:
+$(echo "$LABELS" | tr ',' '\n' | sed 's/^/  - /' | grep -v '^  - $')
+
+# System information (auto-detected)
+system:
+  platform: ${PLATFORM}
+  hostname: $(hostname)
+  ip: ${IP_ADDR}
+
+# Connection settings
+reconnect_interval: 5s
+heartbeat_interval: 30s
+
+# Self-update (opt-in)
+# auto_update: false
+
+# Shell configuration
+shell: ${AGENT_SHELL}
+working_dir: ${WORKING_DIR}
+
+# Logging
+log_level: info
+log_file: ${LOG_FILE}
+EOF
+        chmod 600 "${CONFIG_DIR}/agent.yaml"
+    fi
+    
     echo -e "${GREEN}Configuration saved to ${CONFIG_DIR}/agent.yaml${NC}"
 }
 
 setup_systemd() {
     echo -e "${CYAN}Setting up systemd service...${NC}"
 
-    cat > "${SERVICE_DIR}/rexec-agent.service" << EOF
+    $USE_SUDO tee "${SERVICE_DIR}/rexec-agent.service" > /dev/null << EOF
 [Unit]
 Description=Rexec Agent - Cloud Terminal Connection
 Documentation=https://rexec.sh/agents
@@ -470,13 +580,13 @@ Environment=REXEC_CONFIG=${CONFIG_DIR}/agent.yaml
 WantedBy=multi-user.target
 EOF
 
-    systemctl daemon-reload
-    systemctl enable rexec-agent
+    $USE_SUDO systemctl daemon-reload
+    $USE_SUDO systemctl enable rexec-agent
     # Restart if already running so updated token/config take effect
-    if systemctl is-active --quiet rexec-agent; then
-        systemctl restart rexec-agent
+    if $USE_SUDO systemctl is-active --quiet rexec-agent; then
+        $USE_SUDO systemctl restart rexec-agent
     else
-        systemctl start rexec-agent
+        $USE_SUDO systemctl start rexec-agent
     fi
 
     echo -e "${GREEN}Systemd service installed and started${NC}"
@@ -487,7 +597,7 @@ setup_launchd() {
 
     PLIST_PATH="/Library/LaunchDaemons/io.pipeops.rexec-agent.plist"
 
-    cat > "$PLIST_PATH" << EOF
+    $USE_SUDO tee "$PLIST_PATH" > /dev/null << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -528,10 +638,10 @@ setup_launchd() {
 EOF
 
     # Reload if already installed so updated token/config take effect
-    launchctl stop io.pipeops.rexec-agent 2>/dev/null || true
-    launchctl unload "$PLIST_PATH" 2>/dev/null || true
-    launchctl load "$PLIST_PATH"
-    launchctl start io.pipeops.rexec-agent
+    $USE_SUDO launchctl stop io.pipeops.rexec-agent 2>/dev/null || true
+    $USE_SUDO launchctl unload "$PLIST_PATH" 2>/dev/null || true
+    $USE_SUDO launchctl load "$PLIST_PATH"
+    $USE_SUDO launchctl start io.pipeops.rexec-agent
 
     echo -e "${GREEN}Launchd service installed and started${NC}"
 }
@@ -539,7 +649,7 @@ EOF
 setup_sysvinit() {
     echo -e "${CYAN}Setting up init.d service...${NC}"
 
-    cat > "/etc/init.d/rexec-agent" << 'INITSCRIPT'
+    $USE_SUDO tee "/etc/init.d/rexec-agent" > /dev/null << 'INITSCRIPT'
 #!/bin/bash
 ### BEGIN INIT INFO
 # Provides:          rexec-agent
@@ -588,18 +698,30 @@ esac
 exit 0
 INITSCRIPT
 
-    chmod +x /etc/init.d/rexec-agent
-    update-rc.d rexec-agent defaults 2>/dev/null || chkconfig --add rexec-agent 2>/dev/null || true
-    if /etc/init.d/rexec-agent status >/dev/null 2>&1; then
-        /etc/init.d/rexec-agent restart
+    $USE_SUDO chmod +x /etc/init.d/rexec-agent
+    $USE_SUDO update-rc.d rexec-agent defaults 2>/dev/null || $USE_SUDO chkconfig --add rexec-agent 2>/dev/null || true
+    if $USE_SUDO /etc/init.d/rexec-agent status >/dev/null 2>&1; then
+        $USE_SUDO /etc/init.d/rexec-agent restart
     else
-        /etc/init.d/rexec-agent start
+        $USE_SUDO /etc/init.d/rexec-agent start
     fi
 
     echo -e "${GREEN}Init.d service installed and started${NC}"
 }
 
 setup_service() {
+    # Skip service setup for user-local installs
+    if [ "$SERVICE_INSTALL" = false ]; then
+        echo -e "${YELLOW}Skipping service setup (user-local installation)${NC}"
+        echo ""
+        echo -e "To run the agent manually:"
+        echo -e "  ${CYAN}rexec-agent --config ${CONFIG_DIR}/agent.yaml start${NC}"
+        echo ""
+        echo -e "To run in background:"
+        echo -e "  ${CYAN}nohup rexec-agent --config ${CONFIG_DIR}/agent.yaml start > ${CONFIG_DIR}/agent.log 2>&1 &${NC}"
+        return
+    fi
+
     case "$INIT_SYSTEM" in
         systemd)
             setup_systemd
@@ -612,7 +734,7 @@ setup_service() {
             ;;
         *)
             echo -e "${YELLOW}No supported init system found. Agent installed but not running as service.${NC}"
-            echo "To run manually: rexec-agent --config ${CONFIG_DIR}/agent.yaml"
+            echo "To run manually: rexec-agent --config ${CONFIG_DIR}/agent.yaml start"
             ;;
     esac
 }
@@ -623,7 +745,10 @@ verify_installation() {
     
     sleep 2
 
-    if command -v rexec-agent &> /dev/null; then
+    # For user-local installs, check in ~/.local/bin
+    if [ -f "${INSTALL_DIR}/rexec-agent" ]; then
+        echo -e "${GREEN}${BOLD}✓ Agent binary installed${NC}"
+    elif command -v rexec-agent &> /dev/null; then
         echo -e "${GREEN}${BOLD}✓ Agent binary installed${NC}"
     else
         echo -e "${RED}✗ Agent binary not found in PATH${NC}"
@@ -635,10 +760,16 @@ verify_installation() {
         echo -e "${RED}✗ Configuration not found${NC}"
     fi
 
+    # Skip service check for user-local installs
+    if [ "$SERVICE_INSTALL" = false ]; then
+        echo -e "${YELLOW}! Service setup skipped (user-local install)${NC}"
+        return
+    fi
+
     # Check service status
     case "$INIT_SYSTEM" in
         systemd)
-            if systemctl is-active --quiet rexec-agent; then
+            if $USE_SUDO systemctl is-active --quiet rexec-agent; then
                 echo -e "${GREEN}${BOLD}✓ Service running${NC}"
             else
                 echo -e "${RED}✗ Service not running${NC}"
@@ -646,7 +777,7 @@ verify_installation() {
             fi
             ;;
         launchd)
-            if launchctl list | grep -q io.pipeops.rexec-agent; then
+            if $USE_SUDO launchctl list | grep -q io.pipeops.rexec-agent; then
                 echo -e "${GREEN}${BOLD}✓ Service running${NC}"
             else
                 echo -e "${RED}✗ Service not running${NC}"
@@ -733,6 +864,26 @@ show_next_steps() {
     echo ""
     echo -e "${BOLD}Your server '${NAME}' should now appear in your Rexec dashboard.${NC}"
     echo ""
+    
+    # User-local install instructions
+    if [ "$SERVICE_INSTALL" = false ]; then
+        echo -e "${YELLOW}Note: User-local installation - no system service created${NC}"
+        echo ""
+        echo -e "${BOLD}To start the agent:${NC}"
+        echo -e "  ${CYAN}${INSTALL_DIR}/rexec-agent --config ${CONFIG_DIR}/agent.yaml start${NC}"
+        echo ""
+        echo -e "${BOLD}To run in background:${NC}"
+        echo -e "  ${CYAN}nohup ${INSTALL_DIR}/rexec-agent --config ${CONFIG_DIR}/agent.yaml start > ${CONFIG_DIR}/agent.log 2>&1 &${NC}"
+        echo ""
+        echo -e "${BOLD}View logs:${NC}"
+        echo -e "  ${CYAN}tail -f ${CONFIG_DIR}/agent.log${NC}"
+        echo ""
+        echo -e "${BOLD}Dashboard:${NC} ${CYAN}https://rexec.sh${NC}"
+        echo -e "${BOLD}Documentation:${NC} ${CYAN}https://rexec.sh/agents${NC}"
+        echo ""
+        return
+    fi
+
     echo -e "${BOLD}Useful commands:${NC}"
     echo ""
     case "$INIT_SYSTEM" in
@@ -762,7 +913,7 @@ show_next_steps() {
 
 main() {
     print_banner
-    check_root
+    check_privileges
     # Detect platform first so init detection can rely on $OS.
     detect_platform
     detect_shell

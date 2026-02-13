@@ -1013,6 +1013,81 @@ func parseLSBRelease(data string) string {
 	return ""
 }
 
+// isRoot returns true if running as root user
+func isRoot() bool {
+	return os.Geteuid() == 0
+}
+
+// sudoAvailable checks if sudo is installed and the current user can use it without password
+func sudoAvailable() bool {
+	// If already root, no need for sudo
+	if isRoot() {
+		return false
+	}
+
+	// Check if sudo command exists
+	if _, err := exec.LookPath("sudo"); err != nil {
+		return false
+	}
+
+	// Check if user can actually use sudo non-interactively
+	// -n means non-interactive (don't prompt for password)
+	cmd := exec.Command("sudo", "-n", "true")
+	return cmd.Run() == nil
+}
+
+// detectVirtualization detects the virtualization/container environment
+func detectVirtualization() string {
+	// Check for Docker
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return "docker"
+	}
+
+	// Check for Podman/other containers
+	if _, err := os.Stat("/run/.containerenv"); err == nil {
+		return "container"
+	}
+
+	// Check cgroup for container hints (LXC, Docker, etc.)
+	if data, err := os.ReadFile("/proc/1/cgroup"); err == nil {
+		content := string(data)
+		if strings.Contains(content, "lxc") {
+			return "lxc"
+		}
+		if strings.Contains(content, "docker") {
+			return "docker"
+		}
+		if strings.Contains(content, "kubepods") {
+			return "kubernetes"
+		}
+	}
+
+	// Check for WSL
+	if data, err := os.ReadFile("/proc/version"); err == nil {
+		content := strings.ToLower(string(data))
+		if strings.Contains(content, "microsoft") || strings.Contains(content, "wsl") {
+			return "wsl"
+		}
+	}
+
+	// Check for Proxmox VE host
+	if _, err := os.Stat("/etc/pve"); err == nil {
+		return "proxmox-host"
+	}
+
+	// Check systemd-detect-virt if available
+	if cmd, err := exec.LookPath("systemd-detect-virt"); err == nil {
+		if output, err := exec.Command(cmd).Output(); err == nil {
+			virt := strings.TrimSpace(string(output))
+			if virt != "none" && virt != "" {
+				return virt
+			}
+		}
+	}
+
+	return ""
+}
+
 // getSystemInfo collects machine information
 func (a *Agent) getSystemInfo() map[string]interface{} {
 	info := map[string]interface{}{
@@ -1073,6 +1148,15 @@ func (a *Agent) getSystemInfo() map[string]interface{} {
 			"available": stat.Bavail * uint64(stat.Bsize),
 		}
 	}
+
+	// Detect virtualization environment (LXC, Docker, PVE, WSL, etc.)
+	if virt := detectVirtualization(); virt != "" {
+		info["virtualization"] = virt
+	}
+
+	// Add privilege information
+	info["is_root"] = isRoot()
+	info["has_sudo"] = sudoAvailable()
 
 	return info
 }
@@ -2039,23 +2123,35 @@ source $ZSH/oh-my-zsh.sh
 }
 
 func installZsh() error {
+	// Determine if we need sudo prefix
+	// If running as root or sudo is not available, don't use sudo
+	sudoPrefix := ""
+	if !isRoot() && sudoAvailable() {
+		sudoPrefix = "sudo "
+	} else if !isRoot() && !sudoAvailable() {
+		// Not root and no sudo - check if we can install as root (LXC/container scenario)
+		// In LXC containers, we're often already root
+		fmt.Printf("%sNote: Running without sudo (not available or not configured)%s\n", Yellow, Reset)
+	}
+
 	// Detect package manager and install zsh
 	var cmd *exec.Cmd
 
 	switch {
 	case commandExists("apt-get"):
-		cmd = exec.Command("sh", "-c", "sudo apt-get update && sudo apt-get install -y zsh git")
+		cmd = exec.Command("sh", "-c", sudoPrefix+"apt-get update && "+sudoPrefix+"apt-get install -y zsh git")
 	case commandExists("dnf"):
-		cmd = exec.Command("sh", "-c", "sudo dnf install -y zsh git")
+		cmd = exec.Command("sh", "-c", sudoPrefix+"dnf install -y zsh git")
 	case commandExists("yum"):
-		cmd = exec.Command("sh", "-c", "sudo yum install -y zsh git")
+		cmd = exec.Command("sh", "-c", sudoPrefix+"yum install -y zsh git")
 	case commandExists("pacman"):
-		cmd = exec.Command("sh", "-c", "sudo pacman -Sy --noconfirm zsh git")
+		cmd = exec.Command("sh", "-c", sudoPrefix+"pacman -Sy --noconfirm zsh git")
 	case commandExists("apk"):
-		cmd = exec.Command("sh", "-c", "sudo apk add --no-cache zsh git")
+		cmd = exec.Command("sh", "-c", sudoPrefix+"apk add --no-cache zsh git")
 	case commandExists("zypper"):
-		cmd = exec.Command("sh", "-c", "sudo zypper install -y zsh git")
+		cmd = exec.Command("sh", "-c", sudoPrefix+"zypper install -y zsh git")
 	case commandExists("brew"):
+		// brew should never use sudo
 		cmd = exec.Command("sh", "-c", "brew install zsh git")
 	default:
 		return fmt.Errorf("unsupported package manager")
